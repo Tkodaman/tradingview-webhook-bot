@@ -1473,10 +1473,8 @@
                         <td>
                             <b style="color:#fff;">${p.symbol}</b> 
                             <div style="font-size:10px; color:var(--text-muted);">${p.id}</div>
-                            <div style="font-size:10px; color:#94a3b8; margin-top:4px; line-height:1.4;">
-                                <div><span style="color:#cbd5e1;">Subm:</span> ${p.opened_at || '-'}</div>
-                                <div><span style="color:#cbd5e1;">Fill:</span> ${p.opened_at || '-'}</div>
-                                <div><span style="color:#cbd5e1;">Exp:</span> GTC</div>
+                            <div style="font-size:9.5px; color:#94a3b8; margin-top:3px;">
+                                <span style="color:#cbd5e1;">Subm/Fill:</span> ${p.opened_at || '-'} &nbsp;|&nbsp; <span style="color:#cbd5e1;">Exp:</span> GTC
                             </div>
                         </td>
                         <td><span style="font-size:11px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05);">${p.market}</span></td>

@@ -31,9 +31,13 @@ async def get_active_positions():
                 raw_positions = broker.get_open_positions()
                 active_list = []
                 for p in raw_positions:
+                    sym = p.get("symbol")
+                    local_pos = next((lp for lp in live_trade_manager.positions.values() if lp.symbol == sym and lp.status == "OPEN"), None)
+                    opened_at_val = local_pos.opened_at if local_pos else "Senkronize"
+
                     active_list.append({
-                        "id": str(p.get("id", f"POS-{p.get('symbol')}")),
-                        "symbol": p.get("symbol"),
+                        "id": str(p.get("id", f"POS-{sym}")),
+                        "symbol": sym,
                         "market": str(p.get("asset_class", "STOCK")).upper(),
                         "side": "BUY" if p.get("side") == "long" else "SELL",
                         "entry_price": float(p.get("avg_entry_price", 0)),
@@ -44,7 +48,7 @@ async def get_active_positions():
                         "stop_loss_price": 0.0,
                         "unrealized_pnl": float(p.get("unrealized_pl", 0)),
                         "unrealized_pnl_pct": float(p.get("unrealized_plpc", 0)) * 100,
-                        "opened_at": p.get("created_at", "")[:19].replace("T", " ") if p.get("created_at") else "",
+                        "opened_at": opened_at_val,
                         "status": "OPEN"
                     })
                 
