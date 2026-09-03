@@ -176,21 +176,37 @@ class TradingViewAutoStrategyRunner:
                     logger.info(f"[QUANT-TRADING] {sym} Volatility Breakout (Bollinger Squeeze Anomaly) tespit edildi.")
 
             # Kripto için Çok Katı (Sıkı) Onay Eşiği ve Premium Agent Hibrit Kararı
-            # Duygu durumu (LLM bonusu) varsa baraj daha kolay aşılır.
-            required_score = 5 if is_crypto else self.min_score_required
+            # YENİ: KULLANICI RİSK MODUNA GÖRE DİNAMİK DAR BOĞAZ (BOTTLENECK) YÖNETİMİ
+            # Kullanıcının sesli mesajdaki haklı şikayeti: "Çok sıkıştırılmış, dar boğaz var".
+            current_mode = settings.current_risk_mode.upper()
             
+            # Varsayılan (NORMAL)
+            required_score = 4 
+            min_vol = 1.0
+            
+            if current_mode == "AGGRESSIVE":
+                required_score = 2
+                min_vol = 0.5
+            elif current_mode == "NORMAL":
+                required_score = 4
+                min_vol = 1.0
+            elif current_mode == "TIGHT":
+                required_score = 5
+                min_vol = 1.2
+            elif current_mode == "CONSERVATIVE":
+                required_score = 6
+                min_vol = 1.5
+
             is_buy_signal = score >= required_score
 
-            if is_crypto:
-                # Premium Crypto Agent (SOTA) SKILL Teyidi (Yapay Zeka Destekli Filtre)
-                # Kriptoda hacimsiz işlem fake sayılır. 2.0 katı bariyeri 1.2'ye esnetildi (Gerçekçi Breakout).
-                if vol_ratio < 1.2:
-                    logger.debug(f"[CRYPTO LLM SKILL REJECT] {sym} Hacim yetersiz (Ratio: {vol_ratio:.2f} < 1.2). Kriptoda hacimsiz işlem sahtedir.")
-                    continue
-                
-                if score < required_score:
-                    logger.debug(f"[CRYPTO SHIELD] {sym} sinyali {score}/{required_score} puanla reddedildi. Zarardan kaçınma devrede.")
-                    continue
+            # Hacim filtresi (Tüm piyasalar için Risk moduna göre)
+            if vol_ratio < min_vol:
+                logger.debug(f"[RISK SHIELD] {sym} Hacim yetersiz (Ratio: {vol_ratio:.2f} < {min_vol}). Mod: {current_mode}")
+                continue
+
+            if not is_buy_signal:
+                logger.debug(f"[SCORE SHIELD] {sym} Sinyal zayıf ({score}/{required_score}). Mod: {current_mode}")
+                continue
             # O2 DÜZELTİLDİ: Piyasa başı açık pozisyon limiti kontrolü
             market_type = market_hours_validator.get_market_type(sym)
             max_pos_for_market = RISK_PARAMS.get("max_positions_per_market", {}).get(market_type, 3)
