@@ -36,11 +36,13 @@ class ActivePosition(BaseModel):
     stop_loss_price: float
     break_even_trigger_price: float
     break_even_activated: bool = False
+    highest_price_seen: float = 0.0
+    trailing_stop_activated: bool = False
     unrealized_pnl: float = 0.0
     unrealized_pnl_pct: float = 0.0
     opened_at: str
     commission_fees: float = 0.0
-    status: str = "OPEN"  # OPEN, CLOSED_TP, CLOSED_SL, CLOSED_MANUAL
+    status: str = "OPEN"  # OPEN, CLOSED_TP, CLOSED_SL, CLOSED_MANUAL, CLOSED_TRAILING, CLOSED_EARLY
 
 class LiveTradeManager:
     def __init__(self):
@@ -167,9 +169,11 @@ class LiveTradeManager:
 
     def get_dynamic_position_capital(self, symbol: str) -> float:
         """
-        Kasa Bakiyesine Göre Dinamik Pozisyon Bütçesi (%10 Taban = $100)
+        Kasa Bakiyesine Göre Dinamik Pozisyon Bütçesi
         """
-        base_capital = round(self.total_account_equity * 0.10, 2)
+        from core.config import settings
+        alloc_pct = getattr(settings, "dynamic_capital_allocation_pct", 10.0) / 100.0
+        base_capital = round(self.total_account_equity * alloc_pct, 2)
         return max(25.0, min(self.available_cash, base_capital))
 
     def get_live_prices(self) -> Dict[str, Any]:
@@ -282,6 +286,7 @@ class LiveTradeManager:
             target_profit_price=tp_price,
             stop_loss_price=sl_price,
             break_even_trigger_price=be_trigger,
+            highest_price_seen=entry_price,
             opened_at=datetime.now(TRT).strftime("%H:%M:%S")
         )
 
@@ -426,37 +431,69 @@ class LiveTradeManager:
             pos.current_price = curr_price
 
             if pos.side == "BUY":
+                # En yüksek fiyat güncellemesi (Trailing Stop İçin)
+                if curr_price > pos.highest_price_seen:
+                    pos.highest_price_seen = curr_price
+
                 gross = (curr_price - pos.entry_price) * pos.quantity
                 pct = ((curr_price - pos.entry_price) / pos.entry_price) * 100.0
+
+                # AKILLI ÇIKIŞ (Erken Kâr Alma)
+                # Eğer pozisyon %1.5'tan fazla kârdaysa ve momentum zayıflıyorsa (RSI aşırı şişmiş vs. veya hacim düştüyse)
+                # Otonom Tarayıcı RSI verisine doğrudan erişemediğimizden fiyatın tepeden %1 düşüşüne de bakabiliriz.
+                
+                # İZLEYEN STOP (Trailing Stop)
+                # Kâr > %2.0 olduğunda izleyen stop aktif olur
+                if pct > 2.0:
+                    pos.trailing_stop_activated = True
+                    # Stop seviyesini görülen en yüksek fiyatın %1 altına çek
+                    new_sl = round(pos.highest_price_seen * 0.99, 2)
+                    if new_sl > pos.stop_loss_price:
+                        pos.stop_loss_price = new_sl
 
                 # 1. Başa Baş (Break-Even) Kontrolü (+%1.00 kârda)
                 if not pos.break_even_activated and curr_price >= pos.break_even_trigger_price:
                     pos.break_even_activated = True
-                    pos.stop_loss_price = round(pos.entry_price * 1.002, 2)
+                    if pos.entry_price * 1.002 > pos.stop_loss_price:
+                        pos.stop_loss_price = round(pos.entry_price * 1.002, 2)
 
                 # 2. TP Kontrolü (+%3.0)
                 if curr_price >= pos.target_profit_price:
                     self.close_position(pos_id, "CLOSED_TP")
                     continue
 
-                # 3. SL Kontrolü
+                # 3. SL / Trailing Stop Kontrolü
                 if curr_price <= pos.stop_loss_price:
-                    self.close_position(pos_id, "CLOSED_SL")
+                    reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
+                    self.close_position(pos_id, reason)
                     continue
             else:
+                # SHORT (Açığa Satış) için Trailing Stop
+                if pos.highest_price_seen == 0.0 or curr_price < pos.highest_price_seen:
+                    pos.highest_price_seen = curr_price
+
                 gross = (pos.entry_price - curr_price) * pos.quantity
                 pct = ((pos.entry_price - curr_price) / pos.entry_price) * 100.0
 
+                if pct > 2.0:
+                    pos.trailing_stop_activated = True
+                    # Stop seviyesini görülen en düşük fiyatın %1 üstüne çek
+                    new_sl = round(pos.highest_price_seen * 1.01, 2)
+                    if new_sl < pos.stop_loss_price:
+                        pos.stop_loss_price = new_sl
+
                 if not pos.break_even_activated and curr_price <= pos.break_even_trigger_price:
                     pos.break_even_activated = True
-                    pos.stop_loss_price = round(pos.entry_price * 0.998, 2)
+                    if pos.entry_price * 0.998 < pos.stop_loss_price:
+                        pos.stop_loss_price = round(pos.entry_price * 0.998, 2)
 
                 if curr_price <= pos.target_profit_price:
                     self.close_position(pos_id, "CLOSED_TP")
                     continue
 
                 if curr_price >= pos.stop_loss_price:
-                    self.close_position(pos_id, "CLOSED_SL")
+                    reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
+                    self.close_position(pos_id, reason)
                     continue
 
             pos.unrealized_pnl = round(gross, 2)

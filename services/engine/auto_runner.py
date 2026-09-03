@@ -220,6 +220,14 @@ class TradingViewAutoStrategyRunner:
 
             # Mevcut açık pozisyon kontrolü
             open_pos = next((p for p in live_trade_manager.positions.values() if p.symbol.upper() == sym.upper() and p.status == "OPEN"), None)
+            if open_pos:
+                # AKILLI ERKEN ÇIKIŞ (Smart Exit)
+                # Kârdayken momentum düşerse TP beklemeden cebe at
+                if open_pos.unrealized_pnl_pct >= 1.5:
+                    if rsi < 55.0 or vol_ratio < 0.8:
+                        logger.info(f"[SMART EXIT] {sym} %{open_pos.unrealized_pnl_pct} kârda ancak momentum zayıfladı (RSI: {rsi:.1f}, Vol: {vol_ratio:.2f}). Erken kâr alımı (CLOSED_EARLY) tetikleniyor.")
+                        live_trade_manager.close_position(open_pos.id, "CLOSED_EARLY")
+                continue
 
             # ==========================================
             # MEAN REVERSION (ORTALAMAYA DÖNÜŞ) MOTORU

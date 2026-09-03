@@ -763,6 +763,18 @@
             <button class="risk-btn" id="risk-btn-CONSERVATIVE" onclick="setRiskMode('CONSERVATIVE')" title="Sadece çok güçlü sinyallerde işleme girer, işlem başına bütçeyi düşürür.">
                 🟢 Güvenli (Conservative)
             </button>
+          
+          <!-- YENİ: SERMAYE YÖNETİMİ (Slider) -->
+          <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(255, 255, 255, 0.1);">
+              <div class="risk-modes-label" style="margin-bottom: 8px;">
+                  <span style="color: #60a5fa;">💰</span> Sermaye Yönetimi (İşlem Başına Bütçe):
+              </div>
+              <div style="display: flex; align-items: center; gap: 15px;">
+                  <input type="range" id="capitalSlider" min="5" max="50" step="1" value="10" 
+                         style="flex: 1; cursor: pointer; accent-color: #3b82f6;">
+                  <span id="capitalValue" style="color: #60a5fa; font-weight: 700; font-size: 15px; min-width: 45px;">%10</span>
+              </div>
+          </div>
         </div>
     </div>
 
@@ -2252,6 +2264,34 @@
             } catch (error) {
                 showToast('error', 'Bağlantı Hatası', 'Risk modu değiştirilemedi.');
             }
+        }
+        
+        // YENİ: Sermaye Yönetimi (Capital Management) Slider JS
+        const capitalSlider = document.getElementById('capitalSlider');
+        const capitalValue = document.getElementById('capitalValue');
+        
+        if (capitalSlider && capitalValue) {
+            capitalSlider.addEventListener('input', function() {
+                capitalValue.textContent = '%' + this.value;
+            });
+
+            capitalSlider.addEventListener('change', async function() {
+                try {
+                    const response = await fetch('/api/agent/engine/capital-allocation', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({allocation_pct: parseFloat(this.value)})
+                    });
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        showToast('success', 'Bütçe Güncellendi', data.message);
+                    } else {
+                        showToast('error', 'Hata', data.message);
+                    }
+                } catch (err) {
+                    showToast('error', 'Bağlantı Hatası', 'Bütçe değiştirilemedi.');
+                }
+            });
         }
         
         // Ensure the correct mode button is selected based on page load data if possible.

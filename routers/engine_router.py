@@ -80,5 +80,20 @@ async def set_risk_mode(req: RiskModeRequest):
             "volume_anomaly_ratio_threshold": settings.volume_anomaly_ratio_threshold,
             "max_capital_per_trade_pct": settings.max_capital_per_trade_pct
         }
+        return {"status": "error", "message": str(e)}
+
+class CapitalAllocationRequest(BaseModel):
+    allocation_pct: float = Field(..., description="Kasa üzerinden işlem başına kullanılacak bakiye yüzdesi (örn: 10.0)")
+
+@router.post("/engine/capital-allocation")
+async def set_capital_allocation(req: CapitalAllocationRequest):
+    from core.config import settings
+    try:
+        settings.dynamic_capital_allocation_pct = req.allocation_pct
+        return {
+            "status": "success",
+            "message": f"Sermaye yönetimi %{req.allocation_pct} olarak güncellendi.",
+            "dynamic_capital_allocation_pct": settings.dynamic_capital_allocation_pct
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
