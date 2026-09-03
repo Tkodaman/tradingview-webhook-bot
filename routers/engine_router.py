@@ -63,3 +63,22 @@ async def get_latest_autonomous_lab_experiment():
         return autonomous_lab.run_autonomous_experiment_pool(100.0, 50)
     return autonomous_lab.last_run_result
 
+class RiskModeRequest(BaseModel):
+    mode: str = Field(..., description="Strateji Modu (AGGRESSIVE, NORMAL, TIGHT, CONSERVATIVE)")
+
+@router.post("/engine/risk-mode")
+async def set_risk_mode(req: RiskModeRequest):
+    from core.config import settings
+    try:
+        settings.apply_risk_mode(req.mode)
+        return {
+            "status": "success",
+            "message": f"Risk Modu '{settings.current_risk_mode}' olarak güncellendi.",
+            "current_mode": settings.current_risk_mode,
+            "max_risk_allowed": settings.max_risk_score_allowed,
+            "high_risk_threshold": settings.high_risk_threshold,
+            "volume_anomaly_ratio_threshold": settings.volume_anomaly_ratio_threshold,
+            "max_capital_per_trade_pct": settings.max_capital_per_trade_pct
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

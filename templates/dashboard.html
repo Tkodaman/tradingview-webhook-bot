@@ -124,6 +124,50 @@
         .btn-close { border-color: rgba(242, 54, 69, 0.4); color: #fca5a5; background: rgba(242, 54, 69, 0.1); }
         .btn-close:hover { background: rgba(242, 54, 69, 0.25); }
 
+        /* RISK MODE BUTTONS */
+        .risk-modes-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap;
+        }
+        .risk-modes-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .risk-btn {
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+        .risk-btn.active {
+            border-color: #4ade80;
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
+        }
+        .risk-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
         /* PANELS */
         .panel {
             background-color: var(--bg-panel);
@@ -700,6 +744,25 @@
                     <span>🔄</span> Kalibre Et
                 </button>
             </div>
+        </div>
+        
+        <!-- YENİ: STRATEJİ & RİSK MODU BUTONLARI -->
+        <div class="risk-modes-bar">
+            <div class="risk-modes-label">
+                <span style="color: #eab308;">⚙️</span> Risk & Frekans Modu:
+            </div>
+            <button class="risk-btn" id="risk-btn-AGGRESSIVE" onclick="setRiskMode('AGGRESSIVE')" title="Sık işlem yapar, risk eşiğini esnetir (Daha geniş stop-loss, düşük indikatör onayı).">
+                🔴 Agresif
+            </button>
+            <button class="risk-btn active" id="risk-btn-NORMAL" onclick="setRiskMode('NORMAL')" title="Standart piyasa koşulları, dengeli al-sat ve normal hacim filtresi.">
+                🟡 Normal
+            </button>
+            <button class="risk-btn" id="risk-btn-TIGHT" onclick="setRiskMode('TIGHT')" title="Dar Stop-Loss kullanır. Daha yüksek indikatör onayı bekler.">
+                🔵 Sıkı (Tight)
+            </button>
+            <button class="risk-btn" id="risk-btn-CONSERVATIVE" onclick="setRiskMode('CONSERVATIVE')" title="Sadece çok güçlü sinyallerde işleme girer, işlem başına bütçeyi düşürür.">
+                🟢 Güvenli (Conservative)
+            </button>
         </div>
     </div>
 
@@ -2136,6 +2199,37 @@
                 console.log('Algorithmic stats fetch error:', err);
             }
         }
+
+        // Call initially
+        checkLiveStatus();
+        fetchPositions();
+        
+        async function setRiskMode(mode) {
+            try {
+                const response = await fetch('/api/engine/risk-mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: mode })
+                });
+                const data = await response.json();
+                
+                if(data.status === 'success') {
+                    // Butonları güncelle
+                    document.querySelectorAll('.risk-btn').forEach(btn => btn.classList.remove('active'));
+                    const activeBtn = document.getElementById('risk-btn-' + mode);
+                    if(activeBtn) activeBtn.classList.add('active');
+                    
+                    showToast('success', 'Risk Modu Güncellendi', data.message);
+                } else {
+                    showToast('error', 'Hata', data.message);
+                }
+            } catch (error) {
+                showToast('error', 'Bağlantı Hatası', 'Risk modu değiştirilemedi.');
+            }
+        }
+        
+        // Ensure the correct mode button is selected based on page load data if possible.
+        // For now, it defaults to NORMAL visually until manually clicked, or we could fetch status.
     </script>
 </body>
 </html>
