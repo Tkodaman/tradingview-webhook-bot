@@ -766,31 +766,40 @@
         </div>
     </div>
 
-    <!-- CUMULATIVE PNL CHART PANEL -->
-    <div class="panel" style="max-width: 900px; margin: 0 auto 24px auto;">
-        <div class="panel-header">
-            <div class="panel-header-title">
-                <span style="color: var(--up-color);">📈</span> Tüm Zamanlar Kümülatif (Yapay Zeka Arka Plan Testi) Eğrisi
-            </div>
-            <div style="display:flex; gap:8px; align-items:center;">
-                <span style="font-size: 11px; color: var(--text-secondary); font-family: 'JetBrains Mono';"><span style="color:var(--accent); font-weight:600; font-size:10px; margin-right:4px;">(AI Teorik/Sanal Kazanç)</span> Kasa Değeri: <b id="chartLatestEquity" style="color:#fff;">$1,000.00</b></span>
-                <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="refreshData(true)">🔄 Grafiği Yenile</button>
+    <!-- MAIN DASHBOARD LAYOUT -->
+    <div style="display: flex; gap: 24px; padding: 0 16px; margin: 0 auto; max-width: 100%; align-items: flex-start; flex-wrap: wrap;">
+        
+        <!-- LEFT SIDEBAR -->
+        <div style="flex: 1 1 300px; max-width: 400px; width: 100%;">
+            <!-- CUMULATIVE PNL CHART PANEL -->
+            <div class="panel" style="margin-bottom: 24px;">
+                <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 10px;">
+                    <div class="panel-header-title" style="font-size: 14px;">
+                        <span style="color: var(--up-color);">📈</span> Kümülatif Kazanç Eğrisi
+                    </div>
+                    <div style="display:flex; justify-content: space-between; width:100%; align-items:center;">
+                        <span style="font-size: 11px; color: var(--text-secondary); font-family: 'JetBrains Mono';">Kasa: <b id="chartLatestEquity" style="color:#fff;">$1,000.00</b></span>
+                        <button class="btn" style="padding: 4px 10px; font-size: 10px;" onclick="refreshData(true)">🔄 Yenile</button>
+                    </div>
+                </div>
+                <div style="height: 220px; width: 100%; position: relative;">
+                    <canvas id="pnlChart"></canvas>
+                </div>
             </div>
         </div>
-        <div style="height: 220px; width: 100%; position: relative;">
-            <canvas id="pnlChart"></canvas>
-        </div>
-    </div>
+        
+        <!-- RIGHT MAIN CONTENT -->
+        <div style="flex: 3 1 700px; min-width: 0; width: 100%;">
 
     <!-- WALLET & QUICK ACTION TOOLBAR -->
     <div class="wallet-bar">
         <div class="wallet-info">
             <span class="live-dot"></span>
-            <span>GERÇEKLEŞEN AKTİF KASA (Canlı İşleme Giren Gerçek Bakiye):</span>
+            <span>ALPACA REAL-TIME EQUITY:</span>
             <span class="wallet-val" id="walletBalance">$1000.00</span>
-            <span id="freeCash" style="color: var(--text-secondary); font-weight:400;">(Serbest Nakit: $1000.00)</span>
-            <span id="alpacaCommission" style="color: #fca5a5; font-weight:400; font-size: 11px; margin-left: 8px;">(Komisyon Gideri: -$0.00)</span>
-            <span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">(Her 1.5 sn güncellenir)</span>
+            <span id="freeCash" style="color: var(--text-secondary); font-weight:400;">(Buying Power: $1000.00)</span>
+            <span id="alpacaCommission" style="color: #fca5a5; font-weight:400; font-size: 11px; margin-left: 8px;">(Fees: -$0.00)</span>
+            <span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">(Updated 1.5s)</span>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <div class="filter-tabs">
@@ -1044,7 +1053,10 @@
         </div>
     </div>
 
-
+        </div>
+        <!-- END RIGHT MAIN CONTENT -->
+    </div>
+    <!-- END MAIN DASHBOARD LAYOUT -->
 
     <!-- ========================================== -->
     <!-- MODALS                                     -->
