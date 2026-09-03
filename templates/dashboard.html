@@ -804,9 +804,9 @@
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
             <div class="filter-tabs">
                 <button class="tab-btn active" id="tabAll" onclick="filterMarketView('ALL')">🌐 Tümü (3 Grup / 120 Varlık)</button>
+                <button class="tab-btn" id="tabNasdaq" onclick="filterMarketView('NASDAQ')">🇺🇸 NASDAQ (60)</button>
                 <button class="tab-btn" id="tabCrypto" onclick="filterMarketView('CRYPTO')">🪙 Kripto (40)</button>
                 <button class="tab-btn" id="tabBist" onclick="filterMarketView('BIST')">🇹🇷 BIST (20)</button>
-                <button class="tab-btn" id="tabNasdaq" onclick="filterMarketView('NASDAQ')">🇺🇸 NASDAQ (60)</button>
             </div>
             <button class="btn btn-blue" id="btnDailyReportTop" onclick="openDailyReportModal()">📊 Günlük Rapor</button>
             <button class="btn btn-close" id="btnResetAccountTop" onclick="resetAccountWallet()">✓ Kasayı $1,000'a Sıfırla</button>
@@ -846,6 +846,88 @@
         </div>
     </div>
 
+    
+
+
+    <!-- ========================================================================= -->
+    <!-- 3-MARKET SEPARATED WINDOWS (KRİPTO, BIST, NASDAQ AYRI PENCERELER)        -->
+    <!-- ========================================================================= -->
+    <div class="markets-container">
+
+        <!-- 3. PENCERE: NASDAQ & WALL STREET (ABD MEGA-CAP) -->
+        <div class="market-window market-window-nasdaq" id="windowNasdaq">
+            <div class="window-header">
+                <div class="window-title-group">
+                    <div class="window-title">
+                        <span>🇺🇸</span> NASDAQ & MEGA-CAP <span style="font-size:12px; color:var(--text-secondary);">(WALL STREET / ABD)</span>
+                    </div>
+                    <span class="window-tag">ABD TEKNOLOJİ</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span class="window-status-badge status-closed" id="badgeNasdaqStatus">
+                        🔴 PİYASA KAPALI
+                    </span>
+                    <span style="font-size: 11px; color: #bfdbfe; font-family:'JetBrains Mono';" id="nasdaqStatsCount">60 Hisse (Dinamik Hedef)</span>
+                </div>
+            </div>
+            <div class="market-notice-banner banner-open">
+                <span>⚡</span> <b>7/24 Kesintisiz Canlı Seans:</b> Kripto piyasasında hafta sonu ve seans kısıtlaması yoktur, anlık emirler ve fiyat dalgalanması sürekli aktiftir.
+            </div>
+            <div class="ticker-grid" id="gridCrypto">
+                <!-- Kripto Ticker Kartları Dinamik Basılır -->
+            </div>
+        </div>
+
+        <!-- 1. PENCERE: KRİPTO VARLIKLARI (BINANCE - 7/24 CANLI) -->
+        <div class="market-window market-window-crypto" id="windowCrypto">
+            <div class="window-header">
+                <div class="window-title-group">
+                    <div class="window-title">
+                        <span>🪙</span> KRİPTO VARLIKLARI <span style="font-size:12px; color:var(--text-secondary);">(BINANCE KÜRESEL)</span>
+                    </div>
+                    <span class="window-tag">7/24 AKTİF</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span class="window-status-badge status-open" id="badgeCryptoStatus">
+                        <span class="live-dot"></span> 🟢 7/24 PİYASA AÇIK
+                    </span>
+                    <span style="font-size: 11px; color: #d8b4fe; font-family:'JetBrains Mono';" id="cryptoStatsCount">40 Varlık (Dinamik Hedef)</span>
+                </div>
+            </div>
+            <div class="market-notice-banner banner-closed" id="bannerBistNotice">
+                <span>ℹ️</span> <span id="textBistNotice"><b>Seans Dışı:</b> BIST işlem saatleri Hafta İçi 10:00 - 18:05 TSİ arasındadır. Piyasa kapalıyken varlıklar soluk renkte son kapanış fiyatıyla sergilenir.</span>
+            </div>
+            <div class="ticker-grid" id="gridBist">
+                <!-- BIST Ticker Kartları Dinamik Basılır -->
+            </div>
+        </div>
+
+        <!-- 2. PENCERE: BORSA İSTANBUL (BIST 100 / 30) -->
+        <div class="market-window market-window-bist" id="windowBist">
+            <div class="window-header">
+                <div class="window-title-group">
+                    <div class="window-title">
+                        <span>🇹🇷</span> BORSA İSTANBUL <span style="font-size:12px; color:var(--text-secondary);">(BIST 100 / 30)</span>
+                    </div>
+                    <span class="window-tag">BORSA İSTANBUL</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span class="window-status-badge status-closed" id="badgeBistStatus">
+                        🔴 PİYASA KAPALI
+                    </span>
+                    <span style="font-size: 11px; color: #a7f3d0; font-family:'JetBrains Mono';" id="bistStatsCount">20 Hisse (Dinamik Hedef)</span>
+                </div>
+            </div>
+            <div class="market-notice-banner banner-closed" id="bannerNasdaqNotice">
+                <span>ℹ️</span> <span id="textNasdaqNotice"><b>Seans Dışı:</b> NASDAQ düzenli seansı Hafta İçi 16:30 - 23:00 TSİ (09:30 - 16:00 ET) arasındadır. Piyasa kapalıyken kartlar soluk renktedir.</span>
+            </div>
+            <div class="ticker-grid" id="gridNasdaq">
+                <!-- NASDAQ Ticker Kartları Dinamik Basılır -->
+            </div>
+        </div>
+
+    </div>
+
     <!-- YENİ: İSTATİSTİKSEL HATA PAYI VE EYLEM PLANI (KAZAN-KAZAN) -->
     <div class="panel">
         <div class="panel-header">
@@ -880,86 +962,6 @@
                 </table>
             </div>
         </div>
-    </div>
-
-
-    <!-- ========================================================================= -->
-    <!-- 3-MARKET SEPARATED WINDOWS (KRİPTO, BIST, NASDAQ AYRI PENCERELER)        -->
-    <!-- ========================================================================= -->
-    <div class="markets-container">
-
-        <!-- 1. PENCERE: KRİPTO VARLIKLARI (BINANCE - 7/24 CANLI) -->
-        <div class="market-window market-window-crypto" id="windowCrypto">
-            <div class="window-header">
-                <div class="window-title-group">
-                    <div class="window-title">
-                        <span>🪙</span> KRİPTO VARLIKLARI <span style="font-size:12px; color:var(--text-secondary);">(BINANCE KÜRESEL)</span>
-                    </div>
-                    <span class="window-tag">7/24 AKTİF</span>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <span class="window-status-badge status-open" id="badgeCryptoStatus">
-                        <span class="live-dot"></span> 🟢 7/24 PİYASA AÇIK
-                    </span>
-                    <span style="font-size: 11px; color: #d8b4fe; font-family:'JetBrains Mono';" id="cryptoStatsCount">40 Varlık (Dinamik Hedef)</span>
-                </div>
-            </div>
-            <div class="market-notice-banner banner-open">
-                <span>⚡</span> <b>7/24 Kesintisiz Canlı Seans:</b> Kripto piyasasında hafta sonu ve seans kısıtlaması yoktur, anlık emirler ve fiyat dalgalanması sürekli aktiftir.
-            </div>
-            <div class="ticker-grid" id="gridCrypto">
-                <!-- Kripto Ticker Kartları Dinamik Basılır -->
-            </div>
-        </div>
-
-        <!-- 2. PENCERE: BORSA İSTANBUL (BIST 100 / 30) -->
-        <div class="market-window market-window-bist" id="windowBist">
-            <div class="window-header">
-                <div class="window-title-group">
-                    <div class="window-title">
-                        <span>🇹🇷</span> BORSA İSTANBUL <span style="font-size:12px; color:var(--text-secondary);">(BIST 100 / 30)</span>
-                    </div>
-                    <span class="window-tag">BORSA İSTANBUL</span>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <span class="window-status-badge status-closed" id="badgeBistStatus">
-                        🔴 PİYASA KAPALI
-                    </span>
-                    <span style="font-size: 11px; color: #a7f3d0; font-family:'JetBrains Mono';" id="bistStatsCount">20 Hisse (Dinamik Hedef)</span>
-                </div>
-            </div>
-            <div class="market-notice-banner banner-closed" id="bannerBistNotice">
-                <span>ℹ️</span> <span id="textBistNotice"><b>Seans Dışı:</b> BIST işlem saatleri Hafta İçi 10:00 - 18:05 TSİ arasındadır. Piyasa kapalıyken varlıklar soluk renkte son kapanış fiyatıyla sergilenir.</span>
-            </div>
-            <div class="ticker-grid" id="gridBist">
-                <!-- BIST Ticker Kartları Dinamik Basılır -->
-            </div>
-        </div>
-
-        <!-- 3. PENCERE: NASDAQ & WALL STREET (ABD MEGA-CAP) -->
-        <div class="market-window market-window-nasdaq" id="windowNasdaq">
-            <div class="window-header">
-                <div class="window-title-group">
-                    <div class="window-title">
-                        <span>🇺🇸</span> NASDAQ & MEGA-CAP <span style="font-size:12px; color:var(--text-secondary);">(WALL STREET / ABD)</span>
-                    </div>
-                    <span class="window-tag">ABD TEKNOLOJİ</span>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <span class="window-status-badge status-closed" id="badgeNasdaqStatus">
-                        🔴 PİYASA KAPALI
-                    </span>
-                    <span style="font-size: 11px; color: #bfdbfe; font-family:'JetBrains Mono';" id="nasdaqStatsCount">60 Hisse (Dinamik Hedef)</span>
-                </div>
-            </div>
-            <div class="market-notice-banner banner-closed" id="bannerNasdaqNotice">
-                <span>ℹ️</span> <span id="textNasdaqNotice"><b>Seans Dışı:</b> NASDAQ düzenli seansı Hafta İçi 16:30 - 23:00 TSİ (09:30 - 16:00 ET) arasındadır. Piyasa kapalıyken kartlar soluk renktedir.</span>
-            </div>
-            <div class="ticker-grid" id="gridNasdaq">
-                <!-- NASDAQ Ticker Kartları Dinamik Basılır -->
-            </div>
-        </div>
-
     </div>
 
     <!-- LIVE TERMINAL STREAMS -->
