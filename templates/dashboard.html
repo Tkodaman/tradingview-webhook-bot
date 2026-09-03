@@ -1271,7 +1271,8 @@
         let pnlChart = null;
         let latestSummaryData = null;
         let currentFilter = 'ALL';
-        let prevPriceMap = {}; // Önceki fiyatları tutarak tick animasyonunu hesaplar
+        let prevPriceMap = {};
+        let lastAlpacaBalance = 1000.0; // Önceki fiyatları tutarak tick animasyonunu hesaplar
 
         // TOAST ENGINE
         function showToast(message, type = 'info') {
@@ -1380,9 +1381,13 @@
             
             const labels = history.map((item, idx) => {
                 if (typeof item === 'object' && item.time) return item.time;
-                return idx === 0 ? 'Start' : `İşlem #${idx}`;
+                return idx === 0 ? 'Start' : İşlem #;
             });
             const data = history.map(item => typeof item === 'object' ? parseFloat(item.value) : parseFloat(item));
+            
+            // Senkronizasyon: Kümülatif PnL Eğrisinin sonuna CANLI Alpaca Kasasını bağlayalım
+            labels.push('Canlı Kasa');
+            data.push(lastAlpacaBalance);
             
             pnlChart.data.labels = labels;
             pnlChart.data.datasets[0].data = data;
@@ -1393,10 +1398,11 @@
             const lineColor = isProfit ? '#089981' : '#f23645';
             pnlChart.data.datasets[0].borderColor = lineColor;
             pnlChart.data.datasets[0].pointBackgroundColor = lineColor;
-
+            
+            // Text güncellemesini fetchPositions da yapıyor ama burada da Alpaca değeriyle eşitleyelim
             const chartEquity = document.getElementById('chartLatestEquity');
             if (chartEquity) {
-                chartEquity.innerText = `$${lastVal.toFixed(2)}`;
+                chartEquity.innerText = $;
                 chartEquity.style.color = lineColor;
             }
             pnlChart.update();
@@ -1453,7 +1459,11 @@
                 const balEl = document.getElementById('walletBalance');
                 const freeCashEl = document.getElementById('freeCash');
                 if (balEl && data.account_balance !== undefined) {
-                    balEl.innerText = `$${parseFloat(data.account_balance).toFixed(2)}`;
+                    lastAlpacaBalance = parseFloat(data.account_balance);
+                    balEl.innerText = `$${parseFloat(data.account_balance).toFixed(2)
+                    const ce = document.getElementById('chartLatestEquity');
+                    if (ce) ce.innerText = $;
+                }`;
                 }
                 if (freeCashEl && data.available_cash !== undefined) {
                     freeCashEl.innerText = `(Serbest Nakit: $${parseFloat(data.available_cash).toFixed(2)})`;
