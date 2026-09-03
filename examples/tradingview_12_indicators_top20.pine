@@ -1,0 +1,135 @@
+//@version=5
+strategy("TV 12-İndikatör & Canlı Bakiye Webhook Tetikleyici (+3.0% TP / -1.5% SL / +1.0% BE)", overlay=true, initial_capital=1000, default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// ==========================================
+// 1. TRADINGVIEW HESAP & SERMAYE YÖNETİMİ GİRDİLERİ
+// ==========================================
+trade_capital_pct = input.float(100.0, "İşlem Başına Kullanılacak Sermaye Oranı (% Equity)", step=10.0)
+passphrase_input = input.string("secret_key", "Webhook Güvenlik Parolası (passphrase)")
+
+// ==========================================
+// 2. 12 TEMEL GÖSTERGE GİRDİLERİ & HESAPLAMALARI
+// ==========================================
+
+// 1. RSI (14)
+rsi_val = ta.rsi(close, 14)
+
+// 2. MACD (12, 26, 9)
+[macd_line, signal_line, macd_hist] = ta.macd(close, 12, 26, 9)
+
+// 3. EMA Ribbon (20, 50, 200)
+ema_20 = ta.ema(close, 20)
+ema_50 = ta.ema(close, 50)
+ema_200 = ta.ema(close, 200)
+ema_golden_cross = ema_20 > ema_50 and ema_50 > ema_200
+
+// 4. SuperTrend (10, 3.0)
+atr_period = input.int(10, "SuperTrend ATR")
+factor = input.float(3.0, "SuperTrend Factor")
+[supertrend, direction] = ta.supertrend(factor, atr_period)
+supertrend_bull = direction < 0
+
+// 5. Bollinger Bands (20, 2.0)
+[bb_mid, bb_upper, bb_lower] = ta.bb(close, 20, 2.0)
+bb_pct_b = (close - bb_lower) / (bb_upper - bb_lower)
+
+// 6. ATR Volatilite (14)
+atr_val = ta.atr(14)
+volatility_pct = (atr_val / close) * 100.0
+
+// 7. VWAP
+vwap_val = ta.vwap(hlc3)
+vwap_bull = close > vwap_val
+
+// 8. OBV & Hacim Oranı
+obv_val = ta.obv
+vol_sma20 = ta.sma(volume, 20)
+vol_ratio = vol_sma20 > 0 ? (volume / vol_sma20) : 1.0
+
+// 9. Stochastic RSI (14, 14, 3, 3)
+stoch_rsi = ta.rsi(close, 14)
+stoch_k = ta.sma(ta.stoch(stoch_rsi, stoch_rsi, stoch_rsi, 14), 3)
+
+// 10. ADX (14)
+[di_plus, di_minus, adx_val] = ta.dmi(14, 14)
+trend_strong = adx_val > 24.0
+
+// 11. Ichimoku Bulutu (9, 26, 52)
+tenkan = (ta.highest(high, 9) + ta.lowest(low, 9)) / 2
+kijun = (ta.highest(high, 26) + ta.lowest(low, 26)) / 2
+senkou_a = (tenkan + kijun) / 2
+senkou_b = (ta.highest(high, 52) + ta.lowest(low, 52)) / 2
+ichimoku_bull = close > senkou_a[26] and close > senkou_b[26]
+
+// 12. Money Flow Index (MFI - 14)
+mfi_val = ta.mfi(hlc3, 14)
+
+// ==========================================
+// 3. 12-İNDİKATÖR MANTIKSAL SİNYAL ONAYI
+// ==========================================
+indicator_passes = 0
+if (rsi_val >= 48 and rsi_val <= 70) 
+    indicator_passes := indicator_passes + 1
+if (macd_hist > 0) 
+    indicator_passes := indicator_passes + 1
+if (ema_golden_cross) 
+    indicator_passes := indicator_passes + 1
+if (supertrend_bull) 
+    indicator_passes := indicator_passes + 1
+if (bb_pct_b >= 0.40 and bb_pct_b <= 0.85) 
+    indicator_passes := indicator_passes + 1
+if (volatility_pct <= 3.5) 
+    indicator_passes := indicator_passes + 1
+if (vwap_bull) 
+    indicator_passes := indicator_passes + 1
+if (vol_ratio >= 1.1) 
+    indicator_passes := indicator_passes + 1
+if (stoch_k >= 30 and stoch_k <= 80) 
+    indicator_passes := indicator_passes + 1
+if (trend_strong) 
+    indicator_passes := indicator_passes + 1
+if (ichimoku_bull) 
+    indicator_passes := indicator_passes + 1
+if (mfi_val >= 45 and mfi_val <= 75) 
+    indicator_passes := indicator_passes + 1
+
+// En az 9/12 İndikatör Onayı
+master_buy_condition = indicator_passes >= 9
+
+// ==========================================
+// 4. MATEMATİKSEL MARJ VE NET GETİRİ SEVİYELERİ
+// ==========================================
+tp_pct_input = input.float(3.0, "Hedef Kâr (TP %)", step=0.1)
+sl_pct_input = input.float(1.5, "Zarar Kes (SL %)", step=0.1)
+be_pct_input = input.float(1.0, "Başa Baş Tetikleyici (BE %)", step=0.1)
+
+target_profit_price = close * (1.0 + (tp_pct_input / 100.0))    // +%3.0 TP
+stop_loss_price = close * (1.0 - (sl_pct_input / 100.0))        // -%1.5 SL (2:1 R:R)
+break_even_price = close * (1.0 + (be_pct_input / 100.0))       // +%1.00 Break-Even Tetikleyici
+
+// ==========================================
+// 5. CANLI HESAP BAKİYESİ ÜZERİNDEN STRATEJİ GİRİŞİ & ÇIKIŞI
+// ==========================================
+
+// Dinamik Webhook JSON Mesajı (TradingView Gerçek Bakiyesi ve Kontratı ile)
+entry_webhook_json = '{"passphrase":"' + passphrase_input + '","action":"BUY","symbol":"' + syminfo.ticker + '","price":' + str.tostring(close) + ',"quantity":' + str.tostring(strategy.position_size == 0 ? (strategy.equity / close) : 1.0) + ',"account_equity":' + str.tostring(strategy.equity) + ',"market_position":"long","indicators":{"rsi":' + str.tostring(rsi_val) + ',"volatility":' + str.tostring(volatility_pct) + ',"volume_ratio":' + str.tostring(vol_ratio) + '},"macro_tags":["TV_LIVE_BALANCE_STRATEGY"]}'
+
+exit_webhook_json = '{"passphrase":"' + passphrase_input + '","action":"SELL","symbol":"' + syminfo.ticker + '","price":' + str.tostring(close) + ',"market_position":"flat","account_equity":' + str.tostring(strategy.equity) + ',"macro_tags":["TV_EXIT_TRIGGERED"]}'
+
+// ALIM GİRİŞİ (BUY ENTRY)
+if (master_buy_condition and strategy.position_size == 0)
+    strategy.entry("Live_Long", strategy.long, alert_message=entry_webhook_json)
+
+// ÇIKIŞ VE KORUMA (TP / SL / BREAK-EVEN)
+if (strategy.position_size > 0)
+    // Fiyat +%1.00 kâra ulaştığında Başa Başa (Break-Even) çekilir
+    if (high >= break_even_price)
+        strategy.exit("TP_SL_BE", "Live_Long", limit=target_profit_price, stop=close * 1.002, alert_message=exit_webhook_json)
+    else
+        strategy.exit("TP_SL_BE", "Live_Long", limit=target_profit_price, stop=stop_loss_price, alert_message=exit_webhook_json)
+
+// Görsel İndikatör Çizgileri
+plot(ema_20, "EMA 20", color=color.green)
+plot(ema_50, "EMA 50", color=color.blue)
+plot(ema_200, "EMA 200", color=color.orange)
+plot(vwap_val, "VWAP", color=color.purple)

@@ -1,0 +1,30 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database
+*.db
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Sensitive or temp files
+.agents/
+temp_extract.txt
+*.backup
+bot_wallet_state.json.backup
+experience_memory.json
+matrix_out.json
+response.json

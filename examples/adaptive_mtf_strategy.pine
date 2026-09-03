@@ -1,0 +1,45 @@
+//@version=5
+strategy("TV Adaptive MTF Strategy (10m-45m / 15m-75m / 30m-120m)", overlay=true, initial_capital=10000, default_qty_type=strategy.percent_of_equity, default_qty_value=10)
+
+// --- Kullanıcı Girdileri & Mod Seçimi ---
+group_mode = "Zaman Dilimi & Volatilite Modu"
+mode_selection = input.string("Dengeli (15m / 75m)", "Hisse Volatilite Segmenti", options=["Hiper-Volatil (10m / 45m)", "Dengeli (15m / 75m)", "Düşük Volatilite (30m / 120m)"], group=group_mode)
+passphrase = input.string("secret_key", "Webhook Güvenlik Anahtarı", group="Güvenlik")
+
+// --- Dinamik Zaman Dilimi Belirleme ---
+tf_micro = mode_selection == "Hiper-Volatil (10m / 45m)" ? "10" : (mode_selection == "Dengeli (15m / 75m)" ? "15" : "30")
+tf_macro = mode_selection == "Hiper-Volatil (10m / 45m)" ? "45" : (mode_selection == "Dengeli (15m / 75m)" ? "75" : "120")
+
+// --- Üst Zaman Dilimi (Makro Trend) Verileri ---
+macro_ema50 = request.security(syminfo.tickerid, tf_macro, ta.ema(close, 50))
+macro_vwap  = request.security(syminfo.tickerid, tf_macro, ta.vwap(hlc3))
+macro_rsi   = request.security(syminfo.tickerid, tf_macro, ta.rsi(close, 14))
+
+// --- Alt Zaman Dilimi (Mikro Tetik) Verileri ---
+micro_ema20 = ta.ema(close, 20)
+micro_rsi   = ta.rsi(close, 14)
+micro_atr   = ta.atr(14)
+
+// --- Konfluans Sinyal Koşulları ---
+macro_bullish = (close > macro_ema50) and (close > macro_vwap) and (macro_rsi > 48)
+macro_bearish = (close < macro_ema50) and (close < macro_vwap) and (macro_rsi < 52)
+
+micro_buy_trigger  = ta.crossover(close, micro_ema20) and micro_rsi > 52
+micro_sell_trigger = ta.crossunder(close, micro_ema20) or close < macro_ema50
+
+buy_condition  = macro_bullish and micro_buy_trigger
+sell_condition = micro_sell_trigger
+
+// --- Görsel Plotlama ---
+plot(macro_ema50, "Makro Trend EMA50", color=color.new(color.purple, 0), linewidth=3)
+plot(macro_vwap, "Makro VWAP", color=color.new(color.orange, 0), linewidth=2, style=plot.style_circles)
+plot(micro_ema20, "Mikro EMA20", color=color.new(color.blue, 0), linewidth=1)
+
+// --- Webhook Alarmları ve İcra ---
+if (buy_condition)
+    alert_msg = '{"passphrase":"' + passphrase + '","action":"BUY","symbol":"' + syminfo.ticker + '","price":' + str.tostring(close) + ',"micro_tf":"' + tf_micro + '","macro_tf":"' + tf_macro + '","atr":' + str.tostring(micro_atr) + ',"macro_tags":["ADAPTIVE_MTF","CONFIRM_BUY"]}'
+    strategy.entry("Long", strategy.long, alert_message=alert_msg)
+
+if (sell_condition)
+    alert_msg = '{"passphrase":"' + passphrase + '","action":"SELL","symbol":"' + syminfo.ticker + '","price":' + str.tostring(close) + ',"reason":"MTF_EXIT"}'
+    strategy.close("Long", alert_message=alert_msg)
