@@ -183,19 +183,24 @@ class TradingViewAutoStrategyRunner:
             # Varsayılan (NORMAL)
             required_score = 4 
             min_vol = 1.0
+            global_max_pos = 10 # En fazla 5 pozisyon olabilir
             
             if current_mode == "AGGRESSIVE":
                 required_score = 2
                 min_vol = 0.5
+                global_max_pos = 15
             elif current_mode == "NORMAL":
                 required_score = 4
                 min_vol = 1.0
+                global_max_pos = 10
             elif current_mode == "TIGHT":
                 required_score = 5
                 min_vol = 1.2
+                global_max_pos = 5
             elif current_mode == "CONSERVATIVE":
                 required_score = 6
                 min_vol = 1.5
+                global_max_pos = 3
 
             is_buy_signal = score >= required_score
 
@@ -216,6 +221,28 @@ class TradingViewAutoStrategyRunner:
             )
             if open_pos_in_market >= max_pos_for_market:
                 logger.info(f"[MARKET LIMIT BLOCK] {sym} ({market_type}) piyasasında max pozisyon sayısına ulaşıldı ({open_pos_in_market}/{max_pos_for_market}).")
+                continue
+
+            # SİSTEM GENELİ MAKSİMUM POZİSYON LİMİTİ (GLOBAL LIMIT BLOCK)
+            total_open_pos = sum(1 for p in live_trade_manager.positions.values() if p.status == "OPEN")
+            if total_open_pos >= global_max_pos:
+                msg = f"[GLOBAL LIMIT BLOCK] {sym} reddedildi. Sistem genelinde maksimum ({total_open_pos}/{global_max_pos}) açık pozisyon limitine ulaşıldı."
+                logger.info(msg)
+                try:
+                    experience_memory_engine.add_live_log(market_type, "BLOCK", msg)
+                except Exception:
+                    pass
+                continue
+
+            # BÜTÇE LİMİT KONTROLÜ
+            total_invested = sum(p.nominal_value for p in live_trade_manager.positions.values() if p.status == "OPEN")
+            if total_invested >= 1200.0:
+                msg = f"[BUDGET LIMIT BLOCK] {sym} reddedildi. 1200$ bütçe limitine ulaşıldı (Mevcut Yatırım: ${total_invested:.2f})."
+                logger.info(msg)
+                try:
+                    experience_memory_engine.add_live_log(market_type, "BLOCK", msg)
+                except Exception:
+                    pass
                 continue
 
             # Mevcut açık pozisyon kontrolü

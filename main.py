@@ -34,6 +34,7 @@ from routers.memory_router import router as memory_router
 from routers.intelligence_router import router as intelligence_router
 from routers.indicators_router import router as indicators_router
 from routers.profit_advisor_router import router as profit_advisor_router
+from routers.ide_router import router as ide_router
 from services.market_feed.live_stream import LiveTradeManager
 
 app = FastAPI(title="TradingView AI Webhook Gateway, Risk Engine & 10-Skill Financial AI Analyst")
@@ -190,6 +191,7 @@ app.include_router(memory_router, prefix="/api/experience-memory")
 app.include_router(intelligence_router, prefix="/api/llm-intelligence")
 app.include_router(indicators_router, prefix="/api/indicators")
 app.include_router(profit_advisor_router, prefix="/api/profit-advisor")
+app.include_router(ide_router, prefix="/api/ide")
 
 if __name__ == "__main__":
     import uvicorn
