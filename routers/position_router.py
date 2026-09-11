@@ -35,17 +35,33 @@ async def get_active_positions():
                     local_pos = next((lp for lp in live_trade_manager.positions.values() if lp.symbol == sym and lp.status == "OPEN"), None)
                     opened_at_val = local_pos.opened_at if local_pos else "Senkronize"
 
+                    entry_price = float(p.get("avg_entry_price", 0))
+                    side = "BUY" if p.get("side") == "long" else "SELL"
+                    
+                    tp_price = 0.0
+                    sl_price = 0.0
+                    
+                    if entry_price > 0:
+                        from services.engine.experience_memory_engine import experience_memory_engine
+                        dyn_tp_pct, dyn_sl_pct = experience_memory_engine.get_dynamic_margins(sym)
+                        if side == "BUY":
+                            tp_price = entry_price * (1.0 + (dyn_tp_pct / 100.0))
+                            sl_price = entry_price * (1.0 - (dyn_sl_pct / 100.0))
+                        else:
+                            tp_price = entry_price * (1.0 - (dyn_tp_pct / 100.0))
+                            sl_price = entry_price * (1.0 + (dyn_sl_pct / 100.0))
+                            
                     active_list.append({
                         "id": str(p.get("id", f"POS-{sym}")),
                         "symbol": sym,
                         "market": str(p.get("asset_class", "STOCK")).upper(),
-                        "side": "BUY" if p.get("side") == "long" else "SELL",
-                        "entry_price": float(p.get("avg_entry_price", 0)),
+                        "side": side,
+                        "entry_price": entry_price,
                         "current_price": float(p.get("current_price", 0)),
                         "quantity": float(p.get("qty", 0)),
                         "nominal_value": float(p.get("market_value", 0)),
-                        "target_profit_price": 0.0, # Alpaca RAW endpoint doesn't expose nested bracket prices directly in list_positions easily
-                        "stop_loss_price": 0.0,
+                        "target_profit_price": round(tp_price, 4),
+                        "stop_loss_price": round(sl_price, 4),
                         "unrealized_pnl": float(p.get("unrealized_pl", 0)),
                         "unrealized_pnl_pct": float(p.get("unrealized_plpc", 0)) * 100,
                         "opened_at": opened_at_val,
@@ -147,3 +163,37 @@ async def get_daily_stats():
     Alpaca komisyonları dahil günlük PnL (Kâr/Zarar) istatistikleri
     """
     return live_trade_manager.daily_stats
+
+
+@router.get("/clock")
+async def get_alpaca_clock():
+    """
+    Alpaca'dan canlı piyasa saati ve durumunu çeker
+    """
+    if settings.trading_mode in ["LIVE", "PAPER"]:
+        from services.broker.factory import get_broker
+        broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
+        if broker and broker.api:
+            try:
+                clock = broker.api.get_clock()
+                return {
+                    "status": "success",
+                    "is_open": clock.is_open,
+                    "timestamp": clock.timestamp.isoformat(),
+                    "next_open": clock.next_open.isoformat(),
+                    "next_close": clock.next_close.isoformat()
+                }
+            except Exception as e:
+                import logging
+                logging.error(f"Alpaca clock fetch error: {e}")
+                
+    # Fallback to local time
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return {
+        "status": "fallback",
+        "is_open": True,  # Mocked
+        "timestamp": now.isoformat(),
+        "next_open": now.isoformat(),
+        "next_close": now.isoformat()
+    }

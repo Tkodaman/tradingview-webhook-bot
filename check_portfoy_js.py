@@ -1,0 +1,6 @@
+﻿with open('templates/dashboard.html', 'r', encoding='utf-8', errors='ignore') as f:
+    text = f.read()
+
+import re
+matches = re.findall(r'function \w*ortfoy\w*', text, re.IGNORECASE)
+print("Portfoy functions:", matches)

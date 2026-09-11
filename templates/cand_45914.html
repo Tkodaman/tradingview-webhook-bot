@@ -1,0 +1,1965 @@
+<!DOCTYPE html>\r
+2: <html lang="tr">\r
+3: <head>\r
+4:     <meta charset="UTF-8">\r
+5:     <meta name="viewport" content="width=device-width, initial-scale=1.0">\r
+6:     <title>TradingView AI Webhook Gateway & Otonom Piyasa Kokpiti</title>\r
+7:     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">\r
+8:     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>\r
+9:     <style>\r
+10:         :root {\r
+11:             --bg-base: #0c0f17;\r
+12:             --bg-panel: #131722;\r
+13:             --bg-card: #1c2130;\r
+14:             --border-color: rgba(255, 255, 255, 0.08);\r
+15:             --border-light: rgba(255, 255, 255, 0.05);\r
+16:             \r
+17:             --text-primary: #e2e8f0;\r
+18:             --text-secondary: #94a3b8;\r
+19:             --text-muted: #64748b;\r
+20:             \r
+21:             --up-color: #089981;\r
+22:             --up-bg: rgba(8, 153, 129, 0.12);\r
+23:             --down-color: #f23645;\r
+24:             --down-bg: rgba(242, 54, 69, 0.12);\r
+25:             \r
+26:             --crypto-accent: #a855f7;\r
+27:             --crypto-bg: rgba(168, 85, 247, 0.07);\r
+28:             --crypto-border: rgba(168, 85, 247, 0.35);\r
+29:             \r
+30:             --bist-accent: #089981;\r
+31:             --bist-bg: rgba(8, 153, 129, 0.07);\r
+32:             --bist-border: rgba(8, 153, 129, 0.35);\r
+33:             \r
+34:             --nasdaq-accent: #3b82f6;\r
+35:             --nasdaq-bg: rgba(59, 130, 246, 0.07);\r
+36:             --nasdaq-border: rgba(59, 130, 246, 0.35);\r
+37:             \r
+38:             --accent-yellow: #eab308;\r
+39:             --accent-rose: #f43f5e;\r
+40:         }\r
+41: \r
+42:         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }\r
+43: \r
+44:         body {\r
+45:             background-color: var(--bg-base);\r
+46:             color: var(--text-primary);\r
+47:             min-height: 100vh;\r
+48:             padding: 18px 24px;\r
+49:             overflow-x: hidden;\r
+50:         }\r
+51: \r
+52:         /* HEADER SECTION */\r
+53:         .header-section {\r
+54:             margin-bottom: 20px;\r
+55:             background: linear-gradient(135deg, rgba(28, 33, 48, 0.7) 0%, rgba(19, 23, 34, 0.95) 100%);\r
+56:             border: 1px solid var(--border-color);\r
+57:             border-radius: 12px;\r
+58:             padding: 16px 20px;\r
+59:             display: flex;\r
+60:             flex-direction: column;\r
+61:             gap: 12px;\r
+62:             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);\r
+63:         }\r
+64:         .header-top {\r
+65:             display: flex;\r
+66:             justify-content: space-between;\r
+67:             align-items: center;\r
+68:             flex-wrap: wrap;\r
+69:             gap: 12px;\r
+70:         }\r
+71:         .header-title { \r
+72:             font-size: 20px; \r
+73:             font-weight: 700; \r
+74:             color: #fff; \r
+75:             display: flex; \r
+76:             align-items: center; \r
+77:             gap: 10px;\r
+78:             letter-spacing: -0.3px;\r
+79:         }\r
+80:         .header-subtitle { \r
+81:             font-size: 13px; \r
+82:             color: var(--text-secondary); \r
+83:             line-height: 1.4;\r
+84:         }\r
+85:         .action-buttons {\r
+86:             display: flex;\r
+87:             flex-wrap: wrap;\r
+88:             gap: 8px;\r
+89:             align-items: center;\r
+90:         }\r
+91: \r
+92:         /* BUTTONS */\r
+93:         .btn {\r
+94:             background: rgba(255, 255, 255, 0.05);\r
+95:             border: 1px solid var(--border-color);\r
+96:             color: var(--text-primary);\r
+97:             padding: 7px 14px;\r
+98:             border-radius: 6px;\r
+99:             font-size: 12px;\r
+100:             font-weight: 600;\r
+101:             cursor: pointer;\r
+102:             transition: all 0.2s ease;\r
+103:             display: inline-flex;\r
+104:             align-items: center;\r
+105:             gap: 6px;\r
+106:             user-select: none;\r
+107:         }\r
+108:         .btn:hover { \r
+109:             background: rgba(255, 255, 255, 0.12); \r
+110:             transform: translateY(-1px);\r
+111:             color: #fff;\r
+112:         }\r
+113:         .btn:active { transform: translateY(0); }\r
+114:         .btn-yellow { border-color: rgba(234, 179, 8, 0.4); color: #fde047; background: rgba(234, 179, 8, 0.1); }\r
+115:         .btn-yellow:hover { background: rgba(234, 179, 8, 0.2); }\r
+116:         .btn-blue { border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; background: rgba(59, 130, 246, 0.1); }\r
+117:         .btn-blue:hover { background: rgba(59, 130, 246, 0.2); }\r
+118:         .btn-green { border-color: rgba(8, 153, 129, 0.4); color: #4ade80; background: rgba(8, 153, 129, 0.1); }\r
+119:         .btn-green:hover { background: rgba(8, 153, 129, 0.2); }\r
+120:         .btn-rose { border-color: rgba(244, 63, 94, 0.4); color: #fda4af; background: rgba(244, 63, 94, 0.1); }\r
+121:         .btn-rose:hover { background: rgba(244, 63, 94, 0.2); }\r
+122:         .btn-purple { border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe; background: rgba(168, 85, 247, 0.1); }\r
+123:         .btn-purple:hover { background: rgba(168, 85, 247, 0.2); }\r
+124:         .btn-close { border-color: rgba(242, 54, 69, 0.4); color: #fca5a5; background: rgba(242, 54, 69, 0.1); }\r
+125:         .btn-close:hover { background: rgba(242, 54, 69, 0.25); }\r
+126: \r
+127:         /* PANELS */\r
+128:         .panel {\r
+129:             background-color: var(--bg-panel);\r
+130:             border: 1px solid var(--border-color);\r
+131:             border-radius: 10px;\r
+132:             padding: 16px;\r
+133:             margin-bottom: 20px;\r
+134:             box-shadow: 0 4px 20px rgba(0,0,0,0.2);\r
+135:         }\r
+136:         .panel-header {\r
+137:             display: flex;\r
+138:             justify-content: space-between;\r
+139:             align-items: center;\r
+140:             margin-bottom: 14px;\r
+141:             flex-wrap: wrap;\r
+142:             gap: 10px;\r
+143:         }\r
+144:         .panel-header-title {\r
+145:             font-size: 15px;\r
+146:             font-weight: 700;\r
+147:             color: #fff;\r
+148:             display: flex;\r
+149:             align-items: center;\r
+150:             gap: 8px;\r
+151:         }\r
+152: \r
+153:         /* 3-MARKET SEPARATED WINDOWS (CRYPTO, BIST, NASDAQ) */\r
+154:         .markets-container {\r
+155:             display: flex;\r
+156:             flex-direction: column;\r
+157:             gap: 20px;\r
+158:             margin-bottom: 24px;\r
+159:         }\r
+160: \r
+161:         /* MARKET WINDOW CONTAINER */\r
+162:         .market-window {\r
+163:             border-radius: 12px;\r
+164:             padding: 16px 18px;\r
+165:             transition: all 0.3s ease;\r
+166:             position: relative;\r
+167:             overflow: hidden;\r
+168:         }\r
+169: \r
+170:         /* 1. CRYPTO WINDOW (Mor/Violet Neon) */\r
+171:         .market-window-crypto {\r
+172:             background: linear-gradient(145deg, rgba(168, 85, 247, 0.10) 0%, rgba(88, 28, 135, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);\r
+173:             border: 1px solid var(--crypto-border);\r
+174:             box-shadow: 0 8px 30px rgba(168, 85, 247, 0.08);\r
+175:         }\r
+176:         .market-window-crypto .window-tag {\r
+177:             background: rgba(168, 85, 247, 0.2);\r
+178:             border: 1px solid rgba(168, 85, 247, 0.4);\r
+179:             color: #e9d5ff;\r
+180:         }\r
+181: \r
+182:         /* 2. BIST WINDOW (Zümrüt Yeşili) */\r
+183:         .market-window-bist {\r
+184:             background: linear-gradient(145deg, rgba(8, 153, 129, 0.10) 0%, rgba(6, 78, 59, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);\r
+185:             border: 1px solid var(--bist-border);\r
+186:             box-shadow: 0 8px 30px rgba(8, 153, 129, 0.08);\r
+187:         }\r
+188:         .market-window-bist .window-tag {\r
+189:             background: rgba(8, 153, 129, 0.2);\r
+190:             border: 1px solid rgba(8, 153, 129, 0.4);\r
+191:             color: #a7f3d0;\r
+192:         }\r
+193: \r
+194:         /* 3. NASDAQ WINDOW (Safir Mavi) */\r
+195:         .market-window-nasdaq {\r
+196:             background: linear-gradient(145deg, rgba(59, 130, 246, 0.10) 0%, rgba(30, 58, 138, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);\r
+197:             border: 1px solid var(--nasdaq-border);\r
+198:             box-shadow: 0 8px 30px rgba(59, 130, 246, 0.08);\r
+199:         }\r
+200:         .market-window-nasdaq .window-tag {\r
+201:             background: rgba(59, 130, 246, 0.2);\r
+202:             border: 1px solid rgba(59, 130, 246, 0.4);\r
+203:             color: #bfdbfe;\r
+204:         }\r
+205: \r
+206:         /* WINDOW HEADER */\r
+207:         .window-header {\r
+208:             display: flex;\r
+209:             justify-content: space-between;\r
+210:             align-items: center;\r
+211:             margin-bottom: 12px;\r
+212:             flex-wrap: wrap;\r
+213:             gap: 10px;\r
+214:             padding-bottom: 10px;\r
+215:             border-bottom: 1px solid rgba(255, 255, 255, 0.06);\r
+216:         }\r
+217:         .window-title-group {\r
+218:             display: flex;\r
+219:             align-items: center;\r
+220:             gap: 10px;\r
+221:             flex-wrap: wrap;\r
+222:         }\r
+223:         .window-title {\r
+224:             font-size: 16px;\r
+225:             font-weight: 700;\r
+226:             color: #fff;\r
+227:             display: flex;\r
+228:             align-items: center;\r
+229:             gap: 8px;\r
+230:         }\r
+231:         .window-tag {\r
+232:             font-size: 11px;\r
+233:             font-weight: 700;\r
+234:             padding: 3px 8px;\r
+235:             border-radius: 6px;\r
+236:             font-family: 'JetBrains Mono', monospace;\r
+237:             text-transform: uppercase;\r
+238:         }\r
+239:         .window-status-badge {\r
+240:             font-size: 11px;\r
+241:             font-weight: 600;\r
+242:             padding: 4px 10px;\r
+243:             border-radius: 20px;\r
+244:             display: inline-flex;\r
+245:             align-items: center;\r
+246:             gap: 6px;\r
+247:         }\r
+248:         .status-open {\r
+249:             background: rgba(8, 153, 129, 0.18);\r
+250:             border: 1px solid rgba(8, 153, 129, 0.4);\r
+251:             color: #4ade80;\r
+252:         }\r
+253:         .status-closed {\r
+254:             background: rgba(242, 54, 69, 0.18);\r
+255:             border: 1px solid rgba(242, 54, 69, 0.4);\r
+256:             color: #f87171;\r
+257:         }\r
+258: \r
+259:         /* MARKET NOTICE BANNER */\r
+260:         .market-notice-banner {\r
+261:             padding: 6px 12px;\r
+262:             border-radius: 6px;\r
+263:             font-size: 11.5px;\r
+264:             margin-bottom: 12px;\r
+265:             display: flex;\r
+266:             align-items: center;\r
+267:             gap: 8px;\r
+268:         }\r
+269:         .banner-open {\r
+270:             background: rgba(8, 153, 129, 0.1);\r
+271:             border: 1px solid rgba(8, 153, 129, 0.25);\r
+272:             color: #a7f3d0;\r
+273:         }\r
+274:         .banner-closed {\r
+275:             background: rgba(242, 54, 69, 0.1);\r
+276:             border: 1px solid rgba(242, 54, 69, 0.25);\r
+277:             color: #fca5a5;\r
+278:         }\r
+279: \r
+280:         /* TICKER GRID */\r
+281:         .ticker-grid {\r
+282:             display: grid;\r
+283:             grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));\r
+284:             gap: 10px;\r
+285:         }\r
+286: \r
+287:         /* TICKER CARD BASE */\r
+288:         .ticker-card {\r
+289:             background: var(--bg-card);\r
+290:             border: 1px solid var(--border-color);\r
+291:             border-radius: 8px;\r
+292:             padding: 10px;\r
+293:             cursor: pointer;\r
+294:             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\r
+295:             position: relative;\r
+296:             display: flex;\r
+297:             flex-direction: column;\r
+298:             gap: 4px;\r
+299:         }\r
+300:         .ticker-card:hover {\r
+301:             transform: translateY(-2px);\r
+302:             box-shadow: 0 6px 16px rgba(0,0,0,0.3);\r
+303:             border-color: rgba(255, 255, 255, 0.25);\r
+304:         }\r
+305: \r
+306:         .active-trade-card {\r
+307:             background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(59, 130, 246, 0.15)) !important;\r
+308:             border-color: rgba(34, 197, 94, 0.6) !important;\r
+309:             box-shadow: 0 0 12px rgba(34, 197, 94, 0.25) !important;\r
+310:         }\r
+311: \r
+312:         /* PİYASA KAPALIYSA KARTLAR SOLUK OLMALI */\r
+313:         .market-closed {\r
+314:             opacity: 0.52 !important;\r
+315:             filter: grayscale(35%) !important;\r
+316:             border-style: dashed !important;\r
+317:             border-color: rgba(255, 255, 255, 0.12) !important;\r
+318:         }\r
+319:         .market-closed:hover {\r
+320:             opacity: 0.88 !important;\r
+321:             filter: grayscale(0%) !important;\r
+322:             border-color: rgba(255, 255, 255, 0.3) !important;\r
+323:         }\r
+324: \r
+325:         /* SPECIFIC CARD BACKGROUNDS BY GROUP */\r
+326:         .market-window-crypto .ticker-card {\r
+327:             background: rgba(168, 85, 247, 0.05);\r
+328:             border-color: rgba(168, 85, 247, 0.22);\r
+329:         }\r
+330:         .market-window-bist .ticker-card {\r
+331:             background: rgba(8, 153, 129, 0.05);\r
+332:             border-color: rgba(8, 153, 129, 0.22);\r
+333:         }\r
+334:         .market-window-nasdaq .ticker-card {\r
+335:             background: rgba(59, 130, 246, 0.05);\r
+336:             border-color: rgba(59, 130, 246, 0.22);\r
+337:         }\r
+338: \r
+339:         .ticker-top {\r
+340:             display: flex;\r
+341:             justify-content: space-between;\r
+342:             align-items: center;\r
+343:         }\r
+344:         .ticker-symbol {\r
+345:             font-size: 13px;\r
+346:             font-weight: 700;\r
+347:             color: #fff;\r
+348:             font-family: 'JetBrains Mono', monospace;\r
+349:         }\r
+350:         .ticker-change {\r
+351:             font-size: 11px;\r
+352:             font-weight: 700;\r
+353:             font-family: 'JetBrains Mono', monospace;\r
+354:         }\r
+355:         .ticker-price {\r
+356:             font-size: 15px;\r
+357:             font-weight: 700;\r
+358:             font-family: 'JetBrains Mono', monospace;\r
+359:             color: #fff;\r
+360:             transition: color 0.3s;\r
+361:         }\r
+362:         .ticker-bottom {\r
+363:             display: flex;\r
+364:             justify-content: space-between;\r
+365:             align-items: center;\r
+366:             font-size: 10px;\r
+367:             color: var(--text-muted);\r
+368:             font-family: 'JetBrains Mono', monospace;\r
+369:         }\r
+370:         .badge-closed-tag {\r
+371:             font-size: 9.5px;\r
+372:             padding: 1px 4px;\r
+373:             border-radius: 3px;\r
+374:             background: rgba(242, 54, 69, 0.2);\r
+375:             color: #fca5a5;\r
+376:             font-weight: 600;\r
+377:         }\r
+378: \r
+379:         /* PRICE TICK FLASH ANIMATIONS */\r
+380:         @keyframes tickUp {\r
+381:             0% { background-color: rgba(8, 153, 129, 0.4); }\r
+382:             100% { background-color: transparent; }\r
+383:         }\r
+384:         @keyframes tickDown {\r
+385:             0% { background-color: rgba(242, 54, 69, 0.4); }\r
+386:             100% { background-color: transparent; }\r
+387:         }\r
+388:         .price-tick-up { animation: tickUp 0.8s ease-out; }\r
+389:         .price-tick-down { animation: tickDown 0.8s ease-out; }\r
+390: \r
+391:         .up { color: var(--up-color); }\r
+392:         .down { color: var(--down-color); }\r
+393: \r
+394:         /* WALLET TOOLBAR */\r
+395:         .wallet-bar {\r
+396:             display: flex;\r
+397:             justify-content: space-between;\r
+398:             align-items: center;\r
+399:             flex-wrap: wrap;\r
+400:             gap: 12px;\r
+401:             background: rgba(19, 23, 34, 0.9);\r
+402:             border: 1px solid var(--border-color);\r
+403:             border-radius: 10px;\r
+404:             padding: 12px 18px;\r
+405:             margin-bottom: 16px;\r
+406:         }\r
+407:         .wallet-info {\r
+408:             font-family: 'JetBrains Mono', monospace;\r
+409:             font-size: 13px;\r
+410:             color: #93c5fd;\r
+411:             display: flex;\r
+412:             align-items: center;\r
+413:             gap: 8px;\r
+414:             flex-wrap: wrap;\r
+415:         }\r
+416:         .wallet-val {\r
+417:             color: #4ade80;\r
+418:             font-size: 16px;\r
+419:             font-weight: 700;\r
+420:         }\r
+421: \r
+422:         /* MARKET FILTER TABS */\r
+423:         .filter-tabs {\r
+424:             display: flex;\r
+425:             gap: 8px;\r
+426:             align-items: center;\r
+427:             flex-wrap: wrap;\r
+428:         }\r
+429:         .tab-btn {\r
+430:             background: rgba(255, 255, 255, 0.04);\r
+431:             border: 1px solid var(--border-color);\r
+432:             color: var(--text-secondary);\r
+433:             padding: 6px 14px;\r
+434:             border-radius: 20px;\r
+435:             font-size: 12px;\r
+436:             font-weight: 600;\r
+437:             cursor: pointer;\r
+438:             transition: all 0.2s ease;\r
+439:         }\r
+440:         .tab-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }\r
+441:         .tab-btn.active {\r
+442:             background: #fff;\r
+443:             color: #0c0f17;\r
+444:             font-weight: 700;\r
+445:             border-color: #fff;\r
+446:         }\r
+447: \r
+448:         /* POSITIONS TABLE */\r
+449:         .table-responsive {\r
+450:             overflow-x: auto;\r
+451:         }\r
+452:         table {\r
+453:             width: 100%;\r
+454:             border-collapse: collapse;\r
+455:             font-size: 12.5px;\r
+456:             font-family: 'JetBrains Mono', monospace;\r
+457:         }\r
+458:         th {\r
+459:             text-align: left;\r
+460:             padding: 10px 12px;\r
+461:             background-color: rgba(255,255,255,0.02);\r
+462:             color: var(--text-secondary);\r
+463:             font-weight: 600;\r
+464:             border-bottom: 1px solid var(--border-color);\r
+465:         }\r
+466:         td {\r
+467:             padding: 10px 12px;\r
+468:             border-bottom: 1px solid var(--border-light);\r
+469:             color: var(--text-primary);\r
+470:         }\r
+471:         tr:hover td {\r
+472:             background-color: rgba(255,255,255,0.02);\r
+473:         }\r
+474: \r
+475:         /* 2-COLUMN GRID (RULES & SUMMARY) */\r
+476:         .two-col-grid {\r
+477:             display: grid;\r
+478:             grid-template-columns: 1fr 1fr;\r
+479:             gap: 20px;\r
+480:             margin-bottom: 20px;\r
+481:         }\r
+482:         @media (max-width: 900px) {\r
+483:             .two-col-grid { grid-template-columns: 1fr; }\r
+484:         }\r
+485: \r
+486:         .inner-box {\r
+487:             background: #181c27;\r
+488:             border: 1px solid var(--border-color);\r
+489:             border-radius: 8px;\r
+490:             padding: 12px 14px;\r
+491:             margin-bottom: 10px;\r
+492:             transition: border-color 0.2s;\r
+493:         }\r
+494:         .inner-box:hover { border-color: rgba(255,255,255,0.2); }\r
+495:         .inner-box-title {\r
+496:             font-weight: 700;\r
+497:             font-size: 13px;\r
+498:             color: #fff;\r
+499:             margin-bottom: 6px;\r
+500:             display: flex;\r
+501:             justify-content: space-between;\r
+502:             align-items: center;\r
+503:         }\r
+504:         .inner-box-item {\r
+505:             font-size: 12px;\r
+506:             color: var(--text-secondary);\r
+507:             margin-top: 4px;\r
+508:             line-height: 1.4;\r
+509:             display: flex;\r
+510:             gap: 6px;\r
+511:         }\r
+512:         .inner-box-badge {\r
+513:             font-size: 10.5px;\r
+514:             padding: 2px 7px;\r
+515:             border-radius: 4px;\r
+516:             font-weight: 700;\r
+517:         }\r
+518:         .badge-reward { background: rgba(8, 153, 129, 0.2); color: #4ade80; }\r
+519:         .badge-caution { background: rgba(234, 179, 8, 0.2); color: #fde047; }\r
+520:         .badge-block { background: rgba(242, 54, 69, 0.2); color: #f87171; }\r
+521: \r
+522:         /* PULSE DOT */\r
+523:         .live-dot {\r
+524:             width: 8px; height: 8px; border-radius: 50%;\r
+525:             background: var(--up-color);\r
+526:             display: inline-block;\r
+527:             box-shadow: 0 0 8px var(--up-color);\r
+528:             animation: pulse 1.8s infinite;\r
+529:         }\r
+530:         /* Active Position Highlight */\r
+531:         .active-position-card {\r
+532:             border: 1px solid var(--accent-blue) !important;\r
+533:             background: linear-gradient(180deg, rgba(41, 98, 255, 0.15) 0%, rgba(30, 34, 45, 0.4) 100%) !important;\r
+534:             box-shadow: 0 0 12px rgba(41, 98, 255, 0.25);\r
+535:         }\r
+536:         @keyframes pulse {\r
+537:             0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(8, 153, 129, 0.7); }\r
+538:             70% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(8, 153, 129, 0); }\r
+539:             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(8, 153, 129, 0); }\r
+540:         }\r
+541: \r
+542:         /* TOAST SYSTEM */\r
+543:         #toastContainer {\r
+544:             position: fixed;\r
+545:             bottom: 24px;\r
+546:             right: 24px;\r
+547:             z-index: 99999;\r
+548:             display: flex;\r
+549:             flex-direction: column;\r
+550:             gap: 10px;\r
+551:             pointer-events: none;\r
+552:         }\r
+553:         .toast {\r
+554:             background: #1e222d;\r
+555:             border: 1px solid var(--border-color);\r
+556:             border-left: 4px solid var(--accent-blue);\r
+557:             color: #fff;\r
+558:             padding: 12px 18px;\r
+559:             border-radius: 8px;\r
+560:             box-shadow: 0 8px 30px rgba(0,0,0,0.5);\r
+561:             font-size: 13px;\r
+562:             font-weight: 500;\r
+563:             display: flex;\r
+564:             align-items: center;\r
+565:             gap: 10px;\r
+566:             pointer-events: auto;\r
+567:             animation: slideInRight 0.3s ease;\r
+568:             max-width: 380px;\r
+569:         }\r
+570:         .toast-success { border-left-color: var(--up-color); }\r
+571:         .toast-error { border-left-color: var(--down-color); }\r
+572:         .toast-warn { border-left-color: var(--accent-yellow); }\r
+573:         .toast-info { border-left-color: var(--accent-blue); }\r
+574: \r
+575:         /* MODAL */\r
+576:         .modal-overlay {\r
+577:             position: fixed;\r
+578:             top: 0; left: 0; right: 0; bottom: 0;\r
+579:             background: rgba(0, 0, 0, 0.75);\r
+580:             backdrop-filter: blur(4px);\r
+581:             display: none;\r
+582:             align-items: center;\r
+583:             justify-content: center;\r
+584:             z-index: 10000;\r
+585:             padding: 16px;\r
+586:         }\r
+587:         .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }\r
+588:         .modal-box {\r
+589:             background: #181c27;\r
+590:             border: 1px solid rgba(255, 255, 255, 0.15);\r
+591:             border-radius: 12px;\r
+592:             width: 100%;\r
+593:             max-width: 650px;\r
+594:             max-height: 85vh;\r
+595:             display: flex;\r
+596:             flex-direction: column;\r
+597:             box-shadow: 0 16px 40px rgba(0,0,0,0.6);\r
+598:             overflow: hidden;\r
+599:         }\r
+600:         .modal-header {\r
+601:             padding: 16px 20px;\r
+602:             border-bottom: 1px solid var(--border-color);\r
+603:             display: flex;\r
+604:             justify-content: space-between;\r
+605:             align-items: center;\r
+606:         }\r
+607:         .modal-title { font-size: 16px; font-weight: 700; color: #fff; }\r
+608:         .modal-close-btn {\r
+609:             background: transparent;\r
+610:             border: none;\r
+611:             color: var(--text-secondary);\r
+612:             font-size: 20px;\r
+613:             cursor: pointer;\r
+614:             padding: 4px;\r
+615:             line-height: 1;\r
+616:         }\r
+617:         .modal-close-btn:hover { color: #fff; }\r
+618:         .modal-body {\r
+619:             padding: 20px;\r
+620:             overflow-y: auto;\r
+621:             font-size: 13px;\r
+622:             color: var(--text-primary);\r
+623:         }\r
+624:         .modal-footer {\r
+625:             padding: 14px 20px;\r
+626:             border-top: 1px solid var(--border-color);\r
+627:             display: flex;\r
+628:             justify-content: flex-end;\r
+629:             gap: 10px;\r
+630:             background: rgba(0,0,0,0.15);\r
+631:         }\r
+632: \r
+633:         .stat-grid {\r
+634:             display: grid;\r
+635:             grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));\r
+636:             gap: 12px;\r
+637:             margin-bottom: 16px;\r
+638:         }\r
+639:         .stat-card {\r
+640:             background: #11141c;\r
+641:             border: 1px solid var(--border-color);\r
+642:             border-radius: 8px;\r
+643:             padding: 12px;\r
+644:             text-align: center;\r
+645:         }\r
+646:         .stat-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }\r
+647:         .stat-value { font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }\r
+648: \r
+649:         .code-block {\r
+650:             background: #0f121a;\r
+651:             border: 1px solid var(--border-color);\r
+652:             border-radius: 6px;\r
+653:             padding: 14px;\r
+654:             font-family: 'JetBrains Mono', monospace;\r
+655:             font-size: 11.5px;\r
+656:             color: #d1d4dc;\r
+657:             overflow-x: auto;\r
+658:             max-height: 380px;\r
+659:             white-space: pre-wrap;\r
+660:             word-break: break-all;\r
+661:         }\r
+662: \r
+663:         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }\r
+664:         @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }\r
+665:     </style>\r
+666: </head>\r
+667: <body>\r
+668: \r
+669:     <!-- TOAST CONTAINER -->\r
+670:     <div id="toastContainer"></div>\r
+671: \r
+672:     <!-- TOP HEADER -->\r
+673:     <div class="header-section">\r
+674:         <div class="header-top">\r
+675:             <div>\r
+676:                 <div class="header-title">\r
+677:                     <span style="color: #f43f5e; font-size: 22px;">🧬</span> TRADINGVIEW AI GATEWAY & 3-PİYASA CANLI KOKPİTİ\r
+678:                 </div>\r
+679:                 <div class="header-subtitle">\r
+680:                     Kripto (7/24), BIST 100/30 ve NASDAQ Mega-Cap • Dinamik Seans Kontrolü • Otonom Risk & Hafıza Motoru\r
+681:                 </div>\r
+682:             </div>\r
+683:             <div class="action-buttons">\r
+684:                 <button class="btn btn-yellow" id="btnExportCsv" onclick="exportCsvData()">\r
+685:                     <span>⬇</span> Tarihsel Veri (CSV)\r
+686:                 </button>\r
+687:                 <button class="btn btn-blue" id="btnExportJson" onclick="openJsonModal()">\r
+688:                     <span>📄</span> JSON Raporu\r
+689:                 </button>\r
+690:                 <button class="btn btn-green" id="btnCumSuccess" onclick="openPerformanceModal()">\r
+691:                     <span>📈</span> Kümülatif Başarı: %87.5 (PF: 6.38)\r
+692:                 </button>\r
+693:                 <button class="btn btn-rose" id="btnDynMultiplier" onclick="openMultiplierModal()">\r
+694:                     <span>⚡</span> Dinamik Tecrübe Çarpanı: 1.20x\r
+695:                 </button>\r
+696:                 <button class="btn btn-purple" onclick="openSimulateTradeModal()">\r
+697:                     <span>🧪</span> Test İşlemi Simüle Et\r
+698:                 </button>\r
+699:                 <button class="btn" style="border-color: rgba(255,255,255,0.15);" onclick="calibrateEngine()">\r
+700:                     <span>🔄</span> Kalibre Et\r
+701:                 </button>\r
+702:             </div>\r
+703:         </div>\r
+704:     </div>\r
+705: \r
+706:     <!-- CUMULATIVE PNL CHART PANEL -->\r
+707:     <div class="panel" style="max-width: 900px; margin: 0 auto 24px auto;">\r
+708:         <div class="panel-header">\r
+709:             <div class="panel-header-title">\r
+710:                 <span style="color: var(--up-color);">📈</span> Tüm Zamanlar Kümülatif (Yapay Zeka Arka Plan Testi) Eğrisi\r
+711:             </div>\r
+712:             <div style="display:flex; gap:8px; align-items:center;">\r
+713:                 <span style="font-size: 11px; color: var(--text-secondary); font-family: 'JetBrains Mono';"><span style="color:var(--accent); font-weight:600; font-size:10px; margin-right:4px;">(AI Teorik/Sanal Kazanç)</span> Kasa Değeri: <b id="chartLatestEquity" style="color:#fff;">$1,000.00</b></span>\r
+714:                 <button class="btn" style="padding: 4px 10px; font-size: 11px;" onclick="refreshData(true)">🔄 Grafiği Yenile</button>\r
+715:             </div>\r
+716:         </div>\r
+717:         <div style="height: 220px; width: 100%; position: relative;">\r
+718:             <canvas id="pnlChart"></canvas>\r
+719:         </div>\r
+720:     </div>\r
+721: \r
+722:     <!-- WALLET & QUICK ACTION TOOLBAR -->\r
+723:     <div class="wallet-bar">\r
+724:         <div class="wallet-info">\r
+725:             <span class="live-dot"></span>\r
+726:             <span>GERÇEKLEŞEN AKTİF KASA (Canlı İşleme Giren Gerçek Bakiye):</span>\r
+727:             <span class="wallet-val" id="walletBalance">$1000.00</span>\r
+728:             <span id="freeCash" style="color: var(--text-secondary); font-weight:400;">(Serbest Nakit: $1000.00)</span>\r
+729:             <span id="alpacaCommission" style="color: #fca5a5; font-weight:400; font-size: 11px; margin-left: 8px;">(Komisyon Gideri: -$0.00)</span>\r
+730:             <span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">(Her 1.5 sn güncellenir)</span>\r
+731:         </div>\r
+732:         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">\r
+733:             <div class="filter-tabs">\r
+734:                 <button class="tab-btn active" id="tabAll" onclick="filterMarketView('ALL')">🌐 Tümü (3 Grup / 120 Varlık)</button>\r
+735:                 <button class="tab-btn" id="tabCrypto" onclick="filterMarketView('CRYPTO')">🪙 Kripto (40)</button>\r
+736:                 <button class="tab-btn" id="tabBist" onclick="filterMarketView('BIST')">🇹🇷 BIST (20)</button>\r
+737:                 <button class="tab-btn" id="tabNasdaq" onclick="filterMarketView('NASDAQ')">🇺🇸 NASDAQ (60)</button>\r
+738:             </div>\r
+739:             <button class="btn btn-blue" id="btnDailyReportTop" onclick="openDailyReportModal()">📊 Günlük Rapor</button>\r
+740:             <button class="btn btn-close" id="btnResetAccountTop" onclick="resetAccountWallet()">✓ Kasayı $1,000'a Sıfırla</button>\r
+741:         </div>\r
+742:     </div>\r
+743: \r
+744:     <!-- ACTIVE POSITIONS TABLE -->\r
+745:     <div class="panel">\r
+746:         <div class="panel-header">\r
+747:             <div class="panel-header-title">\r
+748:                 <span>💼</span> Aktif Açık Pozisyonlar & Kâr/Zarar Takibi\r
+749:             </div>\r
+750:             <div>\r
+751:                 <button class="btn btn-green" onclick="openNewPositionModal()">⚡ Hızlı Pozisyon Aç</button>\r
+752:             </div>\r
+753:         </div>\r
+754:         <div class="table-responsive">\r
+755:             <table>\r
+756:                 <thead>\r
+757:                     <tr>\r
+758:                         <th>ID / Sembol</th>\r
+759:                         <th>Piyasa</th>\r
+760:                         <th>Yön</th>\r
+761:                         <th>Giriş Fiyatı</th>\r
+762:                         <th>Anlık Fiyat</th>\r
+763:                         <th>Adet / Hacim</th>\r
+764:                         <th>Hedef (TP)</th>\r
+765:                         <th>Zarar Kes (SL)</th>\r
+766:                         <th>Anlık Net PnL</th>\r
+767:                         <th>İşlem</th>\r
+768:                     </tr>\r
+769:                 </thead>\r
+770:                 <tbody id="positionsTableBody">\r
+771:                     <!-- Dinamik Açık Pozisyonlar -->\r
+772:                 </tbody>\r
+773:             </table>\r
+774:         </div>\r
+775:     </div>\r
+776: \r
+777:     <!-- YENİ: İSTATİSTİKSEL HATA PAYI VE EYLEM PLANI (KAZAN-KAZAN) -->\r
+778:     <div class="panel">\r
+779:         <div class="panel-header">\r
+780:             <h2 class="panel-title">📈 Algoritmik Hata Payı Eğrisi & Geleceğe Dair Eylem Planı (Kazan-Kazan)</h2>\r
+781:             <div style="font-size: 13px; color: var(--text-secondary);">\r
+782:                 Global Hata Payı: <span id="uiGlobalErrorMargin" style="color:var(--accent-yellow); font-weight:700;">%0.0</span>\r
+783:             </div>\r
+784:         </div>\r
+785:         <div style="display:flex; gap:16px;">\r
+786:             <!-- Hata Payı Eğrisi (Grafik Alanı - İleride chartjs eklenebilir, şimdilik CSS çubukları) -->\r
+787:             <div style="flex:1; background:var(--card-bg); border-radius:8px; padding:16px; border:1px solid rgba(255,255,255,0.1);">\r
+788:                 <div style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Son 20 İşlem Hata Eğrisi (Düşük = İyi)</div>\r
+789:                 <div id="uiErrorCurveBars" style="display:flex; align-items:flex-end; gap:4px; height:100px; border-bottom:1px solid #334155; padding-bottom:4px;">\r
+790:                     <!-- Barlar JS ile eklenecek -->\r
+791:                 </div>\r
+792:             </div>\r
+793:             \r
+794:             <!-- Eylem Planı Tablosu -->\r
+795:             <div style="flex:2; background:var(--card-bg); border-radius:8px; padding:16px; border:1px solid rgba(255,255,255,0.1); max-height:200px; overflow-y:auto;">\r
+796:                 <div style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Son Hatalardan Çıkarılan Katı Eylem Planları</div>\r
+797:                 <table style="width:100%; border-collapse:collapse; font-size:12px;">\r
+798:                     <thead>\r
+799:                         <tr style="border-bottom:1px solid #334155;">\r
+800:                             <th style="text-align:left; padding-bottom:8px;">Tarih</th>\r
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
+"}
+{"step_index":110,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:37:09Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":111,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:37:09Z","thinking":"**Prioritizing Specific Tools**
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+**Refining Tool Usage**
+
+I'm now zeroing in on optimizing tool selection based on defined rules. I'm actively ensuring I don't use `cat` to create or append, and I'm prioritizing `grep_search` over `grep` within bash. My strategy involves explicitly listing tools before execution, and only executing a set if all others are less suitable. I'm aiming for enhanced efficiency and adhering to the best practices for this task.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\routers\webhook_router.py","toolAction":"Viewing webhook_router.py","toolSummary":"View webhook_router.py"}}]}
+{"step_index":112,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-03T14:37:21Z","content":"Created At: 2026-09-03T17:37:21+03:00
+Completed At: 2026-09-03T17:37:21+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/routers/webhook_router.py`
+Total Lines: 39
+Total Bytes: 1407
+Showing lines 1 to 39
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: from fastapi import APIRouter, Depends, Request
+2: from fastapi.responses import JSONResponse
+3: from core.security import verify_ip, verify_passphrase
+4: from core.logger import logger
+5: from schemas.webhook import WebhookSignal
+6: from services.order_router import process_order
+7: from core.config import settings
+8: 
+9: router = APIRouter()
+10: 
+11: @router.get("/health")
+12: async def health_check():
+13:     return {
+14:         "status": "ok",
+15:         "service": "TradingView Webhook Gateway, Autonomous Risk Analyzer & 10-Skill AI Analyst",
+16:         "trading_mode": settings.trading_mode,
+17:         "max_risk_allowed": settings.max_risk_score_allowed
+18:     }
+19: 
+20: @router.get("/webhook")
+21: async def webhook_info():
+22:     return {
+23:         "status": "active_and_ready",
+24:         "message": "TradingView Webhook Uç Noktası Canlı ve Aktif! TradingView alarmlarınızı HTTP POST ile bu adrese gönderin.",
+25:         "accepted_method": "POST",
+26:         "payload_format": "JSON",
+27:         "dashboard": "/"
+28:     }
+29: 
+30: @router.post("/webhook", dependencies=[Depends(verify_ip)])
+31: async def webhook_receiver(signal: WebhookSignal, request: Request):
+32:     client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "127.0.0.1").split(",")[0].strip()
+33:     logger.info(f"Received webhook from {client_ip}: {signal.model_dump_json()}")
+34:     
+35:     verify_passphrase(signal.passphrase)
+36:     
+37:     result = process_order(signal)
+38:     return result
+39: 
+The above content shows the entire, complete file contents of the requested file.
+"}
+{"step_index":113,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:37:21Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":114,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:37:21Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\core\config.py","toolAction":"Viewing core/config.py","toolSummary":"View config.py"}}]}
+{"step_index":115,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-03T14:37:30Z","content":"Created At: 2026-09-03T17:37:30+03:00
+Completed At: 2026-09-03T17:37:30+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/core/config.py`
+Total Lines: 41
+Total Bytes: 1664
+Showing lines 1 to 41
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: from pydantic_settings import BaseSettings, SettingsConfigDict
+2: from typing import List
+3: 
+4: class Settings(BaseSettings):
+5:     passphrase: str = "secret_key"
+6:     trading_mode: str = "PAPER" # PAPER or LIVE (Alpaca Sandbox vs Real)
+7:     active_broker: str = "ALPACA" # ALPACA, INTERACTIVE_BROKERS, MIDAS
+8:     allowed_ips: str = "127.0.0.1,localhost,testclient,52.89.214.238,34.212.75.30,54.218.53.128,52.32.178.7"
+9:     
+10:     # Alpaca API Credentials
+11:     alpaca_api_key: str = ""
+12:     alpaca_secret_key: str = ""
+13:     
+14:     # Risk Parameters (Esnetilmiş Aktif İşlem Modu)
+15:     max_risk_score_allowed: float = 88.0 # Tavan risk skoru esnetildi
+16:     high_risk_threshold: float = 65.0 # Pozisyon küçültme eşiği yükseltildi
+17:     moderate_risk_threshold: float = 45.0
+18:     
+19:     # Position Sizing
+20:     max_capital_per_trade_pct: float = 10.0 # Max 10% of portfolio per trade ($100 @ $1,000 kasa)
+21:     base_portfolio_size: float = 1000.0 # Başlangıç Kasa: $1,000.00 (Kesin Taban)
+22:     
+23:     # Circuit Breakers & Hard Rules
+24:     flash_crash_volatility_limit: float = 8.0 # Volatilite kilidi %8.0
+25:     volume_anomalies_filter: bool = True  # Hacimsiz sahte kırılım (false breakout) filtresi AKTİF
+26:     volume_anomaly_ratio_threshold: float = 1.2 # Vol.Ratio < 1.2 = BLOK (eski: 0.5)
+27:     macro_event_pause_minutes: int = 5
+28:     
+29:     # Analyzer Agent Weights
+30:     weight_technical: float = 0.40
+31:     weight_macro: float = 0.35
+32:     weight_sentiment: float = 0.25
+33: 
+34:     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+35: 
+36:     @property
+37:     def get_allowed_ips_list(self) -> List[str]:
+38:         return [ip.strip() for ip in self.allowed_ips.split(",")]
+39: 
+40: settings = Settings()
+41: 
+The above content shows the entire, complete file contents of the requested file.
+"}
+{"step_index":116,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:37:30Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":117,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:37:30Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\main.py","toolAction":"Viewing main.py","toolSummary":"View main.py"}}]}
+{"step_index":118,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-03T14:37:39Z","content":"Created At: 2026-09-03T17:37:39+03:00
+Completed At: 2026-09-03T17:37:39+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/main.py`
+Total Lines: 197
+Total Bytes: 8781
+Showing lines 1 to 197
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import sys
+2: import os
+3: import asyncio
+4: import time
+5: from pathlib import Path
+6: from dotenv import load_dotenv
+7: 
+8: load_dotenv(override=True)
+9: 
+10: # Proje kök dizinini sys.path'e ekle
+11: BASE_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
+12: if BASE_DIR_PATH not in sys.path:
+13:     sys.path.insert(0, BASE_DIR_PATH)
+14: 
+15: from fastapi import FastAPI, Request
+16: from fastapi.templating import Jinja2Templates
+17: from fastapi.responses import HTMLResponse, JSONResponse
+18: from pydantic import BaseModel, Field
+19: 
+20: from core.config import settings
+21: from core.logger import logger
+22: from services.engine.auto_runner import tv_auto_runner
+23: from services.engine.scheduler import start_scheduler
+24: from services.trainer.bot_trainer import bot_trainer
+25: 
+26: # Routers
+27: from routers.webhook_router import router as webhook_router
+28: from routers.websocket_router import router as websocket_router, live_data_broadcaster
+29: from routers.agent_router import router as agent_router
+30: from routers.market_router import router as market_router
+31: from routers.position_router import router as position_router
+32: from routers.engine_router import router as engine_router
+33: from routers.memory_router import router as memory_router
+34: from routers.intelligence_router import router as intelligence_router
+35: from routers.indicators_router import router as indicators_router
+36: from routers.profit_advisor_router import router as profit_advisor_router
+37: from services.market_feed.live_stream import LiveTradeManager
+38: 
+39: app = FastAPI(title="TradingView AI Webhook Gateway, Risk Engine & 10-Skill Financial AI Analyst")
+40: 
+41: # Create a global instance of LiveTradeManager to pass to broadcaster
+42: from services.market_feed.live_stream import LiveTradeManager
+43: live_trade_manager_instance = LiveTradeManager()
+44: 
+45: @app.on_event("startup")
+46: async def startup_event():
+47:     logger.info("[STARTUP] Başlatılıyor: 7/24 Kesintisiz Otonom Strateji Motoru Arka Planda Aktif Edildi.")
+48:     asyncio.create_task(tv_auto_runner.start_continuous_background_loop())
+49:     
+50:     # Start WebSocket Broadcaster
+51:     asyncio.create_task(live_data_broadcaster(live_trade_manager_instance))
+52:     
+53:     # Scheduler (BIST ve NASDAQ Zamanlanmış Görevleri)
+54:     start_scheduler()
+55: 
+56: BASE_DIR = Path(__file__).resolve().parent
+57: templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+58: 
+59: @app.get("/", response_class=HTMLResponse)
+60: async def get_dashboard(request: Request):
+61:     """
+62:     Gerçek zamanlı web kokpiti, risk analiz göstergesi ve 10-Skill AI Analist Hub.
+63:     """
+64:     return templates.TemplateResponse(
+65:         request=request,
+66:         name="dashboard.html",
+67:         context={
+68:             "trading_mode": settings.trading_mode,
+69:             "passphrase": settings.passphrase,
+70:             "settings": settings,
+71:             "trainer_params": bot_trainer.best_params
+72:         }
+73:     )
+74: 
+75: @app.post("/api/train")
+76: async def trigger_bot_training(iterations: int = 200):
+77:     """
+78:     Piyasa senaryoları üzerinde modeli eğitir ve optimum ağırlıkları kalibre eder
+79:     """
+80:     training_summary = bot_trainer.train_bot(iterations=iterations)
+81:     return JSONResponse(content=training_summary)
+82: 
+83: class TradeLifecycleRequest(BaseModel):
+84:     capital_usd: float = Field(100.0, description="Kullanılacak Örnek Sermaye ($ / ₺)")
+85:     symbol: str = Field("NVDA", description="İşlem Yapılacak Hisse/Varlık")
+86:     market: str = Field("NASDAQ", description="NASDAQ veya BIST")
+87:     entry_price: float = Field(128.50, description="Hisse Giriş Fiyatı")
+88:     target_profit_pct: float = Field(3.50, description="Kâr Al Yüzdesi (%)")
+89:     stop_loss_pct: float = Field(1.75, description="Zarar Kes Yüzdesi (%)")
+90:     slippage_pct: float = Field(0.08, description="Kayma Payı (%)")
+91: 
+92: @app.post("/api/simulate-trade-lifecycle")
+93: async def simulate_trade_lifecycle(req: TradeLifecycleRequest):
+94:     """
+95:     100$ (veya belirlenen bütçe) ile TradingView Eş Zamanlı Sinyal, Giriş-Çıkış,
+96:     Başa Baş (Break-Even) ve Net Bilanço Yaşam Döngüsü Simülatörü
+97:     """
+98:     from services.risk_engine.margin_controller import margin_controller, MarginCalculationRequest
+99:     plan = margin_controller.calculate_plan(MarginCalculationRequest(
+100:         account_size=req.capital_usd,
+101:         risk_per_trade_pct=req.stop_loss_pct,
+102:         entry_price=req.entry_price,
+103:         symbol=req.symbol,
+104:         market=req.market,
+105:         action="BUY",
+106:         target_profit_pct=req.target_profit_pct,
+107:         stop_loss_pct=req.stop_loss_pct,
+108:         slippage_rate_pct=req.slippage_pct,
+109:         max_position_margin_pct=100.0  # 100$ tam alım simülasyonu
+110:     ))
+111: 
+112:     shares = round(req.capital_usd / req.entry_price, 4)
+113:     gross_gain = round(shares * (plan.target_profit_price - req.entry_price), 2)
+114:     costs = plan.cost_breakdown_at_target
+115:     net_gain = round(gross_gain - costs.total_friction_costs, 2)
+116:     final_balance = round(req.capital_usd + net_gain, 2)
+117:     currency = plan.currency
+118: 
+119:     steps = [
+120:         {
+121:             "step_number": 1,
+122:             "stage": "📡 1. Sinyal Tespiti & 12 İndikatör Doğrulaması",
+123:             "status": "APPROVED",
+124:             "description": f"TradingView webhook sinyali eş zamanlı yakalandı. {req.symbol} için 12 İndikatör Skoru %92 onay verdi (RSI: 58.2, SuperTrend: Boğa, VWAP üstü).",
+125:             "metrics": {
+126:                 "Sinyal Fiyatı": f"{currency}{req.entry_price:.2f}",
+127:                 "Ayrılan Bütçe": f"{currency}{req.capital_usd:.2f}",
+128:                 "Hesaplanan Lot/Adet": f"{shares} Lot"
+129:             }
+130:         },
+131:         {
+132:             "step_number": 2,
+133:             "stage": "⚡ 2. Pozisyon Açılışı & Kayma (Slippage) Girişi",
+134:             "status": "EXECUTED",
+135:             "description": f"%{req.slippage_pct:.2f} kayma payı hesaba katılarak gerçek piyasa eşleşmesi {currency}{plan.slippage_adjusted_entry_price:.2f} üzerinden yapıldı.",
+136:             "metrics": {
+137:                 "Gerçek Giriş": f"{currency}{plan.slippage_adjusted_entry_price:.2f}",
+138:                 "İlk Stop-Loss (-%{req.stop_loss_pct:.2f})": f"{currency}{plan.stop_loss_price:.2f}",
+139:                 "Alış Komisyonu": f"{currency}{costs.buy_commission:.2f}"
+140:             }
+141:         },
+142:         {
+143:             "step_number": 3,
+144:             "stage": "🔒 3. Fiyat İlerlemesi & Başa Baş (Break-Even) Kilitleme",
+145:             "status": "RISK_FREE_TRIGGERED",
+146:             "description": f"Fiyat +%1.20 kâra ({currency}{plan.break_even_trigger_price:.2f}) ulaştığında Trailing Stop devreye girdi ve stop seviyesi {currency}{plan.break_even_guaranteed_stop_price:.2f} seviyesine taşındı. İşlem %100 risksiz (Free-Roll) hale geldi.",
+147:             "metrics": {
+148:                 "Tetikleme Fiyatı": f"{currency}{plan.break_even_trigger_price:.2f}",
+149:                 "Garantili Stop": f"{currency}{plan.break_even_guaranteed_stop_price:.2f}",
+150:                 "Kalan Risk": f"{currency}0.00 (Sıfır Risk)"
+151:             }
+152:         },
+153:         {
+154:             "step_number": 4,
+155:             "stage": "🏆 4. Hedefe Ulaşma & Net Kâr Realizasyonu",
+156:             "status": "TAKE_PROFIT_HIT",
+157:             "description": f"Fiyat +%{req.target_profit_pct:.2f} hedef fiyatına ({currency}{plan.target_profit_price:.2f}) ulaştı ve kâr realize edildi.",
+158:             "metrics": {
+159:                 "Çıkış Fiyatı": f"{currency}{plan.target_profit_price:.2f}",
+160:                 "Brüt Kâr": f"+{currency}{gross_gain:.2f}",
+161:                 "Toplam Komisyon & Slippage": f"-{currency}{costs.total_friction_costs:.2f}",
+162:                 "Net Ele Geçen Kâr": f"+{currency}{net_gain:.2f} (Net %{costs.net_roi_pct:.2f})",
+163:                 "Yeni Kasa Bakiyesi": f"{currency}{final_balance:.2f}"
+164:             }
+165:         }
+166:     ]
+167: 
+168:     return {
+169:         "title": f"${req.capital_usd:.0f} {req.symbol} Canlı İşlem Yaşam Döngüsü Simülasyonu",
+170:         "symbol": req.symbol,
+171:         "market": req.market,
+172:         "initial_capital": req.capital_usd,
+173:         "final_capital": final_balance,
+174:         "net_profit": net_gain,
+175:         "net_roi_pct": costs.net_roi_pct,
+176:         "currency": currency,
+177:         "risk_reward_ratio": plan.risk_reward_ratio,
+178:         "lifecycle_steps": steps
+179:     }
+180: 
+181: 
+182: # Register Routers
+183: app.include_router(webhook_router)
+184: app.include_router(websocket_router)
+185: app.include_router(agent_router, prefix="/api/agent")
+186: app.include_router(market_router, prefix="/api/market")
+187: app.include_router(position_router, prefix="/api/positions")
+188: app.include_router(engine_router, prefix="/api")
+189: app.include_router(memory_router, prefix="/api/experience-memory")
+190: app.include_router(intelligence_router, prefix="/api/llm-intelligence")
+191: app.include_router(indicators_router, prefix="/api/indicators")
+192: app.include_router(profit_advisor_router, prefix="/api/profit-advisor")
+193: 
+194: if __name__ == "__main__":
+195:     import uvicorn
+196:     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+197: 
+The above content shows the entire, complete file contents of the requested file.
+"}
+{"step_index":120,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:37:39Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":119,"source":"SYSTEM","type":"CHECKPOINT","status":"DONE","created_at":"2026-09-03T14:37:39Z","content":"{{ CHECKPOINT 1 }}
+ **The earlier parts of this conversation have been truncated due to its long length. The following content summarizes the truncated context so that you may continue your work. **
+
+
+# User Requests
+The following were user requests from the truncated conversation in chronological order:
+1. yarım kalan devam edelim
+2. git hub kaydedelim
+3. bağlı olan git hub kaydedilsin https://github.com/Tkodaman?tab=repositories
+4. https://github.com/Tkodaman/tradingview-webhook-bot
+5. github  kayıtlı ilerleyelim
+6. https://github.com/Tkodaman/tradingview-webhook-bot suan baglımı
+7. anlamadıgım cripto ve nasdaq piyasada alpaca ya baglandıktan sonra al sat varlıklar azaldı daralttın işlen yok neden sadeceapple var örnegin
+8. 4 buton ayarı ekleyelim detaylı derin bir analiz sonucu bu boost seçenekler sık,sıkı,risk ayarları  örnegin agrasif makas ve buy sell alımları normal veya geniş sakin vb gibi bu butonların ne yapacagını detaylı inceleme global bot tradingview webhook tabanlı ve botumuzun ayarlarına uyumlu uyarı metinleri ile desteklenen bot grubu yapalım tıklandıgında yeşil yanarak bu sürümde ilerleyebilmeli
+
+# Previous Session Summary:
+### 1. Outstanding User Requests
+- **Implement 4-Button Risk/Strategy Configuration:** Add a dashboard interface with 4 buttons (e.g., "Sık", "Sıkı", "Agresif", "Geniş/Sakin") to adjust risk parameters (makas, alım/satım kuralları) dynamically. These should update the system behavior and show active status with a green visual indicator. (Status: NOT STARTED / SUGGESTED)
+
+### 2. User Knowledge
+- **Context & Preferences:**
+    - The user is transitioning from Alpaca Paper Trading to Live Trading.
+    - **Live Account Status:** KYC/Belgeler onaylandı, fonlama bekleniyor.
+    - **Observation:** The user noted that only "Apple" (AAPL) appears in the "Active Positions" list and misinterpreted this as the bot narrowing down its available assets, whereas it is actually just the current open position.
+    - **Visuals:** User provided screenshots of their Alpaca dashboard and requested a design and functionality similar to it.
+    - **User Quote:** "4 buton ayarı ekleyelim detaylı derin bir analiz sonucu bu boost seçenekler sık,sıkı,risk ayarları örnegin agrasif makas ve buy sell alımları normal veya geniş sakin vb gibi bu butonların ne yapacagını detaylı inceleme..."
+
+### 3. Work Accomplished
+- **Git Integration:** Verified and established connection with `https://github.com/Tkodaman/tradingview-webhook-bot.git`. The codebase is pushed and synced.
+- **Environment Cleanup:** Cleared outdated/incorrect Git credentials (`KodamanStudio`) from the Windows Credential Manager to allow pushing to the correct `Tkodaman` repository.
+- **Documentation:** Created `C:\Users\ASUS\.gemini\antigravity-ide\brain\38f811dd-2074-43a7-92c1-755cb9245914\alpaca_live_setup.md` to track the live trading migration steps and store future API keys securely.
+- **State Preservation:** Committed all current files to Git to ensure a clean restore point before beginning the requested UI/Risk engine modifications.
+
+### 4. Model Knowledge
+- **Architecture:** The project is a FastAPI-based webhook gateway. It uses `core/config.py` for settings (loaded from `.env`), `services/` for business logic (broker, AI agents, risk engine), and `templates/` for the Jinja2-based dashboard.
+- **Locking/Concurrency:** `main.py` starts background tasks (`tv_auto_runner` for market feeds and `live_data_broadcaster` for WebSocket updates).
+- **Constraints:** Alpaca Live API requires separate keys from Paper API. BIST assets cannot be traded with real money via Alpaca, only tracked.
+- **Failure Notes:** Attempting to push with cached `KodamanStudio` credentials resulted in `403 Forbidden` errors, which was resolved by clearing system credentials.
+
+### 5. Files and Code
+- **Edited/Created Files:**
+    - `c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\.gitignore`: Created to exclude sensitive files (`.env`, logs, databases).
+    - `C:\Users\ASUS\.gemini\antigravity-ide\brain\...\alpaca_live_setup.md`: Created to manage live trading migration documentation.
+- **Viewed Files:**
+    - `c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html`: Main UI template. Contains CSS variables at the top, grid layouts for markets, and position tables.
+    - `c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\core\config.py`: Central configuration class using `Pydantic`. Defines risk thresholds and API credentials.
+    - `c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\routers\webhook_router.py`: Handles incoming TradingView signals and invokes `process_order`.
+
+### 6. Current Work and Next Steps
+- **Immediate Next Step:** Implementation phase for the 4-button dashboard controls.
+- **Plan:** 
+    1. Update `templates/dashboard.html` to add the 4 risk/strategy buttons in the header area.
+    2. Add corresponding JS functions to toggle classes and trigger API calls to update `settings`.
+    3. Update `core/config.py` or create a new endpoint in `routers/engine_router.py` to allow dynamic modification of risk parameters (e.g., `high_risk_threshold`, `max_capital_per_trade_pct`) via the frontend.
+- **Specific Trigger:** The user requested: "4 buton ayarı ekleyelim... botumuzun ayarlarına uyumlu uyarı metinleri ile desteklenen bot grubu yapalım tıklandıgında yeşil yanarak bu sürümde ilerleyebilmeli".
+
+You have the 8 following artifacts written to the artifacts directory:
+
+[ARTIFACT: media_1788445642278]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/.user_uploaded/media_1788445642278.png
+Last Edited: 2026-09-03T14:28:07Z
+
+[ARTIFACT: media_1788445770394]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/.user_uploaded/media_1788445770394.png
+Last Edited: 2026-09-03T14:30:07Z
+
+[ARTIFACT: media_1788445780350]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/.user_uploaded/media_1788445780350.png
+Last Edited: 2026-09-03T14:30:07Z
+
+[ARTIFACT: media_1788445968284]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/.user_uploaded/media_1788445968284.png
+Last Edited: 2026-09-03T14:32:58Z
+
+[ARTIFACT: uploaded_media_1788445608141]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/.user_uploaded/uploaded_media_1788445608141.img
+Last Edited: 2026-09-03T14:26:48Z
+
+[ARTIFACT: uploaded_media_1788445718440]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/.user_uploaded/uploaded_media_1788445718440.img
+Last Edited: 2026-09-03T14:28:38Z
+
+[ARTIFACT: uploaded_media_1788445894949]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/.user_uploaded/uploaded_media_1788445894949.img
+Last Edited: 2026-09-03T14:31:34Z
+
+[ARTIFACT: alpaca_live_setup]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/alpaca_live_setup.md
+Last Edited: 2026-09-03T14:32:04Z
+
+# Conversation Logs
+
+Reference the following log files for the full, untruncated conversation:
+
+- C:\Users\ASUS\.gemini\antigravity-ide\brain\38f811dd-2074-43a7-92c1-755cb9245914\.system_generated\logs\	ranscript.jsonl
+
+**IMPORTANT: this summary is just for your reference. You may respond to my previous and future messages, but DO NOT ACKNOWLEDGE THIS CHECKPOINT MESSAGE. JUST READ IT BUT DO NOT MENTION IT, RESPOND TO IT, OR TAKE ACTION BECAUSE OF IT.**"}
+{"step_index":121,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:37:39Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Choices**
+
+I'm now zeroing in on precise tool selection. Remembering the rules, no `cat` for file creation, always `grep_search` where appropriate, avoiding `ls`, `cat`, `grep`, and `sed` for their basic functions. I am also recalling related tools before making tool calls, ensuring the chosen set is the most efficient and suitable for the task at hand. The primary goal is adding those buttons.
+
+
+**Implementing Risk Mode Buttons**
+
+I'm now drafting the implementation plan. I'm focusing on creating an API endpoint in `engine_router.py` to handle the risk mode change via a `POST` request. I'll need to dynamically update the `settings` based on the chosen mode. Then, the UI integration in `dashboard.html` is next, focusing on those 4 buttons, styling, and click listeners. Finally, I'll add tooltips to explain each risk mode. After successful implementation, I'll commit and push the changes.
+
+
+","tool_calls":[{"name":"write_to_file","args":{"ArtifactMetadata":{"RequestFeedback":true,"Summary":"Implementation plan for adding 4 Risk/Frequency Strategy Buttons to the dashboard.","UserFacing":true},"CodeContent":"# 4'lü Risk ve Frekans Kontrol Paneli (Boost Butonları) Uygulama Planı
+
+Bu plan, botun ne sıklıkla ve hangi risk seviyesiyle işlem yapacağını doğrudan arayüzden kontrol edebilmeniz için 4 adet strateji butonu eklenmesini kapsar.
+
+## Kullanıcı Onayı Gereken Noktalar
+> [!IMPORTANT]
+> Lütfen aşağıdaki 4 modun açıklamalarını ve kurallarını inceleyin. Eğer oranlarda veya isimlerde bir değişiklik isterseniz lütfen belirtin. Onayladığınızda kodlamaya başlayacağım.
+
+## 1. Planlanan Strateji Modları (Butonlar)
+
+1. **🔴 Agresif (Aggressive):** 
+   - Sık işlem yapar.
+   - 12 indikatörün onay eşiği düşürülür (Risk eşiği esnetilir).
+   - Hacim filtresi (Volume Anomaly) zayıflatılır.
+   - Zarar Kes (Stop-Loss) daha geniştir (makas açık).
+2. **🟡 Normal (Balanced):**
+   - Standart piyasa koşulları. 
+   - Dengeli al-sat ve normal hacim filtreleri aktif.
+3. **🔵 Sıkı (Tight):**
+   - Daha az ama daha sağlam sinyallere girer.
+   - İndikatörlerden yüksek onay bekler. 
+   - Çok dar Stop-Loss kullanır (en ufak ters harekette kaçar).
+4. **🟢 Muhafazakar / Güvenli (Conservative):**
+   - Sadece piyasanın en risksiz olduğu, hacmin çok yüksek olduğu kesin fırsatlarda işleme girer.
+   - İşlem başına ayrılan bütçe (capital) yarı yarıya düşürülür.
+
+## 2. Arayüz (Dashboard) Değişiklikleri
+- `dashboard.html` üst paneline veya cüzdan bölümünün yanına şık, tıklanabilir 4 adet buton eklenecek.
+- Tıklanan buton **Aktif (Yeşil / Parlak)** olacak ve diğerleri pasif görünecek.
+- Butonların üzerine gelindiğinde detaylı bir açıklama (uyarı metni) çıkacak. Tıklandığında ise sağ alttan bir bildirim (Toast) ile "X Modu Aktif Edildi" onayı verilecek.
+
+## 3. Backend (API ve Konfigürasyon) Değişiklikleri
+- `main.py` (veya `engine_router.py`) içerisine yeni bir API ucu eklenecek: `POST /api/engine/risk-mode`
+- Seçilen moda göre `core/config.py` içerisindeki risk değerleri (`max_risk_score_allowed`, `volume_anomaly_ratio_threshold`, vb.) canlı (restart gerektirmeden) güncellenecek.
+- İşlem tamamlanıp her şey sorunsuz çalıştığında bu özellik paketi **GitHub'a yedeklenecek (commit & push)**.
+
+## Doğrulama Planı
+1. Butonlara tıklandığında Python tarafında log ekranından ayarların değiştiği teyit edilecek.
+2. Arayüzün doğru butonu yeşil (aktif) yaptığı test edilecek.","Description":"Created implementation plan for the 4 strategy mode buttons.","Overwrite":true,"TargetFile":"C:\Users\ASUS\.gemini\antigravity-ide\brain\38f811dd-2074-43a7-92c1-755cb9245914\implementation_plan.md","toolAction":"Creating implementation plan","toolSummary":"Create implementation plan"}}]}
+{"step_index":122,"source":"MODEL","type":"CODE_ACTION","status":"DONE","created_at":"2026-09-03T14:38:01Z","content":"Created At: 2026-09-03T17:38:01+03:00
+Completed At: 2026-09-03T17:38:01+03:00
+Created file file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/implementation_plan.md with requested content.
+If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission."}
+{"step_index":123,"source":"SYSTEM","type":"CONVERSATION_HISTORY","status":"DONE","created_at":"2026-09-03T14:38:02Z"}
+{"step_index":124,"source":"SYSTEM","type":"KNOWLEDGE_ARTIFACTS","status":"DONE","created_at":"2026-09-03T14:38:02Z"}
+{"step_index":125,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:38:02Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":126,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:38:02Z","content":"İstediğiniz 4'lü "Strateji ve Risk Modu" butonlarının nasıl çalışacağını detaylandıran bir **Uygulama Planı** (Implementation Plan) hazırladım. Ekranda açılan planı inceleyebilirsiniz.
+
+Bu planı (özellikle Agresif, Normal, Sıkı, Güvenli modlarının kurallarını) onaylarsanız veya herhangi bir değişiklik isterseniz bana bildirin; onayınızla birlikte hemen kodlamaya geçeceğim ve tamamladığımızda tek tuşla GitHub'a kayıt noktamızı oluşturacağız.","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+"}
+{"step_index":127,"source":"SYSTEM","type":"SYSTEM_MESSAGE","status":"DONE","created_at":"2026-09-03T14:38:13Z","content":"The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.
+
+<SYSTEM_MESSAGE>
+stop hook blocked termination due to reason: The user has automatically approved the artifact through their review policy. Proceed to execution.
+</SYSTEM_MESSAGE>"}
+{"step_index":128,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:38:13Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":129,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:38:13Z","thinking":"**Prioritizing Specific Tools**
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+**Refining Tool Usage**
+
+I'm now prioritizing precise tool selection, remembering to never use 'cat' to create or append, and avoiding 'grep' within bash unless essential. I also will not use 'ls', 'cat', 'grep', or 'sed' for their typical uses. I'm focusing on listing any relevant tools at the start of each task, before executing any. I am proceeding to execution.
+
+
+","tool_calls":[{"name":"write_to_file","args":{"ArtifactMetadata":{"RequestFeedback":false,"Summary":"Task tracker for the 4 strategy mode buttons implementation.","UserFacing":false},"CodeContent":"# Strategy & Risk Mode Buttons Implementation
+
+- `[/]` Create task list
+- `[ ]` Update `core/config.py` to support dynamic mode switching
+- `[ ]` Create API endpoint `POST /api/engine/risk-mode` in `routers/engine_router.py`
+- `[ ]` Update `dashboard.html` with the 4 buttons (UI)
+- `[ ]` Update `dashboard.html` with JavaScript to call API and show Toasts
+- `[ ]` Verify changes locally
+- `[ ]` Create a Git commit & push (Save Point)
+- `[ ]` Create `walkthrough.md`","Description":"Created task tracker for execution.","Overwrite":false,"TargetFile":"C:\Users\ASUS\.gemini\antigravity-ide\brain\38f811dd-2074-43a7-92c1-755cb9245914\	ask.md","toolAction":"Creating task list","toolSummary":"Create task list"}}]}
+{"step_index":130,"source":"MODEL","type":"CODE_ACTION","status":"DONE","created_at":"2026-09-03T14:38:27Z","content":"Created At: 2026-09-03T17:38:27+03:00
+Completed At: 2026-09-03T17:38:27+03:00
+Created file file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/task.md with requested content.
+If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission."}
+{"step_index":131,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:38:27Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":132,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:38:27Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Choices**
+
+I'm now honing my tool selection process based on the rules. I'm focusing on directly calling the most appropriate tool, and not wrapping them in bash. The plan is to update `core/config.py` with dynamic mode switching. I will add `current_risk_mode` and `apply_risk_mode`. I need to revisit the file to pinpoint the exact insertion point for these additions.
+
+
+","tool_calls":[{"name":"replace_file_content","args":{"AllowMultiple":false,"Description":"Add `current_risk_mode` and `apply_risk_mode` method for dynamic setting changes.","EndLine":35,"Instruction":"Insert risk mode variables and the `apply_risk_mode` method inside the `Settings` class before the property decorator.","ReplacementContent":"    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Dynamic Risk Mode
+    current_risk_mode: str = "NORMAL"
+
+    def apply_risk_mode(self, mode: str):
+        self.current_risk_mode = mode.upper()
+        if self.current_risk_mode == "AGGRESSIVE":
+            self.max_risk_score_allowed = 60.0
+            self.high_risk_threshold = 40.0
+            self.volume_anomaly_ratio_threshold = 0.5
+            self.max_capital_per_trade_pct = 15.0
+        elif self.current_risk_mode == "TIGHT":
+            self.max_risk_score_allowed = 90.0
+            self.high_risk_threshold = 75.0
+            self.volume_anomaly_ratio_threshold = 1.5
+            self.max_capital_per_trade_pct = 8.0
+        elif self.current_risk_mode == "CONSERVATIVE":
+            self.max_risk_score_allowed = 95.0
+            self.high_risk_threshold = 85.0
+            self.volume_anomaly_ratio_threshold = 2.0
+            self.max_capital_per_trade_pct = 5.0
+        else: # NORMAL
+            self.max_risk_score_allowed = 88.0
+            self.high_risk_threshold = 65.0
+            self.volume_anomaly_ratio_threshold = 1.2
+            self.max_capital_per_trade_pct = 10.0
+","StartLine":34,"TargetContent":"    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+","TargetFile":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\core\config.py","toolAction":"Updating config.py","toolSummary":"Update config"}}]}
+{"step_index":133,"source":"MODEL","type":"CODE_ACTION","status":"DONE","created_at":"2026-09-03T14:38:47Z","content":"Created At: 2026-09-03T17:38:47+03:00
+Completed At: 2026-09-03T17:38:50+03:00
+The following changes were made by the replace_file_content tool to: c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\core\config.py. If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission.
+[diff_block_start]
+@@ -33,6 +33,32 @@
+ 
+     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+ 
++    # Dynamic Risk Mode
++    current_risk_mode: str = "NORMAL"
++
++    def apply_risk_mode(self, mode: str):
++        self.current_risk_mode = mode.upper()
++        if self.current_risk_mode == "AGGRESSIVE":
++            self.max_risk_score_allowed = 60.0
++            self.high_risk_threshold = 40.0
++            self.volume_anomaly_ratio_threshold = 0.5
++            self.max_capital_per_trade_pct = 15.0
++        elif self.current_risk_mode == "TIGHT":
++            self.max_risk_score_allowed = 90.0
++            self.high_risk_threshold = 75.0
++            self.volume_anomaly_ratio_threshold = 1.5
++            self.max_capital_per_trade_pct = 8.0
++        elif self.current_risk_mode == "CONSERVATIVE":
++            self.max_risk_score_allowed = 95.0
++            self.high_risk_threshold = 85.0
++            self.volume_anomaly_ratio_threshold = 2.0
++            self.max_capital_per_trade_pct = 5.0
++        else: # NORMAL
++            self.max_risk_score_allowed = 88.0
++            self.high_risk_threshold = 65.0
++            self.volume_anomaly_ratio_threshold = 1.2
++            self.max_capital_per_trade_pct = 10.0
++
+     @property
+     def get_allowed_ips_list(self) -> List[str]:
+         return [ip.strip() for ip in self.allowed_ips.split(",")]
+[diff_block_end]
+
+Please note that the above snippet only shows the MODIFIED lines from the last change. It shows up to 3 lines of unchanged lines before and after the modified lines. The actual file contents may have many more lines not shown."}
+{"step_index":134,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:38:50Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":135,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:38:50Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\routers\engine_router.py","toolAction":"Viewing engine_router.py","toolSummary":"View engine_router.py"}}]}
+{"step_index":136,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-03T14:39:04Z","content":"Created At: 2026-09-03T17:39:04+03:00
+Completed At: 2026-09-03T17:39:05+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/routers/engine_router.py`
+Total Lines: 66
+Total Bytes: 2671
+Showing lines 1 to 66
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: from fastapi import APIRouter
+2: from pydantic import BaseModel, Field
+3: from services.engine.auto_runner import tv_auto_runner
+4: from services.engine.autonomous_lab import autonomous_lab
+5: from services.data_ingestion.tradingview_live_client import tradingview_live_client
+6: 
+7: router = APIRouter()
+8: 
+9: class AutoRunnerToggleRequest(BaseModel):
+10:     enabled: bool = Field(True, description="Otonom strateji motorunu aç/kapat")
+11:     capital_per_trade: float = Field(100.0, description="İşlem başına kullanılacak bakiye")
+12: 
+13: @router.post("/auto-runner/toggle")
+14: async def toggle_auto_runner(req: AutoRunnerToggleRequest):
+15:     """
+16:     TradingView ücretli alarmına gerek kalmadan otonom 12-indikatör tarayıcısını başlatır/durdurur.
+17:     """
+18:     tv_auto_runner.is_running = req.enabled
+19:     tv_auto_runner.trade_capital = req.capital_per_trade
+20:     triggers = tv_auto_runner.evaluate_live_market_and_trigger() if req.enabled else []
+21:     return {
+22:         "status": "success",
+23:         "is_running": tv_auto_runner.is_running,
+24:         "capital_per_trade": tv_auto_runner.trade_capital,
+25:         "immediate_triggers": triggers,
+26:         "message": "Otonom TradingView Canlı Strateji Motoru AKTİF!" if req.enabled else "Otonom Motor Durduruldu."
+27:     }
+28: 
+29: @router.get("/auto-runner/status")
+30: def get_auto_runner_status():
+31:     """
+32:     7/24 Kesintisiz Otonom Motorun Çalışma Durumu
+33:     """
+34:     triggers = tv_auto_runner.evaluate_live_market_and_trigger() if tv_auto_runner.is_running else []
+35:     return {
+36:         "status": "success",
+37:         "is_running": tv_auto_runner.is_running,
+38:         "scan_interval_seconds": getattr(tv_auto_runner, "scan_interval_seconds", 5),
+39:         "capital_per_trade": tv_auto_runner.trade_capital,
+40:         "recent_triggers": triggers
+41:     }
+42: 
+43: class AutonomousLabRequest(BaseModel):
+44:     base_capital: float = Field(100.0, description="İşlem başı mikro sermaye ($ / ₺)")
+45:     trial_count: int = Field(50, description="Otonom deneme sayısı")
+46: 
+47: @router.post("/autonomous-lab/run")
+48: async def run_autonomous_lab_experiment(req: AutonomousLabRequest):
+49:     """
+50:     10-Skill, 12-İndikatör ve Makro Verilerle Otonom $100 Algoritma Havuzu Denemeleri Yığını Çalıştırır
+51:     """
+52:     return autonomous_lab.run_autonomous_experiment_pool(
+53:         base_capital=req.base_capital,
+54:         trial_count=req.trial_count
+55:     )
+56: 
+57: @router.get("/autonomous-lab/latest")
+58: async def get_latest_autonomous_lab_experiment():
+59:     """
+60:     En son çalıştırılan otonom algoritma havuzu sonuçlarını döndürür
+61:     """
+62:     if not autonomous_lab.last_run_result:
+63:         return autonomous_lab.run_autonomous_experiment_pool(100.0, 50)
+64:     return autonomous_lab.last_run_result
+65: 
+66: 
+The above content shows the entire, complete file contents of the requested file.
+"}
+{"step_index":137,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:39:05Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":138,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:39:05Z","thinking":"**Prioritizing Specific Tools**
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"replace_file_content","args":{"AllowMultiple":false,"Description":"Add `/engine/risk-mode` endpoint to `engine_router.py`","EndLine":66,"Instruction":"Add the RiskModeRequest schema and the POST endpoint to update the `current_risk_mode`.","ReplacementContent":"    if not autonomous_lab.last_run_result:
+        return autonomous_lab.run_autonomous_experiment_pool(100.0, 50)
+    return autonomous_lab.last_run_result
+
+class RiskModeRequest(BaseModel):
+    mode: str = Field(..., description="Strateji Modu (AGGRESSIVE, NORMAL, TIGHT, CONSERVATIVE)")
+
+@router.post("/engine/risk-mode")
+async def set_risk_mode(req: RiskModeRequest):
+    from core.config import settings
+    try:
+        settings.apply_risk_mode(req.mode)
+        return {
+            "status": "success",
+            "message": f"Risk Modu '{settings.current_risk_mode}' olarak güncellendi.",
+            "current_mode": settings.current_risk_mode,
+            "max_risk_allowed": settings.max_risk_score_allowed,
+            "high_risk_threshold": settings.high_risk_threshold,
+            "volume_anomaly_ratio_threshold": settings.volume_anomaly_ratio_threshold,
+            "max_capital_per_trade_pct": settings.max_capital_per_trade_pct
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}","StartLine":62,"TargetContent":"    if not autonomous_lab.last_run_result:
+        return autonomous_lab.run_autonomous_experiment_pool(100.0, 50)
+    return autonomous_lab.last_run_result
+
+","TargetFile":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\routers\engine_router.py","toolAction":"Adding risk-mode endpoint","toolSummary":"Update engine_router"}}]}
+{"step_index":139,"source":"MODEL","type":"CODE_ACTION","status":"DONE","created_at":"2026-09-03T14:39:24Z","content":"Created At: 2026-09-03T17:39:24+03:00
+Completed At: 2026-09-03T17:39:27+03:00
+The following changes were made by the replace_file_content tool to: c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\routers\engine_router.py. If relevant, proactively run terminal commands to execute this code for the USER. Don't ask for permission.
+[diff_block_start]
+@@ -63,4 +63,23 @@
+         return autonomous_lab.run_autonomous_experiment_pool(100.0, 50)
+     return autonomous_lab.last_run_result
+ 
++class RiskModeRequest(BaseModel):
++    mode: str = Field(..., description="Strateji Modu (AGGRESSIVE, NORMAL, TIGHT, CONSERVATIVE)")
++
++@router.post("/engine/risk-mode")
++async def set_risk_mode(req: RiskModeRequest):
++    from core.config import settings
++    try:
++        settings.apply_risk_mode(req.mode)
++        return {
++            "status": "success",
++            "message": f"Risk Modu '{settings.current_risk_mode}' olarak güncellendi.",
++            "current_mode": settings.current_risk_mode,
++            "max_risk_allowed": settings.max_risk_score_allowed,
++            "high_risk_threshold": settings.high_risk_threshold,
++            "volume_anomaly_ratio_threshold": settings.volume_anomaly_ratio_threshold,
++            "max_capital_per_trade_pct": settings.max_capital_per_trade_pct
++        }
++    except Exception as e:
++        return {"status": "error", "message": str(e)}
+ 
+[diff_block_end]
+
+Please note that the above snippet only shows the MODIFIED lines from the last change. It shows up to 3 lines of unchanged lines before and after the modified lines. The actual file contents may have many more lines not shown."}
+{"step_index":140,"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-09-03T14:39:16Z","content":"Comments on artifact URI: file:///c%3A/Users/ASUS/.gemini/antigravity-ide/brain/38f811dd-2074-43a7-92c1-755cb9245914/implementation_plan.md
+
+The user has approved this document.
+
+
+
+Selection:
+>Arayüzün doğru butonu yeşil (aktif) yaptığı test edilecek.
+
+Comment: "dogrusal anlık hızlı akıcı işlevsel olmalı uyarı bildirimleri ve metinleriyle"
+<USER_REQUEST>
+
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-09-03T17:39:16+03:00.
+
+The user's current state is as follows:
+Active Document: c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\main.py (LANGUAGE_PYTHON)
+Cursor is on line: 183
+Other open documents:
+- c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\main.py (LANGUAGE_PYTHON)
+- c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html (LANGUAGE_HTML)
+</ADDITIONAL_METADATA>"}
+{"step_index":141,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:39:27Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":142,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:39:27Z","thinking":"**Prioritizing Specific Tools**
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+**Refining Tool Usage**
+
+I'm now implementing strict rules to optimize tool utilization. I'm avoiding `cat` for file creation/appending and aiming for `grep_search` instead of `grep` within Bash commands. The plan requires me to be extremely conscious in tool selection, explicitly listing all relevant tools before execution and ensuring I use the most specific option. My focus is now on updating `dashboard.html` with the required HTML injection.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","EndLine":710,"StartLine":670,"toolAction":"Viewing dashboard header","toolSummary":"View dashboard header"}}]}
+{"step_index":143,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-03T14:39:47Z","content":"Created At: 2026-09-03T17:39:47+03:00
+Completed At: 2026-09-03T17:39:47+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/templates/dashboard.html`
+Total Lines: 2142
+Total Bytes: 104037
+Showing lines 670 to 710
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+670:     <div id="toastContainer"></div>\r
+671: \r
+672:     <!-- TOP HEADER -->\r
+673:     <div class="header-section">\r
+674:         <div class="header-top">\r
+675:             <div>\r
+676:                 <div class="header-title">\r
+677:                     <span style="color: #f43f5e; font-size: 22px;">🧬</span> TRADINGVIEW AI GATEWAY & 3-PİYASA CANLI KOKPİTİ\r
+678:                 </div>\r
+679:                 <div class="header-subtitle">\r
+680:                     Kripto (7/24), BIST 100/30 ve NASDAQ Mega-Cap • Dinamik Seans Kontrolü • Otonom Risk & Hafıza Motoru\r
+681:                 </div>\r
+682:             </div>\r
+683:             <div class="action-buttons">\r
+684:                 <button class="btn btn-yellow" id="btnExportCsv" onclick="exportCsvData()">\r
+685:                     <span>⬇</span> Tarihsel Veri (CSV)\r
+686:                 </button>\r
+687:                 <button class="btn btn-blue" id="btnExportJson" onclick="openJsonModal()">\r
+688:                     <span>📄</span> JSON Raporu\r
+689:                 </button>\r
+690:                 <button class="btn btn-green" id="btnCumSuccess" onclick="openPerformanceModal()">\r
+691:                     <span>📈</span> Kümülatif Başarı: %87.5 (PF: 6.38)\r
+692:                 </button>\r
+693:                 <button class="btn btn-rose" id="btnDynMultiplier" onclick="openMultiplierModal()">\r
+694:                     <span>⚡</span> Dinamik Tecrübe Çarpanı: 1.20x\r
+695:                 </button>\r
+696:                 <button class="btn btn-purple" onclick="openSimulateTradeModal()">\r
+697:                     <span>🧪</span> Test İşlemi Simüle Et\r
+698:                 </button>\r
+699:                 <button class="btn" style="border-color: rgba(255,255,255,0.15);" onclick="calibrateEngine()">\r
+700:                     <span>🔄</span> Kalibre Et\r
+701:                 </button>\r
+702:             </div>\r
+703:         </div>\r
+704:     </div>\r
+705: \r
+706:     <!-- CUMULATIVE PNL CHART PANEL -->\r
+707:     <div class="panel" style="max-width: 900px; margin: 0 auto 24px auto;">\r
+708:         <div class="panel-header">\r
+709:             <div class="panel-header-title">\r
+710:                 <span style="color: var(--up-color);">📈</span> Tüm Zamanlar Kümülatif (Yapay Zeka Arka Plan Testi) Eğrisi\r
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
+"}
+{"step_index":144,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-03T14:39:47Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":145,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-03T14:39:47Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Selection**
+
+I'm now deeply immersed in refining tool selection based on explicit rules. Specifically, I'm integrating these new strategies, ensuring I never use `cat` in bash for file creation/appending, or `grep` inside a bash command unless essential. I also will avoid using other specific tools for listing, viewing, finding, and replacing. My work focuses on inserting CSS and HTML buttons and JS functions into the `dashboard.html` file using `multi_replace_file_content`.
+
+
+","tool_calls":[{"name":"multi_replace_file_content","args":{"Description":"Add risk strategy buttons UI and JS logic to dashboard.html","Instruction":"Insert CSS for the risk buttons, add the HTML buttons right below header-top, and append the JS function at the end of the file.","ReplacementChunks":[{"AllowMultiple":false,"EndLine":133,"ReplacementContent":"        .btn-purple:hover { background: rgba(168, 85, 247, 0.2); }
+        .btn-close { border-color: rgba(242, 54, 69, 0.4); color: #fca5a5; background: rgba(242, 54, 69, 0.1); }
+        .btn-close:hover { background: rgba(242, 54, 69, 0.25); }
+
+        /* RISK MODE BUTTONS */
+        .risk-modes-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap;
+        }
+        .risk-modes-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .risk-btn {
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+        .risk-btn.active {
+            border-color: #4ade80;
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
+        }
+        .risk-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        /* PANELS */
+        .panel {","StartLine":123,"TargetContent":"        .btn-purple:hover { background: rgba(168, 85, 247, 0.2); }
+        .btn-close { border-color: rgba(242, 54, 69, 0.4); color: #fca5a5; background: rgba(242, 54, 69, 0.1); }
+        .btn-close:hover { background: rgba(242, 54, 69, 0.25); }
+
+        /* PANELS */
+        .panel {"},{"AllowMultiple":false,"EndLine":704,"ReplacementContent":"                <button class="btn" style="border-color: rgba(255,255,255,0.15);" onclick="calibrateEngine()">
+                    <span>🔄</span> Kalibre Et
+                </button>
+            </div>
+        </div>
+        
+        <!-- YENİ: STRATEJİ & RİSK MODU BUTONLARI -->
+        <div class="risk-modes-bar">
+            <div class="risk-modes-label">
+                <span style="color: #eab308;">⚙️</span> Risk & Frekans Modu:
+            </div>
+            <button class="risk-btn" id="risk-btn-AGGRESSIVE" onclick="setRiskMode('AGGRESSIVE')" title="Sık işlem yapar, risk eşiğini esnetir (Daha geniş stop-loss, düşük indikatör onayı).">
+                🔴 Agresif
+            </button>
+            <button class="risk-btn active" id="risk-btn-NORMAL" onclick="setRiskMode('NORMAL')" title="Standart piyasa koşulları, dengeli al-sat ve normal hacim filtresi.">
+                🟡 Normal
+            </button>
+            <button class="risk-btn" id="risk-btn-TIGHT" onclick="setRiskMode('TIGHT')" title="Dar Stop-Loss kullanır. Daha yüksek indikatör onayı bekler.">
+                🔵 Sıkı (Tight)
+            </button>
+            <button class="risk-btn" id="risk-btn-CONSERVATIVE" onclick="setRiskMode('CONSERVATIVE')" title="Sadece çok güçlü sinyallerde işleme girer, işlem başına bütçeyi düşürür.">
+                🟢 Güvenli (Conservative)
+            </button>
+        </div>
+    </div>","StartLine":699,"TargetContent":"                <button class="btn" style="border-color: rgba(255,255,255,0.15);" onclick="calibrateEngine()">
+                    <span>🔄</span> Kalibre Et
+                </button>
+            </div>
+        </div>
+    </div>"},{"AllowMultiple":false,"EndLine":2138,"ReplacementContent":"        // Call initially
+        checkLiveStatus();
+        fetchPositions();
+        
+        async function setRiskMode(mode) {
+            try {
+                const response = await fetch('/api/engine/risk-mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: mode })
+                });
+                const data = await response.json();
+                
+                if(data.status === 'success') {
+                    // Butonları güncelle
+                    document.querySelectorAll('.risk-btn').forEach(btn => btn.classList.remove('active'));
+                    const activeBtn = document.getElementById('risk-btn-' + mode);
+                    if(activeBtn) activeBtn.classList.add('active');
+                    
+                    showToast('success', 'Risk Modu Güncellendi', data.message);
+                } else {
+                    showToast('error', 'Hata', data.message);
+                }
+            } catch (error) {
+                showToast('error', 'Bağlantı Hatası', 'Risk modu değiştirilemedi.');
+            }
+        }
+        
+        // Ensure the correct mode button is selected based on page load data if possible.
+        // For now, it defaults to NORMAL visually until manually clicked, or we could fetch status.
+    </script>
+</body>
+</html>

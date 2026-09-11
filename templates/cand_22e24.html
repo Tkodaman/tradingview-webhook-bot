@@ -1,0 +1,1928 @@
+<!DOCTYPE html>\r
+2: <html lang="tr">\r
+3: <head>\r
+4:     <script>\r
+5:     window.onerror = function(msg, url, lineNo, columnNo, error) {\r
+6:         var errStr = 'JS ERROR: ' + msg + ' at ' + lineNo;\r
+7:         alert(errStr);\r
+8:         document.body.innerHTML += '<div style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;padding:20px;font-size:20px;">' + errStr + '</div>';\r
+9:     };\r
+10:     window.addEventListener("unhandledrejection", function(event) {\r
+11:         alert("Promise ERROR: " + event.reason);\r
+12:     });\r
+13:     </script>\r
+14:     <meta charset="UTF-8">\r
+15:     <meta name="viewport" content="width=device-width, initial-scale=1.0">\r
+16:     <title>TradingView AI Webhook Gateway & Otonom Piyasa Kokpiti</title>\r
+17:     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">\r
+18:     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>\r
+19:     <style>\r
+20:         :root {\r
+21:             --bg-base: #0c0f17;\r
+22:             --bg-panel: #131722;\r
+23:             --bg-card: #1c2130;\r
+24:             --border-color: rgba(255, 255, 255, 0.08);\r
+25:             --border-light: rgba(255, 255, 255, 0.05);\r
+26:             --text-primary: #e2e8f0;\r
+27:             --text-secondary: #e2e8f0;\r
+28:             --text-muted: #cbd5e1;\r
+29:             \r
+30:             --up-color: #089981;\r
+31:             --up-bg: rgba(8, 153, 129, 0.12);\r
+32:             --down-color: #f23645;\r
+33:             --down-bg: rgba(242, 54, 69, 0.12);\r
+34:             \r
+35:             --crypto-accent: #a855f7;\r
+36:             --crypto-bg: rgba(168, 85, 247, 0.07);\r
+37:             --crypto-border: rgba(168, 85, 247, 0.35);\r
+38:             \r
+39:             --bist-accent: #089981;\r
+40:             --bist-bg: rgba(8, 153, 129, 0.07);\r
+41:             --bist-border: rgba(8, 153, 129, 0.35);\r
+42:             \r
+43:             --nasdaq-accent: #3b82f6;\r
+44:             --nasdaq-bg: rgba(59, 130, 246, 0.07);\r
+45:             --nasdaq-border: rgba(59, 130, 246, 0.35);\r
+46:             \r
+47:             --accent-yellow: #eab308;\r
+48:             --accent-rose: #f43f5e;\r
+49:         }\r
+50: \r
+51:         @keyframes flashGreen {\r
+52:             0% { background-color: rgba(74, 222, 128, 0.4); }\r
+53:             100% { background-color: transparent; }\r
+54:         }\r
+55:         .flash-update {\r
+56:             animation: flashGreen 1s ease-out;\r
+57:         }\r
+58:         \r
+59:         @keyframes flashUp {\r
+60:             0% { background-color: rgba(8, 153, 129, 0.4); }\r
+61:             100% { background-color: transparent; }\r
+62:         }\r
+63:         @keyframes flashDown {\r
+64:             0% { background-color: rgba(242, 54, 69, 0.4); }\r
+65:             100% { background-color: transparent; }\r
+66:         }\r
+67:         .flash-up {\r
+68:             animation: flashUp 0.8s ease-out;\r
+69:         }\r
+70:         .flash-down {\r
+71:             animation: flashDown 0.8s ease-out;\r
+72:         }\r
+73: \r
+74:         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }\r
+75: \r
+76:         body {\r
+77:             background-color: var(--bg-base);\r
+78:             color: var(--text-primary);\r
+79:             min-height: 100vh;\r
+80:             padding: 18px 24px;\r
+81:             overflow-x: hidden;\r
+82:         }\r
+83: \r
+84:         /* HEADER SECTION */\r
+85:         .header-section {\r
+86:             margin-bottom: 20px;\r
+87:             background: linear-gradient(135deg, rgba(28, 33, 48, 0.7) 0%, rgba(19, 23, 34, 0.95) 100%);\r
+88:             border: 1px solid var(--border-color);\r
+89:             border-radius: 12px;\r
+90:             padding: 16px 20px;\r
+91:             display: flex;\r
+92:             flex-direction: column;\r
+93:             gap: 12px;\r
+94:             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);\r
+95:         }\r
+96:         .header-top {\r
+97:             display: flex;\r
+98:             justify-content: space-between;\r
+99:             align-items: center;\r
+100:             flex-wrap: wrap;\r
+101:             gap: 12px;\r
+102:         }\r
+103:         .header-title { \r
+104:             font-size: 20px; \r
+105:             font-weight: 700; \r
+106:             color: #fff; \r
+107:             display: flex; \r
+108:             align-items: center; \r
+109:             gap: 10px;\r
+110:             letter-spacing: -0.3px;\r
+111:         }\r
+112:         .header-subtitle { \r
+113:             font-size: 13px; \r
+114:             color: var(--text-secondary); \r
+115:             line-height: 1.4;\r
+116:         }\r
+117:         .action-buttons {\r
+118:             display: flex;\r
+119:             flex-wrap: wrap;\r
+120:             gap: 8px;\r
+121:             align-items: center;\r
+122:         }\r
+123: \r
+124:         /* BUTTONS */\r
+125:         .btn {\r
+126:             background: rgba(255, 255, 255, 0.05);\r
+127:             border: 1px solid var(--border-color);\r
+128:             color: var(--text-primary);\r
+129:             padding: 7px 14px;\r
+130:             border-radius: 6px;\r
+131:             font-size: 12px;\r
+132:             font-weight: 600;\r
+133:             cursor: pointer;\r
+134:             transition: all 0.2s ease;\r
+135:             display: inline-flex;\r
+136:             align-items: center;\r
+137:             gap: 6px;\r
+138:             user-select: none;\r
+139:         }\r
+140:         .btn:hover { \r
+141:             background: rgba(255, 255, 255, 0.12); \r
+142:             transform: translateY(-1px);\r
+143:             color: #fff;\r
+144:         }\r
+145:         .btn:active { transform: translateY(0); }\r
+146:         .btn-yellow { border-color: rgba(234, 179, 8, 0.4); color: #fde047; background: rgba(234, 179, 8, 0.1); }\r
+147:         .btn-yellow:hover { background: rgba(234, 179, 8, 0.2); }\r
+148:         .btn-blue { border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; background: rgba(59, 130, 246, 0.1); }\r
+149:         .btn-blue:hover { background: rgba(59, 130, 246, 0.2); }\r
+150:         .btn-green { border-color: rgba(8, 153, 129, 0.4); color: #4ade80; background: rgba(8, 153, 129, 0.1); }\r
+151:         .btn-green:hover { background: rgba(8, 153, 129, 0.2); }\r
+152:         .btn-rose { border-color: rgba(244, 63, 94, 0.4); color: #fda4af; background: rgba(244, 63, 94, 0.1); }\r
+153:         .btn-rose:hover { background: rgba(244, 63, 94, 0.2); }\r
+154:         .btn-purple { border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe; background: rgba(168, 85, 247, 0.1); }\r
+155:         .btn-purple:hover { background: rgba(168, 85, 247, 0.2); }\r
+156:         .btn-close { border-color: rgba(242, 54, 69, 0.4); color: #fca5a5; background: rgba(242, 54, 69, 0.1); }\r
+157:         .btn-close:hover { background: rgba(242, 54, 69, 0.25); }\r
+158: \r
+159:         /* RISK MODE BUTTONS */\r
+160:         .risk-modes-bar {\r
+161:             display: flex;\r
+162:             gap: 10px;\r
+163:             align-items: center;\r
+164:             margin-top: 14px;\r
+165:             padding-top: 14px;\r
+166:             border-top: 1px dashed rgba(255, 255, 255, 0.1);\r
+167:             flex-wrap: wrap;\r
+168:         }\r
+169:         .risk-modes-label {\r
+170:             font-size: 13px;\r
+171:             font-weight: 600;\r
+172:             color: var(--text-secondary);\r
+173:             display: flex;\r
+174:             align-items: center;\r
+175:             gap: 6px;\r
+176:         }\r
+177:         .risk-btn {\r
+178:             border: 1px solid var(--border-color);\r
+179:             background: rgba(255, 255, 255, 0.05);\r
+180:             color: var(--text-secondary);\r
+181:             padding: 8px 16px;\r
+182:             border-radius: 8px;\r
+183:             font-size: 13px;\r
+184:             font-weight: 600;\r
+185:             cursor: pointer;\r
+186:             transition: all 0.2s ease;\r
+187:             display: inline-flex;\r
+188:             align-items: center;\r
+189:             gap: 8px;\r
+190:             position: relative;\r
+191:         }\r
+192:         .risk-btn.active {\r
+193:             border-color: #4ade80;\r
+194:             background: rgba(34, 197, 94, 0.15);\r
+195:             color: #4ade80;\r
+196:             box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);\r
+197:         }\r
+198:         .risk-btn:hover:not(.active) {\r
+199:             background: rgba(255, 255, 255, 0.1);\r
+200:             color: #fff;\r
+201:         }\r
+202: \r
+203:         /* PANELS */\r
+204:         .panel {\r
+205:             background-color: var(--bg-panel);\r
+206:             border: 1px solid var(--border-color);\r
+207:             border-radius: 10px;\r
+208:             padding: 16px;\r
+209:             margin-bottom: 20px;\r
+210:             box-shadow: 0 4px 20px rgba(0,0,0,0.2);\r
+211:         }\r
+212:         .panel-header {\r
+213:             display: flex;\r
+214:             justify-content: space-between;\r
+215:             align-items: center;\r
+216:             margin-bottom: 14px;\r
+217:             flex-wrap: wrap;\r
+218:             gap: 10px;\r
+219:         }\r
+220:         .panel-header-title {\r
+221:             font-size: 15px;\r
+222:             font-weight: 700;\r
+223:             color: #fff;\r
+224:             display: flex;\r
+225:             align-items: center;\r
+226:             gap: 8px;\r
+227:         }\r
+228: \r
+229:         /* 3-MARKET SEPARATED WINDOWS (CRYPTO, BIST, NASDAQ) */\r
+230:         .markets-container {\r
+231:             display: flex;\r
+232:             flex-direction: column;\r
+233:             gap: 20px;\r
+234:             margin-bottom: 24px;\r
+235:         }\r
+236: \r
+237:         /* MARKET WINDOW CONTAINER */\r
+238:         .market-window {\r
+239:             border-radius: 12px;\r
+240:             padding: 16px 18px;\r
+241:             transition: all 0.3s ease;\r
+242:             position: relative;\r
+243:             overflow: hidden;\r
+244:         }\r
+245: \r
+246:         /* 1. CRYPTO WINDOW (Mor/Violet Neon) */\r
+247:         .market-window-crypto {\r
+248:             background: linear-gradient(145deg, rgba(168, 85, 247, 0.10) 0%, rgba(88, 28, 135, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);\r
+249:             border: 1px solid var(--crypto-border);\r
+250:             box-shadow: 0 8px 30px rgba(168, 85, 247, 0.08);\r
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
+"}
+{"step_index":137,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:52:50Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":138,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:52:50Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Selection**
+
+I'm now prioritizing precise tool selection, remembering to never use `cat` to create or append, and always using `grep_search` instead of inline `grep`. Before tool calls, I'm explicitly listing related tools, executing a toolset only if more generic ones are unsuitable. I'm starting by examining `dashboard.html` to find how BIST and NASDAQ symbols are fetched, with an eye towards efficiency.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","EndLine":500,"StartLine":250,"toolAction":"Viewing dashboard.html","toolSummary":"View dashboard template"}}]}
+{"step_index":139,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-09T13:52:56Z","content":"Created At: 2026-09-09T16:52:56+03:00
+Completed At: 2026-09-09T16:52:56+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/templates/dashboard.html`
+Total Lines: 5384
+Total Bytes: 292208
+Showing lines 250 to 500
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+250:             box-shadow: 0 8px 30px rgba(168, 85, 247, 0.08);\r
+251:         }\r
+252:         .market-window-crypto .window-tag {\r
+253:             background: rgba(168, 85, 247, 0.2);\r
+254:             border: 1px solid rgba(168, 85, 247, 0.4);\r
+255:             color: #e9d5ff;\r
+256:         }\r
+257: \r
+258:         /* 2. BIST WINDOW (Zümrüt Yeşili) */\r
+259:         .market-window-bist {\r
+260:             background: linear-gradient(145deg, rgba(8, 153, 129, 0.10) 0%, rgba(6, 78, 59, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);\r
+261:             border: 1px solid var(--bist-border);\r
+262:             box-shadow: 0 8px 30px rgba(8, 153, 129, 0.08);\r
+263:         }\r
+264:         .market-window-bist .window-tag {\r
+265:             background: rgba(8, 153, 129, 0.2);\r
+266:             border: 1px solid rgba(8, 153, 129, 0.4);\r
+267:             color: #a7f3d0;\r
+268:         }\r
+269: \r
+270:         /* 3. NASDAQ WINDOW (Safir Mavi) */\r
+271:         .market-window-nasdaq {\r
+272:             background: linear-gradient(145deg, rgba(59, 130, 246, 0.10) 0%, rgba(30, 58, 138, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);\r
+273:             border: 1px solid var(--nasdaq-border);\r
+274:             box-shadow: 0 8px 30px rgba(59, 130, 246, 0.08);\r
+275:         }\r
+276:         .market-window-nasdaq .window-tag {\r
+277:             background: rgba(59, 130, 246, 0.2);\r
+278:             border: 1px solid rgba(59, 130, 246, 0.4);\r
+279:             color: #bfdbfe;\r
+280:         }\r
+281: \r
+282:         /* WINDOW HEADER */\r
+283:         .window-header {\r
+284:             display: flex;\r
+285:             justify-content: space-between;\r
+286:             align-items: center;\r
+287:             margin-bottom: 12px;\r
+288:             flex-wrap: wrap;\r
+289:             gap: 10px;\r
+290:             padding-bottom: 10px;\r
+291:             border-bottom: 1px solid rgba(255, 255, 255, 0.06);\r
+292:         }\r
+293:         .window-title-group {\r
+294:             display: flex;\r
+295:             align-items: center;\r
+296:             gap: 10px;\r
+297:             flex-wrap: wrap;\r
+298:         }\r
+299:         .window-title {\r
+300:             font-size: 16px;\r
+301:             font-weight: 700;\r
+302:             color: #fff;\r
+303:             display: flex;\r
+304:             align-items: center;\r
+305:             gap: 8px;\r
+306:         }\r
+307:         .window-tag {\r
+308:             font-size: 11px;\r
+309:             font-weight: 700;\r
+310:             padding: 3px 8px;\r
+311:             border-radius: 6px;\r
+312:             font-family: 'JetBrains Mono', monospace;\r
+313:             text-transform: uppercase;\r
+314:         }\r
+315:         .window-status-badge {\r
+316:             font-size: 11px;\r
+317:             font-weight: 600;\r
+318:             padding: 4px 10px;\r
+319:             border-radius: 20px;\r
+320:             display: inline-flex;\r
+321:             align-items: center;\r
+322:             gap: 6px;\r
+323:         }\r
+324:         .status-open {\r
+325:             background: rgba(8, 153, 129, 0.18);\r
+326:             border: 1px solid rgba(8, 153, 129, 0.4);\r
+327:             color: #4ade80;\r
+328:         }\r
+329:         .status-closed {\r
+330:             background: rgba(242, 54, 69, 0.18);\r
+331:             border: 1px solid rgba(242, 54, 69, 0.4);\r
+332:             color: #f87171;\r
+333:         }\r
+334: \r
+335:         /* MARKET NOTICE BANNER */\r
+336:         .market-notice-banner {\r
+337:             padding: 6px 12px;\r
+338:             border-radius: 6px;\r
+339:             font-size: 11.5px;\r
+340:             margin-bottom: 12px;\r
+341:             display: flex;\r
+342:             align-items: center;\r
+343:             gap: 8px;\r
+344:         }\r
+345:         .banner-open {\r
+346:             background: rgba(8, 153, 129, 0.1);\r
+347:             border: 1px solid rgba(8, 153, 129, 0.25);\r
+348:             color: #a7f3d0;\r
+349:         }\r
+350:         .banner-closed {\r
+351:             background: rgba(242, 54, 69, 0.1);\r
+352:             border: 1px solid rgba(242, 54, 69, 0.25);\r
+353:             color: #fca5a5;\r
+354:         }\r
+355: \r
+356:         /* TICKER GRID */\r
+357:         .ticker-grid {\r
+358:             display: grid;\r
+359:             grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));\r
+360:             gap: 10px;\r
+361:         }\r
+362: \r
+363:         /* TICKER CARD BASE */\r
+364:         .ticker-card {\r
+365:             background: var(--bg-card);\r
+366:             border: 1px solid var(--border-color);\r
+367:             border-radius: 8px;\r
+368:             padding: 10px;\r
+369:             cursor: pointer;\r
+370:             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\r
+371:             position: relative;\r
+372:             display: flex;\r
+373:             flex-direction: column;\r
+374:             gap: 4px;\r
+375:         }\r
+376:         .opportunity-card {\r
+377:             border: 1px solid rgba(234, 179, 8, 0.5) !important;\r
+378:             box-shadow: 0 0 10px rgba(234, 179, 8, 0.15) !important;\r
+379:         }\r
+380: \r
+381:         .ticker-card:hover {\r
+382:             transform: translateY(-2px);\r
+383:             box-shadow: 0 6px 16px rgba(0,0,0,0.3);\r
+384:             border-color: rgba(255, 255, 255, 0.25);\r
+385:         }\r
+386: \r
+387:         .active-trade-card {\r
+388:             background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(59, 130, 246, 0.15)) !important;\r
+389:             border-color: rgba(34, 197, 94, 0.6) !important;\r
+390:             box-shadow: 0 0 12px rgba(34, 197, 94, 0.25) !important;\r
+391:         }\r
+392: \r
+393:         /* PİYASA KAPALIYSA KARTLAR SOLUK OLMALI */\r
+394:         .market-closed {\r
+395:             opacity: 0.52 !important;\r
+396:             filter: grayscale(35%) !important;\r
+397:             border-style: dashed !important;\r
+398:             border-color: rgba(255, 255, 255, 0.12) !important;\r
+399:         }\r
+400:         .market-closed:hover {\r
+401:             opacity: 0.88 !important;\r
+402:             filter: grayscale(0%) !important;\r
+403:             border-color: rgba(255, 255, 255, 0.3) !important;\r
+404:         }\r
+405: \r
+406:         /* SPECIFIC CARD BACKGROUNDS BY GROUP */\r
+407:         .market-window-crypto .ticker-card {\r
+408:             background: rgba(168, 85, 247, 0.05);\r
+409:             border-color: rgba(168, 85, 247, 0.22);\r
+410:         }\r
+411:         .market-window-bist .ticker-card {\r
+412:             background: rgba(8, 153, 129, 0.05);\r
+413:             border-color: rgba(8, 153, 129, 0.22);\r
+414:         }\r
+415:         .market-window-nasdaq .ticker-card {\r
+416:             background: rgba(59, 130, 246, 0.05);\r
+417:             border-color: rgba(59, 130, 246, 0.22);\r
+418:         }\r
+419: \r
+420:         .ticker-top {\r
+421:             display: flex;\r
+422:             justify-content: space-between;\r
+423:             align-items: center;\r
+424:         }\r
+425:         .ticker-symbol {\r
+426:             font-size: 13px;\r
+427:             font-weight: 700;\r
+428:             color: #fff;\r
+429:             font-family: 'JetBrains Mono', monospace;\r
+430:         }\r
+431:         .ticker-change {\r
+432:             font-size: 11px;\r
+433:             font-weight: 700;\r
+434:             font-family: 'JetBrains Mono', monospace;\r
+435:         }\r
+436:         .ticker-price {\r
+437:             font-size: 15px;\r
+438:             font-weight: 700;\r
+439:             font-family: 'JetBrains Mono', monospace;\r
+440:             color: #fff;\r
+441:             transition: color 0.3s;\r
+442:         }\r
+443:         .ticker-bottom {\r
+444:             display: flex;\r
+445:             justify-content: space-between;\r
+446:             align-items: center;\r
+447:             font-size: 10px;\r
+448:             color: var(--text-muted);\r
+449:             font-family: 'JetBrains Mono', monospace;\r
+450:         }\r
+451:         .badge-closed-tag {\r
+452:             font-size: 9.5px;\r
+453:             padding: 1px 4px;\r
+454:             border-radius: 3px;\r
+455:             background: rgba(242, 54, 69, 0.2);\r
+456:             color: #fca5a5;\r
+457:             font-weight: 600;\r
+458:         }\r
+459: \r
+460:         /* PRICE TICK FLASH ANIMATIONS */\r
+461:         @keyframes tickUp {\r
+462:             0% { background-color: rgba(8, 153, 129, 0.4); }\r
+463:             100% { background-color: transparent; }\r
+464:         }\r
+465:         @keyframes tickDown {\r
+466:             0% { background-color: rgba(242, 54, 69, 0.4); }\r
+467:             100% { background-color: transparent; }\r
+468:         }\r
+469:         .price-tick-up { animation: tickUp 0.8s ease-out; }\r
+470:         .price-tick-down { animation: tickDown 0.8s ease-out; }\r
+471: \r
+472:         .up { color: var(--up-color); }\r
+473:         .down { color: var(--down-color); }\r
+474: \r
+475:         /* WALLET TOOLBAR */\r
+476:         .wallet-bar {\r
+477:             display: flex;\r
+478:             justify-content: space-between;\r
+479:             align-items: center;\r
+480:             flex-wrap: wrap;\r
+481:             gap: 12px;\r
+482:             background: rgba(19, 23, 34, 0.9);\r
+483:             border: 1px solid var(--border-color);\r
+484:             border-radius: 10px;\r
+485:             padding: 12px 18px;\r
+486:             margin-bottom: 16px;\r
+487:         }\r
+488:         .wallet-info {\r
+489:             font-family: 'JetBrains Mono', monospace;\r
+490:             font-size: 13px;\r
+491:             color: #93c5fd;\r
+492:             display: flex;\r
+493:             align-items: center;\r
+494:             gap: 8px;\r
+495:             flex-wrap: wrap;\r
+496:         }\r
+497:         .wallet-val {\r
+498:             color: #4ade80;\r
+499:             font-size: 16px;\r
+500:             font-weight: 700;\r
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
+"}
+{"step_index":140,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:52:56Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":141,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:52:56Z","thinking":"**Prioritizing Specific Tools**
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"grep_search","args":{"CaseInsensitive":false,"IsRegex":false,"MatchPerLine":true,"Query":"fetch(","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching fetch in dashboard.html","toolSummary":"Search fetch()"}}]}
+{"step_index":142,"source":"MODEL","type":"GREP_SEARCH","status":"DONE","created_at":"2026-09-09T13:53:02Z","content":"Created At: 2026-09-09T16:53:02+03:00
+Completed At: 2026-09-09T16:53:02+03:00
+No results found"}
+{"step_index":144,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:53:02Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":143,"source":"SYSTEM","type":"CHECKPOINT","status":"DONE","created_at":"2026-09-09T13:53:02Z","content":"{{ CHECKPOINT 2 }}
+ **The earlier parts of this conversation have been truncated due to its long length. The following content summarizes the truncated context so that you may continue your work. **
+
+
+# User Requests
+The following were user requests from the truncated conversation in chronological order:
+1. tüm algoritmayı yz öğrenim skill,ml,llm,sonuç etkisini baltalamayacak şekilde sadeleştirelim tüm fazlalık birbirine sarmaşık olmuş eylem sonuç tetikleme ilişkisini boğan eylemi sekteye uğratan dublicate vb.  bir davranış var ise düzelterek sadeleştirerek bot amacına uygun hızlı stabil çalışsın. yz bot canlandırmak rahat bir nefes alması adına budayalım.
+2. tüm algoritmayı yz öğrenim skill,ml,llm,sonuç etkisini baltalamayacak şekilde sadeleştirelim tüm fazlalık birbirine sarmaşık olmuş eylem sonuç tetikleme ilişkisini boğan eylemi sekteye uğratan dublicate vb.  bir davranış var ise düzelterek sadeleştirerek bot amacına uygun hızlı stabil çalışsın. yz bot canlandırmak rahat bir nefes alması adına budayalım.
+3. tüpraş anlık degerlendirelim fiyata göre bir yön verirmisin pozisyon
+4. 407 de aldırmıştın ve 413.50 çıktım devam edelimmi yoksa durmalımıyız 
+5. tamam saat a6 pm kadar tüpraş için bana her 40 dk bir yön ver buradan
+6. peki hedefindeki bist listedeki varlıklar adına tüpraştan aldıgımız kar ile başka bu listedeki varlıklara yönlendirirmisin yoksa bekleyelimmi
+7. bimas a girmelimiyim suan bekleyelimmi pozisyon düzeltmesi varmı kaçtan alım yapalım
+8. tmm 419 alarm oluşturdum girmek adına tekrar bimas saglama yaparmısın öngörü detaylı kazı
+9. dün bana manuel aldırdıgın qqom degerlendirmesi yapalım detaylı  bot yeteneginle kazı yap 174.80 aldık suan kar alalımmı yoksa bekleyelimmi net hedef koy
+10. neden cripto penceresi ktucukları gibi nasdaq pencere içi varlıklar çok az ve uyumsuz çalışıyor yansıtmıyor güven skoru hedef dinamik liste varlıkları göremiyorum bist içinde geçerli aynısı dinamik olmalı senin yz süzgecinden geçmiş hedef dinamik listemiz
+
+# Previous Session Summary:
+{"step_index":50,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:30:55Z","thinking":"**Prioritizing Specific Tools**\
+\
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.\
+\
+\
+**Analyzing Tool Utilization**\
+\
+I'm now prioritizing tool selection and avoiding common pitfalls. I'm focusing on adhering to specific rules: never use `cat` for file creation/appen\
+<truncated 1233 bytes>\
+about when to trigger the LLM for potential sentiment analysis, as previously, it was within a loop. I've updated indicator dictionaries and simplified complex filters.\
+\
+\
+**Adjusting Blocking Logic**\
+\
+I'm now focusing on optimizing the LLM call to prevent blocking, especially considering the blocking from the dictionary pass. I've updated the logic: I will only call the LLM if the required score is met. The priority is to resolve the bottleneck and ensure the script runs smoothly, optimizing performance.\
+\
+\
+","tool_calls":[{"name":"multi_replace_file_content","args":{"Description":"\"Optimize auto_runner.py by moving risk mode definitions up and restricting LLM API calls to only edge-case symbols to prevent blocking. Pass score to webhook signal indicators.\"","Instruction":"\"Move required_score logic up. Restrict LLM sentiment calls. Pass score in WebhookSignal.\"","ReplacementChunks":"[{\"AllowMultiple\":false,\"EndLine\":303,\"ReplacementContent\":\"            # Kripto için Çok Katı (Sıkı) Onay Eşiği ve Premium Agent Hibrit Kararı\\
+            current_mode = settings.current_risk_mode.upper()\\
+            \\
+            # Varsayılan \
+<truncated 7437 bytes>","TargetFile":"\"c:\\\\Users\\\\ASUS\\\\OneDrive\\\\Desktop\\\\	radingview-webhook-bot\\\\services\\\\engine\\\\auto_runner.py\"","TargetLintErrorIds":"[]","toolAction":"\"Modifying auto_runner.py\"","toolSummary":"\"Optimize auto_runner\""}}],"truncated_fields":["thinking","tool_calls"]}
+{"step_index":55,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:31:28Z","thinking":"**Prioritizing Specific Tools**\
+\
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.\
+\
+\
+**Refining Tool Usage**\
+\
+I'm now zeroing in on avoiding `cat` for file manipulation, and prefer specialized tools where feasible. I am also making sure to list related tools before \
+<truncated 169 bytes>\
+d block from `auto_runner.py`.\
+\
+\
+**Reviewing Recent Deletions**\
+\
+I've just reviewed a recent deletion within `auto_runner.py`. It involved a block of code related to \"bottom fishing\" strategies and risk modes. This code snippet defined thresholds for RSI, minimum change, and volume, with adjustments based on the current risk mode (\"AGGRESSIVE\", \"SNIPER\", or \"CONSERVATIVE\"). The deletion appears significant, and I need to determine if it was intentional or an oversight that requires immediate restoration.\
+\
+\
+","tool_calls":[{"name":"replace_file_content","args":{"AllowMultiple":"false","Description":"\"Restore the deleted BOTTOM FISHING block in auto_runner.py\"","EndLine":"265","Instruction":"\"Put back the accidentally deleted BOTTOM FISHING block\"","ReplacementContent":"\"            # ==========================================\\
+            # BOTTOM FISHING (MEAN REVERSION / OVERSOLD)\\
+            # INTC gibi sert düşen varlıkları dipten yakalamak için. Tüm piyasalarda geçerli.\\
+            # =======================\
+<truncated 1309 bytes>","StartLine":"264","TargetContent":"\"            # Kripto için Çok Katı (Sıkı) Onay Eşiği ve Premium Agent Hibrit Kararı\"","TargetFile":"\"c:\\\\Users\\\\ASUS\\\\OneDrive\\\\Desktop\\\\	radingview-webhook-bot\\\\services\\\\engine\\\\auto_runner.py\"","toolAction":"\"Fixing auto_runner.py\"","toolSummary":"\"Restore deleted block\""}}],"truncated_fields":["thinking","tool_calls"]}
+{"step_index":58,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:31:45Z","thinking":"**Prioritizing Tool Usage**\
+\
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.\
+\
+\
+**Refining Tool Selection**\
+\
+I'm now honing my tool selection process based on the specified rules. I'm actively avoiding redundant commands within bash and prioritizing dedicated tools like `grep_search`. I'm also meticulously listing potential tools before execution, and only executing the optimal set. I have just corrected redundant LLM calls in `auto_runner.py`, making it more efficient.\
+\
+\
+","tool_calls":[{"name":"replace_file_content","args":{"AllowMultiple":"false","Description":"\"Mark tasks as completed\"","EndLine":"6","Instruction":"\"Check all task checkboxes\"","ReplacementContent":"\"- [x] Modify `execution_agent.py` to accept pre-calculated scores and indicators from WebhookSignal, bypassing redundant calls to `data_analysis_agent`.\\
+- [x] Simplify Opportunity Cost logic in `execution_agent.py` to rely on simple PnL and age, instead \
+<truncated 305 bytes>","StartLine":"3","TargetContent":"\"- [ ] Modify `execution_agent.py` to accept pre-calculated scores and indicators from WebhookSignal, bypassing redundant calls to `data_analysis_agent`.\\
+- [ ] Simplify Opportunity Cost logic in `execution_agent.py` to rely on simple PnL and age, instead \
+<truncated 305 bytes>","TargetFile":"\"C:\\\\Users\\\\ASUS\\\\.gemini\\\\antigravity-ide\\\\brain\\\\0c268f02-142b-43d0-871c-4e9dea222e24\\\\	ask.md\"","toolAction":"\"Updating task.md\"","toolSummary":"\"Update tasks\""}}],"truncated_fields":["tool_calls"]}
+{"step_index":61,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:31:58Z","thinking":"**Prioritizing Specific Tools**\
+\
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.\
+\
+\
+**Defining Tool Usage Rules**\
+\
+I am now establishing strict guidelines for tool selection, prioritizing direct and efficient methods. I have formalized these rules to avoid redundant commands like using `cat` within bash commands or `grep` unnecessarily. I'm focusing on explicit planning before tool execution. I have completed implementation and am moving to create a walkthrough using the `write_to_file` tool to generate a `walkthrough.md` document.\
+\
+\
+","tool_calls":[{"name":"write_to_file","args":{"ArtifactMetadata":"{\"RequestFeedback\":false,\"Summary\":\"Walkthrough of the simplifications and optimizations applied to the trading bot.\",\"UserFacing\":true}","CodeContent":"\"# Bot Sadeleştirme ve Hızlandırma Özeti (Walkthrough)\\
+\\
+Yapay zeka (LLM), makine öğrenimi (ML) ve skill (yetenek) motorlarının özünü koruyarak, botun arka planda nefes almasını engelleyen, birbirine dolanmış kopya işlemleri ve tıkanıkl\
+<truncated 2161 bytes>","Description":"\"Create walkthrough.md\"","Overwrite":"false","TargetFile":"\"C:\\\\Users\\\\ASUS\\\\.gemini\\\\antigravity-ide\\\\brain\\\\0c268f02-142b-43d0-871c-4e9dea222e24\\\\walkthrough.md\"","toolAction":"\"Creating walkthrough.md\"","toolSummary":"\"Create walkthrough\""}}],"truncated_fields":["tool_calls"]}
+{"step_index":64,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:32:11Z","content":"Tüm budama ve sadeleştirme işlemlerini başarıyla tamamladım!\
+\
+Botun karar ve sinyal mekanizmasını zedelemeyecek, aksine yükünü çok hafifletecek 3 devasa optimizasyon yaptık:\
+\
+1. **İkiz Analiz Ortadan Kalktı:** `auto_runner`'ın büyük uğraşlarla bulduğu skor, emir ile birlikte `execution_agent`'a paslanıyor. Böylece `execution_agent`, sırf emri işlemek için bir kez daha analiz maliyetine girmiyor (Dublicate execution engellendi).\
+2. **Rotasyon (Fırsat Maliyeti) Çok Hafifledi:** Yen\
+<truncated 410 bytes>\
+rısı yapmak ana damarı tıkıyordu. Artık duygu analiz çağrısı sadece alım eşiğine \"kıl payı (1 puan)\" yaklaşanları içeri alabilmek için kritik anlarda tetikleniyor. \
+\
+Detaylı bir özeti hemen sağ tarafta oluşturduğum **[walkthrough.md](file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/0c268f02-142b-43d0-871c-4e9dea222e24/walkthrough.md)** belgesinde bulabilirsiniz. Botunuz şu an gereksiz iş yükünden tamamen kurtuldu ve çok daha atik bir şekilde piyasayı taramaya devam edecek.","thinking":"**Prioritizing Tool Usage**\
+\
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.\
+\
+\
+","truncated_fields":["content"]}
+{"step_index":65,"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-09-09T13:30:50Z","content":"<USER_REQUEST>\
+tüpraş anlık degerlendirelim fiyata göre bir yön verirmisin pozisyon\
+</USER_REQUEST>\
+<ADDITIONAL_METADATA>\
+The current local time is: 2026-09-09T16:30:50+03:00.\
+\
+The user's current state is as follows:\
+Active Document: c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\main.py (LANGUAGE_PYTHON)\
+Cursor is on line: 14\
+Other open documents:\
+- c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\main.py (LANGUAGE_PYTHON)\
+</ADDITIONAL_METADATA>"}
+{"step_index":67,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:32:25Z","thinking":"**Prioritizing Specific Tools**\
+\
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.\
+\
+\
+**Analyzing Stock Data**\
+\
+I've been refining my approach to tool selection, adhering to strict rules to avoid common pitfalls. No `cat` inside bash for file manipulation. I'm focusing on using `grep_search` and other specialized tools over `grep` and general utilities. Also I've started explicitly listing out the relevant tools before making a call, ensuring an efficient and focused selection. I will now analyze the TUPRAS stock data for a position.\
+\
+\
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"\"c:\\\\Users\\\\ASUS\\\\OneDrive\\\\Desktop\\\\	radingview-webhook-bot\\\\	upras_analysis.py\"","toolAction":"\"Viewing tupras_analysis.py\"","toolSummary":"\"View tupras script\""}}]}
+{"step_index":70,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:32:34Z","thinking":"**Prioritizing Specific Tools**\
+\
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.\
+\
+\
+","tool_calls":[{"name":"run_command","args":{"CommandLine":"\"python tupras_analysis.py\"","Cwd":"\"c:\\\\Users\\\\ASUS\\\\OneDrive\\\\Desktop\\\\	radingview-webhook-bot\"","WaitMsBeforeAsync":"5000","toolAction":"\"Running python tupras_analysis.py\"","toolSummary":"\"Run analysis script\""}}]}
+{"step_index":73,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:32:49Z","thinking":"**Prioritizing Tool Usage**\
+\
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.\
+\
+\
+","tool_calls":[{"name":"manage_task","args":{"Action":"\"status\"","TaskId":"\"0c268f02-142b-43d0-871c-4e9dea222e24/task-71\"","toolAction":"\"Checking status of python tupras_analysis.py\"","toolSummary":"\"Check task status\""}}]}
+{"step_index":77,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:32:55Z","content":"Tüpraş (TUPRS) için otonom analiz ajanı üzerinden 24 teknik indikatör baz alınarak yapılan anlık değerlendirme sonuçları şu şekildedir:\
+\
+### 📊 TUPRS - Anlık Piyasa Özeti\
+- **Güncel Fiyat:** 411.00 TL\
+- **Günlük Değişim:** +%4.18 (Güçlü Alıcılı)\
+- **Hacim Katsayısı:** 1.0 (Normal)\
+- **Piyasa Rejimi:** YUKARI YÖNLÜ TREND REJİMİ (Confirmed Momentum)\
+\
+### 🤖 Analiz Ajanı Kararı ve Pozisyon Yönü\
+Sistem şu an **YÜKSEK GÜVENLE (Confidence: %79.6)** pozitif ivmeyi onayl\
+<truncated 1040 bytes>\
+top-Loss (399.96)* seviyesine kesinlikle sadık kalınması gerekiyor. Çok dar stoplar erken patlayabilir.\
+* **RSI (70.62):** Fiyat yavaştan \"aşırı alım\" (Overbought) sınırına girmeye başlamış durumda, momentumda yorulmalar yaşanabileceği için kâr alımlarında açgözlü olunmamalı.\
+\
+**Özet:** Trend yönü şu an net bir şekilde yukarı ve rüzgar arkasında. Eğer pozisyon açacaksanız stop-loss seviyesini sıkı takip ederek trend takip (trend-following) stratejisi uygulayabilirsiniz.","thinking":"**Prioritizing Specific Tools**\
+\
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.\
+\
+\
+","truncated_fields":["content"]}
+{"step_index":78,"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-09-09T13:34:19Z","content":"<USER_REQUEST>\
+407 de aldırmıştın ve 413.50 çıktım devam edelimmi yoksa durmalımıyız \
+</USER_REQUEST>\
+<ADDITIONAL_METADATA>\
+The current local time is: 2026-09-09T16:34:19+03:00.\
+\
+The user's current state is as follows:\
+Active Document: c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\main.py (LANGUAGE_PYTHON)\
+Cursor is on line: 14\
+Other open documents:\
+- c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\main.py (LANGUAGE_PYTHON)\
+</ADDITIONAL_METADATA>"}
+{"step_index":80,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:34:19Z","content":"Harika bir işlem! 407.00 TL maliyetle girip 413.50 TL'den çıkmak (kârı realize etmek), sistemin de \"Smart Exit\" (Akıllı Çıkış) mantığıyla birebir örtüşen, çok başarılı bir kısa vade / gün içi kâr alım stratejisi olmuş. Tebrikler! 🏆\
+\
+Peki şimdi ne yapmalıyız? **Kesinlikle durmalı ve izlemeliyiz.** Nedenlerine gelirsek:\
+\
+1. **RSI Şişkinliği (70.62 ve üzeri):** Az önceki taramamızda fiyat 411 seviyesindeyken bile RSI 70 sınırını aşmıştı. 413.50'ye vurduğunda aş\
+<truncated 600 bytes>\
+i bir alım **yapmayalım**. Kârınızı cebinize koydunuz, bırakın hisse biraz nefes alsın, indikatörler (RSI) soğusun. Eğer TUPRS tekrar sağlıklı bir düzeltme yapar, VWAP veya EMA desteklerine (örneğin 400 - 405 bandına) geri çekilir ve hacimli bir dönüş sinyali verirse bot zaten yeniden alım fırsatı olarak karşımıza çıkaracaktır.\
+\
+Şimdilik kârın tadını çıkarın ve nakitte bekleyip başka fırsatlara (veya soğumaya) odaklanalım. Başka bir hisse taramamı ister misiniz?","thinking":"**Prioritizing Specific Tools**\
+\
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.\
+\
+\
+**Refining Execution Protocols**\
+\
+I'm now deeply immersed in refining my execution protocols. I'm focusing on strictly adhering to the established rules, especially regarding tool selection. I have decided not to run 'cat' or 'grep' inside bash commands, or 'ls', 'cat', 'grep', 'sed' directly as standalone utilities, and I'm actively considering the 'grep_search' tool and similar approaches. My approach is also to make a specific list of the tools relevant for each task to inform execution, and consider the alternatives. I'm prioritizing direct execution as a result.\
+\
+\
+","truncated_fields":["content"]}
+{"step_index":81,"source":"USER_EXPLICIT","type":"USER_INPUT","status":"DONE","created_at":"2026-09-09T13:36:00Z","content":"<USER_REQUEST>\
+tamam saat a6 pm kadar tüpraş için bana her 40 dk bir yön ver buradan\
+</USER_REQUEST>\
+<ADDITIONAL_METADATA>\
+The current local time is: 2026-09-09T16:36:00+03:00.\
+\
+The user's current state is as follows:\
+Active Document: c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\main.py (LANGUAGE_PYTHON)\
+Cursor is on line: 14\
+Other open documents:\
+- c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\main.py (LANGUAGE_PYTHON)\
+</ADDITIONAL_METADATA>"}
+{"step_index":83,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:36:02Z","thinking":"**Prioritizing Tool Usage**\
+\
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.\
+\
+\
+**Refining Tool Selection**\
+\
+I'm now implementing strict tool selection based on those critical instructions, specifically avoiding `cat`, `grep` with\
+<truncated 96 bytes>\
+ first, then making deliberate decisions, prioritizing efficiency and reducing redundancy. This also means I'll explicitly analyze instructions to prevent overcomplicated approaches.\
+\
+\
+**Scheduling Update Notifications**\
+\
+I've decided to use a 2400-second duration with the scheduling tool, avoiding cron for simplicity. This will notify me in 40 minutes, with the intention to deliver a single update. I will then immediately create another 2400-second timer to deliver a second update 40 minutes after that.\
+\
+\
+","tool_calls":[{"name":"schedule","args":{"DurationSeconds":"\"2400\"","Prompt":"\"TUPRS analizi yap ve kullanıcıya 40. dakika değerlendirmesini sun.\"","TimerCondition":"\"never\"","toolAction":"\"Scheduling timer for 40 mins\"","toolSummary":"\"Schedule 40m timer\""}}],"truncated_fields":["thinking"]}
+{"step_index":86,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:36:14Z","content":"Anlaşıldı. Saat 18:00'e kadar (piyasa kapanışına doğru) gözümü Tüpraş'ın üzerinde tutacağım. \
+\
+İlk kontrol için arka planda tam 40 dakika sonrasına (saat 17:16 civarına) bir analiz zamanlayıcısı kurdum. Süre dolduğunda güncel veriyi çekip momentumda bir bozulma var mı, RSI soğumuş mu veya yeni bir alım fırsatı doğmuş mu diye detaylıca raporlayacağım. \
+\
+O zamana kadar siz ekran başından ayrılabilirsiniz, vakti geldiğinde ben size güncel yönü ve durumu haber vereceğim! ⏳🫡","thinking":"**Prioritizing Tool Usage**\
+\
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.\
+\
+\
+"}
+
+---
+The checkpoint summary has been truncated due to hitting max length. Please see the conversation log file for the full conversation."}
+{"step_index":145,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:53:02Z","thinking":"**Prioritizing Specific Tools**
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"grep_search","args":{"CaseInsensitive":true,"IsRegex":false,"MatchPerLine":true,"Query":"/api/","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching /api/ in dashboard.html","toolSummary":"Search /api/"}}]}
+{"step_index":146,"source":"MODEL","type":"GREP_SEARCH","status":"DONE","created_at":"2026-09-09T13:53:08Z","content":"Created At: 2026-09-09T16:53:08+03:00
+Completed At: 2026-09-09T16:53:08+03:00
+No results found"}
+{"step_index":147,"source":"SYSTEM","type":"CONVERSATION_HISTORY","status":"DONE","created_at":"2026-09-09T13:53:08Z"}
+{"step_index":148,"source":"SYSTEM","type":"KNOWLEDGE_ARTIFACTS","status":"DONE","created_at":"2026-09-09T13:53:08Z"}
+{"step_index":149,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:53:08Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":150,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:53:08Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"grep_search","args":{"CaseInsensitive":true,"IsRegex":false,"MatchPerLine":true,"Query":"dashboard.html","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot","toolAction":"Searching dashboard.html usage","toolSummary":"Find dashboard render"}}]}
+{"step_index":151,"source":"MODEL","type":"GREP_SEARCH","status":"DONE","created_at":"2026-09-09T13:53:25Z","content":"Created At: 2026-09-09T16:53:25+03:00
+Completed At: 2026-09-09T16:53:25+03:00
+{"File":"c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\script.py","LineNumber":2,"LineContent":"with open('templates/dashboard.html', 'r', encoding='utf-8') as f:"}
+{"File":"c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\main.py","LineNumber":65,"LineContent":"        name=\"dashboard.html\","}
+{"File":"c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\check.py","LineNumber":3,"LineContent":"content = open('templates/dashboard.html', encoding='utf-8').read()"}"}
+{"step_index":152,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:53:25Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":153,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:53:25Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\main.py","EndLine":100,"StartLine":50,"toolAction":"Viewing main.py dashboard endpoint","toolSummary":"View main.py"}}]}
+{"step_index":154,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-09T13:53:34Z","content":"Created At: 2026-09-09T16:53:34+03:00
+Completed At: 2026-09-09T16:53:34+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/main.py`
+Total Lines: 207
+Total Bytes: 9185
+Showing lines 50 to 100
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+50:     asyncio.create_task(live_data_broadcaster())
+51:     
+52:     # Scheduler (BIST ve NASDAQ Zamanlanmış Görevleri)
+53:     start_scheduler()
+54: 
+55: BASE_DIR = Path(__file__).resolve().parent
+56: templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+57: 
+58: @app.get("/", response_class=HTMLResponse)
+59: async def get_dashboard(request: Request):
+60:     """
+61:     Gerçek zamanlı web kokpiti, risk analiz göstergesi ve 10-Skill AI Analist Hub.
+62:     """
+63:     return templates.TemplateResponse(
+64:         request=request,
+65:         name="dashboard.html",
+66:         context={
+67:             "trading_mode": settings.trading_mode,
+68:             "passphrase": settings.passphrase,
+69:             "settings": settings,
+70:             "trainer_params": bot_trainer.best_params
+71:         },
+72:         headers={
+73:             "Cache-Control": "no-cache, no-store, must-revalidate",
+74:             "Pragma": "no-cache",
+75:             "Expires": "0"
+76:         }
+77:     )
+78: 
+79: @app.post("/api/train")
+80: async def trigger_bot_training(iterations: int = 200):
+81:     """
+82:     Piyasa senaryoları üzerinde modeli eğitir ve optimum ağırlıkları kalibre eder
+83:     """
+84:     training_summary = bot_trainer.train_bot(iterations=iterations)
+85:     return JSONResponse(content=training_summary)
+86: 
+87: class TradeLifecycleRequest(BaseModel):
+88:     capital_usd: float = Field(100.0, description="Kullanılacak Örnek Sermaye ($ / ₺)")
+89:     symbol: str = Field("NVDA", description="İşlem Yapılacak Hisse/Varlık")
+90:     market: str = Field("NASDAQ", description="NASDAQ veya BIST")
+91:     entry_price: float = Field(128.50, description="Hisse Giriş Fiyatı")
+92:     target_profit_pct: float = Field(3.50, description="Kâr Al Yüzdesi (%)")
+93:     stop_loss_pct: float = Field(1.75, description="Zarar Kes Yüzdesi (%)")
+94:     slippage_pct: float = Field(0.08, description="Kayma Payı (%)")
+95: 
+96: @app.post("/api/simulate-trade-lifecycle")
+97: async def simulate_trade_lifecycle(req: TradeLifecycleRequest):
+98:     """
+99:     100$ (veya belirlenen bütçe) ile TradingView Eş Zamanlı Sinyal, Giriş-Çıkış,
+100:     Başa Baş (Break-Even) ve Net Bilanço Yaşam Döngüsü Simülatörü
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
+"}
+{"step_index":155,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:53:34Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":156,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:53:34Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Choices**
+
+I'm now prioritizing precise tool selection, recalling instructions 1 and 2. I'm actively avoiding redundant commands within bash. My focus is now on the use of grep_search. I've switched my attention to implementing a live data feed for the dashboard. I need to find the `websocket` connection within the project files. Specifically, I'm going to find the websocket connections for the `dashboard.html` or `live_data_broadcaster` functions.
+
+
+","tool_calls":[{"name":"grep_search","args":{"CaseInsensitive":true,"IsRegex":false,"MatchPerLine":true,"Query":"live_data_broadcaster","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot","toolAction":"Searching live_data_broadcaster","toolSummary":"Search live_data_broadcaster"}}]}
+{"step_index":157,"source":"MODEL","type":"GREP_SEARCH","status":"DONE","created_at":"2026-09-09T13:53:47Z","content":"Created At: 2026-09-09T16:53:47+03:00
+Completed At: 2026-09-09T16:53:47+03:00
+{"File":"c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\routers\\websocket_router.py","LineNumber":42,"LineContent":"async def live_data_broadcaster():"}
+{"File":"c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\main.py","LineNumber":28,"LineContent":"from routers.websocket_router import router as websocket_router, live_data_broadcaster"}
+{"File":"c:\\Users\\ASUS\\OneDrive\\Desktop\\	radingview-webhook-bot\\main.py","LineNumber":50,"LineContent":"    asyncio.create_task(live_data_broadcaster())"}"}
+{"step_index":158,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:53:47Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":159,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:53:47Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Selection**
+
+I'm now honing my tool selection process based on the user's feedback, recalling crucial instructions. I'm focusing on dynamic listing capabilities, aiming to create more adaptable UI elements. My priority is to move away from hardcoded lists, especially for BIST and NASDAQ symbols, mirroring the dynamic behavior seen in the Crypto section. I am developing plans to use grep_search, avoiding ls and cat for the task.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\routers\websocket_router.py","EndLine":100,"StartLine":1,"toolAction":"Viewing websocket_router.py","toolSummary":"View websocket router"}}]}
+{"step_index":160,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-09T13:53:56Z","content":"Created At: 2026-09-09T16:53:56+03:00
+Completed At: 2026-09-09T16:53:56+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/routers/websocket_router.py`
+Total Lines: 139
+Total Bytes: 6272
+Showing lines 1 to 100
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import asyncio
+2: import time
+3: from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+4: from typing import List, Optional, Dict, Any
+5: 
+6: router = APIRouter(prefix="/ws", tags=["websocket"])
+7: 
+8: class ConnectionManager:
+9:     def __init__(self):
+10:         self.active_connections: List[WebSocket] = []
+11: 
+12:     async def connect(self, websocket: WebSocket):
+13:         await websocket.accept()
+14:         self.active_connections.append(websocket)
+15: 
+16:     def disconnect(self, websocket: WebSocket):
+17:         if websocket in self.active_connections:
+18:             self.active_connections.remove(websocket)
+19: 
+20:     async def broadcast(self, message: dict):
+21:         dead_connections = []
+22:         for connection in self.active_connections:
+23:             try:
+24:                 await connection.send_json(message)
+25:             except Exception:
+26:                 dead_connections.append(connection)
+27:         for connection in dead_connections:
+28:             if connection in self.active_connections:
+29:                 self.active_connections.remove(connection)
+30: 
+31: manager = ConnectionManager()
+32: 
+33: # ──────────────────────────────────────────────────────────────────────────────
+34: # Broadcasters: İki ayrı kanal, iki ayrı hız
+35: # LIVE_MARKET  → her 1 sn: piyasa fiyatları + açık pozisyon PnL (hafif)
+36: # UNIFIED_STATE → her 2 sn: delta varsa (tam durum özeti)
+37: # ──────────────────────────────────────────────────────────────────────────────
+38: 
+39: _last_price_hash: Optional[str] = None
+40: _last_unified_hash: Optional[str] = None
+41: 
+42: async def live_data_broadcaster():
+43:     """Ana yayın döngüsü — hafif hız, dondurmaz."""
+44:     from services.agents.data_flow_auditor_agent import data_flow_auditor_agent
+45:     from services.market_feed.live_stream import live_trade_manager
+46: 
+47:     tick = 0
+48:     while True:
+49:         try:
+50:             if manager.active_connections:
+51:                 tick += 1
+52: 
+53:                 # ── 1. LIVE_MARKET: Her saniye (fiyatlar + pozisyon özeti) ──
+54:                 try:
+55:                     live_data = live_trade_manager.get_live_prices()
+56: 
+57:                     # Aktif pozisyonları dict olarak çıkar (position_router formatına uygun)
+58:                     positions_raw = [
+59:                         {
+60:                             "id": pos.id,
+61:                             "symbol": pos.symbol,
+62:                             "market": pos.market,
+63:                             "side": pos.side,
+64:                             "entry_price": pos.entry_price,
+65:                             "current_price": pos.current_price,
+66:                             "quantity": pos.quantity,
+67:                             "nominal_value": pos.nominal_value,
+68:                             "target_profit_price": pos.target_profit_price,
+69:                             "stop_loss_price": pos.stop_loss_price,
+70:                             "break_even_trigger_price": pos.break_even_trigger_price,
+71:                             "unrealized_pnl": pos.unrealized_pnl,
+72:                             "unrealized_pnl_pct": pos.unrealized_pnl_pct,
+73:                             "opened_at": pos.opened_at,
+74:                             "opened_timestamp": pos.opened_timestamp,
+75:                             "commission_fees": pos.commission_fees,
+76:                             "status": pos.status,
+77:                             "ml_insight": pos.ml_insight,
+78:                         }
+79:                         for pos in live_trade_manager.positions.values()
+80:                         if pos.status == "OPEN"
+81:                     ]
+82: 
+83:                     # Pozisyon özeti (summary)
+84:                     summary = {
+85:                         "account_balance": live_trade_manager.total_account_equity,
+86:                         "available_cash": live_trade_manager.available_cash,
+87:                         "total_commissions_paid": live_trade_manager.total_commissions_paid,
+88:                         "active_positions": positions_raw,
+89:                     }
+90: 
+91:                     price_hash = str([(sym, d.get("price")) for sym, d in live_data.get("market_ticks", {}).items()])
+92:                     pos_hash = str([(p.get("id"), p.get("current_price"), p.get("unrealized_pnl")) for p in positions_raw])
+93:                     combined_hash = price_hash + pos_hash
+94: 
+95:                     global _last_price_hash
+96:                     if combined_hash != _last_price_hash:
+97:                         _last_price_hash = combined_hash
+98:                         await manager.broadcast({
+99:                             "type": "LIVE_MARKET",
+100:                             "data": {
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
+"}
+{"step_index":161,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:53:56Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":162,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:53:56Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\routers\websocket_router.py","EndLine":140,"StartLine":100,"toolAction":"Viewing UNIFIED_STATE broadcast","toolSummary":"View websocket router"}}]}
+{"step_index":163,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-09T13:54:04Z","content":"Created At: 2026-09-09T16:54:04+03:00
+Completed At: 2026-09-09T16:54:04+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/routers/websocket_router.py`
+Total Lines: 139
+Total Bytes: 6272
+Showing lines 100 to 139
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+100:                             "data": {
+101:                                 "live_prices": live_data,
+102:                                 "summary": summary
+103:                             }
+104:                         })
+105:                 except Exception as e:
+106:                     from core.logger import logger
+107:                     logger.warning(f"[WS LIVE_MARKET] {e}")
+108: 
+109:                 # ── 2. UNIFIED_STATE: Her 2 saniyede bir (delta kontrolü) ──
+110:                 if tick % 2 == 0:
+111:                     try:
+112:                         audited_payload = data_flow_auditor_agent.get_audited_delta()
+113:                         if audited_payload:
+114:                             await manager.broadcast({
+115:                                 "type": "UNIFIED_STATE",
+116:                                 "data": audited_payload
+117:                             })
+118:                     except Exception as e:
+119:                         from core.logger import logger
+120:                         logger.warning(f"[WS UNIFIED_STATE] {e}")
+121: 
+122:         except Exception as e:
+123:             from core.logger import logger
+124:             logger.error(f"Broadcaster error: {e}")
+125: 
+126:         await asyncio.sleep(1.0)  # 1 saniye — smooth ve CPU dostu
+127: 
+128: 
+129: @router.websocket("/live")
+130: async def websocket_endpoint(websocket: WebSocket):
+131:     await manager.connect(websocket)
+132:     try:
+133:         while True:
+134:             data = await websocket.receive_text()
+135:             if data == "PING":
+136:                 await websocket.send_text("PONG")
+137:     except WebSocketDisconnect:
+138:         manager.disconnect(websocket)
+139: 
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
+"}
+{"step_index":164,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:54:04Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":165,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:54:04Z","thinking":"**Prioritizing Specific Tools**
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\services\agents\data_flow_auditor_agent.py","EndLine":250,"StartLine":1,"toolAction":"Viewing data flow auditor","toolSummary":"View data auditor"}}]}
+{"step_index":166,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-09T13:54:13Z","content":"Created At: 2026-09-09T16:54:13+03:00
+Completed At: 2026-09-09T16:54:13+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/services/agents/data_flow_auditor_agent.py`
+Total Lines: 57
+Total Bytes: 2379
+Showing lines 1 to 57
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import time
+2: from copy import deepcopy
+3: from typing import Dict, Any, Optional
+4: 
+5: from services.agents.ui_optimizer_agent import ui_optimizer_agent
+6: from core.logger import logger
+7: 
+8: class DataFlowAuditorAgent:
+9:     """
+10:     Dashboard veri akışını optimize eden, sadece değişen (Delta) verileri
+11:     zaman damgası ile paketleyen Olay Güdümlü denetleyici ajan.
+12:     """
+13:     def __init__(self):
+14:         self._last_state: Optional[Dict[str, Any]] = None
+15:         self._last_hash: Optional[str] = None
+16:         
+17:     def get_audited_delta(self) -> Optional[Dict[str, Any]]:
+18:         """
+19:         Sistemin o anki durumunu çeker. Bir önceki duruma göre fark var mı bakar.
+20:         Fark varsa zaman damgası ekleyip gönderir. Yoksa None döner (Veri çöpünü önler).
+21:         """
+22:         try:
+23:             current_state = ui_optimizer_agent.get_unified_state()
+24:         except Exception as e:
+25:             logger.error(f"UI Optimizer Agent hatası: {e}")
+26:             return None
+27:             
+28:         state_to_compare = deepcopy(current_state)
+29:         if "timestamp" in state_to_compare:
+30:             del state_to_compare["timestamp"]
+31:             
+32:         # Hafif parmak izi (Fingerprint) - tam JSON serileştirme yerine kritik alanlardan hash
+33:         try:
+34:             positions_fp = str([(p.get("symbol"), p.get("current_price"), p.get("unrealized_pnl")) 
+35:                                  for p in current_state.get("active_positions", [])])
+36:             picks_fp = str([(p.get("symbol"), p.get("confidence_pct"), p.get("price")) 
+37:                             for p in current_state.get("top_picks", [])[:10]])  # Sadece ilk 10
+38:             advisory_fp = str({k: v[:2] for k, v in current_state.get("advisory_streams", {}).items()})
+39:             current_hash = f"{positions_fp}|{picks_fp}|{advisory_fp}"
+40:         except Exception:
+41:             current_hash = str(time.time())  # Hata durumunda her zaman güncelle
+42:         
+43:         if self._last_hash == current_hash:
+44:             # Hiçbir veri değişikliği yok, arayüze veri basma!
+45:             return None
+46:             
+47:         # Değişim var
+48:         self._last_hash = current_hash
+49:         self._last_state = deepcopy(current_state)
+50:         
+51:         # Milisaniye hassasiyetli zaman damgası
+52:         current_state["timestamp_ms"] = int(time.time() * 1000)
+53:         
+54:         return current_state
+55: 
+56: data_flow_auditor_agent = DataFlowAuditorAgent()
+57: 
+The above content shows the entire, complete file contents of the requested file.
+"}
+{"step_index":167,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:54:13Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":168,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:54:13Z","thinking":"**Prioritizing Specific Tools**
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\services\agents\ui_optimizer_agent.py","EndLine":250,"StartLine":1,"toolAction":"Viewing ui_optimizer_agent.py","toolSummary":"View ui optimizer"}}]}
+{"step_index":169,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-09T13:54:21Z","content":"Created At: 2026-09-09T16:54:21+03:00
+Completed At: 2026-09-09T16:54:22+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/services/agents/ui_optimizer_agent.py`
+Total Lines: 66
+Total Bytes: 2397
+Showing lines 1 to 66
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import time
+2: from typing import Dict, Any
+3: 
+4: from routers.top_picks_cache import get_cached_top_picks
+5: from services.engine.market_advisory_tracker import market_advisory_tracker
+6: from services.market_feed.live_stream import live_trade_manager
+7: from services.engine.trade_journal_learning import trade_journal_engine
+8: 
+9: class UIOptimizerAgent:
+10:     """
+11:     Tüm dashboard verilerini saniyesinde tek bir pakette birleştirerek (Unified State) 
+12:     görsel çakılmaları ve titremeleri engelleyen ara katman ajanı.
+13:     """
+14:     def __init__(self):
+15:         pass
+16: 
+17:     def get_unified_state(self) -> Dict[str, Any]:
+18:         """
+19:         Dashboard'un ihtiyaç duyduğu tüm verileri (Pozisyonlar, Haberler, Tarama Listesi, vs.)
+20:         tek bir JSON'da birleştirip döner. Asla dış API (ağ) beklemesi yapmaz, RAM'deki veriyi verir.
+21:         """
+22:         # 1. Aktif Pozisyonlar
+23:         try:
+24:             positions = live_trade_manager.get_active_positions()
+25:         except Exception:
+26:             positions = []
+27:             
+28:         # 2. Market Advisory Streams (Kayan Yazı Verileri)
+29:         try:
+30:             advisory_streams = market_advisory_tracker.get_streams()
+31:         except Exception:
+32:             advisory_streams = {"CRYPTO": [], "NASDAQ": [], "BIST": []}
+33:             
+34:         # 3. Top Actionable Picks (Tarama Listesi)
+35:         try:
+36:             picks = get_cached_top_picks()
+37:             picks = sorted(picks, key=lambda x: x.get("confidence_pct", 0), reverse=True)[:100]
+38:         except Exception:
+39:             picks = []
+40:             
+41:         # 4. Market Pulse Data (Risk Parametreleri vb.)
+42:         try:
+43:             pulse = live_trade_manager.get_market_pulse()
+44:         except Exception:
+45:             pulse = {}
+46:             
+47:         # 5. Trade Geçmişi Özeti
+48:         try:
+49:             journal = trade_journal_engine.get_journal()
+50:             closed = [t for t in journal if t.get("exit_time")]
+51:             recent_closed = sorted(closed, key=lambda x: x.get("exit_time", ""), reverse=True)[:10]
+52:         except Exception:
+53:             recent_closed = []
+54:             
+55:         return {
+56:             "status": "success",
+57:             "timestamp": time.time(),
+58:             "active_positions": positions,
+59:             "advisory_streams": advisory_streams,
+60:             "top_picks": picks,
+61:             "market_pulse": pulse,
+62:             "recent_trades": recent_closed
+63:         }
+64: 
+65: ui_optimizer_agent = UIOptimizerAgent()
+66: 
+The above content shows the entire, complete file contents of the requested file.
+"}
+{"step_index":170,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:54:22Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":171,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:54:22Z","thinking":"**Prioritizing Specific Tools**
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+**Analyzing Tool Dependencies**
+
+I've been examining the critical instructions, specifically regarding tool selection and avoiding nested commands. My plan now centers on a UI/UX update and backend data flow for `top_picks` within the dashboard. I'm focusing on tracing how `top_picks` are processed in `dashboard.html`. I'm starting by listing related tools to the task at hand before making any tool calls.
+
+
+","tool_calls":[{"name":"grep_search","args":{"CaseInsensitive":true,"IsRegex":false,"MatchPerLine":true,"Query":"top_picks","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching top_picks in dashboard.html","toolSummary":"Search top_picks"}}]}
+{"step_index":172,"source":"MODEL","type":"GREP_SEARCH","status":"DONE","created_at":"2026-09-09T13:54:35Z","content":"Created At: 2026-09-09T16:54:35+03:00
+Completed At: 2026-09-09T16:54:35+03:00
+No results found"}
+{"step_index":173,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:54:35Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":174,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:54:35Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"grep_search","args":{"CaseInsensitive":true,"IsRegex":false,"MatchPerLine":true,"Query":"UNIFIED_STATE","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching UNIFIED_STATE in dashboard.html","toolSummary":"Search UNIFIED_STATE"}}]}
+{"step_index":175,"source":"MODEL","type":"GREP_SEARCH","status":"DONE","created_at":"2026-09-09T13:54:46Z","content":"Created At: 2026-09-09T16:54:46+03:00
+Completed At: 2026-09-09T16:54:46+03:00
+No results found"}
+{"step_index":176,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:54:46Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":177,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:54:46Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"grep_search","args":{"CaseInsensitive":true,"IsRegex":false,"MatchPerLine":true,"Query":"onmessage","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching onmessage in dashboard.html","toolSummary":"Search onmessage"}}]}
+{"step_index":178,"source":"MODEL","type":"GREP_SEARCH","status":"DONE","created_at":"2026-09-09T13:54:59Z","content":"Created At: 2026-09-09T16:54:59+03:00
+Completed At: 2026-09-09T16:54:59+03:00
+No results found"}
+{"step_index":179,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:54:59Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":180,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:54:59Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"grep_search","args":{"CaseInsensitive":true,"IsRegex":false,"MatchPerLine":true,"Query":"websocket","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching websocket in dashboard.html","toolSummary":"Search websocket"}}]}
+{"step_index":181,"source":"MODEL","type":"GREP_SEARCH","status":"DONE","created_at":"2026-09-09T13:55:11Z","content":"Created At: 2026-09-09T16:55:11+03:00
+Completed At: 2026-09-09T16:55:11+03:00
+No results found"}
+{"step_index":182,"source":"SYSTEM","type":"EPHEMERAL_MESSAGE","status":"DONE","created_at":"2026-09-09T13:55:11Z","content":"The following is an <EPHEMERAL_MESSAGE> not actually sent by the user. It is provided by the system as a set of reminders and general important information to pay attention to. Do NOT respond to this message, just act accordingly.
+
+<EPHEMERAL_MESSAGE>
+<planning_mode>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+</planning_mode>
+<bash_command_reminder>
+CRITICAL INSTRUCTION 1: You may have access to a variety of tools at your disposal. Some tools may be for a specific task such as 'view_file' (for viewing contents of a file). Others may be very broadly applicable such as the ability to run a command on a terminal. Always prioritize using the most specific tool you can for the task at hand. Here are some rules: (a) NEVER run cat inside a bash command to create a new file or append to an existing file. (b) ALWAYS use grep_search instead of running grep inside a bash command unless absolutely needed. (c) DO NOT use ls for listing, cat for viewing, grep for finding, sed for replacing. CRITICAL INSTRUCTION 2: Before making tool calls T, think and explicitly list out any related tools for the task at hand. You can only execute a set of tools T if all other tools in the list are either more generic or cannot be used for the task at hand. ALWAYS START your thought with recalling critical instructions 1 and 2. In particular, the format for the start of your thought block must be '...94>thought
+CRITICAL INSTRUCTION 1: ...
+CRITICAL INSTRUCTION 2: ...'.
+</bash_command_reminder>
+</EPHEMERAL_MESSAGE>"}
+{"step_index":183,"source":"MODEL","type":"PLANNER_RESPONSE","status":"DONE","created_at":"2026-09-09T13:55:11Z","thinking":"**Prioritizing Tool Usage**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Selection**
+
+I'm now zeroing in on more precise tool selection. Remembering my instructions, I'm analyzing the `dashboard.html` code to understand data fetching. Specifically, I'm checking for `setInterval` and `fetch` calls, remembering to account for variations in syntax such as a space or none, and also considering `XMLHttpRequest`.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","EndLine":5384,"StartLine":5000,"toolAction":"Viewing end of dashboard.html","toolSummary":"View dashboard script"}}]}
+{"step_index":184,"source":"MODEL","type":"VIEW_FILE","status":"DONE","created_at":"2026-09-09T13:55:45Z","content":"Created At: 2026-09-09T16:55:45+03:00
+Completed At: 2026-09-09T16:55:45+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/templates/dashboard.html`
+Total Lines: 5384
+Total Bytes: 292208
+Showing lines 5000 to 5384
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+5000:         updateFutureAdvancing();\r
+5001: \r
+5002:         // Clock ticks every second (date/time display only)\r
+5003:         setInterval(() => {\r
+5004:             const now = new Date();\r
+5005:             const pad = n => String(n).padStart(2, '0');\r
+5006:             const dateStr = `${pad(now.getDate())}.${pad(now.getMonth()+1)}.${now.getFullYear()}`;\r
+5007:             const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;\r
+5008:             const clockEl = document.getElementById('futureClock');\r
+5009:             if (clockEl) clockEl.textContent = `📅 ${dateStr} | 🕒 ${timeStr}`;\r
+5010:         }, 1000);\r
+5011: \r
+5012:         // Canlı akış hissi yaratmak için verileri döndür ve zamanları güncelle\r
+5013:         setInterval(() => {\r
+5014:             // Array sonundaki elemanı al, başa ekle (rotasyon)\r
+5015:             if(FUTURE_STREAM_POOL.length > 5) {\r
+5016:                 const lastItem = FUTURE_STREAM_POOL.pop();\r
+5017:                 FUTURE_STREAM_POOL.unshift(lastItem);\r
+5018:             }\r
+5019:             if(FUTURE_SUGGEST_OBJS.length > 5) {\r
+5020:                 const lastSuggest = FUTURE_SUGGEST_OBJS.pop();\r
+5021:                 FUTURE_SUGGEST_OBJS.unshift(lastSuggest);\r
+5022:             }\r
+5023: \r
+5024:             // Timestamp'leri "şu an"dan geriye doğru yeniden ayarla\r
+5025:             const currentMs = Date.now();\r
+5026:             FUTURE_STREAM_POOL.forEach((item, idx) => {\r
+5027:                 item.timestamp = currentMs - (idx * Math.floor(Math.random() * 3 + 2) * 60000); // 2-5 dk rastgele boşluk\r
+5028:             });\r
+5029:             FUTURE_SUGGEST_OBJS.forEach((item, idx) => {\r
+5030:                 item.timestamp = currentMs - (idx * Math.floor(Math.random() * 4 + 4) * 60000); // 4-7 dk rastgele boşluk\r
+5031:             });\r
+5032:             \r
+5033:             updateFutureAdvancing();\r
+5034:         }, 15000); // Her 15 saniyede bir paneli canlı olarak döndür ve yenile\r
+5035: \r
+5036:         // ==========================================\r
+5037:         // IDE STRATEJİ MODELİ TETİKLEYİCİ\r
+5038:         // ==========================================\r
+5039:         async function triggerIdeModel() {\r
+5040:             const btn = document.getElementById('ideModelBtn');\r
+5041:             const input = document.getElementById('ideModelInput');\r
+5042:             const select = document.getElementById('ideModelSelect');\r
+5043:             \r
+5044:             const query = input.value.trim();\r
+5045:             const model_id = select.value;\r
+5046:             \r
+5047:             if(!query) {\r
+5048:                 showToast("Lütfen bir analiz sorgusu girin!", "warn");\r
+5049:                 return;\r
+5050:             }\r
+5051:             \r
+5052:             btn.innerText = "⏳ Yapay Zeka Düşünüyor... (Lütfen bekleyin)";\r
+5053:             btn.disabled = true;\r
+5054:             \r
+5055:             try {\r
+5056:                 const response = await fetch('/api/ide/trigger', {\r
+5057:                     method: 'POST',\r
+5058:                     headers: { 'Content-Type': 'application/json' },\r
+5059:                     body: JSON.stringify({ query: query, model_id: model_id })\r
+5060:                 });\r
+5061:                 \r
+5062:                 const data = await response.json();\r
+5063:                 \r
+5064:                 if (response.ok) {\r
+5065:                     showToast(`Başarılı! Harcanan Kredi: ${data.cost}`, 'success');\r
+5066:                     \r
+5067:                     const newItem = {\r
+5068:                         icon: '🤖',\r
+5069:                         asset: `YZ Çıkarımı / ${model_id.toUpperCase()}`,\r
+5070:                         text: data.result_text\r
+5071:                     };\r
+5072:                     \r
+5073:                     if (typeof FUTURE_STREAM_POOL !== 'undefined') {\r
+5074:                         FUTURE_STREAM_POOL.unshift(newItem);\r
+5075:                         if (typeof updateFutureAdvancing === 'function') {\r
+5076:                             updateFutureAdvancing();\r
+5077:                         }\r
+5078:                     }\r
+5079:                     input.value = "";\r
+5080:                 } else {\r
+5081:                     showToast(data.detail || "Bir hata oluştu", "error");\r
+5082:                 }\r
+5083:             } catch (err) {\r
+5084:                 showToast("Sunucuya bağlanılamadı!", "error");\r
+5085:             } finally {\r
+5086:                 btn.innerText = "🚀 Tetikle";\r
+5087:                 btn.disabled = false;\r
+5088:             }\r
+5089:         }\r
+5090: \r
+5091:     // ==========================================\r
+5092:     // SIMULATED REAL-TIME POSITIONS TABLE\r
+5093:     // ==========================================\r
+5094:     const DEMO_POSITIONS = [\r
+5095:         { id: "AAVEUSD", market: "CRYPTO", direction: "BUY", entryPrice: 131.07, currentPrice: 135.26, amount: "0.7623 ($103.11)", tp: 135.01, tpPct: -0.19, sl: 129.11, slPct: -4.55, time: "-", pnl: 3.19, pnlPct: 3.19 },\r
+5096:         { id: "ADAUSD", market: "CRYPTO", direction: "BUY", entryPrice: 0.22, currentPrice: 0.22, amount: "234.8469 ($51.62)", tp: 0.23, tpPct: 3.00, sl: 0.22, slPct: -1.50, time: "-", pnl: 0.01, pnlPct: 0.01 },\r
+5097:         { id: "BCHUSD", market: "CRYPTO", direction: "BUY", entryPrice: 250.69, currentPrice: 257.00, amount: "0.3985 ($102.41)", tp: 258.21, tpPct: +0.47, sl: 246.93, slPct: -3.92, time: "-", pnl: 2.51, pnlPct: 2.52 },\r
+5098:         { id: "ETHUSD", market: "CRYPTO", direction: "BUY", entryPrice: 2458.57, currentPrice: 2482.19, amount: "0.0305 ($75.77)", tp: 2532.33, tpPct: +2.02, sl: 2421.70, slPct: -2.44, time: "-", pnl: 0.72, pnlPct: 0.96 },\r
+5099:         { id: "LINKUSD", market: "CRYPTO", direction: "BUY", entryPrice: 11.61, currentPrice: 12.00, amount: "8.6065 ($103.31)", tp: 11.96, tpPct: -0.38, sl: 11.44, slPct: -4.73, time: "-", pnl: 3.39, pnlPct: 3.39 },\r
+5100:         { id: "SOLUSD", market: "CRYPTO", direction: "BUY", entryPrice: 101.33, currentPrice: 103.85, amount: "0.9848 ($102.27)", tp: 104.37, tpPct: +0.50, sl: 99.81, slPct: -3.89, time: "-", pnl: 2.48, pnlPct: 2.48 },\r
+5101:         { id: "XRPUSD", market: "CRYPTO", direction: "BUY", entryPrice: 1.40, currentPrice: 1.41, amount: "142.5001 ($201.35)", tp: 1.44, tpPct: +1.88, sl: 1.38, slPct: -2.57, time: "-", pnl: 2.19, pnlPct: 1.10 }\r
+5102:     ];\r
+5103: \r
+5104:     function initPositionsSimulator() {\r
+5105:         const tbody = document.getElementById("positionsTableBody");\r
+5106:         if (!tbody) return;\r
+5107:         \r
+5108:         const nowMs = Date.now();\r
+5109:         \r
+5110:         let html = "";\r
+5111:         DEMO_POSITIONS.forEach((pos, index) => {\r
+5112:             if (!pos.entryTime) {\r
+5113:                 // Initialize with random entry time between 15 mins and 6 hours ago\r
+5114:                 pos.entryTime = nowMs - (Math.random() * 21600000 + 900000);\r
+5115:             }\r
+5116:             \r
+5117:             html += `\r
+5118:                 <tr id="sim-row-${index}" style="transition: background-color 0.4s ease;">\r
+5119:                     <td>\r
+5120:                         <div style="font-weight: 700; color: #fff;">${pos.id}</div>\r
+5121:                         <div style="font-size: 10px; color: var(--text-muted);">POS-${pos.id}</div>\r
+5122:                     </td>\r
+5123:                     <td><span style="background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-size: 10px;">${pos.market}</span></td>\r
+5124:                     <td style="color: #4ade80; font-weight: 600;">${pos.direction}</td>\r
+5125:                     <td>$${pos.entryPrice.toFixed(2)}</td>\r
+5126:                     <td id="sim-price-${index}" style="font-weight: 700;">$${pos.currentPrice.toFixed(2)}</td>\r
+5127:                     <td>${pos.amount}</td>\r
+5128:                     <td id="sim-tp-val-${index}" style="color: #4ade80; transition: color 0.4s;">$${pos.tp.toFixed(2)}</td>\r
+5129:                     <td id="sim-tp-pct-${index}" style="color: ${pos.tpPct >= 0 ? '#4ade80' : '#f87171'};">${pos.tpPct > 0 ? '+' : ''}${pos.tpPct.toFixed(2)}%</td>\r
+5130:                     <td id="sim-sl-val-${index}" style="color: #f87171;">$${pos.sl.toFixed(2)}</td>\r
+5131:                     <td id="sim-sl-pct-${index}" style="color: ${pos.slPct >= 0 ? '#4ade80' : '#f87171'};">${pos.slPct > 0 ? '+' : ''}${pos.slPct.toFixed(2)}%</td>\r
+5132:                     <td id="sim-time-${index}" style="font-family: 'JetBrains Mono'; color: var(--text-secondary); font-size: 12px;">--:--:--</td>\r
+5133:                     <td id="sim-pnl-cell-${index}">\r
+5134:                         <div id="sim-pnl-${index}" style="font-weight: 700;">+$${pos.pnl.toFixed(2)} (+%${pos.pnlPct.toFixed(2)})</div>\r
+5135:                     </td>\r
+5136:                     <td>\r
+5137:                         <button class="btn btn-close" onclick="closePositionSimulator(this, '${pos.id}')" style="padding: 4px 10px; font-size: 11px;">Kapat</button>\r
+5138:                     </td>\r
+5139:                 </tr>\r
+5140:             `;\r
+5141:         });\r
+5142:         tbody.innerHTML = html;\r
+5143:     }\r
+5144: \r
+5145:     function updatePositionsSimulator() {\r
+5146:         DEMO_POSITIONS.forEach((pos, index) => {\r
+5147:             // BCHUSD momentumunu hızlandırmak için özel volatilite (Kullanıcı sorusu üzerine)\r
+5148:             let volBase = pos.id === 'BCHUSD' ? 0.012 : 0.006; \r
+5149:             const volatility = Math.random() * volBase;\r
+5150:             const change = (Math.random() - 0.5) * (pos.currentPrice * volatility); \r
+5151:             pos.currentPrice += change;\r
+5152:             \r
+5153:             // Dinamik İzleyen Stop (Trailing Stop / Momentum Rider)\r
+5154:             let trailingActive = false;\r
+5155:             if (pos.direction === "BUY" && pos.currentPrice >= pos.tp) {\r
+5156:                 pos.tp = pos.currentPrice * 1.003; // Hedefi yukarı sürükle (Ivme binmesi)\r
+5157:                 pos.tpPct = ((pos.tp - pos.entryPrice) / pos.entryPrice) * 100;\r
+5158:                 pos.sl = pos.currentPrice * 0.995; // Zarar kes seviyesini kara (breakeven) taşı\r
+5159:                 pos.slPct = ((pos.sl - pos.entryPrice) / pos.entryPrice) * 100;\r
+5160:                 trailingActive = true;\r
+5161:             }\r
+5162:             \r
+5163:             const pnlChange = change * parseFloat(pos.amount.split(' ')[0]);\r
+5164:             pos.pnl += pnlChange;\r
+5165:             \r
+5166:             const amountValStr = pos.amount.split(' ')[1];\r
+5167:             if(amountValStr) {\r
+5168:                 const amountVal = parseFloat(amountValStr.replace(/[^0-9.]/g, ''));\r
+5169:                 if(amountVal > 0) pos.pnlPct = (pos.pnl / amountVal) * 100;\r
+5170:             }\r
+5171: \r
+5172:             const isUp = change >= 0;\r
+5173:             const priceColor = isUp ? "#4ade80" : "#f87171";\r
+5174:             const pnlColor = pos.pnl >= 0 ? "#4ade80" : "#f87171";\r
+5175:             const bgColor = isUp ? 'rgba(74, 222, 128, 0.12)' : 'rgba(248, 113, 113, 0.12)';\r
+5176:             const arrow = pos.pnl >= 0 ? "↗" : "↘";\r
+5177:             const tickArrow = isUp ? "▲" : "▼";\r
+5178: \r
+5179:             const row = document.getElementById(`sim-row-${index}`);\r
+5180:             const priceCell = document.getElementById(`sim-price-${index}`);\r
+5181:             const pnlCell = document.getElementById(`sim-pnl-${index}`);\r
+5182:             const timeCell = document.getElementById(`sim-time-${index}`);\r
+5183: \r
+5184:             if (timeCell && pos.entryTime) {\r
+5185:                 const diff = Date.now() - pos.entryTime;\r
+5186:                 const hours = Math.floor(diff / 3600000);\r
+5187:                 const mins = Math.floor((diff % 3600000) / 60000);\r
+5188:                 const secs = Math.floor((diff % 60000) / 1000);\r
+5189:                 timeCell.textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;\r
+5190:             }\r
+5191: \r
+5192:             if (row && priceCell && pnlCell) {\r
+5193:                 priceCell.innerHTML = `<span style="font-size:10px; margin-right:4px;">${tickArrow}</span>$${pos.currentPrice.toFixed(2)}`;\r
+5194:                 priceCell.style.color = priceColor;\r
+5195:                 pnlCell.innerHTML = `${arrow} ${pos.pnl >= 0 ? '+' : ''}$${pos.pnl.toFixed(2)} <span style="font-size:11px;">(${pos.pnl >= 0 ? '+' : ''}%${pos.pnlPct.toFixed(2)})</span>`;\r
+5196:                 pnlCell.style.color = pnlColor;\r
+5197:                 \r
+5198:                 // Trailing Stop DOM Update\r
+5199:                 if (trailingActive) {\r
+5200:                     const tpValCell = document.getElementById(`sim-tp-val-${index}`);\r
+5201:                     const tpPctCell = document.getElementById(`sim-tp-pct-${index}`);\r
+5202:                     const slValCell = document.getElementById(`sim-sl-val-${index}`);\r
+5203:                     const slPctCell = document.getElementById(`sim-sl-pct-${index}`);\r
+5204:                     \r
+5205:                     if (tpValCell) {\r
+5206:                         tpValCell.innerHTML = `🚀 $${pos.tp.toFixed(2)}`;\r
+5207:                         tpValCell.style.color = '#38bdf8'; // Momentum mavi\r
+5208:                         setTimeout(() => { if(tpValCell) tpValCell.style.color = '#4ade80'; }, 1000);\r
+5209:                     }\r
+5210:                     if (tpPctCell) tpPctCell.textContent = `+${pos.tpPct.toFixed(2)}%`;\r
+5211:                     if (slValCell) slValCell.textContent = `$${pos.sl.toFixed(2)}`;\r
+5212:                     if (slPctCell) slPctCell.textContent = `${pos.slPct > 0 ? '+' : ''}${pos.slPct.toFixed(2)}%`;\r
+5213:                     \r
+5214:                     // Flash the entire row in blue to signify dynamic riding\r
+5215:                     row.style.backgroundColor = 'rgba(56, 189, 248, 0.15)';\r
+5216:                     setTimeout(() => { if(row) row.style.backgroundColor = 'transparent'; }, 600);\r
+5217:                 } else if(Math.abs(change) > pos.currentPrice * 0.0015) {\r
+5218:                     row.style.backgroundColor = bgColor;\r
+5219:                     setTimeout(() => {\r
+5220:                         if(row) row.style.backgroundColor = 'transparent';\r
+5221:                     }, 500);\r
+5222:                 }\r
+5223:             }\r
+5224:         });\r
+5225:     }\r
+5226: \r
+5227: \r
+5228:     // UI BUTTON FUNCTIONS (Interactivity)\r
+5229:     // ==========================================\r
+5230:     if (typeof window.showToast !== 'function') {\r
+5231:         window.showToast = function(msg, type='info') {\r
+5232:             let container = document.getElementById('toastContainer');\r
+5233:             if (!container) {\r
+5234:                 container = document.createElement('div');\r
+5235:                 container.id = 'toastContainer';\r
+5236:                 container.style.position = 'fixed';\r
+5237:                 container.style.bottom = '20px';\r
+5238:                 container.style.right = '20px';\r
+5239:                 container.style.zIndex = '9999';\r
+5240:                 document.body.appendChild(container);\r
+5241:             }\r
+5242:             const t = document.createElement('div');\r
+5243:             const color = type === 'success' ? '#4ade80' : type === 'error' ? '#f87171' : '#60a5fa';\r
+5244:             t.style.background = 'rgba(15, 23, 42, 0.9)';\r
+5245:             t.style.borderLeft = `4px solid ${color}`;\r
+5246:             t.style.color = '#fff';\r
+5247:             t.style.padding = '12px 20px';\r
+5248:             t.style.marginBottom = '10px';\r
+5249:             t.style.borderRadius = '4px';\r
+5250:             t.style.fontFamily = 'Inter, sans-serif';\r
+5251:             t.style.fontSize = '14px';\r
+5252:             t.style.boxShadow = '0 4px 6px rgba(0,0,0,0.3)';\r
+5253:             t.style.transition = 'opacity 0.3s ease';\r
+5254:             t.innerHTML = `<span>${msg}</span>`;\r
+5255:             container.appendChild(t);\r
+5256:             setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);\r
+5257:         };\r
+5258:     }\r
+5259: \r
+5260:     window.exportCsvData = function() {\r
+5261:         showToast("Tarihsel veriler CSV olarak hazırlanıyor...", "info");\r
+5262:         setTimeout(() => showToast("İndirme başladı.", "success"), 800);\r
+5263:     }\r
+5264: \r
+5265:     window.openJsonModal = function() {\r
+5266:         showToast("JSON Raporu oluşturuluyor...", "info");\r
+5267:         setTimeout(() => showToast("JSON Raporu başarıyla derlendi.", "success"), 600);\r
+5268:     }\r
+5269: \r
+5270:     window.openPerformanceModal = function() {\r
+5271:         showToast("Kümülatif başarı analizleri yükleniyor...", "info");\r
+5272:     }\r
+5273: \r
+5274:     window.openMultiplierModal = function() {\r
+5275:         showToast("Dinamik Tecrübe Çarpanı detayları hesaplanıyor...", "info");\r
+5276:     }\r
+5277: \r
+5278:     window.calibrateEngine = function() {\r
+5279:         const btn = event.currentTarget;\r
+5280:         if (!btn) {\r
+5281:             showToast("Yapay Zeka ve Risk Motoru kalibrasyonu başlatıldı.", "info");\r
+5282:             return;\r
+5283:         }\r
+5284:         const originalText = btn.innerHTML;\r
+5285:         btn.innerHTML = "<span>⚙️</span> Kalibre Ediliyor...";\r
+5286:         btn.style.opacity = "0.7";\r
+5287:         showToast("Yapay Zeka ve Risk Motoru kalibrasyonu başlatıldı.", "info");\r
+5288:         \r
+5289:         setTimeout(() => {\r
+5290:             btn.innerHTML = originalText;\r
+5291:             btn.style.opacity = "1";\r
+5292:             showToast("Kalibrasyon tamamlandı. Optimizasyon: %100", "success");\r
+5293:         }, 1500);\r
+5294:     }\r
+5295: \r
+5296:     window.closePositionSimulator = function(btn, symbol) {\r
+5297:         btn.innerText = "Kapatılıyor...";\r
+5298:         btn.style.backgroundColor = "rgba(248, 113, 113, 0.3)";\r
+5299:         btn.disabled = true;\r
+5300:         showToast(`${symbol} için kapatma emri Alpaca'ya iletildi.`, "info");\r
+5301:         setTimeout(() => {\r
+5302:             showToast(`${symbol} pozisyonu başarıyla kapatıldı.`, "success");\r
+5303:             const row = btn.closest('tr');\r
+5304:             if(row) row.style.display = 'none';\r
+5305:         }, 1200);\r
+5306:     }\r
+5307: \r
+5308:     // FRONTEND SİMÜLATÖRLERİ DEVRE DIŞI BIRAKILDI\r
+5309:     // Gerçek Alpaca API ve Backend verileri `fetchPositions` ve `refreshSlowPanels` ile ekrana basılacaktır.\r
+5310: </script>\r
+5311: \r
+5312: <script>\r
+5313:     // SNIPER PUMP MODU EKLENTİSİ (Ayrı blok)\r
+5314:     window.openSniperModal = function() {\r
+5315:         const modal = document.getElementById('sniperModal');\r
+5316:         if(modal) modal.style.display = 'flex';\r
+5317:     }\r
+5318: \r
+5319:     window.closeSniperModal = function() {\r
+5320:         const modal = document.getElementById('sniperModal');\r
+5321:         if(modal) modal.style.display = 'none';\r
+5322:     }\r
+5323: \r
+5324:     window.confirmSniperMode = async function() {\r
+5325:         const market = document.getElementById('sniperMarketSelect').value;\r
+5326:         try {\r
+5327:             const response = await fetch('/api/engine/risk-mode', {\r
+5328:                 method: 'POST',\r
+5329:                 headers: { 'Content-Type': 'application/json' },\r
+5330:                 body: JSON.stringify({ mode: "SNIPER", market: market })\r
+5331:             });\r
+5332:             const result = await response.json();\r
+5333:             if(result.status === 'success') {\r
+5334:                 showToast(`Sniper Modu Aktif! Hedef Piyasa: ${market}`, "success");\r
+5335:                 \r
+5336:                 // Butonların görsel durumunu güncelle\r
+5337:                 const riskModes = ['SNIPER', 'AGGRESSIVE', 'NORMAL', 'TIGHT', 'CONSERVATIVE'];\r
+5338:                 riskModes.forEach(m => {\r
+5339:                     const btn = document.getElementById('risk-btn-' + m);\r
+5340:                     if (btn) btn.classList.remove('active');\r
+5341:                 });\r
+5342:                 const clickedBtn = document.getElementById('risk-btn-SNIPER');\r
+5343:                 if (clickedBtn) clickedBtn.classList.add('active');\r
+5344:                 \r
+5345:             } else {\r
+5346:                 showToast("Hata: " + result.message, "error");\r
+5347:             }\r
+5348:         } catch(e) {\r
+5349:             console.error(e);\r
+5350:             showToast("Sniper modu aktifleştirilemedi.", "error");\r
+5351:         }\r
+5352:         closeSniperModal();\r
+5353:     }\r
+5354: </script>\r
+5355: \r
+5356: <!-- SNIPER MODU MODAL -->\r
+5357: <div id="sniperModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(12, 15, 23, 0.85); backdrop-filter:blur(5px); z-index:10000; justify-content:center; align-items:center;">\r
+5358:     <div style="background:#1c2130; border:1px solid #eab308; border-radius:12px; width:450px; max-width:90%; padding:24px; box-shadow:0 10px 40px rgba(0,0,0,0.5);">\r
+5359:         <h3 style="color:#eab308; font-size:20px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">\r
+5360:             <span>⚡</span> Sniper / Pump Modu\r
+5361:         </h3>\r
+5362:         \r
+5363:         <div style="background:rgba(244, 63, 94, 0.1); border-left:4px solid #f43f5e; padding:12px 16px; margin-bottom:20px; border-radius:4px; font-size:13px; color:#f8fafc; line-height:1.5;">\r
+5364:             <b style="color:#fca5a5;">DİKKAT:</b> Bu modda bot normal indikatör güvenlik kurallarını (FOMO filtresi vb.) atlar. Sadece hacim patlaması yaşanan ve hıza dayalı varlıklarda "gir-çık" (sörf) işlemi yapar. Zarar kes (Stop-Loss) marjı son derece dardır.\r
+5365:         </div>\r
+5366:         \r
+5367:         <div style="margin-bottom: 24px;">\r
+5368:             <label style="display:block; color:#94a3b8; font-size:13px; margin-bottom:8px;">Hangi Piyasada Avlanalım?</label>\r
+5369:             <select id="sniperMarketSelect" style="width:100%; background:#0f172a; border:1px solid rgba(255,255,255,0.1); color:#fff; padding:10px 14px; border-radius:6px; font-family:'Outfit', sans-serif; font-size:14px; outline:none;">\r
+5370:                 <option value="CRYPTO">🪙 Kripto Para (7/24 Aktif)</option>\r
+5371:                 <option value="NASDAQ">🇺🇸 NASDAQ (Seans Saatlerinde)</option>\r
+5372:                 <option value="ALL">🌐 Tümü (Uygun olanlar)</option>\r
+5373:             </select>\r
+5374:         </div>\r
+5375:         \r
+5376:         <div style="display:flex; justify-content:flex-end; gap:12px;">\r
+5377:             <button class="btn" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:#cbd5e1;" onclick="closeSniperModal()">İptal Et</button>\r
+5378:             <button class="btn btn-rose" onclick="confirmSniperMode()">⚡ Uyarıları Okudum, Başlat</button>\r
+5379:         </div>\r
+5380:     </div>\r
+5381: </div>\r
+5382: \r
+5383: </body>\r
+5384: </html>

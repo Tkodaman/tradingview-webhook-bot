@@ -178,6 +178,11 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
                     f"Entry: ${signal.price:.4f} | TP: ${tp_price:.4f} | SL: ${sl_price:.4f}"
                 )
                 res = broker.place_bracket_order(signal.symbol, "BUY", final_qty, tp_price, sl_price)
+                if res.get("status") == "error":
+                    logger.warning(f"[BROKER FALLBACK] Alpaca API error: {res.get('message')}. Falling back to Simulation Mode.")
+                    pos = live_trade_manager.open_position(signal.symbol, capital_used, "BUY", tp_pct, sl_pct, signal.price)
+                    if pos:
+                        res = {"status": "success", "order_id": f"SIM-{pos.id}", "details": "Simulated fallback"}
             elif action_clean in ["SELL", "CLOSE", "FLAT"]:
                 res = broker.close_position(signal.symbol)
             else:

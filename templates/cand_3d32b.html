@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradingView AI Gateway - Advanced Premium Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-base: #0B0E14;
+            --bg-card: #151924;
+            --border-color: rgba(255, 255, 255, 0.08);
+            
+            --accent-primary: #3b82f6;
+            --accent-success: #10b981;
+            --accent-danger: #ef4444;
+            --accent-warning: #f59e0b;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            
+            --radius: 12px;
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        body { background-color: var(--bg-base); color: var(--text-primary); min-height: 100vh; padding: 24px; }
+
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 16px 24px; background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: var(--radius); margin-bottom: 24px; box-shadow: var(--shadow-md);
+        }
+
+        .logo { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        .logo svg { color: var(--accent-primary); }
+
+        .status-indicator {
+            padding: 6px 14px; border-radius: 20px; background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success); font-weight: 600; font-size: 13px;
+            border: 1px solid rgba(16, 185, 129, 0.2); display: flex; align-items: center; gap: 8px;
+        }
+        .status-indicator.offline { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); border-color: rgba(239, 68, 68, 0.2); }
+
+        .pulse { width: 8px; height: 8px; border-radius: 50%; background-color: currentColor; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(currentcolor, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(currentcolor, 0); } 100% { box-shadow: 0 0 0 0 rgba(currentcolor, 0); } }
+
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; gap: 24px; }
+        
+        .panel {
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: var(--radius); box-shadow: var(--shadow-md);
+            display: flex; flex-direction: column; overflow: hidden; height: 400px;
+        }
+
+        .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); }
+        .panel-title { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+        .panel-content { flex: 1; overflow-y: auto; padding: 0; }
+        .panel-content.padded { padding: 20px; }
+
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { position: sticky; top: 0; background: #1a1e2b; padding: 10px 20px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid var(--border-color); z-index: 10; }
+        td { padding: 14px 20px; border-bottom: 1px solid var(--border-color); vertical-align: middle; font-size: 13px; }
+        tr:hover { background-color: rgba(255,255,255,0.03); }
+
+        .symbol-col { font-weight: 700; color: var(--text-primary); }
+        .market-tag { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .mono-text { font-family: 'JetBrains Mono', monospace; }
+
+        .badge { display: inline-flex; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .badge-buy { background: rgba(16,185,129,0.15); color: var(--accent-success); border: 1px solid rgba(16,185,129,0.3); }
+        .badge-sell { background: rgba(239,68,68,0.15); color: var(--accent-danger); border: 1px solid rgba(239,68,68,0.3); }
+        .badge-wait { background: rgba(245,158,11,0.15); color: var(--accent-warning); border: 1px solid rgba(245,158,11,0.3); }
+
+        .text-green { color: var(--accent-success); }
+        .text-red { color: var(--accent-danger); }
+
+        .empty-state { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
+        
+        .chart-container { width: 100%; height: 100%; position: relative; }
+        
+        /* Stats row */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+        .stat-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; }
+        .stat-value { font-size: 24px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        
+        /* Intelligence Feed */
+        .feed-item { padding: 12px 20px; border-bottom: 1px solid var(--border-color); }
+        .feed-item:last-child { border-bottom: none; }
+        .feed-time { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+        .feed-text { font-size: 13px; color: var(--text-primary); line-height: 1.4; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+            FlowHunt AI - Advanced Trading Terminal
+        </div>
+        <div id="engineStatus" class="status-indicator offline">
+            <div class="pulse"></div>
+            <span id="statusText">Motor Bağlanıyor...</span>
+        </div>
+    </div>
+
+    <!-- Quick Stats Row -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Toplam Bakiye (Kasa)</div>
+            <div class="stat-value text-primary" id="statBalance">$0.00</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Aktif Pozisyonlar</div>
+            <div class="stat-value" id="statActiveCount">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Gerçekleşen Günlük PnL</div>
+            <div class="stat-value text-green" id="statDailyPnl">$0.00</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Otonom Tarama Aralığı</div>
+            <div class="stat-value">3.0sn</div>
+        </div>
+    </div>
+
+    <div class="grid-layout">
+        
+        <!-- Live Matrix -->
+        <div class="panel">
+            <div class="panel-header"><div class="panel-title">Canlı Piyasa & Sinyal Matrisi (12 İndikatör)</div></div>
+            <div class="panel-content" id="liveFlowContainer"><div class="empty-state">Bağlantı Bekleniyor...</div></div>
+        </div>
+
+        <!-- Positions -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Aktif İşlemler (Canlı Takip)</div>
+                <div id="pnlSummary" class="mono-text font-bold text-green">$0.00</div>
+            </div>
+            <div class="panel-content" id="positionsContainer"><div class="empty-state">Aktif pozisyon yok.</div></div>
+        </div>
+
+        <!-- PnL Chart -->
+        <div class="panel">
+            <div class="panel-header"><div class="panel-title">Performans Grafiği (PnL)</div></div>
+            <div class="panel-content padded">
+                <div class="chart-container">
+                    <canvas id="pnlChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- LLM Intelligence / Logs -->
+        <div class="panel">
+            <div class="panel-header"><div class="panel-title">Yapay Zeka (LLM) Analiz & İşlem Geçmişi</div></div>
+            <div class="panel-content" id="intelligenceContainer">
+                <div class="empty-state">Geçmiş işlem verisi bekleniyor...</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Initialize Chart
+        let pnlChart = null;
+        function initChart() {
+            const ctx = document.getElementById('pnlChart').getContext('2d');
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.font.family = 'Inter';
+            
+            pnlChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Kümülatif PnL ($)',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            });
+        }
+
+        initChart();
+
+        async function fetchDashboardData() {
+            try {
+                // 1. Status Check
+                const resStatus = await fetch('/api/auto-runner/status');
+                if(resStatus.ok) {
+                    const dataStatus = await resStatus.json();
+                    const badge = document.getElementById('engineStatus');
+                    if (dataStatus.is_running) {
+                        badge.className = 'status-indicator';
+                        document.getElementById('statusText').innerText = 'Motor Aktif & Tarıyor';
+                    } else {
+                        badge.className = 'status-indicator offline';
+                        document.getElementById('statusText').innerText = 'Motor Durduruldu';
+                    }
+                }
+
+                // 2. Matrix
+                const resMatrix = await fetch('/api/live-matrix');
+                if(resMatrix.ok) {
+                    const dataMatrix = await resMatrix.json();
+                    const container = document.getElementById('liveFlowContainer');
+                    if (dataMatrix.matrix && dataMatrix.matrix.length > 0) {
+                        let html = `<table><thead><tr><th>Sembol</th><th>Fiyat</th><th>Skor</th><th>Sinyal</th></tr></thead><tbody>`;
+                        dataMatrix.matrix.forEach(item => {
+                            let bCls = 'badge-wait', bTxt = 'BEKLE';
+                            if(item.decision === 'BUY') { bCls = 'badge-buy'; bTxt = 'AL (BUY)'; }
+                            else if(item.decision === 'SELL') { bCls = 'badge-sell'; bTxt = 'SAT (SELL)'; }
+                            
+                            html += `<tr>
+                                <td><div class="symbol-col">${item.symbol}</div><div class="market-tag">${item.market||''}</div></td>
+                                <td class="mono-text">$${parseFloat(item.price).toFixed(2)}</td>
+                                <td><strong>${item.score}</strong>/8</td>
+                                <td><span class="badge ${bCls}">${bTxt}</span></td>
+                            </tr>`;
+                        });
+                        html += `</tbody></table>`;
+                        container.innerHTML = html;
+                    }
+                }
+
+                // 3. Positions & History
+                const resPos = await fetch('/api/positions/active');
+                if(resPos.ok) {
+                    const dataPos = await resPos.json();
+                    
+                    // Update Stats
+                    document.getElementById('statBalance').innerText = `$${(dataPos.account_balance || 0).toFixed(2)}`;
+                    document.getElementById('statActiveCount').innerText = (dataPos.active_positions || []).length;
+                    
+                    // Positions Table
+                    const container = document.getElementById('positionsContainer');
+                    if (dataPos.active_positions && dataPos.active_positions.length > 0) {
+                        let html = `<table><thead><tr><th>Pozisyon</th><th>Fiyatlar</th><th style="text-align:right;">PnL</th></tr></thead><tbody>`;
+                        let totalUnrealized = 0;
+                        dataPos.active_positions.forEach(pos => {
+                            const pnl = pos.unrealized_pnl || 0;
+                            totalUnrealized += pnl;
+                            const pnlCls = pnl >= 0 ? 'text-green' : 'text-red';
+                            const pnlSign = pnl >= 0 ? '+' : '';
+                            html += `<tr>
+                                <td><div class="symbol-col">${pos.symbol}</div><div class="market-tag">${pos.side}</div></td>
+                                <td class="mono-text" style="font-size:12px;">Gir: $${parseFloat(pos.entry_price).toFixed(2)}<br>Hed: $${parseFloat(pos.target_profit_price).toFixed(2)}</td>
+                                <td class="mono-text ${pnlCls}" style="text-align:right;">${pnlSign}$${pnl.toFixed(2)}</td>
+                            </tr>`;
+                        });
+                        html += `</tbody></table>`;
+                        container.innerHTML = html;
+                        document.getElementById('pnlSummary').innerText = `${totalUnrealized >= 0 ? '+':''}$${totalUnrealized.toFixed(2)}`;
+                        document.getElementById('pnlSummary').className = `mono-text ${totalUnrealized >= 0 ? 'text-green':'text-red'}`;
+                    } else {
+                        container.innerHTML = '<div class="empty-state">Aktif pozisyon bulunmamaktadır.</div>';
+                        document.getElementById('pnlSummary').innerText = "$0.00";
+                    }
+
+                    // Feed History (Logs)
+                    const feed = document.getElementById('intelligenceContainer');
+                    if(dataPos.history && dataPos.history.length > 0) {
+                        let feedHtml = '';
+                        // Reverse to show latest first
+                        [...dataPos.history].reverse().forEach(h => {
+                            const pnl = h.realized_pnl || 0;
+                            const pnlCls = pnl >= 0 ? 'text-green' : 'text-red';
+                            feedHtml += `<div class="feed-item">
+                                <div class="feed-time">${h.exit_time || h.entry_time || 'Bilinmiyor'}</div>
+                                <div class="feed-text"><strong>${h.symbol}</strong> işlem kapatıldı. PnL: <span class="${pnlCls}">$${pnl.toFixed(2)}</span>. Sebep: ${h.exit_reason || 'Manuel'}</div>
+                            </div>`;
+                        });
+                        feed.innerHTML = feedHtml;
+                        
+                        // Update Chart Data
+                        let cumPnl = 0;
+                        const labels = [];
+                        const dataPoints = [];
+                        dataPos.history.forEach((h, idx) => {
+                            cumPnl += (h.realized_pnl || 0);
+                            labels.push(`İşlem ${idx+1}`);
+                            dataPoints.push(cumPnl);
+                        });
+                        
+                        if(dataPoints.length > 0) {
+                            document.getElementById('statDailyPnl').innerText = `${cumPnl >= 0 ? '+':''}$${cumPnl.toFixed(2)}`;
+                            document.getElementById('statDailyPnl').className = `stat-value ${cumPnl >= 0 ? 'text-green':'text-red'}`;
+                            
+                            pnlChart.data.labels = labels;
+                            pnlChart.data.datasets[0].data = dataPoints;
+                            pnlChart.update();
+                        }
+                    }
+                }
+
+            } catch(e) { console.error(e); }
+        }
+
+        setInterval(fetchDashboardData, 3000);
+        fetchDashboardData();
+    </script>
+</body>
+</html>

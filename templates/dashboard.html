@@ -1,6 +1,15 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+    <script>
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+        var errStr = 'JS ERROR: ' + msg + ' at ' + lineNo;
+        alert(errStr);
+        document.body.innerHTML += '<div style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;padding:20px;font-size:20px;">' + errStr + '</div>';
+    window.addEventListener("unhandledrejection", function(event) {
+        alert("Promise ERROR: " + event.reason);
+    });
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TradingView AI Webhook Gateway & Otonom Piyasa Kokpiti</title>
@@ -15,8 +24,8 @@
             --border-light: rgba(255, 255, 255, 0.05);
             
             --text-primary: #e2e8f0;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
+            --text-secondary: #e2e8f0;
+            --text-muted: #cbd5e1;
             
             --up-color: #089981;
             --up-bg: rgba(8, 153, 129, 0.12);
@@ -48,6 +57,17 @@
             padding: 18px 24px;
             overflow-x: hidden;
         }
+
+        @keyframes flashGreen {
+            0% { background-color: rgba(34,197,94, 0.5); box-shadow: 0 0 12px rgba(34,197,94,0.7); transform: scale(1.02); }
+            100% { background-color: inherit; box-shadow: none; transform: scale(1); }
+        }
+        @keyframes flashRed {
+            0% { background-color: rgba(239,68,68, 0.5); box-shadow: 0 0 12px rgba(239,68,68,0.7); transform: scale(1.02); }
+            100% { background-color: inherit; box-shadow: none; transform: scale(1); }
+        }
+        .flash-up { animation: flashGreen 1.2s ease-out; }
+        .flash-down { animation: flashRed 1.2s ease-out; }
 
         /* HEADER SECTION */
         .header-section {
@@ -324,7 +344,7 @@
         /* TICKER GRID */
         .ticker-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             gap: 10px;
         }
 
@@ -355,10 +375,10 @@
 
         /* PİYASA KAPALIYSA KARTLAR SOLUK OLMALI */
         .market-closed {
-            opacity: 0.52 !important;
-            filter: grayscale(35%) !important;
+            opacity: 0.3 !important;
+            filter: grayscale(90%) !important;
             border-style: dashed !important;
-            border-color: rgba(255, 255, 255, 0.12) !important;
+            border-color: rgba(255, 255, 255, 0.05) !important;
         }
         .market-closed:hover {
             opacity: 0.88 !important;
@@ -519,7 +539,7 @@
         /* 2-COLUMN GRID (RULES & SUMMARY) */
         .two-col-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 20px;
             margin-bottom: 20px;
         }
@@ -690,6 +710,95 @@
         .stat-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
         .stat-value { font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
 
+        /* ===== PORTFÖY KPI BAR ===== */
+        .kpi-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+            padding: 14px 18px;
+            background: linear-gradient(135deg, rgba(28,33,48,0.9) 0%, rgba(15,18,26,0.98) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .kpi-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px;
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            border-radius: 10px 10px 0 0;
+        }
+        .kpi-card.kpi-blue::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        .kpi-card.kpi-green::before { background: linear-gradient(90deg, #089981, #34d399); }
+        .kpi-card.kpi-red::before { background: linear-gradient(90deg, #f23645, #fb7185); }
+        .kpi-card.kpi-purple::before { background: linear-gradient(90deg, #a855f7, #c084fc); }
+        .kpi-card.kpi-yellow::before { background: linear-gradient(90deg, #eab308, #facc15); }
+        .kpi-card.kpi-cyan::before { background: linear-gradient(90deg, #06b6d4, #67e8f9); }
+        .kpi-card.kpi-orange::before { background: linear-gradient(90deg, #f97316, #fb923c); }
+        .kpi-card.kpi-teal::before { background: linear-gradient(90deg, #14b8a6, #5eead4); }
+        .kpi-card:hover {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.12);
+            transform: translateY(-2px);
+        }
+        .kpi-icon { font-size: 18px; margin-bottom: 4px; }
+        .kpi-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .kpi-value {
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: #fff;
+            line-height: 1;
+        }
+        .kpi-sub {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .kpi-up { color: #089981 !important; }
+        .kpi-down { color: #f23645 !important; }
+
+        /* ===== ENHANCED POSITIONS TABLE ===== */
+        .pos-duration {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+        .pos-distance-tp {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+        .pos-distance-sl {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+        }
+        .realtime-flash {
+            animation: pricePulse 0.4s ease;
+        }
+        @keyframes pricePulse {
+            0% { opacity: 0.4; transform: scale(1.04); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
         .code-block {
             background: #0f121a;
             border: 1px solid var(--border-color);
@@ -699,14 +808,286 @@
             font-size: 11.5px;
             color: #d1d4dc;
             overflow-x: auto;
+
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with 3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+ **The earlier parts of this conversation have been truncated due to its long length. The following content summarizes the truncated context so that you may continue your work. **
+
+
+# USER Objective:
+Pencere Güncelleme Optimizasyonu
+
+# User Requests
+The following were user requests from the truncated conversation in chronological order:
+1.  kendini pencereler hala güncellemiyor beklenen mantıga uygun tüm pencerelerimiz akıcı hızlı anlık ve tarih saat uyumlu ilerlemeli ki ml gelişiminde etkili olsun.
+
+You have the 1 following artifacts written to the artifacts directory:
+
+[ARTIFACT: media_1788648442609]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/20d37064-7471-4d59-bb3e-40ec2c15b4e9/.user_uploaded/media_1788648442609.png
+Last Edited: 2026-09-05T22:47:34Z
+
+# Conversation Logs
+
+Reference the following log files for the full, untruncated conversation:
+
+- C:\Users\ASUS\.gemini\antigravity-ide\brain\20d37064-7471-4d59-bb3e-40ec2c15b4e9\.system_generated\logs\	ranscript.jsonl
+
+**IMPORTANT: this summary is just for your reference. You may respond to my previous and future messages, but DO NOT ACKNOWLEDGE THIS CHECKPOINT MESSAGE. JUST READ IT BUT DO NOT MENTION IT, RESPOND TO IT, OR TAKE ACTION BECAUSE OF IT.**
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Selection**
+
+I'm now zeroing in on precise tool choice, remembering those key rules about 
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","ContentOffset":260171,"toolAction":"Viewing file","toolSummary":"View dashboard.html continued max-height: 250px; overflow-y: auto;  max-height: 250px; overflow-y: auto; }]}
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with 3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"grep_search","args":{"Query":"function","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching the web","toolSummary":"Search for javascript functions in dashboard.html}]}
+Completed At: 2026-09-06T01:47:55+03:00
+{"File":"c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/templates/dashboard.html
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with 3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"grep_search","args":{"MatchPerLine":true,"Query":"function ","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching the web","toolSummary":"Search for javascript functions in dashboard.html}]}
+Completed At: 2026-09-06T01:48:00+03:00
+No results found
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with 3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","EndLine":1600,"StartLine":800,"toolAction":"Viewing file","toolSummary":"View dashboard.html 800 to 1600}]}
+Completed At: 2026-09-06T01:48:07+03:00
+File Path: Total Lines: 4791
+Total Bytes: 260171
+Showing lines 800 to 1599
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+            overflow-x: auto;
             max-height: 380px;
             white-space: pre-wrap;
             word-break: break-all;
         }
 
+        /* ==========================================
+           FUTURE ADVANCING PANEL
+        ========================================== */
+        .future-panel {
+            background: linear-gradient(135deg, rgba(10,12,28,0.97) 0%, rgba(14,18,42,0.97) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            border-radius: 14px;
+            padding: 0;
+            margin-bottom: 22px;
+            box-shadow: 0 0 40px rgba(99,102,241,0.08), 0 2px 24px rgba(0,0,0,0.5);
+            overflow: hidden;
+            position: relative;
+        }
+        .future-panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #6366f1);
+            background-size: 200% 100%;
+            animation: shimmer 3s linear infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        .future-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px 12px;
+            border-bottom: 1px solid rgba(99,102,241,0.2);
+            background: rgba(99,102,241,0.06);
+        }
+        .future-panel-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #c4b5fd;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .future-orb {
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: #818cf8;
+            box-shadow: 0 0 6px #818cf8, 0 0 14px rgba(129,140,248,0.5);
+            animation: orbPulse 2s ease-in-out infinite;
+        }
+        @keyframes orbPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.7); }
+        }
+        .future-clock {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #818cf8;
+            background: rgba(99,102,241,0.12);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(99,102,241,0.25);
+        }
+        .future-body {
+            padding: 16px 20px 8px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 1000px) {
+            .future-body { grid-template-columns: 1fr; }
+        }
+        #futureStreamContainer, #futureSuggestContainer {
+            max-height: 350px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        #futureStreamContainer::-webkit-scrollbar,
+        #futureSuggestContainer::-webkit-scrollbar { width: 5px; }
+        #futureStreamContainer::-webkit-scrollbar-track,
+        #futureSuggestContainer::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 8px; }
+        #futureStreamContainer::-webkit-scrollbar-thumb,
+        #futureSuggestContainer::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); border-radius: 8px; }
+        .future-section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            color: #6366f1;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(99,102,241,0.15);
+        }
+        .future-stream-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.04);
+            transition: background 0.2s, border-color 0.2s;
+            animation: fadeIn 0.4s ease-out;
+        }
+        .future-stream-item:hover { background: rgba(255,255,255,0.045); border-color: rgba(99,102,241,0.25); }
+        .future-stream-item .fsi-icon {
+            font-size: 13px;
+            line-height: 1.5;
+            flex-shrink: 0;
+        }
+        .future-stream-item .fsi-body {
+            flex: 1;
+        }
+        .fsi-asset {
+            font-size: 11px;
+            font-weight: 700;
+            color: #e2e8f0;
+            margin-bottom: 2px;
+        }
+        .fsi-text {
+            font-size: 11px;
+            color: #e2e8f0;
+            line-height: 1.55;
+        }
+        .future-suggestion-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            margin-bottom: 7px;
+            background: rgba(99,102,241,0.07);
+            border: 1px solid rgba(99,102,241,0.18);
+            animation: fadeIn 0.4s ease-out;
+            transition: background 0.2s;
+        }
+        .future-suggestion-item:hover { background: rgba(99,102,241,0.13); }
+        .fsi-num {
+            font-size: 10px;
+            font-weight: 800;
+            color: #818cf8;
+            background: rgba(99,102,241,0.2);
+            border-radius: 50%;
+            width: 18px; height: 18px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .fsi-suggest-text {
+            font-size: 11.5px;
+            color: #c4b5fd;
+            line-height: 1.6;
+        }
+        .future-footer {
+            padding: 8px 20px 12px;
+            font-size: 10px;
+            color: rgba(99,102,241,0.5);
+            text-align: right;
+            font-family: 'JetBrains Mono', monospace;
+            border-top: 1px solid rgba(99,102,241,0.08);
+            margin-top: 8px;
+        }
+
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    </style>
+    
+    @keyframes blinkFast {
+        0% { opacity: 1; }
+        50% { opacity: 0.1; }
+        100% { opacity: 1; }
+    }
+    .blink-fast { animation: blinkFast 0.8s infinite; }
+    @keyframes boxBlinkGreen {
+        0% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }
+        50% { box-shadow: 0 0 15px rgba(34,197,94,0.6); border-color: rgba(34,197,94,0.8); }
+        100% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }
+    }
+    .ready-to-buy-box { animation: boxBlinkGreen 1.5s infinite; border: 1px solid rgba(34,197,94,0.3); }
+    
+</style>
+
 </head>
 <body>
 
@@ -737,9 +1118,7 @@
                 <button class="btn btn-rose" id="btnDynMultiplier" onclick="openMultiplierModal()">
                     <span>⚡</span> Dinamik Tecrübe Çarpanı: 1.20x
                 </button>
-                <button class="btn btn-purple" onclick="openSimulateTradeModal()">
-                    <span>🧪</span> Test İşlemi Simüle Et
-                </button>
+
                 <button class="btn" style="border-color: rgba(255,255,255,0.15);" onclick="calibrateEngine()">
                     <span>🔄</span> Kalibre Et
                 </button>
@@ -751,45 +1130,70 @@
             <div class="risk-modes-label">
                 <span style="color: #eab308;">⚙️</span> Risk & Frekans Modu:
             </div>
-            <button class="risk-btn" id="risk-btn-AGGRESSIVE" onclick="setRiskMode('AGGRESSIVE')" title="Sık işlem yapar, risk eşiğini esnetir (Daha geniş stop-loss, düşük indikatör onayı).">
+            <button class="risk-btn" id="risk-btn-AGGRESSIVE" onclick="setRiskMode('AGGRESSIVE')" title="Sık işlem yapar, risk eşiğini esnetir (Min. %60 Kazanma İhtimali, derhal pozisyona girer).">
                 🔴 Agresif
             </button>
-            <button class="risk-btn active" id="risk-btn-NORMAL" onclick="setRiskMode('NORMAL')" title="Standart piyasa koşulları, dengeli al-sat ve normal hacim filtresi.">
+            <button class="risk-btn active" id="risk-btn-NORMAL" onclick="setRiskMode('NORMAL')" title="Standart piyasa koşulları, dengeli al-sat (Min. %85 Kazanma İhtimali).">
                 🟡 Normal
             </button>
-            <button class="risk-btn" id="risk-btn-TIGHT" onclick="setRiskMode('TIGHT')" title="Dar Stop-Loss kullanır. Daha yüksek indikatör onayı bekler.">
+            <button class="risk-btn" id="risk-btn-TIGHT" onclick="setRiskMode('TIGHT')" title="Dar Stop-Loss kullanır. Yüksek indikatör onayı bekler (Min. %90 Kazanma İhtimali).">
                 🔵 Sıkı (Tight)
             </button>
-            <button class="risk-btn" id="risk-btn-CONSERVATIVE" onclick="setRiskMode('CONSERVATIVE')" title="Sadece çok güçlü sinyallerde işleme girer, işlem başına bütçeyi düşürür.">
+            <button class="risk-btn" id="risk-btn-CONSERVATIVE" onclick="setRiskMode('CONSERVATIVE')" title="Sadece çok güçlü sinyallerde işleme girer (Min. %90 Kazanma İhtimali).">
                 🟢 Güvenli (Conservative)
             </button>
+          
+          <!-- YENİ: SERMAYE YÖNETİMİ (Slider) -->
+          <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(255, 255, 255, 0.1);">
+              <div class="risk-modes-label" style="margin-bottom: 8px;">
+                  <span style="color: #60a5fa;">💰</span> Sermaye Yönetimi (İşlem Başına Bütçe):
+              </div>
+              <div style="display: flex; align-items: center; gap: 15px;">
+                  <input type="range" id="capitalSlider" min="5" max="50" step="5" value="10" 
+                         onchange="setCapitalAllocation(this.value)"
+                         oninput="document.getElementById('capitalValue').innerText = '%' + this.value"
+                         style="flex: 1; cursor: pointer; accent-color: #3b82f6;">
+                  <span id="capitalValue" style="color: #60a5fa; font-weight: 700; font-size: 15px; min-width: 45px;">%10</span>
+              </div>
+          </div>
         </div>
     </div>
 
     <!-- MAIN DASHBOARD LAYOUT -->
     <div style="display: flex; gap: 24px; padding: 0 16px; margin: 0 auto; max-width: 100%; align-items: flex-start; flex-wrap: wrap;">
         
-        <!-- LEFT SIDEBAR -->
-        <div style="flex: 1 1 300px; max-width: 400px; width: 100%;">
-            <!-- CUMULATIVE PNL CHART PANEL -->
-            <div class="panel" style="margin-bottom: 24px;">
-                <div class="panel-header" style="flex-direction: column; align-items: flex-start; gap: 10px;">
-                    <div class="panel-header-title" style="font-size: 14px;">
-                        <span style="color: var(--up-color);">📈</span> Kümülatif Kazanç Eğrisi
-                    </div>
-                    <div style="display:flex; justify-content: space-between; width:100%; align-items:center;">
-                        <span style="font-size: 11px; color: var(--text-secondary); font-family: 'JetBrains Mono';">Kasa: <b id="chartLatestEquity" style="color:#fff;">$1,000.00</b></span>
-                        <button class="btn" style="padding: 4px 10px; font-size: 10px;" onclick="refreshData(true)">🔄 Yenile</button>
-                    </div>
-                </div>
-                <div style="height: 220px; width: 100%; position: relative;">
-                    <canvas id="pnlChart"></canvas>
-                </div>
-            </div>
+        <!-- MAIN CONTENT (Chart Removed) -->
+        <div style="flex: 1 1 100%; min-width: 0; width: 100%;">
+
+    <!-- ===== 📅 CANLI TARİH + SAAT + SEANS BİLGİSİ ŞERİDİ ===== -->
+    <div id="tarihSaatBar" style="
+        display:flex; align-items:center; justify-content:space-between;
+        background:linear-gradient(90deg,rgba(15,18,26,0.98),rgba(28,33,48,0.9),rgba(15,18,26,0.98));
+        border:1px solid rgba(255,255,255,0.07);
+        border-radius:8px; padding:7px 16px; margin-bottom:10px;
+        font-family:'JetBrains Mono',monospace; font-size:11px;
+    ">
+        <div style="display:flex;align-items:center;gap:16px;">
+            <span style="color:#60a5fa;font-weight:700;" id="tsDate">—</span>
+            <span style="color:#e2e8f0;">•</span>
+            <span style="color:#f8fafc;font-weight:700;font-size:14px;" id="tsClock">--:--:--</span>
+            <span style="color:#e2e8f0;">•</span>
+            <span style="color:#fde047;" id="tsWeek">Hafta --</span>
+            <span style="color:#e2e8f0;">•</span>
+            <span style="color:#a5b4fc;" id="tsYear">Günün --. günü</span>
         </div>
-        
-        <!-- RIGHT MAIN CONTENT -->
-        <div style="flex: 3 1 700px; min-width: 0; width: 100%;">
+        <div style="display:flex;align-items:center;gap:12px;">
+            <span id="tsBistStatus" style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(242,54,69,0.12);color:#fca5a5;">🇹🇷 BIST KAPALI</span>
+            <span id="tsNasdaqStatus" style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(242,54,69,0.12);color:#fca5a5;">🇺🇸 NASDAQ KAPALI</span>
+            <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(8,153,129,0.12);color:#4ade80;">🪙 KRİPTO 7/24</span>
+            <span style="color:#cbd5e1;">|</span>
+            <span style="color:#cbd5e1;font-size:10px;">Bot:</span>
+            <span id="tsBotUptime" style="color:#4ade80;font-size:10px;">00:00:00</span>
+            <span style="color:#cbd5e1;">|</span>
+            <span style="color:#cbd5e1;font-size:10px;">Son scan:</span>
+            <span id="tsLastScan" style="color:#e2e8f0;font-size:10px;">-</span>
+        </div>
+    </div>
 
     <!-- WALLET & QUICK ACTION TOOLBAR -->
     <div class="wallet-bar">
@@ -797,24 +1201,16 @@
             <span class="live-dot"></span>
             <span>ALPACA REAL-TIME EQUITY:</span>
             <span class="wallet-val" id="walletBalance">$1000.00</span>
-            <span id="freeCash" style="color: var(--text-secondary); font-weight:400;">(Buying Power: $1000.00)</span>
-            <span id="alpacaCommission" style="color: #fca5a5; font-weight:400; font-size: 11px; margin-left: 8px;">(Fees: -$0.00)</span>
+            <span id="freeCash" style="color: var(--text-secondary); font-weight:400;">(Serbest Nakit: $1000.00)</span>
+            <span id="alpacaCommission" style="color: #fca5a5; font-weight:400; font-size: 11px; margin-left: 8px;">(Alpaca Komisyon Gideri: -$0.00)</span>
             <span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">(Updated 1.5s)</span>
-        </div>
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <div class="filter-tabs">
-                <button class="tab-btn active" id="tabAll" onclick="filterMarketView('ALL')">🌐 Tümü (3 Grup / 120 Varlık)</button>
-                <button class="tab-btn" id="tabNasdaq" onclick="filterMarketView('NASDAQ')">🇺🇸 NASDAQ (60)</button>
-                <button class="tab-btn" id="tabCrypto" onclick="filterMarketView('CRYPTO')">🪙 Kripto (40)</button>
-                <button class="tab-btn" id="tabBist" onclick="filterMarketView('BIST')">🇹🇷 BIST (20)</button>
-            </div>
-            <button class="btn btn-blue" id="btnDailyReportTop" onclick="openDailyReportModal()">📊 Günlük Rapor</button>
-            <button class="btn btn-close" id="btnResetAccountTop" onclick="resetAccountWallet()">✓ Kasayı $1,000'a Sıfırla</button>
         </div>
     </div>
 
-    <!-- ACTIVE POSITIONS TABLE -->
-    <div class="panel">
+
+    <!-- MOVED AKTIF POZISYONLAR -->
+    <div style='margin-bottom: 24px;'>
+<div class="panel" style="order:1;">
         <div class="panel-header">
             <div class="panel-header-title">
                 <span>💼</span> Aktif Açık Pozisyonlar & Kâr/Zarar Takibi
@@ -849,7 +1245,44 @@
     
 
 
-    <!-- ========================================================================= -->
+    <div id="top5OpportunitiesWrap" style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 6px; margin: 10px 14px 20px 14px; padding: 12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <span style="font-size:14px;font-weight:700;color:#facc15;">🔥 Top 15 Alım Isı Haritası & Momentum (Canlı Fiyatlar)</span>
+        </div>
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+            <!-- Kripto -->
+            <div style="flex:1; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#4ade80; text-align:center;">🪙 Kripto Piyasası</div>
+                <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
+                    <marquee id="tickerCrypto" scrollamount="4" style="font-size:10px; color:#94a3b8; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
+                </div>
+                <div id="top15CryptoBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
+                    <!-- Data here -->
+                </div>
+            </div>
+            <!-- Bist -->
+            <div style="flex:1; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#38bdf8; text-align:center;">🇹🇷 BIST 100/30</div>
+                <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
+                    <marquee id="tickerBist" scrollamount="4" style="font-size:10px; color:#94a3b8; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
+                </div>
+                <div id="top15BistBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
+                    <!-- Data here -->
+                </div>
+            </div>
+            <!-- Nasdaq -->
+            <div style="flex:1; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#f472b6; text-align:center;">🇺🇸 NASDAQ Mega-Cap</div>
+                <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
+                    <marquee id="tickerNasdaq" scrollamount="4" style="font-size:10px; color:#94a3b8; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
+                </div>
+                <div id="top15NasdaqBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
+                    <!-- Data here -->
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- ========================================================================= -->
     <!-- 3-MARKET SEPARATED WINDOWS (KRİPTO, BIST, NASDAQ AYRI PENCERELER)        -->
     <!-- ========================================================================= -->
     <div class="markets-container">
@@ -870,10 +1303,10 @@
                     <span style="font-size: 11px; color: #bfdbfe; font-family:'JetBrains Mono';" id="nasdaqStatsCount">60 Hisse (Dinamik Hedef)</span>
                 </div>
             </div>
-            <div class="market-notice-banner banner-open">
-                <span>⚡</span> <b>7/24 Kesintisiz Canlı Seans:</b> Kripto piyasasında hafta sonu ve seans kısıtlaması yoktur, anlık emirler ve fiyat dalgalanması sürekli aktiftir.
+            <div class="market-notice-banner banner-closed" id="bannerNasdaqNotice">
+                <span>ℹ️</span> <span id="textNasdaqNotice"><b>Seans Dışı:</b> NASDAQ düzenli seansı Hafta İçi 16:30 - 23:00 TSİ (09:30 - 16:00 ET) arasındadır. Piyasa kapalıyken kartlar soluk renktedir.</span>
             </div>
-            <div class="ticker-grid" id="gridCrypto">
+            <div class="ticker-grid" id="gridNasdaq">
                 <!-- Kripto Ticker Kartları Dinamik Basılır -->
             </div>
         </div>
@@ -894,10 +1327,10 @@
                     <span style="font-size: 11px; color: #d8b4fe; font-family:'JetBrains Mono';" id="cryptoStatsCount">40 Varlık (Dinamik Hedef)</span>
                 </div>
             </div>
-            <div class="market-notice-banner banner-closed" id="bannerBistNotice">
-                <span>ℹ️</span> <span id="textBistNotice"><b>Seans Dışı:</b> BIST işlem saatleri Hafta İçi 10:00 - 18:05 TSİ arasındadır. Piyasa kapalıyken varlıklar soluk renkte son kapanış fiyatıyla sergilenir.</span>
+            <div class="market-notice-banner banner-open">
+                <span>⚡</span> <b>7/24 Kesintisiz Canlı Seans:</b> Kripto piyasasında hafta sonu ve seans kısıtlaması yoktur, anlık emirler ve fiyat dalgalanması sürekli aktiftir.
             </div>
-            <div class="ticker-grid" id="gridBist">
+            <div class="ticker-grid" id="gridCrypto">
                 <!-- BIST Ticker Kartları Dinamik Basılır -->
             </div>
         </div>
@@ -918,10 +1351,10 @@
                     <span style="font-size: 11px; color: #a7f3d0; font-family:'JetBrains Mono';" id="bistStatsCount">20 Hisse (Dinamik Hedef)</span>
                 </div>
             </div>
-            <div class="market-notice-banner banner-closed" id="bannerNasdaqNotice">
-                <span>ℹ️</span> <span id="textNasdaqNotice"><b>Seans Dışı:</b> NASDAQ düzenli seansı Hafta İçi 16:30 - 23:00 TSİ (09:30 - 16:00 ET) arasındadır. Piyasa kapalıyken kartlar soluk renktedir.</span>
+            <div class="market-notice-banner banner-closed" id="bannerBistNotice">
+                <span>ℹ️</span> <span id="textBistNotice"><b>Seans Dışı:</b> BIST işlem saatleri Hafta İçi 10:00 - 18:05 TSİ arasındadır. Piyasa kapalıyken varlıklar soluk renkte son kapanış fiyatıyla sergilenir.</span>
             </div>
-            <div class="ticker-grid" id="gridNasdaq">
+            <div class="ticker-grid" id="gridBist">
                 <!-- NASDAQ Ticker Kartları Dinamik Basılır -->
             </div>
         </div>
@@ -929,44 +1362,51 @@
     </div>
 
     <!-- YENİ: İSTATİSTİKSEL HATA PAYI VE EYLEM PLANI (KAZAN-KAZAN) -->
-    <div class="panel">
-        <div class="panel-header">
-            <h2 class="panel-title">📈 Algoritmik Hata Payı Eğrisi & Geleceğe Dair Eylem Planı (Kazan-Kazan)</h2>
-            <div style="font-size: 13px; color: var(--text-secondary);">
-                Global Hata Payı: <span id="uiGlobalErrorMargin" style="color:var(--accent-yellow); font-weight:700;">%0.0</span>
-            </div>
-        </div>
-        <div style="display:flex; gap:16px;">
-            <!-- Hata Payı Eğrisi (Grafik Alanı - İleride chartjs eklenebilir, şimdilik CSS çubukları) -->
-            <div style="flex:1; background:var(--card-bg); border-radius:8px; padding:16px; border:1px solid rgba(255,255,255,0.1);">
-                <div style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Son 20 İşlem Hata Eğrisi (Düşük = İyi)</div>
-                <div id="uiErrorCurveBars" style="display:flex; align-items:flex-end; gap:4px; height:100px; border-bottom:1px solid #334155; padding-bottom:4px;">
-                    <!-- Barlar JS ile eklenecek -->
-                </div>
-            </div>
-            
-            <!-- Eylem Planı Tablosu -->
-            <div style="flex:2; background:var(--card-bg); border-radius:8px; padding:16px; border:1px solid rgba(255,255,255,0.1); max-height:200px; overflow-y:auto;">
-                <div style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Son Hatalardan Çıkarılan Katı Eylem Planları</div>
-                <table style="width:100%; border-collapse:collapse; font-size:12px;">
-                    <thead>
-                        <tr style="border-bottom:1px solid #334155;">
-                            <th style="text-align:left; padding-bottom:8px;">Tarih</th>
-                            <th style="text-align:left; padding-bottom:8px;">Sembol</th>
-                            <th style="text-align:left; padding-bottom:8px;">Geleceğe Dair Eylem Planı</th>
-                        </tr>
-                    </thead>
-                    <tbody id="uiActionPlansBody">
-                        <tr><td colspan="3" style="text-align:center; padding:10px; color:#64748b;">Henüz hata / eylem planı oluşmadı.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    
 
     <!-- LIVE TERMINAL STREAMS -->
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-        <div class="panel">
+        
+    </div>
+
+        
+    </div>
+
+    <!-- ====================================================================== -->
+    <!-- ====================================================================== -->
+    <!-- 📈 TOP 10 MOMENTUM / ISI HARİTASI & ALIM FIRSATLARI -->
+    <!-- ====================================================================== -->
+    <style>
+    @keyframes priceBlinkUp {
+        0%, 100% { color: #4ade80; text-shadow: 0 0 2px #4ade80; }
+        50% { color: #86efac; text-shadow: 0 0 8px #86efac; }
+    }
+    @keyframes priceBlinkDown {
+        0%, 100% { color: #f87171; text-shadow: 0 0 2px #f87171; }
+        50% { color: #fca5a5; text-shadow: 0 0 8px #fca5a5; }
+    }
+    .price-up { animation: priceBlinkUp 1.2s infinite; font-weight: bold; }
+    .price-down { animation: priceBlinkDown 1.2s infinite; font-weight: bold; }
+    
+    @keyframes blinkFast {
+        0% { opacity: 1; }
+        50% { opacity: 0.1; }
+        100% { opacity: 1; }
+    }
+    .blink-fast { animation: blinkFast 0.8s infinite; }
+    @keyframes boxBlinkGreen {
+        0% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }
+        50% { box-shadow: 0 0 15px rgba(34,197,94,0.6); border-color: rgba(34,197,94,0.8); }
+        100% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }
+    }
+    .ready-to-buy-box { animation: boxBlinkGreen 1.5s infinite; border: 1px solid rgba(34,197,94,0.3); }
+    
+</style>
+    
+    </div>
+    <!-- END MAIN DASHBOARD GRID -->
+<!-- ACTIVE POSITIONS TABLE -->
+    <div class="panel">
             <div class="panel-header">
                 <div class="panel-header-title">
                     <span style="color:#a855f7;">🪙</span> BINANCE Kripto Terminali <span style="font-size:11px; color:#d8b4fe;">(Canlı Akış)</span>
@@ -1267,7 +1707,9 @@
     <!-- ========================================== -->
     <!-- JAVASCRIPT ENGINE                          -->
     <!-- ========================================== -->
-    <script>
+    
+<script>
+
         let pnlChart = null;
         let latestSummaryData = null;
         let currentFilter = 'ALL';
@@ -1381,7 +1823,7 @@
             
             const labels = history.map((item, idx) => {
                 if (typeof item === 'object' && item.time) return item.time;
-                return idx === 0 ? 'Start' : İşlem #;
+                return idx === 0 ? 'Start' : 'Islem #' + idx;
             });
             const data = history.map(item => typeof item === 'object' ? parseFloat(item.value) : parseFloat(item));
             
@@ -1402,7 +1844,7 @@
             // Text güncellemesini fetchPositions da yapıyor ama burada da Alpaca değeriyle eşitleyelim
             const chartEquity = document.getElementById('chartLatestEquity');
             if (chartEquity) {
-                chartEquity.innerText = $;
+                chartEquity.innerText = `$${lastAlpacaBalance.toFixed(2)}`;
                 chartEquity.style.color = lineColor;
             }
             pnlChart.update();
@@ -1460,10 +1902,9 @@
                 const freeCashEl = document.getElementById('freeCash');
                 if (balEl && data.account_balance !== undefined) {
                     lastAlpacaBalance = parseFloat(data.account_balance);
-                    balEl.innerText = `$${parseFloat(data.account_balance).toFixed(2)
+                    balEl.innerText = `$${parseFloat(data.account_balance).toFixed(2)}`;
                     const ce = document.getElementById('chartLatestEquity');
-                    if (ce) ce.innerText = $;
-                }`;
+                    if (ce) ce.innerText = `$${lastAlpacaBalance.toFixed(2)}`;
                 }
                 if (freeCashEl && data.available_cash !== undefined) {
                     freeCashEl.innerText = `(Serbest Nakit: $${parseFloat(data.available_cash).toFixed(2)})`;
@@ -1579,6 +2020,11 @@
                     }
                 }
 
+                // RENDER HEATMAP BOXES
+                renderHeatmapBoxes('top15CryptoBody', data.grouped.CRYPTO || [], cryptoInfo.is_open, 'tickerCrypto');
+                renderHeatmapBoxes('top15BistBody', data.grouped.BIST || [], bistInfo.is_open, 'tickerBist');
+                renderHeatmapBoxes('top15NasdaqBody', data.grouped.NASDAQ || [], nasdaqInfo.is_open, 'tickerNasdaq');
+
                 // RENDER EACH GRID SEPARATELY
                 renderMarketGroup('gridCrypto', data.grouped.CRYPTO || [], cryptoInfo.is_open, 'cryptoStatsCount');
                 renderMarketGroup('gridBist', data.grouped.BIST || [], bistInfo.is_open, 'bistStatsCount');
@@ -1588,6 +2034,88 @@
                 console.error("fetchLiveMatrix error:", err);
             }
         }
+
+        
+                
+        if (!window.heatmapPrevPrices) window.heatmapPrevPrices = {};
+
+        function renderHeatmapBoxes(containerId, items, isOpen, tickerId) {
+            const container = document.getElementById(containerId);
+            const ticker = document.getElementById(tickerId);
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            let tickerText = isOpen ? "" : "🔴 PİYASA KAPALI - ";
+            
+            items.forEach((item, index) => {
+                const confScore = item.confidence_score || 50;
+                
+                const prev = window.heatmapPrevPrices[item.symbol];
+                let flashClass = "";
+                let dirArrow = "";
+                if (prev !== undefined && isOpen) {
+                    if (item.price > prev) { flashClass = "flash-up"; dirArrow = "↑"; }
+                    else if (item.price < prev) { flashClass = "flash-down"; dirArrow = "↓"; }
+                }
+                window.heatmapPrevPrices[item.symbol] = item.price;
+                
+                // Color logic
+                const isUp = item.change_pct >= 0;
+                const chgColor = isUp ? '#4ade80' : '#f43f5e';
+                const borderColor = isUp ? 'rgba(74, 222, 128, 0.7)' : 'rgba(244, 63, 94, 0.7)';
+                const bgGradient = isUp ? 'linear-gradient(90deg, rgba(74,222,128,0.15) 0%, rgba(0,0,0,0.3) 20%)' : 'linear-gradient(90deg, rgba(244,63,94,0.15) 0%, rgba(0,0,0,0.3) 20%)';
+                
+                const closedStyle = isOpen ? "" : "opacity: 0.4; filter: grayscale(80%);";
+                const formattedPrice = item.price < 1.0 ? parseFloat(item.price).toFixed(4) : parseFloat(item.price).toFixed(2);
+                const rsiStr = item.rsi ? parseFloat(item.rsi).toFixed(1) : '-';
+                const volStr = item.volume_ratio ? parseFloat(item.volume_ratio).toFixed(1) : '-';
+                
+                // If it doesn't have an arrow yet, default based on change_pct
+                if (!dirArrow) dirArrow = isUp ? "↑" : "↓";
+                
+                const aiRec = item.reason || "İzleniyor...";
+                
+                // Hedef hesaplama (dinamik TP) -> Basit mantık: %3 yukarı (alım) veya güven skoruna orantılı
+                let tpFactor = 0.03;
+                if(confScore >= 80) tpFactor = 0.045;
+                else if(confScore < 40) tpFactor = 0.02;
+                const hedefPrice = parseFloat(item.price) * (1 + (isUp ? tpFactor : -tpFactor));
+                const formattedHedef = hedefPrice < 1.0 ? hedefPrice.toFixed(4) : hedefPrice.toFixed(2);
+                
+                // Add to ticker
+                if (index < 5 && isOpen) {
+                    const tArrow = isUp ? "🟢" : "🔴";
+                    const chgStr = isUp ? "+" + item.change_pct + "%" : item.change_pct + "%";
+                    tickerText += "[" + item.symbol + ": $" + formattedPrice + " (" + chgStr + ") " + tArrow + " YZ: %" + confScore.toFixed(0) + " Güven] &nbsp;&nbsp;&nbsp;&nbsp;";
+                }
+                
+                const boxHtml =  
+                    '<div class="' + flashClass + '" style="border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); border-left: 4px solid ' + borderColor + '; padding: 8px; display:flex; flex-direction:column; gap:6px; transition: all 0.3s ease; cursor:pointer; background: ' + bgGradient + '; ' + closedStyle + ' box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onclick="document.getElementById(\'newPosSymbol\').value = \'' + item.symbol + '\'; openNewPositionModal();">' +
+                        '<div style="display:flex; justify-content:space-between; align-items:center;">' +
+                            '<div style="display:flex; align-items:center; gap:6px;">' +
+                                '<span style="font-weight:700; font-size:13px; color:#fbbf24;">' + item.symbol + '</span>' +
+                                '<span style="font-size:10px; color:#fbbf24; background: rgba(251,191,36,0.15); padding: 2px 5px; border-radius:4px; font-weight:600;">Güven: %' + confScore.toFixed(1) + '</span>' +
+                            '</div>' +
+                            '<span style="font-weight:800; font-size:13px; color:' + chgColor + ';">$' + formattedPrice + ' ' + dirArrow + '</span>' +
+                        '</div>' +
+                        '<div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#cbd5e1; font-weight: 500;">' +
+                            '<span>RSI: <span style="color:#fff;">' + rsiStr + '</span> | Hac: <span style="color:#fff;">' + volStr + 'x</span></span>' +
+                            '<span style="color:#4ade80;">Hedef: $' + formattedHedef + '</span>' +
+                        '</div>' +
+                        '<div style="font-size:10px; color:#94a3b8; display:flex; align-items:center; gap:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                            '<span style="font-size:10px;">🎯</span> ' + aiRec +
+                        '</div>' +
+                    '</div>' ;
+                container.innerHTML += boxHtml;
+            });
+            
+            if (ticker) {
+                if (!isOpen) tickerText += "Son kapanış değerleri baz alınmaktadır.";
+                ticker.innerHTML = tickerText;
+            }
+        }
+
 
         // RENDER SPECIFIC MARKET GROUP
         function renderMarketGroup(gridId, items, isOpen, countBadgeId) {
@@ -2172,6 +2700,56 @@
         }
 
         // Başlat
+        
+        // Update Clock
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('tr-TR', { hour12: false });
+            
+            const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+            const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+            
+            const dateStr = now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + ' ' + days[now.getDay()];
+            
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = now - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const dayOfYear = Math.floor(diff / oneDay);
+            const weekOfYear = Math.ceil(dayOfYear / 7);
+
+            document.getElementById('tsClock').innerText = timeStr;
+            document.getElementById('tsDate').innerText = dateStr;
+            document.getElementById('tsWeek').innerText = 'Hafta ' + weekOfYear;
+            document.getElementById('tsYear').innerText = 'Günün ' + dayOfYear + '. günü';
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        
+        // Update Clock
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('tr-TR', { hour12: false });
+            
+            const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+            const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+            
+            const dateStr = now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + ' ' + days[now.getDay()];
+            
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = now - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const dayOfYear = Math.floor(diff / oneDay);
+            const weekOfYear = Math.ceil(dayOfYear / 7);
+
+            document.getElementById('tsClock').innerText = timeStr;
+            document.getElementById('tsDate').innerText = dateStr;
+            document.getElementById('tsWeek').innerText = 'Hafta ' + weekOfYear;
+            document.getElementById('tsYear').innerText = 'Günün ' + dayOfYear + '. günü';
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
         connectWebSocket();
         fetchLiveMatrix(); // Varlık matrix verisini ilk girişte çek
 
@@ -2227,7 +2805,7 @@
         }
 
         // Call initially
-        checkLiveStatus();
+        // checkLiveStatus();
         fetchPositions();
         
         async function setRiskMode(mode) {
@@ -2256,6 +2834,90 @@
         
         // Ensure the correct mode button is selected based on page load data if possible.
         // For now, it defaults to NORMAL visually until manually clicked, or we could fetch status.
-    </script>
+    
+</script>
+
+    <!-- Hızlı Pozisyon Aç Modal -->
+    <div id="quickOrderModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+        <div class="modal-box" style="background:#131722; border:1px solid #334155; border-radius:12px; padding:24px; max-width:400px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h3 style="margin:0; color:#f8fafc;">Hızlı Pozisyon Aç</h3>
+                <button onclick="document.getElementById('quickOrderModal').style.display='none'" style="background:transparent; border:none; color:#94a3b8; cursor:pointer; font-size:18px;">&times;</button>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:16px;">
+                <div>
+                    <label style="color:#cbd5e1; font-size:12px; display:block; margin-bottom:6px;">Sembol (Örn: AAPL, BTCUSDT)</label>
+                    <input type="text" id="qoSymbol" style="width:100%; background:#0f121a; border:1px solid #334155; color:#fff; padding:10px; border-radius:6px; box-sizing:border-box;">
+                </div>
+                
+                <div style="display:flex; gap:12px;">
+                    <div style="flex:1;">
+                        <label style="color:#cbd5e1; font-size:12px; display:block; margin-bottom:6px;">Yön</label>
+                        <select id="qoSide" style="width:100%; background:#0f121a; border:1px solid #334155; color:#fff; padding:10px; border-radius:6px; box-sizing:border-box;">
+                            <option value="BUY">BUY (Uzun)</option>
+                            <option value="SELL">SELL (Kısa)</option>
+                        </select>
+                    </div>
+                    <div style="flex:1;">
+                        <label style="color:#cbd5e1; font-size:12px; display:block; margin-bottom:6px;">Bütçe ($)</label>
+                        <input type="number" id="qoCapital" value="100" style="width:100%; background:#0f121a; border:1px solid #334155; color:#fff; padding:10px; border-radius:6px; box-sizing:border-box;">
+                    </div>
+                </div>
+                
+                <div style="display:flex; gap:12px;">
+                    <div style="flex:1;">
+                        <label style="color:#cbd5e1; font-size:12px; display:block; margin-bottom:6px;">Kâr Al (%)</label>
+                        <input type="number" id="qoTpPct" value="3.0" step="0.1" style="width:100%; background:#0f121a; border:1px solid #334155; color:#fff; padding:10px; border-radius:6px; box-sizing:border-box;">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="color:#cbd5e1; font-size:12px; display:block; margin-bottom:6px;">Zarar Kes (%)</label>
+                        <input type="number" id="qoSlPct" value="1.5" step="0.1" style="width:100%; background:#0f121a; border:1px solid #334155; color:#fff; padding:10px; border-radius:6px; box-sizing:border-box;">
+                    </div>
+                </div>
+                
+                <button onclick="submitNewPosition()" class="btn btn-green" style="width:100%; padding:12px; font-weight:bold; margin-top:10px;">Emri Piyasaya İlet</button>
+            </div>
+        </div>
+    </div
+
+
+    <!-- RISK CONFIRMATION MODAL -->
+    <div id="riskModal" class="modal-overlay">
+        <div class="modal-content" style="max-width:450px;">
+            <div class="modal-header">
+                <h2>⚠️ Risk Modu Değişikliği Onayı</h2>
+                <button class="modal-close" onclick="closeModal('riskModal')">×</button>
+            </div>
+            <div style="font-size: 14px; color: #cbd5e1; line-height: 1.5; margin-bottom: 20px;">
+                Yapay Zeka Risk ve Frekans Modunu <b id="newRiskModeText" style="color:#fff;">---</b> olarak değiştirmek üzeresiniz.<br><br>
+                Bu değişiklik algoritmanın piyasaya girerken arayacağı minimum güven skorunu ve kullanacağı TP/SL oranlarını etkiler. Yeni açılacak pozisyonlar için hemen geçerli olacaktır.
+            </div>
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button class="btn" style="padding:10px 20px;" onclick="closeModal('riskModal')">İptal</button>
+                <button class="btn btn-yellow" style="padding:10px 20px;" onclick="confirmRiskMode()">Değişikliği Onayla</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- RISK CONFIRMATION MODAL -->
+    <div id="riskModal" class="modal-overlay">
+        <div class="modal-content" style="max-width:450px;">
+            <div class="modal-header">
+                <h2>⚠️ Risk Modu Değişikliği Onayı</h2>
+                <button class="modal-close" onclick="closeModal('riskModal')">×</button>
+            </div>
+            <div style="font-size: 14px; color: #cbd5e1; line-height: 1.5; margin-bottom: 20px;">
+                Yapay Zeka Risk ve Frekans Modunu <b id="newRiskModeText" style="color:#fff;">---</b> olarak değiştirmek üzeresiniz.<br><br>
+                Bu değişiklik algoritmanın piyasaya girerken arayacağı minimum güven skorunu ve kullanacağı TP/SL oranlarını etkiler. Yeni açılacak pozisyonlar için hemen geçerli olacaktır.
+            </div>
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button class="btn" style="padding:10px 20px;" onclick="closeModal('riskModal')">İptal</button>
+                <button class="btn btn-yellow" style="padding:10px 20px;" onclick="confirmRiskMode()">Değişikliği Onayla</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

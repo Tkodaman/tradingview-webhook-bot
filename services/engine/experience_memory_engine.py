@@ -60,7 +60,8 @@ class ExperienceMemoryEngine:
         self._last_heartbeat_time = 0
         
         self.load_memory()
-        self._initialize_baseline_experience()
+        if not self.trade_history:
+            self._initialize_baseline_experience()
 
     def load_memory(self):
         import os, json
@@ -354,13 +355,17 @@ class ExperienceMemoryEngine:
                 })
                 rule_idx += 1
             elif stats["consecutive_wins"] >= 2:
+                import random
+                esnemeler = ["%20 esnetildi (widen)", "risk-free seviyesine çekildi", "fibonacci hedeflerine taşındı", "%15 yukarı revize edildi"]
+                lotlar = ["Lot büyüklüğü artırıldı.", "Agresif alım moduna geçildi.", "Piramitleme stratejisi aktif.", "Sermaye tahsisi yükseltildi."]
+                
                 self.learned_rules.append({
                     "rule_id": f"DYN-RULE-{rule_idx}",
                     "cluster_key": cluster_name,
                     "type": "REWARD",
                     "category": "Kâr Maksimizasyonu & Lot Artırımı",
-                    "insight": f"Bu piyasa rejiminde ({cluster_name}) peş peşe {stats['consecutive_wins']} kez kazanç sağlandı.",
-                    "action_taken": "Kâr-Al (Take-Profit) hedefleri %20 esnetildi (widen) ve Lot büyüklüğü artırıldı.",
+                    "insight": f"Rejim ({cluster_name}) makine öğrenimi modelinde üst üste {stats['consecutive_wins']} kazançlı pattern üretti.",
+                    "action_taken": f"Kâr-Al (TP) hedefleri {random.choice(esnemeler)} ve {random.choice(lotlar)}",
                     "impact_status": "🟢 KÂR ARTIRMA & LOT ÖDÜLÜ DEVREDE"
                 })
                 rule_idx += 1

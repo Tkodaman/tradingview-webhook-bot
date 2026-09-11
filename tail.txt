@@ -1,0 +1,20 @@
+        </div>\r
+        \r
+        <div style="margin-bottom: 24px;">\r
+            <label style="display:block; color:#94a3b8; font-size:13px; margin-bottom:8px;">Hangi Piyasada Avlanalım?</label>\r
+            <select id="sniperMarketSelect" style="width:100%; background:#0f172a; border:1px solid rgba(255,255,255,0.1); color:#fff; padding:10px 14px; border-radius:6px; font-family:'Outfit', sans-serif; font-size:14px; outline:none;">\r
+                <option value="CRYPTO">🪙 Kripto Para (7/24 Aktif)</option>\r
+                <option value="NASDAQ">🇺🇸 NASDAQ (Seans Saatlerinde)</option>\r
+                <option value="ALL">🌐 Tümü (Uygun olanlar)</option>\r
+            </select>\r
+        </div>\r
+        \r
+        <div style="display:flex; justify-content:flex-end; gap:12px;">\r
+            <button class="btn" style="background:transparent; border:1px solid rgba(255,255,255,0.2); color:#cbd5e1;" onclick="closeSniperModal()">İptal Et</button>\r
+            <button class="btn btn-rose" onclick="confirmSniperMode()">⚡ Uyarıları Okudum, Başlat</button>\r
+        </div>\r
+    </div>\r
+</div>\r
+\r
+</body>\r
+</html>

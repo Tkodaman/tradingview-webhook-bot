@@ -65,15 +65,32 @@ async def get_live_buy_sell_wait_matrix():
         elif score >= 3:
             decision = "BUY"
             badge = "🟢 BUY_SIGNAL"
-            reason = f"{score}/8 Konfluans & Yükseliş İvmesi Teyit Edildi"
-        elif rsi > 78.0 or macd < -1.5:
+            
+            adx_val = data.get("adx", 0)
+            if data.get("vwap_bullish", False) and vol_ratio >= 1.0:
+                reason = "Fiyat VWAP üstünde - kurumsal destek aktif"
+            elif data.get("ema_golden_cross", False):
+                reason = "EMA Golden Cross aktif (20>50>200)"
+            elif adx_val >= 40:
+                reason = f"Güçlü trend ivmesi ADX={int(adx_val)}"
+            elif rsi < 40 and macd > 0:
+                reason = "Aşırı satım dibinden MACD alım kesişimi"
+            else:
+                reason = f"Trend gücü {score} indikatör onayıyla pozitif"
+        elif rsi > 75.0 or macd < -1.5:
             decision = "SELL"
             badge = "🔴 SELL_SIGNAL"
-            reason = "Aşırı Alım Bölgesi veya Düşüş Momentum Basıncı"
+            if rsi > 75.0:
+                reason = f"Aşırı Alım Bölgesinde Riskli (RSI={rsi:.1f})"
+            else:
+                reason = "Negatif MACD kesişimi ve satıcı baskısı"
         else:
             decision = "WAIT"
             badge = "🟡 WAIT_PATIENT"
-            reason = "Piyasa Konsolidasyonda / İndikatör Teyidi Bekleniyor"
+            if 40 <= rsi <= 60:
+                reason = "Piyasa yatay konsolidasyon evresinde (Kırılım bekleniyor)"
+            else:
+                reason = "İndikatörler uyumsuz, net teyit bekleniyor"
             
         high = round(float(data.get("high", price * 1.015)), 4 if price < 1.0 else 2)
         low = round(float(data.get("low", price * 0.985)), 4 if price < 1.0 else 2)
@@ -97,10 +114,25 @@ async def get_live_buy_sell_wait_matrix():
             "last_update": data.get("last_update", time.strftime("%H:%M:%S"))
         })
         
+    # AI Güven Skoru Entegrasyonu
+    from services.engine.experience_memory_engine import experience_memory_engine
+    confidence_data = experience_memory_engine.get_asset_confidence_index()
+    confidence_map = {item["symbol"].upper(): item for item in confidence_data}
+    
+    for m in matrix_results:
+        sym = m["symbol"].upper()
+        ai_data = confidence_map.get(sym, {})
+        # Eğer geçmiş işlem yoksa formüle dayalı bir başlangıç skoru ver (RSI + MACD + Hacim bazlı)
+        default_score = min(99.0, max(45.0, 50.0 + (m["score"] * 5.0) + (m["change_pct"] * 2.0)))
+        
+        m["confidence_score"] = float(ai_data.get("confidence_score", round(default_score, 1)))
+        m["expertise_level"] = ai_data.get("expertise_level", "🟡 NÖTR / DENGELİ")
+        m["ai_action"] = ai_data.get("action_recommendation", "🟡 Standart İnceleme")
+
     grouped_matrix = {
-        "CRYPTO": [m for m in matrix_results if m["market"] == "CRYPTO"],
-        "BIST": [m for m in matrix_results if m["market"] == "BIST"],
-        "NASDAQ": [m for m in matrix_results if m["market"] == "NASDAQ"]
+        "CRYPTO": sorted([m for m in matrix_results if m["market"] == "CRYPTO"], key=lambda x: x["confidence_score"], reverse=True)[:12],
+        "BIST": sorted([m for m in matrix_results if m["market"] == "BIST"], key=lambda x: x["confidence_score"], reverse=True)[:10],
+        "NASDAQ": sorted([m for m in matrix_results if m["market"] == "NASDAQ"], key=lambda x: x["confidence_score"], reverse=True)[:16]
     }
         
     return {

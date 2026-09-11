@@ -1,0 +1,454 @@
+<div class="panel">
+        <div class="panel-header">
+            <div class="panel-header-title">
+                <span>💼</span> Aktif Açık Pozisyonlar & Kâr/Zarar Takibi
+            </div>
+            <div>
+                <button class="btn btn-green" onclick="openNewPositionModal()">⚡ Hızlı Pozisyon Aç</button>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID / Sembol</th>
+                        <th>Piyasa</th>
+                        <th>Yön</th>
+                        <th>Giriş Fiyatı</th>
+                        <th>Anlık Fiyat</th>
+                        <th>Adet / Hacim</th>
+                        <th>Hedef (TP)</th>
+                        <th>Zarar Kes (SL)</th>
+                        <th>Anlık Net PnL</th>
+                        <th>İşlem</th>
+                    </tr>
+                </thead>
+                <tbody id="positionsTableBody">
+                    <!-- Dinamik Açık Pozisyonlar -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    
+
+
+    <!-- ========================================================================= -->
+    <!-- 3-MARKET SEPARATED WINDOWS (KRİPTO, BIST, NASDAQ AYRI PENCERELER)        -->
+    <!-- ========================================================================= -->
+    <div class="markets-container">
+
+        <!-- 3. PENCERE: NASDAQ & WALL STREET (ABD MEGA-CAP) -->
+        <div class="market-window market-window-nasdaq" id="windowNasdaq">
+            <div class="window-header">
+                <div class="window-title-group">
+                    <div class="window-title">
+                        <span>🇺🇸</span> NASDAQ & MEGA-CAP <span style="font-size:12px; color:var(--text-secondary);">(WALL STREET / ABD)</span>
+                    </div>
+                    <span class="window-tag">ABD TEKNOLOJİ</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span class="window-status-badge status-closed" id="badgeNasdaqStatus">
+                        🔴 PİYASA KAPALI
+                    </span>
+                    <span style="font-size: 11px; color: #bfdbfe; font-family:'JetBrains Mono';" id="nasdaqStatsCount">60 Hisse (Dinamik Hedef)</span>
+                </div>
+            </div>
+            <div class="market-notice-banner banner-open">
+                <span>⚡</span> <b>7/24 Kesintisiz Canlı Seans:</b> Kripto piyasasında hafta sonu ve seans kısıtlaması yoktur, anlık emirler ve fiyat dalgalanması sürekli aktiftir.
+            </div>
+            <div class="ticker-grid" id="gridCrypto">
+                <!-- Kripto Ticker Kartları Dinamik Basılır -->
+            </div>
+        </div>
+
+        <!-- 1. PENCERE: KRİPTO VARLIKLARI (BINANCE - 7/24 CANLI) -->
+        <div class="market-window market-window-crypto" id="windowCrypto">
+            <div class="window-header">
+                <div class="window-title-group">
+                    <div class="window-title">
+                        <span>🪙</span> KRİPTO VARLIKLARI <span style="font-size:12px; color:var(--text-secondary);">(BINANCE KÜRESEL)</span>
+                    </div>
+                    <span class="window-tag">7/24 AKTİF</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span class="window-status-badge status-open" id="badgeCryptoStatus">
+                        <span class="live-dot"></span> 🟢 7/24 PİYASA AÇIK
+                    </span>
+                    <span style="font-size: 11px; color: #d8b4fe; font-family:'JetBrains Mono';" id="cryptoStatsCount">40 Varlık (Dinamik Hedef)</span>
+                </div>
+            </div>
+            <div class="market-notice-banner banner-closed" id="bannerBistNotice">
+                <span>ℹ️</span> <span id="textBistNotice"><b>Seans Dışı:</b> BIST işlem saatleri Hafta İçi 10:00 - 18:05 TSİ arasındadır. Piyasa kapalıyken varlıklar soluk renkte son kapanış fiyatıyla sergilenir.</span>
+            </div>
+            <div class="ticker-grid" id="gridBist">
+                <!-- BIST Ticker Kartları Dinamik Basılır -->
+            </div>
+        </div>
+
+        <!-- 2. PENCERE: BORSA İSTANBUL (BIST 100 / 30) -->
+        <div class="market-window market-window-bist" id="windowBist">
+            <div class="window-header">
+                <div class="window-title-group">
+                    <div class="window-title">
+                        <span>🇹🇷</span> BORSA İSTANBUL <span style="font-size:12px; color:var(--text-secondary);">(BIST 100 / 30)</span>
+                    </div>
+                    <span class="window-tag">BORSA İSTANBUL</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span class="window-status-badge status-closed" id="badgeBistStatus">
+                        🔴 PİYASA KAPALI
+                    </span>
+                    <span style="font-size: 11px; color: #a7f3d0; font-family:'JetBrains Mono';" id="bistStatsCount">20 Hisse (Dinamik Hedef)</span>
+                </div>
+            </div>
+            <div class="market-notice-banner banner-closed" id="bannerNasdaqNotice">
+                <span>ℹ️</span> <span id="textNasdaqNotice"><b>Seans Dışı:</b> NASDAQ düzenli seansı Hafta İçi 16:30 - 23:00 TSİ (09:30 - 16:00 ET) arasındadır. Piyasa kapalıyken kartlar soluk renktedir.</span>
+            </div>
+            <div class="ticker-grid" id="gridNasdaq">
+                <!-- NASDAQ Ticker Kartları Dinamik Basılır -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- YENİ: İSTATİSTİKSEL HATA PAYI VE EYLEM PLANI (KAZAN-KAZAN) -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2 class="panel-title">📈 Algoritmik Hata Payı Eğrisi & Geleceğe Dair Eylem Planı (Kazan-Kazan)</h2>
+            <div style="font-size: 13px; color: var(--text-secondary);">
+                Global Hata Payı: <span id="uiGlobalErrorMargin" style="color:var(--accent-yellow); font-weight:700;">%0.0</span>
+            </div>
+        </div>
+        <div style="display:flex; gap:16px;">
+            <!-- Hata Payı Eğrisi (Grafik Alanı - İleride chartjs eklenebilir, şimdilik CSS çubukları) -->
+            <div style="flex:1; background:var(--card-bg); border-radius:8px; padding:16px; border:1px solid rgba(255,255,255,0.1);">
+                <div style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Son 20 İşlem Hata Eğrisi (Düşük = İyi)</div>
+                <div id="uiErrorCurveBars" style="display:flex; align-items:flex-end; gap:4px; height:100px; border-bottom:1px solid #334155; padding-bottom:4px;">
+                    <!-- Barlar JS ile eklenecek -->
+                </div>
+            </div>
+            
+            <!-- Eylem Planı Tablosu -->
+            <div style="flex:2; background:var(--card-bg); border-radius:8px; padding:16px; border:1px solid rgba(255,255,255,0.1); max-height:200px; overflow-y:auto;">
+                <div style="font-size:12px; color:var(--text-secondary); margin-bottom:10px;">Son Hatalardan Çıkarılan Katı Eylem Planları</div>
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead>
+                        <tr style="border-bottom:1px solid #334155;">
+                            <th style="text-align:left; padding-bottom:8px;">Tarih</th>
+                            <th style="text-align:left; padding-bottom:8px;">Sembol</th>
+                            <th style="text-align:left; padding-bottom:8px;">Geleceğe Dair Eylem Planı</th>
+                        </tr>
+                    </thead>
+                    <tbody id="uiActionPlansBody">
+                        <tr><td colspan="3" style="text-align:center; padding:10px; color:#64748b;">Henüz hata / eylem planı oluşmadı.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIVE TERMINAL STREAMS -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-header-title">
+                    <span style="color:#a855f7;">🪙</span> BINANCE Kripto Terminali <span style="font-size:11px; color:#d8b4fe;">(Canlı Akış)</span>
+                </div>
+            </div>
+            <div id="cryptoTerminal" class="code-block" style="border-color: rgba(168, 85, 247, 0.3);">
+                <!-- Crypto live logs -->
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-header-title">
+                    <span style="color:#10b981;">🇹🇷</span> TR BIST Terminali <span style="font-size:11px; color:#a7f3d0;">(Canlı Akış)</span>
+                </div>
+            </div>
+            <div id="bistTerminal" class="code-block" style="border-color: rgba(16, 185, 129, 0.3);">
+                <!-- BIST live logs -->
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-header-title">
+                    <span style="color:#3b82f6;">🇺🇸</span> US NASDAQ Terminali <span style="font-size:11px; color:#bfdbfe;">(Canlı Akış)</span>
+                </div>
+            </div>
+            <div id="nasdaqTerminal" class="code-block" style="border-color: rgba(59, 130, 246, 0.3);">
+                <!-- NASDAQ live logs -->
+            </div>
+        </div>
+    </div>
+
+    <!-- AUTOTRADER EXECUTION LOG & TRADE BREAKDOWN -->
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-header-title">
+                <span>📑</span> AutoTrader - Trade Breakdown & Execution Log <span style="font-size:11px; color:var(--text-secondary); margin-left:8px;">(İstatistiksel Hata Payı & Öğrenim Birikimi)</span>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 90px;">ZAMAN (UTC)</th>
+                        <th>VARLIK</th>
+                        <th>YÖN</th>
+                        <th>SÜRE (DK)</th>
+                        <th>MAX DD</th>
+                        <th>ÇIKIŞ NEDENİ</th>
+                        <th>PNL (%)</th>
+                        <th style="width: 45%;">ÖĞRENİLEN DERS & ZARAR/KAR OPTİMİZASYONU</th>
+                    </tr>
+                </thead>
+                <tbody id="autotraderExecutionLog">
+                    <!-- Dinamik Trade Geçmişi (Öğrenilen Dersler) -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 2-COLUMN SECTION: RULES & DAILY SUMMARY -->
+    <div class="two-col-grid">
+        <!-- LEARNED RULES & INSIGHTS -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-header-title">
+                    <span style="color: var(--accent-yellow);">🛡️</span> Otonom Öğrenilen Kurallar & Koruma Kalkanı
+                </div>
+                <div class="inner-box-badge badge-reward" id="rulesCountBadge">0 Kural Aktif</div>
+            </div>
+            <div id="rulesContainer" style="max-height: 380px; overflow-y: auto;">
+                <!-- Dinamik Kurallar -->
+            </div>
+        </div>
+
+        <!-- DAILY POST-MARKET SYNTHESIS -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-header-title">
+                    <span style="color: var(--accent-blue);">🧠</span> Günlük Piyasa Sentezi & Strateji Eğilimi
+                </div>
+                <div style="font-size: 11px; color: var(--text-secondary); font-family: 'JetBrains Mono';" id="summaryDateLabel">Bugün</div>
+            </div>
+            <div id="summaryContainer" style="max-height: 380px; overflow-y: auto;">
+                <!-- Dinamik Sentez -->
+            </div>
+        </div>
+    </div>
+
+        </div>
+        <!-- END RIGHT MAIN CONTENT -->
+    </div>
+    <!-- END MAIN DASHBOARD LAYOUT -->
+
+    <!-- ========================================== -->
+    <!-- MODALS                                     -->
+    <!-- ========================================== -->
+
+    <!-- MODAL: JSON RAPORU -->
+    <div class="modal-overlay" id="jsonModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">📄 Otonom Hafıza JSON Raporu</div>
+                <button class="modal-close-btn" onclick="closeModal('jsonModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre class="code-block" id="jsonCodeContent">Yükleniyor...</pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="copyJsonToClipboard()">📋 Panoya Kopyala</button>
+                <button class="btn btn-blue" onclick="downloadJsonFile()">⬇ JSON İndir</button>
+                <button class="btn" onclick="closeModal('jsonModal')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: KÜMÜLATİF PERFORMANS METRİKLERİ -->
+    <div class="modal-overlay" id="perfModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">📈 Kümülatif Başarı & Performans Matrisi</div>
+                <button class="modal-close-btn" onclick="closeModal('perfModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Toplam İşlem</div>
+                        <div class="stat-value" id="modalStatTotalTrades">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Kazanma Oranı</div>
+                        <div class="stat-value up" id="modalStatWinRate">%0.0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Profit Factor (PF)</div>
+                        <div class="stat-value up" id="modalStatPF">0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Net PnL</div>
+                        <div class="stat-value up" id="modalStatNetPnl">$0.00</div>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; line-height: 1.6; color: var(--text-secondary);" id="modalStatAiInsight">
+                    Performans analizi yükleniyor...
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-yellow" onclick="exportCsvData()">⬇ CSV İndir</button>
+                <button class="btn" onclick="closeModal('perfModal')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: DİNAMİK TECRÜBE ÇARPANI AÇIKLAMASI -->
+    <div class="modal-overlay" id="multiplierModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">⚡ Dinamik Tecrübe Çarpanı (Experience Multiplier)</div>
+                <button class="modal-close-btn" onclick="closeModal('multiplierModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <div style="font-size: 12px; color: var(--text-secondary);">Mevcut Pozisyon Büyüklüğü Katsayısı:</div>
+                    <div style="font-size: 32px; font-weight: 800; color: #fda4af; font-family: 'JetBrains Mono';" id="modalMultValue">1.20x</div>
+                </div>
+                <div style="margin-top: 10px; line-height: 1.6; color: var(--text-primary);">
+                    <div style="font-weight: 700; color:#fff; margin-bottom: 8px;">🛡️ Otonom Hafıza Kuralları:</div>
+                    <div class="inner-box" style="border-left: 3px solid var(--up-color); margin-bottom: 8px;">
+                        <div class="inner-box-title">🟢 Win Streak Ödülü (1.20x)</div>
+                        <div class="inner-box-item">Aynı piyasa rejiminde peş peşe 2 veya daha fazla kâr geldiğinde pozisyon büyüklüğü %20 artırılır.</div>
+                    </div>
+                    <div class="inner-box" style="border-left: 3px solid var(--accent-yellow); margin-bottom: 8px;">
+                        <div class="inner-box-title">🟡 Temkinli Mod (0.70x)</div>
+                        <div class="inner-box-item">Son işlem zarar ile sonuçlandığında bir sonraki sinyal %30 kısıtlı lot ile açılır.</div>
+                    </div>
+                    <div class="inner-box" style="border-left: 3px solid var(--down-color);">
+                        <div class="inner-box-title">🔴 2-Strike Sert Reddi (0.00x)</div>
+                        <div class="inner-box-item">Aynı rejimde 2 kez peş peşe stop olunursa, sistem rejimi karantinaya alıp tüm işlemleri durdurur.</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-rose" onclick="calibrateEngine(); closeModal('multiplierModal');">🔄 Motoru Kalibre Et</button>
+                <button class="btn" onclick="closeModal('multiplierModal')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: GÜNLÜK RAPOR -->
+    <div class="modal-overlay" id="dailyReportModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">📊 Günlük Seans & Bilanço Raporu</div>
+                <button class="modal-close-btn" onclick="closeModal('dailyReportModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="dailyReportContent">
+                Yükleniyor...
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-yellow" onclick="exportCsvData()">⬇ CSV İndir</button>
+                <button class="btn" onclick="closeModal('dailyReportModal')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: HIZLI POZİSYON AÇ -->
+    <div class="modal-overlay" id="newPosModal">
+        <div class="modal-box" style="max-width: 480px;">
+            <div class="modal-header">
+                <div class="modal-title">⚡ 1-Tıkla Canlı Pozisyon Aç</div>
+                <button class="modal-close-btn" onclick="closeModal('newPosModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex; flex-direction:column; gap: 14px;">
+                    <div>
+                        <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom: 4px;">Varlık / Hisse Sembolü</label>
+                        <input type="text" id="newPosSymbol" value="NVDA" style="width:100%; background:#11141c; border:1px solid var(--border-color); color:#fff; padding:8px 12px; border-radius:6px; font-family:'JetBrains Mono'; font-weight:700;">
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom: 4px;">İşlem Yönü</label>
+                            <select id="newPosSide" style="width:100%; background:#11141c; border:1px solid var(--border-color); color:#fff; padding:8px 12px; border-radius:6px; font-family:'JetBrains Mono';">
+                                <option value="BUY">🟢 AL (BUY)</option>
+                                <option value="SELL">🔴 SAT (SELL)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom: 4px;">Tahsis Sermaye ($)</label>
+                            <input type="number" id="newPosCapital" value="100.0" step="10" style="width:100%; background:#11141c; border:1px solid var(--border-color); color:#fff; padding:8px 12px; border-radius:6px; font-family:'JetBrains Mono'; font-weight:700;">
+                        </div>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom: 4px;">Kâr Al (TP %)</label>
+                            <input type="number" id="newPosTp" value="3.0" step="0.5" style="width:100%; background:#11141c; border:1px solid var(--border-color); color:#4ade80; padding:8px 12px; border-radius:6px; font-family:'JetBrains Mono'; font-weight:700;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom: 4px;">Zarar Kes (SL %)</label>
+                            <input type="number" id="newPosSl" value="1.5" step="0.5" style="width:100%; background:#11141c; border:1px solid var(--border-color); color:#f87171; padding:8px 12px; border-radius:6px; font-family:'JetBrains Mono'; font-weight:700;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-green" onclick="submitOpenPosition()">🚀 Pozisyonu Aç</button>
+                <button class="btn" onclick="closeModal('newPosModal')">İptal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: TEST İŞLEMİ SİMÜLE ET -->
+    <div class="modal-overlay" id="simModal">
+        <div class="modal-box" style="max-width: 480px;">
+            <div class="modal-header">
+                <div class="modal-title">🧪 Test İşlemi Simüle Et (Kural Tetikleyici)</div>
+                <button class="modal-close-btn" onclick="closeModal('simModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="color:var(--text-secondary); font-size:12px; margin-bottom: 12px;">
+                    Otonom hafıza motoruna yapay bir kâr veya zarar işlemi enjekte ederek dinamik kuralların (Win Streak Ödülü veya 2-Strike Sert Reddi) anında güncellenmesini test edebilirsiniz.
+                </p>
+                <div style="display:flex; flex-direction:column; gap: 12px;">
+                    <div>
+                        <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom: 4px;">Sembol</label>
+                        <input type="text" id="simSymbol" value="NVDA" style="width:100%; background:#11141c; border:1px solid var(--border-color); color:#fff; padding:8px 12px; border-radius:6px; font-family:'JetBrains Mono'; font-weight:700;">
+                    </div>
+                    <div>
+                        <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom: 4px;">Piyasa Rejimi</label>
+                        <select id="simRegime" style="width:100%; background:#11141c; border:1px solid var(--border-color); color:#fff; padding:8px 12px; border-radius:6px; font-family:'JetBrains Mono';">
+                            <option value="TRENDING_UP">🟢 TRENDING_UP (Yükseliş Trendi)</option>
+                            <option value="HIGH_VOLATILITY">⚡ HIGH_VOLATILITY (Yüksek Oynaklık)</option>
+                            <option value="SIDEWAYS_CHOP">🟡 SIDEWAYS_CHOP (Yatay Bant)</option>
+                            <option value="TRENDING_DOWN">🔴 TRENDING_DOWN (Düşüş Trendi)</option>
+                        </select>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom: 4px;">Net Kâr / Zarar ($)</label>
+                            <input type="number" id="simPnl" value="45.0" step="5" style="width:100%; background:#11141c; border:1px solid var(--border-color); color:#fff; padding:8px 12px; border-radius:6px; font-family:'JetBrains Mono'; font-weight:700;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: var(--text-secondary); display:block; margin-bottom: 4px;">Çıkış Nedeni</label>
+                            <select id="simExitReason" style="width:100%; background:#11141c; border:1px solid var(--border-color); color:#fff; padding:8px 12px; border-radius:6px; font-family:'JetBrains Mono';">
+                                <option value="TP_HIT">TP_HIT (Kâr Alındı)</option>
+                                <option value="SL_HIT">SL_HIT (Zarar Durduruldu)</option>
+                                <option value="MANUAL_CLOSE">MANUAL_CLOSE (Manuel)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-purple" onclick="submitSimulateTrade()">🧪 Simülasyonu Çalıştır</button>
+                <button class="btn" onclick="closeModal('simModal')">İptal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- JAVASCRIPT ENGINE                          -->
+    <!-- ========================================== -->
+    

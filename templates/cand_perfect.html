@@ -1,0 +1,2569 @@
+<!DOCTYPE html>\r
+<html lang="tr">\r
+<head>\r
+    <script>\r
+    window.onerror = function(msg, url, lineNo, columnNo, error) {\r
+        var errStr = 'JS ERROR: ' + msg + ' at ' + lineNo;\r
+        alert(errStr);\r
+        document.body.innerHTML += '<div style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;padding:20px;font-size:20px;">' + errStr + '</div>';\r
+    };\r
+    window.addEventListener("unhandledrejection", function(event) {\r
+        alert("Promise ERROR: " + event.reason);\r
+    });\r
+    </script>\r
+    <meta charset="UTF-8">\r
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">\r
+    <title>TradingView AI Webhook Gateway & Otonom Piyasa Kokpiti</title>\r
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">\r
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>\r
+    <style>\r
+        :root {\r
+            --bg-base: #0c0f17;\r
+            --bg-panel: #131722;\r
+            --bg-card: #1c2130;\r
+            --border-color: rgba(255, 255, 255, 0.08);\r
+            --border-light: rgba(255, 255, 255, 0.05);\r
+            \r
+            --text-primary: #e2e8f0;\r
+            --text-secondary: #e2e8f0;\r
+            --text-muted: #cbd5e1;\r
+            \r
+            --up-color: #089981;\r
+            --up-bg: rgba(8, 153, 129, 0.12);\r
+            --down-color: #f23645;\r
+            --down-bg: rgba(242, 54, 69, 0.12);\r
+            \r
+            --crypto-accent: #a855f7;\r
+            --crypto-bg: rgba(168, 85, 247, 0.07);\r
+            --crypto-border: rgba(168, 85, 247, 0.35);\r
+            \r
+            --bist-accent: #089981;\r
+            --bist-bg: rgba(8, 153, 129, 0.07);\r
+            --bist-border: rgba(8, 153, 129, 0.35);\r
+            \r
+            --nasdaq-accent: #3b82f6;\r
+            --nasdaq-bg: rgba(59, 130, 246, 0.07);\r
+            --nasdaq-border: rgba(59, 130, 246, 0.35);\r
+            \r
+            --accent-yellow: #eab308;\r
+            --accent-rose: #f43f5e;\r
+        }\r
+\r
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }\r
+\r
+        body {\r
+            background-color: var(--bg-base);\r
+            color: var(--text-primary);\r
+            min-height: 100vh;\r
+            padding: 18px 24px;\r
+            overflow-x: hidden;\r
+        }\r
+\r
+        /* HEADER SECTION */\r
+        .header-section {\r
+            margin-bottom: 20px;\r
+            background: linear-gradient(135deg, rgba(28, 33, 48, 0.7) 0%, rgba(19, 23, 34, 0.95) 100%);\r
+            border: 1px solid var(--border-color);\r
+            border-radius: 12px;\r
+            padding: 16px 20px;\r
+            display: flex;\r
+            flex-direction: column;\r
+            gap: 12px;\r
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);\r
+        }\r
+        .header-top {\r
+            display: flex;\r
+            justify-content: space-between;\r
+            align-items: center;\r
+            flex-wrap: wrap;\r
+            gap: 12px;\r
+        }\r
+        .header-title { \r
+            font-size: 20px; \r
+            font-weight: 700; \r
+            color: #fff; \r
+            display: flex; \r
+            align-items: center; \r
+            gap: 10px;\r
+            letter-spacing: -0.3px;\r
+        }\r
+        .header-subtitle { \r
+            font-size: 13px; \r
+            color: var(--text-secondary); \r
+            line-height: 1.4;\r
+        }\r
+        .action-buttons {\r
+            display: flex;\r
+            flex-wrap: wrap;\r
+            gap: 8px;\r
+            align-items: center;\r
+        }\r
+\r
+        /* BUTTONS */\r
+        .btn {\r
+            background: rgba(255, 255, 255, 0.05);\r
+            border: 1px solid var(--border-color);\r
+            color: var(--text-primary);\r
+            padding: 7px 14px;\r
+            border-radius: 6px;\r
+            font-size: 12px;\r
+            font-weight: 600;\r
+            cursor: pointer;\r
+            transition: all 0.2s ease;\r
+            display: inline-flex;\r
+            align-items: center;\r
+            gap: 6px;\r
+            user-select: none;\r
+        }\r
+        .btn:hover { \r
+            background: rgba(255, 255, 255, 0.12); \r
+            transform: translateY(-1px);\r
+            color: #fff;\r
+        }\r
+        .btn:active { transform: translateY(0); }\r
+        .btn-yellow { border-color: rgba(234, 179, 8, 0.4); color: #fde047; background: rgba(234, 179, 8, 0.1); }\r
+        .btn-yellow:hover { background: rgba(234, 179, 8, 0.2); }\r
+        .btn-blue { border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; background: rgba(59, 130, 246, 0.1); }\r
+        .btn-blue:hover { background: rgba(59, 130, 246, 0.2); }\r
+        .btn-green { border-color: rgba(8, 153, 129, 0.4); color: #4ade80; background: rgba(8, 153, 129, 0.1); }\r
+        .btn-green:hover { background: rgba(8, 153, 129, 0.2); }\r
+        .btn-rose { border-color: rgba(244, 63, 94, 0.4); color: #fda4af; background: rgba(244, 63, 94, 0.1); }\r
+        .btn-rose:hover { background: rgba(244, 63, 94, 0.2); }\r
+        .btn-purple { border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe; background: rgba(168, 85, 247, 0.1); }\r
+        .btn-purple:hover { background: rgba(168, 85, 247, 0.2); }\r
+        .btn-close { border-color: rgba(242, 54, 69, 0.4); color: #fca5a5; background: rgba(242, 54, 69, 0.1); }\r
+        .btn-close:hover { background: rgba(242, 54, 69, 0.25); }\r
+\r
+        /* RISK MODE BUTTONS */\r
+        .risk-modes-bar {\r
+            display: flex;\r
+            gap: 10px;\r
+            align-items: center;\r
+            margin-top: 14px;\r
+            padding-top: 14px;\r
+            border-top: 1px dashed rgba(255, 255, 255, 0.1);\r
+            flex-wrap: wrap;\r
+        }\r
+        .risk-modes-label {\r
+            font-size: 13px;\r
+            font-weight: 600;\r
+            color: var(--text-secondary);\r
+            display: flex;\r
+            align-items: center;\r
+            gap: 6px;\r
+        }\r
+        .risk-btn {\r
+            border: 1px solid var(--border-color);\r
+            background: rgba(255, 255, 255, 0.05);\r
+            color: var(--text-secondary);\r
+            padding: 8px 16px;\r
+            border-radius: 8px;\r
+            font-size: 13px;\r
+            font-weight: 600;\r
+            cursor: pointer;\r
+            transition: all 0.2s ease;\r
+            display: inline-flex;\r
+            align-items: center;\r
+            gap: 8px;\r
+            position: relative;\r
+        }\r
+        .risk-btn.active {\r
+            border-color: #4ade80;\r
+            background: rgba(34, 197, 94, 0.15);\r
+            color: #4ade80;\r
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);\r
+        }\r
+        .risk-btn:hover:not(.active) {\r
+            background: rgba(255, 255, 255, 0.1);\r
+            color: #fff;\r
+        }\r
+\r
+        /* PANELS */\r
+        .panel {\r
+            background-color: var(--bg-panel);\r
+            border: 1px solid var(--border-color);\r
+            border-radius: 10px;\r
+            padding: 16px;\r
+            margin-bottom: 20px;\r
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);\r
+        }\r
+        .panel-header {\r
+            display: flex;\r
+            justify-content: space-between;\r
+            align-items: center;\r
+            margin-bottom: 14px;\r
+            flex-wrap: wrap;\r
+            gap: 10px;\r
+        }\r
+        .panel-header-title {\r
+            font-size: 15px;\r
+            font-weight: 700;\r
+            color: #fff;\r
+            display: flex;\r
+            align-items: center;\r
+            gap: 8px;\r
+        }\r
+\r
+        /* 3-MARKET SEPARATED WINDOWS (CRYPTO, BIST, NASDAQ) */\r
+        .markets-container {\r
+            display: flex;\r
+            flex-direction: column;\r
+            gap: 20px;\r
+            margin-bottom: 24px;\r
+        }\r
+\r
+        /* MARKET WINDOW CONTAINER */\r
+        .market-window {\r
+            border-radius: 12px;\r
+            padding: 16px 18px;\r
+            transition: all 0.3s ease;\r
+            position: relative;\r
+            overflow: hidden;\r
+        }\r
+\r
+        /* 1. CRYPTO WINDOW (Mor/Violet Neon) */\r
+        .market-window-crypto {\r
+            background: linear-gradient(145deg, rgba(168, 85, 247, 0.10) 0%, rgba(88, 28, 135, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);\r
+            border: 1px solid var(--crypto-border);\r
+            box-shadow: 0 8px 30px rgba(168, 85, 247, 0.08);\r
+        }\r
+        .market-window-crypto .window-tag {\r
+            background: rgba(168, 85, 247, 0.2);\r
+            border: 1px solid rgba(168, 85, 247, 0.4);\r
+            color: #e9d5ff;\r
+        }\r
+\r
+        /* 2. BIST WINDOW (Zümrüt Yeşili) */\r
+        .market-window-bist {\r
+            background: linear-gradient(145deg, rgba(8, 153, 129, 0.10) 0%, rgba(6, 78, 59, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);\r
+            border: 1px solid var(--bist-border);\r
+            box-shadow: 0 8px 30px rgba(8, 153, 129, 0.08);\r
+        }\r
+        .market-window-bist .window-tag {\r
+            background: rgba(8, 153, 129, 0.2);\r
+            border: 1px solid rgba(8, 153, 129, 0.4);\r
+            color: #a7f3d0;\r
+        }\r
+\r
+        /* 3. NASDAQ WINDOW (Safir Mavi) */\r
+        .market-window-nasdaq {\r
+            background: linear-gradient(145deg, rgba(59, 130, 246, 0.10) 0%, rgba(30, 58, 138, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);\r
+            border: 1px solid var(--nasdaq-border);\r
+            box-shadow: 0 8px 30px rgba(59, 130, 246, 0.08);\r
+        }\r
+        .market-window-nasdaq .window-tag {\r
+            background: rgba(59, 130, 246, 0.2);\r
+            border: 1px solid rgba(59, 130, 246, 0.4);\r
+            color: #bfdbfe;\r
+        }\r
+\r
+        /* WINDOW HEADER */\r
+        .window-header {\r
+            display: flex;\r
+            justify-content: space-between;\r
+            align-items: center;\r
+            margin-bottom: 12px;\r
+            flex-wrap: wrap;\r
+            gap: 10px;\r
+            padding-bottom: 10px;\r
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);\r
+        }\r
+        .window-title-group {\r
+            display: flex;\r
+            align-items: center;\r
+            gap: 10px;\r
+            flex-wrap: wrap;\r
+        }\r
+        .window-title {\r
+            font-size: 16px;\r
+            font-weight: 700;\r
+            color: #fff;\r
+            display: flex;\r
+            align-items: center;\r
+            gap: 8px;\r
+        }\r
+        .window-tag {\r
+            font-size: 11px;\r
+            font-weight: 700;\r
+            padding: 3px 8px;\r
+            border-radius: 6px;\r
+            font-family: 'JetBrains Mono', monospace;\r
+            text-transform: uppercase;\r
+        }\r
+        .window-status-badge {\r
+            font-size: 11px;\r
+            font-weight: 600;\r
+            padding: 4px 10px;\r
+            border-radius: 20px;\r
+            display: inline-flex;\r
+            align-items: center;\r
+            gap: 6px;\r
+        }\r
+        .status-open {\r
+            background: rgba(8, 153, 129, 0.18);\r
+            border: 1px solid rgba(8, 153, 129, 0.4);\r
+            color: #4ade80;\r
+        }\r
+        .status-closed {\r
+            background: rgba(242, 54, 69, 0.18);\r
+            border: 1px solid rgba(242, 54, 69, 0.4);\r
+            color: #f87171;\r
+        }\r
+\r
+        /* MARKET NOTICE BANNER */\r
+        .market-notice-banner {\r
+            padding: 6px 12px;\r
+            border-radius: 6px;\r
+            font-size: 11.5px;\r
+            margin-bottom: 12px;\r
+            display: flex;\r
+            align-items: center;\r
+            gap: 8px;\r
+        }\r
+        .banner-open {\r
+            background: rgba(8, 153, 129, 0.1);\r
+            border: 1px solid rgba(8, 153, 129, 0.25);\r
+            color: #a7f3d0;\r
+        }\r
+        .banner-closed {\r
+            background: rgba(242, 54, 69, 0.1);\r
+            border: 1px solid rgba(242, 54, 69, 0.25);\r
+            color: #fca5a5;\r
+        }\r
+\r
+        /* TICKER GRID */\r
+        .ticker-grid {\r
+            display: grid;\r
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));\r
+            gap: 10px;\r
+        }\r
+\r
+        /* TICKER CARD BASE */\r
+        .ticker-card {\r
+            background: var(--bg-card);\r
+            border: 1px solid var(--border-color);\r
+            border-radius: 8px;\r
+            padding: 10px;\r
+            cursor: pointer;\r
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);\r
+            position: relative;\r
+            display: flex;\r
+            flex-direction: column;\r
+            gap: 4px;\r
+        }\r
+        .ticker-card:hover {\r
+            transform: translateY(-2px);\r
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);\r
+            border-color: rgba(255, 255, 255, 0.25);\r
+        }\r
+\r
+        .active-trade-card {\r
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(59, 130, 246, 0.15)) !important;\r
+            border-color: rgba(34, 197, 94, 0.6) !important;\r
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.25) !important;\r
+        }\r
+\r
+        /* PİYASA KAPALIYSA KARTLAR SOLUK OLMALI */\r
+        .market-closed {\r
+            opacity: 0.52 !important;\r
+            filter: grayscale(35%) !important;\r
+            border-style: dashed !important;\r
+            border-color: rgba(255, 255, 255, 0.12) !important;\r
+        }\r
+        .market-closed:hover {\r
+            opacity: 0.88 !important;\r
+            filter: grayscale(0%) !important;\r
+            border-color: rgba(255, 255, 255, 0.3) !important;\r
+        }\r
+\r
+        /* SPECIFIC CARD BACKGROUNDS BY GROUP */\r
+        .market-window-crypto .ticker-card {\r
+            background: rgba(168, 85, 247, 0.05);\r
+            border-color: rgba(168, 85, 247, 0.22);\r
+        }\r
+        .market-window-bist .ticker-card {\r
+            background: rgba(8, 153, 129, 0.05);\r
+            border-color: rgba(8, 153, 129, 0.22);\r
+        }\r
+        .market-window-nasdaq .ticker-card {\r
+            background: rgba(59, 130, 246, 0.05);\r
+            border-color: rgba(59, 130, 246, 0.22);\r
+        }\r
+\r
+        .ticker-top {\r
+            display: flex;\r
+            justify-content: space-between;\r
+            align-items: center;\r
+        }\r
+        .ticker-symbol {\r
+            font-size: 13px;\r
+            font-weight: 700;\r
+            color: #fff;\r
+            font-family: 'JetBrains Mono', monospace;\r
+        }\r
+        .ticker-change {\r
+            font-size: 11px;\r
+            font-weight: 700;\r
+            font-family: 'JetBrains Mono', monospace;\r
+        }\r
+        .ticker-price {\r
+            font-size: 15px;\r
+            font-weight: 700;\r
+            font-family: 'JetBrains Mono', monospace;\r
+            color: #fff;\r
+            transition: color 0.3s;\r
+        }\r
+        .ticker-bottom {\r
+            display: flex;\r
+            justify-content: space-between;\r
+            align-items: center;\r
+            font-size: 10px;\r
+            color: var(--text-muted);\r
+            font-family: 'JetBrains Mono', monospace;\r
+        }\r
+        .badge-closed-tag {\r
+            font-size: 9.5px;\r
+            padding: 1px 4px;\r
+            border-radius: 3px;\r
+            background: rgba(242, 54, 69, 0.2);\r
+            color: #fca5a5;\r
+            font-weight: 600;\r
+        }\r
+\r
+        /* PRICE TICK FLASH ANIMATIONS */\r
+        @keyframes tickUp {\r
+            0% { background-color: rgba(8, 153, 129, 0.4); }\r
+            100% { background-color: transparent; }\r
+        }\r
+        @keyframes tickDown {\r
+            0% { background-color: rgba(242, 54, 69, 0.4); }\r
+            100% { background-color: transparent; }\r
+        }\r
+        .price-tick-up { animation: tickUp 0.8s ease-out; }\r
+        .price-tick-down { animation: tickDown 0.8s ease-out; }\r
+\r
+        .up { color: var(--up-color); }\r
+        .down { color: var(--down-color); }\r
+\r
+        /* WALLET TOOLBAR */\r
+        .wallet-bar {\r
+            display: flex;\r
+            justify-content: space-between;\r
+            align-items: center;\r
+            flex-wrap: wrap;\r
+            gap: 12px;\r
+            background: rgba(19, 23, 34, 0.9);\r
+            border: 1px solid var(--border-color);\r
+            border-radius: 10px;\r
+            padding: 12px 18px;\r
+            margin-bottom: 16px;\r
+        }\r
+        .wallet-info {\r
+            font-family: 'JetBrains Mono', monospace;\r
+            font-size: 13px;\r
+            color: #93c5fd;\r
+            display: flex;\r
+            align-items: center;\r
+            gap: 8px;\r
+            flex-wrap: wrap;\r
+        }\r
+        .wallet-val {\r
+            color: #4ade80;\r
+            font-size: 16px;\r
+            font-weight: 700;\r
+        }\r
+\r
+        /* MARKET FILTER TABS */\r
+        .filter-tabs {\r
+            display: flex;\r
+            gap: 8px;\r
+            align-items: center;\r
+            flex-wrap: wrap;\r
+        }\r
+        .tab-btn {\r
+            background: rgba(255, 255, 255, 0.04);\r
+            border: 1px solid var(--border-color);\r
+            color: var(--text-secondary);\r
+            padding: 6px 14px;\r
+            border-radius: 20px;\r
+            font-size: 12px;\r
+            font-weight: 600;\r
+            cursor: pointer;\r
+            transition: all 0.2s ease;\r
+        }\r
+        .tab-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }\r
+        .tab-btn.active {\r
+            background: #fff;\r
+            color: #0c0f17;\r
+            font-weight: 700;\r
+            border-color: #fff;\r
+        }\r
+\r
+        /* POSITIONS TABLE */\r
+        .table-responsive {\r
+            overflow-x: auto;\r
+        }\r
+        table {\r
+            width: 100%;\r
+            border-collapse: collapse;\r
+            font-size: 12.5px;\r
+            font-family: 'JetBrains Mono', monospace;\r
+        }\r
+        th {\r
+            text-align: left;\r
+            padding: 10px 12px;\r
+            background-color: rgba(255,255,255,0.02);\r
+            color: var(--text-secondary);\r
+            font-weight: 600;\r
+            border-bottom: 1px solid var(--border-color);\r
+        }\r
+        td {\r
+            padding: 10px 12px;\r
+            border-bottom: 1px solid var(--border-light);\r
+            color: var(--text-primary);\r
+        }\r
+        tr:hover td {\r
+            background-color: rgba(255,255,255,0.02);\r
+        }\r
+\r
+        /* 2-COLUMN GRID (RULES & SUMMARY) */\r
+        .two-col-grid {\r
+            display: grid;\r
+            grid-template-columns: 1fr 1fr;\r
+            gap: 20px;\r
+            margin-bottom: 20px;\r
+        }\r
+        @media (max-width: 900px) {\r
+            .two-col-grid { grid-template-columns: 1fr; }\r
+        }\r
+\r
+        .inner-box {\r
+            background: #181c27;\r
+            border: 1px solid var(--border-color);\r
+            border-radius: 8px;\r
+            padding: 12px 14px;\r
+            margin-bottom: 10px;\r
+            transition: border-color 0.2s;\r
+        }\r
+        .inner-box:hover { border-color: rgba(255,255,255,0.2); }\r
+        .inner-box-title {\r
+            font-weight: 700;\r
+            font-size: 13px;\r
+            color: #fff;\r
+            margin-bottom: 6px;\r
+            display: flex;\r
+            justify-content: space-between;\r
+            align-items: center;\r
+        }\r
+        .inner-box-item {\r
+            font-size: 12px;\r
+            color: var(--text-secondary);\r
+            margin-top: 4px;\r
+            line-height: 1.4;\r
+            display: flex;\r
+            gap: 6px;\r
+        }\r
+        .inner-box-badge {\r
+            font-size: 10.5px;\r
+            padding: 2px 7px;\r
+            border-radius: 4px;\r
+            font-weight: 700;\r
+        }\r
+        .badge-reward { background: rgba(8, 153, 129, 0.2); color: #4ade80; }\r
+        .badge-caution { background: rgba(234, 179, 8, 0.2); color: #fde047; }\r
+        .badge-block { background: rgba(242, 54, 69, 0.2); color: #f87171; }\r
+\r
+        /* PULSE DOT */\r
+        .live-dot {\r
+            width: 8px; height: 8px; border-radius: 50%;\r
+            background: var(--up-color);\r
+            display: inline-block;\r
+            box-shadow: 0 0 8px var(--up-color);\r
+            animation: pulse 1.8s infinite;\r
+        }\r
+        /* Active Position Highlight */\r
+        .active-position-card {\r
+            border: 1px solid var(--accent-blue) !important;\r
+            background: linear-gradient(180deg, rgba(41, 98, 255, 0.15) 0%, rgba(30, 34, 45, 0.4) 100%) !important;\r
+            box-shadow: 0 0 12px rgba(41, 98, 255, 0.25);\r
+        }\r
+        @keyframes pulse {\r
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(8, 153, 129, 0.7); }\r
+            70% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(8, 153, 129, 0); }\r
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(8, 153, 129, 0); }\r
+        }\r
+\r
+        /* TOAST SYSTEM */\r
+        #toastContainer {\r
+            position: fixed;\r
+            bottom: 24px;\r
+            right: 24px;\r
+            z-index: 99999;\r
+            display: flex;\r
+            flex-direction: column;\r
+            gap: 10px;\r
+            pointer-events: none;\r
+        }\r
+        .toast {\r
+            background: #1e222d;\r
+            border: 1px solid var(--border-color);\r
+            border-left: 4px solid var(--accent-blue);\r
+            color: #fff;\r
+            padding: 12px 18px;\r
+            border-radius: 8px;\r
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);\r
+            font-size: 13px;\r
+            font-weight: 500;\r
+            display: flex;\r
+            align-items: center;\r
+            gap: 10px;\r
+            pointer-events: auto;\r
+            animation: slideInRight 0.3s ease;\r
+            max-width: 380px;\r
+        }\r
+        .toast-success { border-left-color: var(--up-color); }\r
+        .toast-error { border-left-color: var(--down-color); }\r
+        .toast-warn { border-left-color: var(--accent-yellow); }\r
+        .toast-info { border-left-color: var(--accent-blue); }\r
+\r
+        /* MODAL */\r
+        .modal-overlay {\r
+            position: fixed;\r
+            top: 0; left: 0; right: 0; bottom: 0;\r
+            background: rgba(0, 0, 0, 0.75);\r
+            backdrop-filter: blur(4px);\r
+            display: none;\r
+            align-items: center;\r
+            justify-content: center;\r
+            z-index: 10000;\r
+            padding: 16px;\r
+        }\r
+        .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }\r
+        .modal-box {\r
+            background: #181c27;\r
+            border: 1px solid rgba(255, 255, 255, 0.15);\r
+            border-radius: 12px;\r
+            width: 100%;\r
+            max-width: 650px;\r
+            max-height: 85vh;\r
+            display: flex;\r
+            flex-direction: column;\r
+            box-shadow: 0 16px 40px rgba(0,0,0,0.6);\r
+            overflow: hidden;\r
+        }\r
+        .modal-header {\r
+            padding: 16px 20px;\r
+            border-bottom: 1px solid var(--border-color);\r
+            display: flex;\r
+            justify-content: space-between;\r
+            align-items: center;\r
+        }\r
+        .modal-title { font-size: 16px; font-weight: 700; color: #fff; }\r
+        .modal-close-btn {\r
+            background: transparent;\r
+            border: none;\r
+            color: var(--text-secondary);\r
+            font-size: 20px;\r
+            cursor: pointer;\r
+            padding: 4px;\r
+            line-height: 1;\r
+        }\r
+        .modal-close-btn:hover { color: #fff; }\r
+        .modal-body {\r
+            padding: 20px;\r
+            overflow-y: auto;\r
+            font-size: 13px;\r
+            color: var(--text-primary);\r
+        }\r
+        .modal-footer {\r
+            padding: 14px 20px;\r
+            border-top: 1px solid var(--border-color);\r
+            display: flex;\r
+            justify-content: flex-end;\r
+            gap: 10px;\r
+            background: rgba(0,0,0,0.15);\r
+        }\r
+\r
+        .stat-grid {\r
+            display: grid;\r
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));\r
+            gap: 12px;\r
+            margin-bottom: 16px;\r
+        }\r
+        .stat-card {\r
+            background: #11141c;\r
+            border: 1px solid var(--border-color);\r
+            border-radius: 8px;\r
+            padding: 12px;\r
+            text-align: center;\r
+        }\r
+        .stat-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }\r
+        .stat-value { font-size: 18px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }\r
+\r
+        /* ===== PORTFÖY KPI BAR ===== */\r
+        .kpi-bar {\r
+            display: grid;\r
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));\r
+            gap: 10px;\r
+            margin-bottom: 16px;\r
+            padding: 14px 18px;\r
+            background: linear-gradient(135deg, rgba(28,33,48,0.9) 0%, rgba(15,18,26,0.98) 100%);\r
+            border: 1px solid var(--border-color);\r
+            border-radius: 12px;\r
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);\r
+        }\r
+        .kpi-card {\r
+            background: rgba(255,255,255,0.03);\r
+            border: 1px solid rgba(255,255,255,0.07);\r
+            border-radius: 10px;\r
+            padding: 12px 14px;\r
+            display: flex;\r
+            flex-direction: column;\r
+            gap: 4px;\r
+            transition: all 0.2s ease;\r
+            position: relative;\r
+            overflow: hidden;\r
+        }\r
+        .kpi-card::before {\r
+            content: '';\r
+            position: absolute;\r
+            top: 0; left: 0; right: 0;\r
+            height: 2px;\r
+            border-radius: 10px 10px 0 0;\r
+        }\r
+        .kpi-card.kpi-blue::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }\r
+        .kpi-card.kpi-green::before { background: linear-gradient(90deg, #089981, #34d399); }\r
+        .kpi-card.kpi-red::before { background: linear-gradient(90deg, #f23645, #fb7185); }\r
+        .kpi-card.kpi-purple::before { background: linear-gradient(90deg, #a855f7, #c084fc); }\r
+        .kpi-card.kpi-yellow::before { background: linear-gradient(90deg, #eab308, #facc15); }\r
+        .kpi-card.kpi-cyan::before { background: linear-gradient(90deg, #06b6d4, #67e8f9); }\r
+        .kpi-card.kpi-orange::before { background: linear-gradient(90deg, #f97316, #fb923c); }\r
+        .kpi-card.kpi-teal::before { background: linear-gradient(90deg, #14b8a6, #5eead4); }\r
+        .kpi-card:hover {\r
+            background: rgba(255,255,255,0.06);\r
+            border-color: rgba(255,255,255,0.12);\r
+            transform: translateY(-2px);\r
+        }\r
+        .kpi-icon { font-size: 18px; margin-bottom: 4px; }\r
+        .kpi-label {\r
+            font-size: 10px;\r
+            font-weight: 600;\r
+            color: var(--text-muted);\r
+            text-transform: uppercase;\r
+            letter-spacing: 0.5px;\r
+        }\r
+        .kpi-value {\r
+            font-size: 18px;\r
+            font-weight: 700;\r
+            font-family: 'JetBrains Mono', monospace;\r
+            color: #fff;\r
+            line-height: 1;\r
+        }\r
+        .kpi-sub {\r
+            font-size: 10px;\r
+            color: var(--text-muted);\r
+            font-family: 'JetBrains Mono', monospace;\r
+        }\r
+        .kpi-up { color: #089981 !important; }\r
+        .kpi-down { color: #f23645 !important; }\r
+\r
+        /* ===== ENHANCED POSITIONS TABLE ===== */\r
+        .pos-duration {\r
+            font-family: 'JetBrains Mono', monospace;\r
+            font-size: 11px;\r
+            color: var(--text-secondary);\r
+        }\r
+        .pos-distance-tp {\r
+            font-family: 'JetBrains Mono', monospace;\r
+            font-size: 11px;\r
+        }\r
+        .pos-distance-sl {\r
+            font-family: 'JetBrains Mono', monospace;\r
+            font-size: 11px;\r
+        }\r
+        .realtime-flash {\r
+            animation: pricePulse 0.4s ease;\r
+        }\r
+        @keyframes pricePulse {\r
+            0% { opacity: 0.4; transform: scale(1.04); }\r
+            100% { opacity: 1; transform: scale(1); }\r
+        }\r
+\r
+        .code-block {\r
+            background: #0f121a;\r
+            border: 1px solid var(--border-color);\r
+            border-radius: 6px;\r
+            padding: 14px;\r
+            font-family: 'JetBrains Mono', monospace;\r
+            font-size: 11.5px;\r
+            color: #d1d4dc;\r
+            overflow-x: auto;\r
+"}
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+ **The earlier parts of this conversation have been truncated due to its long length. The following content summarizes the truncated context so that you may continue your work. **
+
+
+# USER Objective:
+Pencere Güncelleme Optimizasyonu
+
+# User Requests
+The following were user requests from the truncated conversation in chronological order:
+1.  kendini pencereler hala güncellemiyor beklenen mantıga uygun tüm pencerelerimiz akıcı hızlı anlık ve tarih saat uyumlu ilerlemeli ki ml gelişiminde etkili olsun.
+
+You have the 1 following artifacts written to the artifacts directory:
+
+[ARTIFACT: media_1788648442609]
+Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/20d37064-7471-4d59-bb3e-40ec2c15b4e9/.user_uploaded/media_1788648442609.png
+Last Edited: 2026-09-05T22:47:34Z
+
+# Conversation Logs
+
+Reference the following log files for the full, untruncated conversation:
+
+- C:\Users\ASUS\.gemini\antigravity-ide\brain\20d37064-7471-4d59-bb3e-40ec2c15b4e9\.system_generated\logs\	ranscript.jsonl
+
+**IMPORTANT: this summary is just for your reference. You may respond to my previous and future messages, but DO NOT ACKNOWLEDGE THIS CHECKPOINT MESSAGE. JUST READ IT BUT DO NOT MENTION IT, RESPOND TO IT, OR TAKE ACTION BECAUSE OF IT.**"}
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Selection**
+
+I'm now zeroing in on precise tool choice, remembering those key rules about `cat`, `grep`, `ls`, and `sed`. I need to ensure the best tool is employed. My goal is to streamline the UI to be fluent and instantly synchronized with current date/time, and I'll carefully consider tool lists before action.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","ContentOffset":260171,"toolAction":"Viewing file","toolSummary":"View dashboard.html continued"}}]}
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"grep_search","args":{"Query":"function","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching the web","toolSummary":"Search for javascript functions in dashboard.html"}}]}
+Completed At: 2026-09-06T01:47:55+03:00
+{"File":"c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/templates/dashboard.html"}"}
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+","tool_calls":[{"name":"grep_search","args":{"MatchPerLine":true,"Query":"function ","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching the web","toolSummary":"Search for javascript functions in dashboard.html"}}]}
+Completed At: 2026-09-06T01:48:00+03:00
+No results found"}
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","EndLine":1600,"StartLine":800,"toolAction":"Viewing file","toolSummary":"View dashboard.html 800 to 1600"}}]}
+Completed At: 2026-09-06T01:48:07+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/templates/dashboard.html`
+Total Lines: 4791
+Total Bytes: 260171
+Showing lines 800 to 1599
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+            overflow-x: auto;\r
+            max-height: 380px;\r
+            white-space: pre-wrap;\r
+            word-break: break-all;\r
+        }\r
+\r
+        /* ==========================================\r
+           FUTURE ADVANCING PANEL\r
+        ========================================== */\r
+        .future-panel {\r
+            background: linear-gradient(135deg, rgba(10,12,28,0.97) 0%, rgba(14,18,42,0.97) 100%);\r
+            border: 1px solid rgba(99, 102, 241, 0.35);\r
+            border-radius: 14px;\r
+            padding: 0;\r
+            margin-bottom: 22px;\r
+            box-shadow: 0 0 40px rgba(99,102,241,0.08), 0 2px 24px rgba(0,0,0,0.5);\r
+            overflow: hidden;\r
+            position: relative;\r
+        }\r
+        .future-panel::before {\r
+            content: '';\r
+            position: absolute;\r
+            top: 0; left: 0; right: 0; height: 2px;\r
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #6366f1);\r
+            background-size: 200% 100%;\r
+            animation: shimmer 3s linear infinite;\r
+        }\r
+        @keyframes shimmer {\r
+            0% { background-position: 0% 50%; }\r
+            100% { background-position: 200% 50%; }\r
+        }\r
+        .future-panel-header {\r
+            display: flex;\r
+            align-items: center;\r
+            justify-content: space-between;\r
+            padding: 14px 20px 12px;\r
+            border-bottom: 1px solid rgba(99,102,241,0.2);\r
+            background: rgba(99,102,241,0.06);\r
+        }\r
+        .future-panel-title {\r
+            font-size: 14px;\r
+            font-weight: 700;\r
+            color: #c4b5fd;\r
+            letter-spacing: 0.5px;\r
+            display: flex;\r
+            align-items: center;\r
+            gap: 8px;\r
+        }\r
+        .future-orb {\r
+            width: 9px; height: 9px;\r
+            border-radius: 50%;\r
+            background: #818cf8;\r
+            box-shadow: 0 0 6px #818cf8, 0 0 14px rgba(129,140,248,0.5);\r
+            animation: orbPulse 2s ease-in-out infinite;\r
+        }\r
+        @keyframes orbPulse {\r
+            0%, 100% { opacity: 1; transform: scale(1); }\r
+            50% { opacity: 0.5; transform: scale(0.7); }\r
+        }\r
+        .future-clock {\r
+            font-family: 'JetBrains Mono', monospace;\r
+            font-size: 11px;\r
+            color: #818cf8;\r
+            background: rgba(99,102,241,0.12);\r
+            padding: 4px 10px;\r
+            border-radius: 6px;\r
+            border: 1px solid rgba(99,102,241,0.25);\r
+        }\r
+        .future-body {\r
+            padding: 16px 20px 8px;\r
+            display: grid;\r
+            grid-template-columns: 1fr 1fr;\r
+            gap: 20px;\r
+        }\r
+        @media (max-width: 1000px) {\r
+            .future-body { grid-template-columns: 1fr; }\r
+        }\r
+        #futureStreamContainer, #futureSuggestContainer {\r
+            max-height: 350px;\r
+            overflow-y: auto;\r
+            padding-right: 8px;\r
+        }\r
+        #futureStreamContainer::-webkit-scrollbar,\r
+        #futureSuggestContainer::-webkit-scrollbar { width: 5px; }\r
+        #futureStreamContainer::-webkit-scrollbar-track,\r
+        #futureSuggestContainer::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 8px; }\r
+        #futureStreamContainer::-webkit-scrollbar-thumb,\r
+        #futureSuggestContainer::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.4); border-radius: 8px; }\r
+        .future-section-label {\r
+            font-size: 10px;\r
+            font-weight: 700;\r
+            letter-spacing: 1.2px;\r
+            color: #6366f1;\r
+            text-transform: uppercase;\r
+            margin-bottom: 10px;\r
+            padding-bottom: 6px;\r
+            border-bottom: 1px solid rgba(99,102,241,0.15);\r
+        }\r
+        .future-stream-item {\r
+            display: flex;\r
+            align-items: flex-start;\r
+            gap: 8px;\r
+            padding: 8px 10px;\r
+            border-radius: 8px;\r
+            margin-bottom: 6px;\r
+            background: rgba(255,255,255,0.02);\r
+            border: 1px solid rgba(255,255,255,0.04);\r
+            transition: background 0.2s, border-color 0.2s;\r
+            animation: fadeIn 0.4s ease-out;\r
+        }\r
+        .future-stream-item:hover { background: rgba(255,255,255,0.045); border-color: rgba(99,102,241,0.25); }\r
+        .future-stream-item .fsi-icon {\r
+            font-size: 13px;\r
+            line-height: 1.5;\r
+            flex-shrink: 0;\r
+        }\r
+        .future-stream-item .fsi-body {\r
+            flex: 1;\r
+        }\r
+        .fsi-asset {\r
+            font-size: 11px;\r
+            font-weight: 700;\r
+            color: #e2e8f0;\r
+            margin-bottom: 2px;\r
+        }\r
+        .fsi-text {\r
+            font-size: 11px;\r
+            color: #e2e8f0;\r
+            line-height: 1.55;\r
+        }\r
+        .future-suggestion-item {\r
+            display: flex;\r
+            align-items: flex-start;\r
+            gap: 8px;\r
+            padding: 9px 12px;\r
+            border-radius: 8px;\r
+            margin-bottom: 7px;\r
+            background: rgba(99,102,241,0.07);\r
+            border: 1px solid rgba(99,102,241,0.18);\r
+            animation: fadeIn 0.4s ease-out;\r
+            transition: background 0.2s;\r
+        }\r
+        .future-suggestion-item:hover { background: rgba(99,102,241,0.13); }\r
+        .fsi-num {\r
+            font-size: 10px;\r
+            font-weight: 800;\r
+            color: #818cf8;\r
+            background: rgba(99,102,241,0.2);\r
+            border-radius: 50%;\r
+            width: 18px; height: 18px;\r
+            display: flex; align-items: center; justify-content: center;\r
+            flex-shrink: 0;\r
+            margin-top: 1px;\r
+        }\r
+        .fsi-suggest-text {\r
+            font-size: 11.5px;\r
+            color: #c4b5fd;\r
+            line-height: 1.6;\r
+        }\r
+        .future-footer {\r
+            padding: 8px 20px 12px;\r
+            font-size: 10px;\r
+            color: rgba(99,102,241,0.5);\r
+            text-align: right;\r
+            font-family: 'JetBrains Mono', monospace;\r
+            border-top: 1px solid rgba(99,102,241,0.08);\r
+            margin-top: 8px;\r
+        }\r
+\r
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }\r
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }\r
+    \r
+    @keyframes blinkFast {\r
+        0% { opacity: 1; }\r
+        50% { opacity: 0.1; }\r
+        100% { opacity: 1; }\r
+    }\r
+    .blink-fast { animation: blinkFast 0.8s infinite; }\r
+    @keyframes boxBlinkGreen {\r
+        0% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }\r
+        50% { box-shadow: 0 0 15px rgba(34,197,94,0.6); border-color: rgba(34,197,94,0.8); }\r
+        100% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }\r
+    }\r
+    .ready-to-buy-box { animation: boxBlinkGreen 1.5s infinite; border: 1px solid rgba(34,197,94,0.3); }\r
+    \r
+</style>\r
+\r
+</head>\r
+<body>\r
+\r
+    <!-- TOAST CONTAINER -->\r
+    <div id="toastContainer"></div>\r
+\r
+    <!-- TOP HEADER -->\r
+    <div class="header-section">\r
+        <div class="header-top">\r
+            <div>\r
+                <div class="header-title">\r
+                    <span style="color: #f43f5e; font-size: 22px;">🧬</span> TRADINGVIEW AI GATEWAY & 3-PİYASA CANLI KOKPİTİ\r
+                </div>\r
+                <div class="header-subtitle">\r
+                    Kripto (7/24), BIST 100/30 ve NASDAQ Mega-Cap • Dinamik Seans Kontrolü • Otonom Risk & Hafıza Motoru\r
+                </div>\r
+            </div>\r
+            <div class="action-buttons">\r
+                <button class="btn btn-yellow" id="btnExportCsv" onclick="exportCsvData()">\r
+                    <span>⬇</span> Tarihsel Veri (CSV)\r
+                </button>\r
+                <button class="btn btn-blue" id="btnExportJson" onclick="openJsonModal()">\r
+                    <span>📄</span> JSON Raporu\r
+                </button>\r
+                <button class="btn btn-green" id="btnCumSuccess" onclick="openPerformanceModal()">\r
+                    <span>📈</span> Kümülatif Başarı: %87.5 (PF: 6.38)\r
+                </button>\r
+                <button class="btn btn-rose" id="btnDynMultiplier" onclick="openMultiplierModal()">\r
+                    <span>⚡</span> Dinamik Tecrübe Çarpanı: 1.20x\r
+                </button>\r
+\r
+                <button class="btn" style="border-color: rgba(255,255,255,0.15);" onclick="calibrateEngine()">\r
+                    <span>🔄</span> Kalibre Et\r
+                </button>\r
+            </div>\r
+        </div>\r
+        \r
+        <!-- YENİ: STRATEJİ & RİSK MODU BUTONLARI -->\r
+        <div class="risk-modes-bar">\r
+            <div class="risk-modes-label">\r
+                <span style="color: #eab308;">⚙️</span> Risk & Frekans Modu:\r
+            </div>\r
+            <button class="risk-btn" id="risk-btn-AGGRESSIVE" onclick="setRiskMode('AGGRESSIVE')" title="Sık işlem yapar, risk eşiğini esnetir (Min. %60 Kazanma İhtimali, derhal pozisyona girer).">\r
+                🔴 Agresif\r
+            </button>\r
+            <button class="risk-btn active" id="risk-btn-NORMAL" onclick="setRiskMode('NORMAL')" title="Standart piyasa koşulları, dengeli al-sat (Min. %85 Kazanma İhtimali).">\r
+                🟡 Normal\r
+            </button>\r
+            <button class="risk-btn" id="risk-btn-TIGHT" onclick="setRiskMode('TIGHT')" title="Dar Stop-Loss kullanır. Yüksek indikatör onayı bekler (Min. %90 Kazanma İhtimali).">\r
+                🔵 Sıkı (Tight)\r
+            </button>\r
+            <button class="risk-btn" id="risk-btn-CONSERVATIVE" onclick="setRiskMode('CONSERVATIVE')" title="Sadece çok güçlü sinyallerde işleme girer (Min. %90 Kazanma İhtimali).">\r
+                🟢 Güvenli (Conservative)\r
+            </button>\r
+          \r
+          <!-- YENİ: SERMAYE YÖNETİMİ (Slider) -->\r
+          <div style="margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(255, 255, 255, 0.1);">\r
+              <div class="risk-modes-label" style="margin-bottom: 8px;">\r
+                  <span style="color: #60a5fa;">💰</span> Sermaye Yönetimi (İşlem Başına Bütçe):\r
+              </div>\r
+              <div style="display: flex; align-items: center; gap: 15px;">\r
+                  <input type="range" id="capitalSlider" min="5" max="50" step="5" value="10" \r
+                         onchange="setCapitalAllocation(this.value)"\r
+                         oninput="document.getElementById('capitalValue').innerText = '%' + this.value"\r
+                         style="flex: 1; cursor: pointer; accent-color: #3b82f6;">\r
+                  <span id="capitalValue" style="color: #60a5fa; font-weight: 700; font-size: 15px; min-width: 45px;">%10</span>\r
+              </div>\r
+          </div>\r
+        </div>\r
+    </div>\r
+\r
+    <!-- MAIN DASHBOARD LAYOUT -->\r
+    <div style="display: flex; gap: 24px; padding: 0 16px; margin: 0 auto; max-width: 100%; align-items: flex-start; flex-wrap: wrap;">\r
+        \r
+        <!-- MAIN CONTENT (Chart Removed) -->\r
+        <div style="flex: 1 1 100%; min-width: 0; width: 100%;">\r
+\r
+    <!-- ===== 📅 CANLI TARİH + SAAT + SEANS BİLGİSİ ŞERİDİ ===== -->\r
+    <div id="tarihSaatBar" style="\r
+        display:flex; align-items:center; justify-content:space-between;\r
+        background:linear-gradient(90deg,rgba(15,18,26,0.98),rgba(28,33,48,0.9),rgba(15,18,26,0.98));\r
+        border:1px solid rgba(255,255,255,0.07);\r
+        border-radius:8px; padding:7px 16px; margin-bottom:10px;\r
+        font-family:'JetBrains Mono',monospace; font-size:11px;\r
+    ">\r
+        <div style="display:flex;align-items:center;gap:16px;">\r
+            <span style="color:#60a5fa;font-weight:700;" id="tsDate">—</span>\r
+            <span style="color:#e2e8f0;">•</span>\r
+            <span style="color:#f8fafc;font-weight:700;font-size:14px;" id="tsClock">--:--:--</span>\r
+            <span style="color:#e2e8f0;">•</span>\r
+            <span style="color:#fde047;" id="tsWeek">Hafta --</span>\r
+            <span style="color:#e2e8f0;">•</span>\r
+            <span style="color:#a5b4fc;" id="tsYear">Günün --. günü</span>\r
+        </div>\r
+        <div style="display:flex;align-items:center;gap:12px;">\r
+            <span id="tsBistStatus" style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(242,54,69,0.12);color:#fca5a5;">🇹🇷 BIST KAPALI</span>\r
+            <span id="tsNasdaqStatus" style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(242,54,69,0.12);color:#fca5a5;">🇺🇸 NASDAQ KAPALI</span>\r
+            <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(8,153,129,0.12);color:#4ade80;">🪙 KRİPTO 7/24</span>\r
+            <span style="color:#cbd5e1;">|</span>\r
+            <span style="color:#cbd5e1;font-size:10px;">Bot:</span>\r
+            <span id="tsBotUptime" style="color:#4ade80;font-size:10px;">00:00:00</span>\r
+            <span style="color:#cbd5e1;">|</span>\r
+            <span style="color:#cbd5e1;font-size:10px;">Son scan:</span>\r
+            <span id="tsLastScan" style="color:#e2e8f0;font-size:10px;">-</span>\r
+        </div>\r
+    </div>\r
+\r
+    <!-- WALLET & QUICK ACTION TOOLBAR -->\r
+    <div class="wallet-bar">\r
+        <div class="wallet-info">\r
+            <span class="live-dot"></span>\r
+            <span>ALPACA REAL-TIME EQUITY:</span>\r
+            <span class="wallet-val" id="walletBalance">$1000.00</span>\r
+            <span id="freeCash" style="color: var(--text-secondary); font-weight:400;">(Serbest Nakit: $1000.00)</span>\r
+            <span id="alpacaCommission" style="color: #fca5a5; font-weight:400; font-size: 11px; margin-left: 8px;">(Alpaca Komisyon Gideri: -$0.00)</span>\r
+            <span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">(Updated 1.5s)</span>\r
+        </div>\r
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">\r
+            <div class="filter-tabs">\r
+                <button class="tab-btn active" id="tabAll" onclick="filterMarketView('ALL')">🌐 Tümü (3 Grup / 92 Varlık)</button>\r
+                <button class="tab-btn" id="tabNasdaq" onclick="filterMarketView('NASDAQ')">🇺🇸 NASDAQ (40)</button>\r
+                <button class="tab-btn" id="tabCrypto" onclick="filterMarketView('CRYPTO')">🪙 Kripto (40)</button>\r
+                <button class="tab-btn" id="tabBist" onclick="filterMarketView('BIST')">🇹🇷 BIST (20)</button>\r
+            </div>\r
+            <button class="btn btn-blue" id="btnDailyReportTop" onclick="openDailyReportModal()">📊 Günlük Rapor</button>\r
+            <button class="btn btn-close" id="btnResetAccountTop" onclick="resetAccountWallet()">✓ Kasayı $1,000'a Sıfırla</button>\r
+        </div>\r
+    </div>\r
+\r
+    <!-- ====================================================================== -->\r
+    <!-- ====================================================================== -->\r
+    <!-- 📈 TOP 10 MOMENTUM / ISI HARİTASI & ALIM FIRSATLARI -->\r
+    <!-- ====================================================================== -->\r
+    <style>\r
+    @keyframes priceBlinkUp {\r
+        0%, 100% { color: #4ade80; text-shadow: 0 0 2px #4ade80; }\r
+        50% { color: #86efac; text-shadow: 0 0 8px #86efac; }\r
+    }\r
+    @keyframes priceBlinkDown {\r
+        0%, 100% { color: #f87171; text-shadow: 0 0 2px #f87171; }\r
+        50% { color: #fca5a5; text-shadow: 0 0 8px #fca5a5; }\r
+    }\r
+    .price-up { animation: priceBlinkUp 1.2s infinite; font-weight: bold; }\r
+    .price-down { animation: priceBlinkDown 1.2s infinite; font-weight: bold; }\r
+    \r
+    @keyframes blinkFast {\r
+        0% { opacity: 1; }\r
+        50% { opacity: 0.1; }\r
+        100% { opacity: 1; }\r
+    }\r
+    .blink-fast { animation: blinkFast 0.8s infinite; }\r
+    @keyframes boxBlinkGreen {\r
+        0% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }\r
+        50% { box-shadow: 0 0 15px rgba(34,197,94,0.6); border-color: rgba(34,197,94,0.8); }\r
+        100% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }\r
+    }\r
+    .ready-to-buy-box { animation: boxBlinkGreen 1.5s infinite; border: 1px solid rgba(34,197,94,0.3); }\r
+    \r
+</style>\r
+    <div id="top5OpportunitiesWrap" style="\r
+        background: var(--panel-bg);\r
+        border: 1px solid var(--border-color);\r
+        border-radius: 6px;\r
+        margin: 10px 14px 0 14px;\r
+        padding: 12px;\r
+    ">\r
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">\r
+            <span style="font-size:14px;font-weight:700;color:#facc15;">🔥 Top 15 Alım Isı Haritası & Momentum (Canlı Fiyatlar)</span>\r
+        </div>\r
+        \r
+        <div style="display:flex; gap:12px; align-items:flex-start;">\r
+            <!-- Kripto -->\r
+            <div style="flex:1; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">\r
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#4ade80; text-align:center;">🪙 Kripto Piyasası</div>\r
+                <div id="top10CryptoBody" style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;"></div>\r
+            </div>\r
+            <!-- NASDAQ -->\r
+            <div style="flex:1.5; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">\r
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#60a5fa; text-align:center;">🇺🇸 NASDAQ</div>\r
+                <div id="top10NasdaqBody" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:5px;"></div>\r
+            </div>\r
+            <!-- BIST -->\r
+            <div style="flex:0.5; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">\r
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#f87171; text-align:center;">🇹🇷 BIST</div>\r
+                <div id="top10BistBody" style="display:grid; grid-template-columns: 1fr; gap:5px;"></div>\r
+            </div>\r
+        </div>\r
+    </div>\r
+    \r
+    <style>\r
+    @keyframes blinkBought {\r
+        0% { opacity: 1; color: #4ade80; text-shadow: 0 0 5px #4ade80; }\r
+        50% { opacity: 0.3; }\r
+        100% { opacity: 1; color: #4ade80; text-shadow: 0 0 5px #4ade80; }\r
+    }\r
+    .bought-blink {\r
+        animation: blinkBought 1s ease-in-out infinite;\r
+    }\r
+    @keyframes hotBlink {\r
+        0% { opacity: 1; color: #facc15; text-shadow: 0 0 8px rgba(250,204,21,0.8); }\r
+        50% { opacity: 0.6; }\r
+        100% { opacity: 1; color: #facc15; text-shadow: 0 0 8px rgba(250,204,21,0.8); }\r
+    }\r
+    .hot-blink {\r
+        animation: hotBlink 1.5s ease-in-out infinite;\r
+    }\r
+    \r
+    @keyframes blinkFast {\r
+        0% { opacity: 1; }\r
+        50% { opacity: 0.1; }\r
+        100% { opacity: 1; }\r
+    }\r
+    .blink-fast { animation: blinkFast 0.8s infinite; }\r
+    @keyframes boxBlinkGreen {\r
+        0% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }\r
+        50% { box-shadow: 0 0 15px rgba(34,197,94,0.6); border-color: rgba(34,197,94,0.8); }\r
+        100% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }\r
+    }\r
+    .ready-to-buy-box { animation: boxBlinkGreen 1.5s infinite; border: 1px solid rgba(34,197,94,0.3); }\r
+    \r
+</style>\r
+\r
+    <!-- ====================================================================== -->\r
+    <!-- 🔔 ANLIK ALARM TİCKER ŞERİDİ (Kayan Bildirimler)                       -->\r
+    <!-- ====================================================================== -->\r
+    <div id="alarmTickerWrap" style="\r
+        background: linear-gradient(90deg, rgba(234,179,8,0.08), rgba(234,179,8,0.03), rgba(234,179,8,0.08));\r
+        border: 1px solid rgba(234,179,8,0.25);\r
+        border-radius: 8px;\r
+        padding: 8px 14px;\r
+        margin-bottom: 14px;\r
+        display: flex;\r
+        align-items: center;\r
+        gap: 10px;\r
+        overflow: hidden;\r
+    ">\r
+        <span style="font-size:14px; flex-shrink:0;">🔔</span>\r
+        <div style="overflow:hidden; flex:1; position:relative; height:20px;">\r
+            <div id="alarmTickerInner" \r
+                 onmousedown="this.style.animationPlayState='paused'" \r
+                 onmouseup="this.style.animationPlayState='running'" \r
+                 onmouseleave="this.style.animationPlayState='running'"\r
+                 style="\r
+                white-space:nowrap;\r
+                position:absolute;\r
+                animation: tickerScroll 45s linear infinite;\r
+                font-family:'JetBrains Mono', monospace;\r
+                font-size:12px;\r
+                color:#fde047;\r
+                cursor:pointer;\r
+                user-select:none;\r
+                display:inline-block;\r
+            ">Alarm sistemi başlatılıyor... ⚡</div>\r
+        </div>\r
+    </div>\r
+    <style>\r
+    @keyframes tickerScroll {\r
+        0%   { transform: translateX(100vw); }\r
+        100% { transform: translateX(-100%); }\r
+    }\r
+    \r
+    @keyframes blinkFast {\r
+        0% { opacity: 1; }\r
+        50% { opacity: 0.1; }\r
+        100% { opacity: 1; }\r
+    }\r
+    .blink-fast { animation: blinkFast 0.8s infinite; }\r
+    @keyframes boxBlinkGreen {\r
+        0% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }\r
+        50% { box-shadow: 0 0 15px rgba(34,197,94,0.6); border-color: rgba(34,197,94,0.8); }\r
+        100% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }\r
+    }\r
+    .ready-to-buy-box { animation: boxBlinkGreen 1.5s infinite; border: 1px solid rgba(34,197,94,0.3); }\r
+    \r
+</style>\r
+\r
+    <!-- ===== PORTFÖY KPI BAR ===== -->\r
+    <div class="kpi-bar" id="kpiBar">\r
+        <!-- 1. Net Kasa -->\r
+        <div class="kpi-card kpi-blue">\r
+            <div class="kpi-icon">💰</div>\r
+            <div class="kpi-label">Net Kasa (Equity)</div>\r
+            <div class="kpi-value" id="kpiNetEquity">$1,000.00</div>\r
+            <div class="kpi-sub" id="kpiNetEquitySub">Başlangıç: $1,000</div>\r
+        </div>\r
+        <!-- 2. Gerçekleşen PnL -->\r
+        <div class="kpi-card kpi-green">\r
+            <div class="kpi-icon">📈</div>\r
+            <div class="kpi-label">Realize Kâr/Zarar</div>\r
+            <div class="kpi-value" id="kpiRealizedPnl">$0.00</div>\r
+            <div class="kpi-sub" id="kpiRealizedSub">Toplam Gerçekleşen</div>\r
+        </div>\r
+        <!-- 3. Anlık PnL (Unrealized) -->\r
+        <div class="kpi-card kpi-teal">\r
+            <div class="kpi-icon">📊</div>\r
+            <div class="kpi-label">Anlık PnL (Open)</div>\r
+            <div class="kpi-value" id="kpiUnrealizedPnl">$0.00</div>\r
+            <div class="kpi-sub" id="kpiUnrealizedSub">Açık Pozisyonlar</div>\r
+        </div>\r
+        <!-- 4. Açık Pozisyon Sayısı -->\r
+        <div class="kpi-card kpi-purple">\r
+            <div class="kpi-icon">📂</div>\r
+            <div class="kpi-label">Açık Pozisyon</div>\r
+            <div class="kpi-value" id="kpiOpenCount">0</div>\r
+            <div class="kpi-sub" id="kpiOpenSub">Poz. | Sermaye: $0</div>\r
+        </div>\r
+        <!-- 5. Win Rate -->\r
+        <div class="kpi-card kpi-yellow">\r
+            <div class="kpi-icon">🎯</div>\r
+            <div class="kpi-label">Win Rate</div>\r
+            <div class="kpi-value" id="kpiWinRate">-%</div>\r
+            <div class="kpi-sub" id="kpiWinRateSub">0 İşlem Analiz</div>\r
+        </div>\r
+        <!-- 6. En İyi Pozisyon -->\r
+        <div class="kpi-card kpi-cyan">\r
+            <div class="kpi-icon">🏆</div>\r
+            <div class="kpi-label">En İyi Pozisyon</div>\r
+            <div class="kpi-value kpi-up" id="kpiBestPos">-</div>\r
+            <div class="kpi-sub" id="kpiBestPosSub">Şu an aktif</div>\r
+        </div>\r
+        <!-- 7. En Kötü Pozisyon -->\r
+        <div class="kpi-card kpi-red">\r
+            <div class="kpi-icon">💔</div>\r
+            <div class="kpi-label">En Kötü Pozisyon</div>\r
+            <div class="kpi-value kpi-down" id="kpiWorstPos">-</div>\r
+            <div class="kpi-sub" id="kpiWorstPosSub">Şu an aktif</div>\r
+        </div>\r
+        <!-- 8. Komisyon -->\r
+        <div class="kpi-card kpi-orange">\r
+            <div class="kpi-icon">💸</div>\r
+            <div class="kpi-label">Toplam Komisyon</div>\r
+            <div class="kpi-value" id="kpiTotalFees">$0.00</div>\r
+            <div class="kpi-sub">SEC + FINRA + Slip.</div>\r
+        </div>\r
+    </div>\r
+\r
+\r
+    <!-- ACTIVE POSITIONS TABLE (ENHANCED) -->\r
+    <div class="panel">\r
+        <div class="panel-header">\r
+            <div class="panel-header-title">\r
+                <span>💼</span> Aktif Açık Pozisyonlar & Kâr/Zarar Takibi\r
+                <span style="font-size:11px; color:#cbd5e1; font-weight:400; margin-left:8px;">⚡ Anlık WebSocket Fiyat Akışı</span>\r
+            </div>\r
+            <div>\r
+                <button class="btn btn-green" onclick="openNewPositionModal()">⚡ Hızlı Pozisyon Aç</button>\r
+            </div>\r
+        </div>\r
+        <div class="table-responsive">\r
+            <table>\r
+                <thead>\r
+                    <tr>\r
+                        <th>ID / Sembol</th>\r
+                        <th>Piyasa</th>\r
+                        <th>Yön</th>\r
+                        <th>Giriş Fiyatı</th>\r
+                        <th>Anlık Fiyat ⚡</th>\r
+                        <th>Adet / Hacim</th>\r
+                        <th>Hedef (TP)</th>\r
+                        <th>TP'ye %</th>\r
+                        <th>Zarar Kes (SL)</th>\r
+                        <th>SL'ye %</th>\r
+                        <th>Süre</th>\r
+                        <th>Anlık Net PnL</th>\r
+                        <th>İşlem</th>\r
+                    </tr>\r
+                </thead>\r
+                <tbody id="positionsTableBody">\r
+                    <!-- Dinamik Açık Pozisyonlar -->\r
+                </tbody>\r
+            </table>\r
+        </div>\r
+    </div>\r
+\r
+    <!-- İŞLEM GEÇMİŞİ (TRADE JOURNAL) PANELİ -->\r
+    <div class="panel" style="margin-top: 20px;">\r
+        <div class="panel-header" style="justify-content: flex-start; gap: 10px;">\r
+            <div class="panel-title">📚 Otonom İşlem Geçmişi (Trade Journal)</div>\r
+            <div style="font-size:11px; color:var(--text-muted);">Son kapanan işlemleri ve gerçekleşen net kâr/zarar durumunu gösterir.</div>\r
+        </div>\r
+        <div class="table-responsive">\r
+            <table>\r
+                <thead>\r
+                    <tr>\r
+                        <th>Tarih</th>\r
+                        <th>Sembol / Piyasa</th>\r
+                        <th>Yön</th>\r
+                        <th>Giriş / Çıkış Fiyatı</th>\r
+                        <th>Çıkış Nedeni</th>\r
+                        <th>Gerçekleşen Net PnL</th>\r
+                    </tr>\r
+                </thead>\r
+                <tbody id="historyTableBody">\r
+                    <tr><td colspan="6" style="text-align:center; color:var(--text-secondary); padding: 18px;">Henüz kapanmış bir işlem yok.</td></tr>\r
+                </tbody>\r
+            </table>\r
+        </div>\r
+    </div>\r
+\r
+    <!-- ====================================================================== -->\r
+    <!-- ROW 0: Mini Widget Şeridi (4 Kolon)                                    -->\r
+    <!-- ====================================================================== -->\r
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:10px; margin-bottom:12px;">\r
+\r
+        <!-- ⚡ ANİ HACİM SPİKE PANELİ -->\r
+        <div class="panel" style="padding:12px;">\r
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">\r
+                <span style="font-size:11px;font-weight:700;color:#f97316;">⚡ Hacim Spike</span>\r
+                <span style="font-size:9px;color:#cbd5e1;">Son 5dk</span>\r
+            </div>\r
+            <div id="volumeSpikeBody" style="display:flex;flex-direction:column;gap:4px;max-height:110px;overflow-y:auto;">\r
+                <div style="font-size:10px;color:#cbd5e1;text-align:center;padding:12px 0;">Taranıyor...</div>\r
+            </div>\r
+        </div>\r
+\r
+        <!-- 🩺 BOT SAĞLIK MONİTÖRÜ -->\r
+        <div class="panel" style="padding:12px;">\r
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">\r
+                <span style="font-size:11px;font-weight:700;color:#4ade80;">🩺 Bot Sağlık</span>\r
+                <span id="botHealthDot" style="width:8px;height:8px;border-radius:50%;background:#4ade80;display:inline-block;box-shadow:0 0 6px #4ade80;"></span>\r
+            </div>\r
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">\r
+                <div style="background:rgba(255,255,255,0.03);border-radius:5px;padding:5px;text-align:center;">\r
+                    <div style="font-size:8px;color:#cbd5e1;">API Ping</div>\r
+                    <div id="botApiPing" style="font-size:12px;font-weight:700;color:#4ade80;font-family:'JetBrains Mono';">-ms</div>\r
+                </div>\r
+                <div style="background:rgba(255,255,255,0.03);border-radius:5px;padding:5px;text-align:center;">\r
+                    <div style="font-size:8px;color:#cbd5e1;">WS Bağlantı</div>\r
+                    <div id="botWsStatus" style="font-size:12px;font-weight:700;color:#4ade80;font-family:'JetBrains Mono';">CANLI</div>\r
+                </div>\r
+                <div style="background:rgba(255,255,255,0.03);border-radius:5px;padding:5px;text-align:center;">\r
+                    <div style="font-size:8px;color:#cbd5e1;">Son Scan</div>\r
+                    <div id="botLastScan2" style="font-size:10px;font-weight:600;color:#e2e8f0;font-family:'JetBrains Mono';">-</div>\r
+                </div>\r
+                <div style="background:rgba(255,255,255,0.03);border-radius:5px;padding:5px;text-align:center;">\r
+                    <div style="font-size:8px;color:#cbd5e1;">Hata Sayısı</div>\r
+                    <div id="botErrorCount" style="font-size:12px;font-weight:700;color:#4ade80;font-family:'JetBrains Mono';">0</div>\r
+                </div>\r
+            </div>\r
+        </div>\r
+\r
+        <!-- 🪙 KRİPTO FEAR & GREED + BTC -->\r
+        <div class="panel" style="padding:12px;">\r
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">\r
+                <span style="font-size:11px;font-weight:700;color:#a855f7;">🪙 Kripto Nabzı</span>\r
+                <span style="font-size:9px;color:#cbd5e1;">Alternatif.me</span>\r
+            </div>\r
+            <!-- Fear & Greed Gauge -->\r
+            <div style="text-align:center;margin-bottom:8px;">\r
+                <div id="fgValue" style="font-size:28px;font-weight:900;font-family:'JetBrains Mono';color:#eab308;">--</div>\r
+                <div id="fgLabel" style="font-size:10px;color:#e2e8f0;margin-top:2px;">Yükleniyor...</div>\r
+                <div style="background:rgba(255,255,255,0.06);border-radius:4px;height:5px;margin-top:6px;overflow:hidden;">\r
+                    <div id="fgBar" style="height:100%;width:0%;border-radius:4px;background:linear-gradient(90deg,#f23645,#eab308,#4ade80);transition:width 0.8s ease;"></div>\r
+                </div>\r
+            </div>\r
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">\r
+                <div style="background:rgba(255,255,255,0.03);border-radius:5px;padding:4px;text-align:center;">\r
+                    <div style="font-size:8px;color:#cbd5e1;">BTC Dom.</div>\r
+                    <div id="btcDominance" style="font-size:11px;font-weight:700;color:#f59e0b;font-family:'JetBrains Mono';">--%</div>\r
+                </div>\r
+                <div style="background:rgba(255,255,255,0.03);border-radius:5px;padding:4px;text-align:center;">\r
+                    <div style="font-size:8px;color:#cbd5e1;">Total MCap</div>\r
+                    <div id="totalMcap" style="font-size:11px;font-weight:700;color:#60a5fa;font-family:'JetBrains Mono';">--T</div>\r
+                </div>\r
+            </div>\r
+        </div>\r
+\r
+        <!-- 🌊 PIYASA VOLATİLİTE İNDEKSİ -->\r
+        <div class="panel" style="padding:12px;">\r
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">\r
+                <span style="font-size:11px;font-weight:700;color:#06b6d4;">🌊 Volatilite İndeksi</span>\r
+                <span style="font-size:9px;color:#cbd5e1;">Anlık</span>\r
+            </div>\r
+            <div style="display:flex;flex-direction:column;gap:6px;">\r
+                <div>\r
+                    <div style="display:flex;justify-content:space-between;margin-bottom:2px;">\r
+                        <span style="font-size:9px;color:#a5b4fc;">Kripto VIX</span>\r
+                        <span id="cryptoVix" style="font-size:10px;font-weight:700;color:#fff;font-family:'JetBrains Mono';">--</span>\r
+                    </div>\r
+                    <div style="background:rgba(255,255,255,0.06);border-radius:3px;height:4px;overflow:hidden;">\r
+                        <div id="cryptoVixBar" style="height:100%;width:0%;background:linear-gradient(90deg,#3b82f6,#f23645);border-radius:3px;transition:width 0.6s;"></div>\r
+                    </div>\r
+                </div>\r
+                <div>\r
+                    <div style="display:flex;justify-content:space-between;margin-bottom:2px;">\r
+                        <span style="font-size:9px;color:#a7f3d0;">BIST Vol.</span>\r
+                        <span id="bistVix" style="font-size:10px;font-weight:700;color:#fff;font-family:'JetBrains Mono';">--</span>\r
+                    </div>\r
+                    <div style="background:rgba(255,255,255,0.06);border-radius:3px;height:4px;overflow:hidden;">\r
+                        <div id="bistVixBar" style="height:100%;width:0%;background:linear-gradient(90deg,#089981,#f23645);border-radius:3px;transition:width 0.6s;"></div>\r
+                    </div>\r
+                </div>\r
+                <div id="vixComment" style="font-size:9px;color:#cbd5e1;text-align:center;padding:4px;background:rgba(255,255,255,0.03);border-radius:4px;margin-top:2px;">Hesaplanıyor...</div>\r
+            </div>\r
+        </div>\r
+    </div>\r
+\r
+    <!-- ====================================================================== -->\r
+    <!-- 🌍 GLOBAL MAKRO + TOP 5 MOMENTUM + EKONOMİK TAKVİM SATIRI             -->\r
+    <!-- ====================================================================== -->\r
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px;">\r
+\r
+        <!-- 🌍 GLOBAL MAKRO ÖZET -->\r
+        <div class="panel" style="padding:12px;">\r
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">\r
+                <span style="font-size:11px;font-weight:700;color:#34d399;">🌍 Global Makro Özet</span>\r
+                <span style="font-size:9px;color:#cbd5e1;font-family:'JetBrains Mono';" id="macroLastUpdate">-</span>\r
+            </div>\r
+            <div id="macroSummaryBody" style="font-size:11px;color:#f1f5f9;line-height:1.6;">\r
+                <div style="color:#cbd5e1;font-size:10px;">Makro veri yükleniyor...</div>\r
+            </div>\r
+            <!-- Mini macro stats -->\r
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.05);">\r
+                <div style="text-align:center;">\r
+                    <div style="font-size:8px;color:#cbd5e1;">Fed Rate</div>\r
+                    <div id="macroFedRate" style="font-size:11px;font-weight:700;color:#fde047;font-family:'JetBrains Mono';">5.25%</div>\r
+                </div>\r
+                <div style="text-align:center;">\r
+                    <div style="font-size:8px;color:#cbd5e1;">US CPI</div>\r
+                    <div id="macroCpi" style="font-size:11px;font-weight:700;color:#fb923c;font-family:'JetBrains Mono';">---%</div>\r
+                </div>\r
+                <div style="text-align:center;">\r
+                    <div style="font-size:8px;color:#cbd5e1;">DXY</div>\r
+                    <div id="macroDxy" style="font-size:11px;font-weight:700;color:#60a5fa;font-family:'JetBrains Mono';">---</div>\r
+                </div>\r
+            </div>\r
+        </div>\r
+\r
+\r
+        <!-- 📢 EKONOMİK TAKVİM -->\r
+        <div class="panel" style="padding:12px;">\r
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">\r
+                <span style="font-size:11px;font-weight:700;color:#fb923c;">📢 Ekonomik Takvim</span>\r
+                <span style="font-size:9px;color:#cbd5e1;">Bugün & Yarın</span>\r
+            </div>\r
+            <div id="econCalendarBody" style="display:flex;flex-direction:column;gap:5px;max-height:130px;overflow-y:auto;">\r
+                <div style="font-size:10px;color:#cbd5e1;text-align:center;padding:10px 0;">Takvim yükleniyor...</div>\r
+            </div>\r
+        </div>\r
+    </div>\r
+\r
+\r
+\r
+    <!-- Ticker Moved to Top -->\r
+\r
+    <!-- ====================================================================== -->\r
+    <!-- ROW 1: Seans Saati + Portföy Dağılımı + Risk Parametreleri              -->\r
+    <!-- ====================================================================== -->\r
+    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:14px; margin-bottom:14px;">\r
+\r
+        <!-- 📡 SEANS GERİ SAYIM SAATİ -->\r
+        <div class="panel" style="padding:16px;">\r
+            <div class="panel-header" style="margin-bottom:12px;">\r
+                <div class="panel-header-title"><span>📡</span> Seans Saati & Countdown</div>\r
+                <div id="worldClockBar" style="font-size:10px; color:var(--text-muted); font-family:'JetBrains Mono';"></div>\r
+            </div>\r
+            <!-- Market Clocks -->\r
+            <div style="display:flex; flex-direction:column; gap:10px;">\r
+                <!-- NASDAQ -->\r
+                <div style="background:rgba(59,130,246,0.07); border:1px solid rgba(59,130,246,0.2); border-radius:8px; padding:10px 12px;">\r
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">\r
+                        <span style="font-size:12px; font-weight:700; color:#93c5fd;">🇺🇸 NASDAQ</span>\r
+                        <span id="nasdaqClockBadge" style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(242,54,69,0.15); color:#fca5a5;">🔴 KAPALI</span>\r
+                    </div>\r
+                    <div style="font-family:'JetBrains Mono'; font-size:18px; font-weight:700; color:#fff;" id="nasdaqCountdown">--:--:--</div>\r
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;" id="nasdaqClockLabel">Açılışa kalan süre (16:30 TSİ)</div>\r
+                </div>\r
+                <!-- BIST -->\r
+                <div style="background:rgba(8,153,129,0.07); border:1px solid rgba(8,153,129,0.2); border-radius:8px; padding:10px 12px;">\r
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">\r
+                        <span style="font-size:12px; font-weight:700; color:#4ade80;">🇹🇷 BIST 100</span>\r
+                        <span id="bistClockBadge" style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(242,54,69,0.15); color:#fca5a5;">🔴 KAPALI</span>\r
+                    </div>\r
+                    <div style="font-family:'JetBrains Mono'; font-size:18px; font-weight:700; color:#fff;" id="bistCountdown">--:--:--</div>\r
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;" id="bistClockLabel">Açılışa kalan süre (10:00 TSİ)</div>\r
+                </div>\r
+                <!-- CRYPTO -->\r
+                <div style="background:rgba(168,85,247,0.07); border:1px solid rgba(168,85,247,0.2); border-radius:8px; padding:10px 12px;">\r
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">\r
+                        <span style="font-size:12px; font-weight:700; color:#d8b4fe;">🪙 KRİPTO (Binance)</span>\r
+                        <span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(8,153,129,0.15); color:#4ade80;">🟢 7/24 AKTİF</span>\r
+                    </div>\r
+                    <div style="font-family:'JetBrains Mono'; font-size:18px; font-weight:700; color:#a855f7;" id="cryptoUptimeClock">00:00:00</div>\r
+                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">Kesintisiz Canlı Seans Uptime</div>\r
+                </div>\r
+                <!-- World Clocks -->\r
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:2px;">\r
+                    <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:6px 8px; text-align:center;">\r
+                        <div style="font-size:9px; color:var(--text-muted);">🗽 New York (ET)</div>\r
+                        <div style="font-family:'JetBrains Mono'; font-size:13px; font-weight:600; color:#fff;" id="clockNY">--:--</div>\r
+                    </div>\r
+                    <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:6px 8px; text-align:center;">\r
+                        <div style="font-size:9px; color:var(--text-muted);">🏙️ İstanbul (TSİ)</div>\r
+                        <div style="font-family:'JetBrains Mono'; font-size:13px; font-weight:600; color:#fff;" id="clockTR">--:--</div>\r
+                    </div>\r
+                    <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:6px 8px; text-align:center;">\r
+                        <div style="font-size:9px; color:var(--text-muted);">🇬🇧 Londra (BST)</div>\r
+                        <div style="font-family:'JetBrains Mono'; font-size:13px; font-weight:600; color:#fff;" id="clockLDN">--:--</div>\r
+                    </div>\r
+                    <div style="background:rgba(255,255,255,0.03); border-radius:6px; padding:6px 8px; text-align:center;">\r
+                        <div style="font-size:9px; color:var(--text-muted);">🗼 Tokyo (JST)</div>\r
+                        <div style="font-family:'JetBrains Mono'; font-size:13px; font-weight:600; color:#fff;" id="clockTKY">--:--</div>\r
+                    </div>\r
+                </div>\r
+            </div>\r
+        </div>\r
+\r
+        <!-- 🍩 PORTFÖY DAĞILIMI + DRAWDOWN GAUGE -->\r
+        <div class="panel" style="padding:16px;">\r
+            <div class="panel-header" style="margin-bottom:10px;">\r
+                <div class="panel-header-title"><span>🍩</span> Portföy Dağılımı</div>\r
+            </div>\r
+            <div style="position: relative; height: 170px; width: 100%; display: flex; justify-content: center;">\r
+"}
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+
+I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","EndLine":4791,"StartLine":3991,"toolAction":"Viewing file","toolSummary":"View end of dashboard.html"}}]}
+Completed At: 2026-09-06T01:48:15+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/templates/dashboard.html`
+Total Lines: 4791
+Total Bytes: 260171
+Showing lines 3991 to 4790
+Content truncated: showing bytes 0-46080 of 50515. To see more, call this tool again with the same line range and ContentOffset=46080.
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+\r
+        // ================================================================\r
+        // 🔄 TÜM YENİ PANELLERİ YENİLE (periyodik)\r
+        // ================================================================\r
+        async function refreshNewPanels() {\r
+            // Positions data for panels\r
+            try {\r
+                const res = await fetch('/api/positions/active');\r
+                const data = await res.json();\r
+                updateRiskBars(data);\r
+                updateAlarmTicker(data);\r
+            } catch(e) {}\r
+            // Heatmap (her 10sn)\r
+            fetchAndRenderHeatmap();\r
+        }\r
+\r
+        async function refreshSlowPanels() {\r
+            fetchConfidenceIndex();\r
+            fetchNewsFeed();\r
+            // PnL waterfall - from trade history\r
+            try {\r
+                const res = await fetch('/api/positions/active');\r
+                const data = await res.json();\r
+                renderPnlWaterfall(data.history || []);\r
+            } catch(e) {}\r
+        }\r
+\r
+        // Start all new panels\r
+        refreshNewPanels();\r
+        refreshSlowPanels();\r
+        setInterval(refreshNewPanels, 7000);     // Every 7 seconds\r
+        setInterval(refreshSlowPanels, 30000);   // Every 30 seconds\r
+\r
+        // ================================================================\r
+        // 📅 CANLI TARİH + SAAT ŞERİDİ\r
+        // ================================================================\r
+        const GUNLER = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\r
+        const AYLAR  = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];\r
+        const botStart2 = Date.now();\r
+\r
+        function getWeekNumber(d) {\r
+            const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));\r
+            date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay()||7));\r
+            const yearStart = new Date(Date.UTC(date.getUTCFullYear(),0,1));\r
+            return Math.ceil((((date - yearStart) / 86400000) + 1)/7);\r
+        }\r
+        function getDayOfYear(d) {\r
+            const start = new Date(d.getFullYear(), 0, 0);\r
+            const diff = d - start;\r
+            return Math.floor(diff / 86400000);\r
+        }\r
+\r
+        function updateDateTimeStrip() {\r
+            const now = new Date(new Date().toLocaleString('en-US', {timeZone:'Europe/Istanbul'}));\r
+            const h = padT(now.getHours()), m = padT(now.getMinutes()), s = padT(now.getSeconds());\r
+\r
+            const tsDate = document.getElementById('tsDate');\r
+            const tsClock = document.getElementById('tsClock');\r
+            const tsWeek = document.getElementById('tsWeek');\r
+            const tsYear = document.getElementById('tsYear');\r
+            const tsBotUptime = document.getElementById('tsBotUptime');\r
+\r
+            if (tsDate) tsDate.innerText = `${GUNLER[now.getDay()]}, ${now.getDate()} ${AYLAR[now.getMonth()]} ${now.getFullYear()}`;\r
+            if (tsClock) tsClock.innerText = `${h}:${m}:${s}`;\r
+            if (tsWeek) tsWeek.innerText = `Hafta ${getWeekNumber(now)}`;\r
+            if (tsYear) tsYear.innerText = `${getDayOfYear(now)}. gün`;\r
+            if (tsBotUptime) tsBotUptime.innerText = formatCountdown(Date.now() - botStart2);\r
+\r
+            // Market status badges\r
+            const trH = now.getHours(), trM = now.getMinutes();\r
+            const isWD = now.getDay() > 0 && now.getDay() < 6;\r
+            const bistOpen = isWD && (trH*60+trM >= 600 && trH*60+trM < 1085);\r
+            const nasdaqOpen = isWD && (trH*60+trM >= 1030 && trH*60+trM < 1380);\r
+\r
+            const bistEl = document.getElementById('tsBistStatus');\r
+            if (bistEl) {\r
+                bistEl.innerText = bistOpen ? '🇹🇷 BIST AKTİF' : '🇹🇷 BIST KAPALI';\r
+                bistEl.style.background = bistOpen ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)';\r
+                bistEl.style.color = bistOpen ? '#4ade80' : '#fca5a5';\r
+            }\r
+            const nasdaqEl = document.getElementById('tsNasdaqStatus');\r
+            if (nasdaqEl) {\r
+                nasdaqEl.innerText = nasdaqOpen ? '🇺🇸 NASDAQ AKTİF' : '🇺🇸 NASDAQ KAPALI';\r
+                nasdaqEl.style.background = nasdaqOpen ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)';\r
+                nasdaqEl.style.color = nasdaqOpen ? '#4ade80' : '#fca5a5';\r
+            }\r
+\r
+            // Update ticker clocks instantly\r
+            const timeString = `⏱ ${h}:${m}:${s}`;\r
+            const tickerClocks = document.querySelectorAll('.live-ticker-clock');\r
+            tickerClocks.forEach(clock => {\r
+                clock.innerText = timeString;\r
+            });\r
+        }\r
+        setInterval(updateDateTimeStrip, 1000);\r
+        updateDateTimeStrip();\r
+\r
+        // ================================================================\r
+        // 🪙 FEAR & GREED INDEX + BTC DOMINANS (CoinGecko / Alternatif.me)\r
+        // ================================================================\r
+        async function fetchFearGreed() {\r
+            try {\r
+                // Fear & Greed\r
+                const fgRes = await fetch('https://api.alternative.me/fng/');\r
+                const fgData = await fgRes.json();\r
+                const fgVal = parseInt(fgData.data[0].value);\r
+                const fgText = fgData.data[0].value_classification;\r
+                const fgEl = document.getElementById('fgValue');\r
+                const fgLbl = document.getElementById('fgLabel');\r
+                const fgBar = document.getElementById('fgBar');\r
+                const fgColorMap = fgVal < 25 ? '#f23645' : (fgVal < 40 ? '#fb923c' : (fgVal < 60 ? '#eab308' : (fgVal < 75 ? '#86efac' : '#4ade80')));\r
+                if (fgEl) { fgEl.innerText = fgVal; fgEl.style.color = fgColorMap; }\r
+                if (fgLbl) fgLbl.innerText = fgText;\r
+                if (fgBar) fgBar.style.width = fgVal + '%';\r
+            } catch(e) {\r
+                const fgEl = document.getElementById('fgValue');\r
+                if (fgEl) fgEl.innerText = '--';\r
+            }\r
+            try {\r
+                // BTC Dominans + Total MCap from CoinGecko (free endpoint)\r
+                const cgRes = await fetch('https://api.coingecko.com/api/v3/global');\r
+                const cgData = await cgRes.json();\r
+                const dom = cgData.data.market_cap_percentage.btc;\r
+                const cap = cgData.data.total_market_cap.usd / 1e12;\r
+                const domEl = document.getElementById('btcDominance');\r
+                const capEl = document.getElementById('totalMcap');\r
+                if (domEl) domEl.innerText = dom.toFixed(1) + '%';\r
+                if (capEl) capEl.innerText = '$' + cap.toFixed(2) + 'T';\r
+            } catch(e) {}\r
+        }\r
+        fetchFearGreed();\r
+        setInterval(fetchFearGreed, 120000); // Her 2 dakikada\r
+\r
+        // ================================================================\r
+        // ⚡ HACİM SPİKE + 🌊 VOLATİLİTE İNDEKSİ (live-matrix'den)\r
+        // ================================================================\r
+        async function fetchVolumeSpikeAndVix() {\r
+            try {\r
+                const res = await fetch('/api/market/live-matrix');\r
+                const data = await res.json();\r
+                const allItems = [\r
+                    ...(data.grouped?.CRYPTO || []),\r
+                    ...(data.grouped?.NASDAQ || []),\r
+                    ...(data.grouped?.BIST || [])\r
+                ];\r
+\r
+                // Hacim spike: volume_change_pct yüksek olanlar\r
+                const spikes = allItems\r
+                    .filter(t => parseFloat(t.volume_change_pct || t.volume_spike || 0) > 20)\r
+                    .sort((a,b) => parseFloat(b.volume_change_pct||b.volume_spike||0) - parseFloat(a.volume_change_pct||a.volume_spike||0))\r
+                    .slice(0, 5);\r
+\r
+                const spikeBody = document.getElementById('volumeSpikeBody');\r
+                if (spikeBody) {\r
+                    if (spikes.length === 0) {\r
+                        spikeBody.innerHTML = '<div style="font-size:10px;color:#cbd5e1;text-align:center;padding:10px 0;">Anlamlı spike yok</div>';\r
+                    } else {\r
+                        spikeBody.innerHTML = '';\r
+                        spikes.forEach(t => {\r
+                            const sym = (t.symbol || '').replace('USDT','').slice(0,8);\r
+                            const spike = parseFloat(t.volume_change_pct || t.volume_spike || 0);\r
+                            const chg = parseFloat(t.change_pct || 0);\r
+                            const chgCol = chg >= 0 ? '#4ade80' : '#f87171';\r
+                            const row = document.createElement('div');\r
+                            row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:rgba(249,115,22,0.07);border-radius:4px;padding:3px 6px;';\r
+                            row.innerHTML = `<span style="font-size:10px;font-weight:700;color:#f97316;font-family:'JetBrains Mono';">${sym}</span><span style="font-size:9px;color:#fb923c;">+${spike.toFixed(0)}% vol</span><span style="font-size:9px;color:${chgCol};">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;\r
+                            spikeBody.appendChild(row);\r
+                        });\r
+                    }\r
+                }\r
+\r
+                // VIX hesapla: ortalama değişim genişliği\r
+                const cryptoItems = data.grouped?.CRYPTO || [];\r
+                const bistItems = data.grouped?.BIST || [];\r
+                const cryptoVixVal = cryptoItems.length > 0\r
+                    ? cryptoItems.reduce((s,t) => s + Math.abs(parseFloat(t.change_pct||0)), 0) / cryptoItems.length\r
+                    : 0;\r
+                const bistVixVal = bistItems.length > 0\r
+                    ? bistItems.reduce((s,t) => s + Math.abs(parseFloat(t.change_pct||0)), 0) / bistItems.length\r
+                    : 0;\r
+\r
+                const cryptoVixEl = document.getElementById('cryptoVix');\r
+                const cryptoVixBar = document.getElementById('cryptoVixBar');\r
+                const bistVixEl = document.getElementById('bistVix');\r
+                const bistVixBar = document.getElementById('bistVixBar');\r
+                const vixComment = document.getElementById('vixComment');\r
+\r
+                if (cryptoVixEl) cryptoVixEl.innerText = cryptoVixVal.toFixed(2);\r
+                if (cryptoVixBar) cryptoVixBar.style.width = Math.min(100, cryptoVixVal * 10) + '%';\r
+                if (bistVixEl) bistVixEl.innerText = bistVixVal.toFixed(2);\r
+                if (bistVixBar) bistVixBar.style.width = Math.min(100, bistVixVal * 10) + '%';\r
+\r
+                const avgVix = (cryptoVixVal + bistVixVal) / 2;\r
+                if (vixComment) {\r
+                    if (avgVix > 5) vixComment.innerText = '🔴 Yüksek Volatilite — Dikkatli Ol';\r
+                    else if (avgVix > 2.5) vixComment.innerText = '🟡 Orta Volatilite — Normal Seans';\r
+                    else vixComment.innerText = '🟢 Düşük Volatilite — Sakin Piyasa';\r
+                    vixComment.style.color = avgVix > 5 ? '#f87171' : (avgVix > 2.5 ? '#fde047' : '#4ade80');\r
+                }\r
+            } catch(e) { console.warn('Volume/VIX error:', e); }\r
+        }\r
+\r
+        // ================================================================\r
+        // 📈 TOP 5 MOMENTUM / ALIM FIRSATLARI\r
+        // ================================================================\r
+        window.assetEvents = window.assetEvents || {};\r
+        async function fetchTop5Momentum() {\r
+            try {\r
+                let activeSymbols = [];\r
+                let activePositionsData = [];\r
+                try {\r
+                    const posRes = await fetch('/api/positions/active');\r
+                    const posData = await posRes.json();\r
+                    if(posData && posData.active_positions) {\r
+                        activeSymbols = posData.active_positions.map(p => p.symbol);\r
+                        activePositionsData = posData.active_positions;\r
+                    }\r
+                } catch(e) {}\r
+                \r
+                if (!window.prevPositionsData) window.prevPositionsData = {};\r
+                let currentPositionsData = {};\r
+                activePositionsData.forEach(p => {\r
+                    let s = p.symbol.replace(/[^A-Za-z0-9]/g, '').toUpperCase();\r
+                    currentPositionsData[s] = p;\r
+                });\r
+                \r
+                if (window.prevActiveSymbols) {\r
+                    activeSymbols.forEach(sym => {\r
+                        if (!window.prevActiveSymbols.includes(sym)) {\r
+                            let sStr = sym.replace(/[^A-Za-z0-9]/g, '').toUpperCase();\r
+                            window.assetEvents[sStr] = { type: 'BUY', time: Date.now(), msg: 'Varlık Alındı 🚀', color: '#4ade80' };\r
+                        }\r
+                    });\r
+                    window.prevActiveSymbols.forEach(sym => {\r
+                        if (!activeSymbols.includes(sym)) {\r
+                            let sStr = sym.replace(/[^A-Za-z0-9]/g, '').toUpperCase();\r
+                            let oldPos = window.prevPositionsData[sStr];\r
+                            if (oldPos) {\r
+                                let pnl = parseFloat(oldPos.pnl_pct || oldPos.unrealized_pnl || 0);\r
+                                let isProfit = pnl >= 0;\r
+                                let msg = isProfit ? 'Kârlı Satış Yapıldı 💰' : 'Zararla Satıldı 🛑';\r
+                                let color = isProfit ? '#4ade80' : '#f87171';\r
+                                window.assetEvents[sStr] = { type: 'SELL', time: Date.now(), msg: msg, color: color };\r
+                            }\r
+                        }\r
+                    });\r
+                }\r
+                window.prevActiveSymbols = activeSymbols;\r
+                window.prevPositionsData = currentPositionsData;\r
+\r
+\r
+                const res = await fetch('/api/market/top-actionable-picks');\r
+                const data = await res.json();\r
+                \r
+                const cBody = document.getElementById('top10CryptoBody');\r
+                const nBody = document.getElementById('top10NasdaqBody');\r
+                const bBody = document.getElementById('top10BistBody');\r
+                if (!cBody || !nBody || !bBody) return;\r
+                \r
+                cBody.innerHTML = ''; nBody.innerHTML = ''; bBody.innerHTML = '';\r
+\r
+                if (!data.top5 || data.top5.length === 0) {\r
+                    cBody.innerHTML = '<div style="font-size:10px;text-align:center;grid-column: span 2;">Veri yok</div>';\r
+                    return;\r
+                }\r
+\r
+                const sortLogic = (a, b) => {\r
+                    let aStr = (a.symbol||'').replace(/[^A-Za-z0-9]/g, '').toUpperCase();\r
+                    let bStr = (b.symbol||'').replace(/[^A-Za-z0-9]/g, '').toUpperCase();\r
+                    \r
+                    let aBought = activeSymbols.some(s => {\r
+                        let ac = s.replace(/[^A-Za-z0-9]/g, '').toUpperCase();\r
+                        return ac === aStr || ac === aStr + 'T' || aStr === ac + 'T';\r
+                    });\r
+                    let bBought = activeSymbols.some(s => {\r
+                        let bc = s.replace(/[^A-Za-z0-9]/g, '').toUpperCase();\r
+                        return bc === bStr || bc === bStr + 'T' || bStr === bc + 'T';\r
+                    });\r
+                    if (aBought && !bBought) return -1;\r
+                    if (!aBought && bBought) return 1;\r
+                    \r
+                    let aConf = parseFloat(a.confidence_pct || 0);\r
+                    let bConf = parseFloat(b.confidence_pct || 0);\r
+                    return bConf - aConf;\r
+                };\r
+                const cryptoItems = data.top5.filter(t => t.market === 'CRYPTO').sort(sortLogic).slice(0, 10);\r
+                const nasdaqItems = data.top5.filter(t => t.market === 'NASDAQ').sort(sortLogic).slice(0, 15);\r
+                const bistItems = data.top5.filter(t => t.market === 'BIST').sort(sortLogic).slice(0, 5);\r
+\r
+                const renderRow = (t, bodyEl) => {\r
+                    const sym = t.symbol || 'UNKNOWN';\r
+                    const conf = parseFloat(t.confidence_pct || 0).toFixed(1);\r
+                    \r
+                    const isBought = activeSymbols.some(activeSym => {\r
+                        let aStr = activeSym.replace(/[^A-Za-z0-9]/g, '').toUpperCase();\r
+                        let sStr = sym.replace(/[^A-Za-z0-9]/g, '').toUpperCase();\r
+                        return aStr === sStr || aStr === sStr + 'T' || sStr === aStr + 'T';\r
+                    });\r
+                    \r
+                    const isHot = parseFloat(t.confidence_pct) > 85;\r
+                    \r
+                    const nameClass = isBought ? "bought-blink" : (isHot ? "hot-blink" : "");\r
+                    const nameStyle = (isBought || isHot) ? "" : "color:#facc15;";\r
+                    \r
+                    let bg = "rgba(255,255,255,0.02)";\r
+                    let bColor = 'rgba(255,255,255,0.1)';\r
+                    if (conf > 90) { bg = "rgba(74, 222, 128, 0.15)"; bColor = "#4ade80"; } \r
+                    else if (conf > 80) { bg = "rgba(250, 204, 21, 0.1)"; bColor = "#facc15"; } \r
+                    else if (conf > 70) { bg = "rgba(248, 113, 113, 0.08)"; bColor = "#f87171"; } \r
+                    \r
+                    let boughtIcon = '';\r
+                    let readyToBuyClass = '';\r
+                    if (isBought) {\r
+                        bColor = "#22c55e";\r
+                        bg = "rgba(22, 163, 74, 0.6)"; // Koyu yeşil arka plan\r
+                        boughtIcon = '<span style="margin-left:4px;" title="Alım Yapıldı">✅</span>';\r
+                    } else if (conf >= 80) {\r
+                        readyToBuyClass = 'ready-to-buy-box';\r
+                    }\r
+\r
+                    const price = t.price ? parseFloat(t.price).toFixed(2) : '0.00';\r
+                    const change = t.change_pct ? parseFloat(t.change_pct).toFixed(1) : '0.0';\r
+                    const isUp = parseFloat(change) >= 0;\r
+                    const priceClass = isUp ? 'price-up' : 'price-down';\r
+                    const arrow = isUp ? '↑' : '↓';\r
+                    const target = t.tp_target ? parseFloat(t.tp_target).toFixed(2) : '-';\r
+\r
+                    const rsi = (t.rsi !== undefined ? t.rsi : 50).toFixed(1);\r
+                    const vol = (t.volume_ratio !== undefined ? t.volume_ratio : 1.0).toFixed(1);\r
+                    let reason = (t.key_alerts && t.key_alerts.length > 0) ? t.key_alerts[0] : (isHot ? 'Aşırı Momentum' : 'Trend Teyidi');\r
+                    if (reason.length > 18) reason = reason.substring(0, 18) + '..';\r
+                    \r
+                    const row = document.createElement('div');\r
+                    row.style.cssText = `display:flex; flex-direction:column; background:${bg}; padding:6px; border-radius:4px; font-size:10px; font-family:'JetBrains Mono'; border-left: 3px solid ${bColor}; transition: 0.3s;`;\r
+                    \r
+                    row.innerHTML = `\r
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">\r
+                            <div style="display:flex; align-items:center; flex-wrap:wrap;">\r
+                                <span class="${nameClass}" style="font-weight:700; font-size:11px; ${nameStyle}">${sym}${boughtIcon}</span>\r
+                                <span style="font-size:8px; color:#facc15; background:rgba(250,204,21,0.15); padding:2px 4px; border-radius:4px; margin-left:6px; font-weight:bold;">Güven: %${conf}</span>\r
+                            </div>\r
+                            <span class="${priceClass}">$${price} ${arrow}</span>\r
+                        </div>\r
+                        <div style="display:flex; justify-content:space-between; font-size:8px; color:#f1f5f9; margin-bottom:2px;">\r
+                            <span>RSI: ${rsi} | Hac: ${vol}x</span>\r
+                            <span style="color:#4ade80; font-weight:bold;">Hedef: $${target}</span>\r
+                        </div>\r
+                        <div style="font-size:8px; color:#e2e8f0; line-height:1.2;">\r
+                            🎯 ${reason}\r
+                        </div>\r
+                    `;\r
+                    bodyEl.appendChild(row);\r
+                };\r
+\r
+                cryptoItems.forEach(t => renderRow(t, cBody));\r
+                nasdaqItems.forEach(t => renderRow(t, nBody));\r
+                bistItems.forEach(t => renderRow(t, bBody));\r
+\r
+                if(cryptoItems.length === 0) cBody.innerHTML = '<div style="font-size:10px;text-align:center;color:#cbd5e1;grid-column: span 2;">Kripto bulunamadı</div>';\r
+                if(nasdaqItems.length === 0) nBody.innerHTML = '<div style="font-size:10px;text-align:center;color:#cbd5e1;grid-column: span 2;">NASDAQ bulunamadı</div>';\r
+                if(bistItems.length === 0) bBody.innerHTML = '<div style="font-size:10px;text-align:center;color:#cbd5e1;grid-column: span 2;">BIST bulunamadı</div>';\r
+            } catch (err) {\r
+                console.error("Top10 Momentum fetch error:", err);\r
+            }\r
+        }\r
+\r
+        // ================================================================\r
+        // 🩺 BOT SAĞLIK MONİTÖRÜ\r
+        // ================================================================\r
+        async function fetchBotHealth() {\r
+            try {\r
+                const t0 = Date.now();\r
+                const res = await fetch('/api/system/health');\r
+                const ping = Date.now() - t0;\r
+                const data = await res.json();\r
+\r
+                const pingEl = document.getElementById('botApiPing');\r
+                const wsEl = document.getElementById('botWsStatus');\r
+                const scanEl = document.getElementById('botLastScan2');\r
+                const errEl = document.getElementById('botErrorCount');\r
+                const dotEl = document.getElementById('botHealthDot');\r
+                const tsLastScan = document.getElementById('tsLastScan');\r
+\r
+                if (pingEl) { pingEl.innerText = ping + 'ms'; pingEl.style.color = ping < 100 ? '#4ade80' : (ping < 300 ? '#fde047' : '#f87171'); }\r
+                if (wsEl) wsEl.innerText = 'CANLI';\r
+                if (scanEl) scanEl.innerText = data.last_scan || '-';\r
+                if (tsLastScan) tsLastScan.innerText = data.last_scan || '-';\r
+                if (errEl) { errEl.innerText = data.error_count || 0; errEl.style.color = (data.error_count||0) > 0 ? '#f87171' : '#4ade80'; }\r
+                if (dotEl) { dotEl.style.background = '#4ade80'; dotEl.style.boxShadow = '0 0 6px #4ade80'; }\r
+            } catch(e) {\r
+                const dotEl = document.getElementById('botHealthDot');\r
+                const wsEl = document.getElementById('botWsStatus');\r
+                if (dotEl) { dotEl.style.background = '#f87171'; dotEl.style.boxShadow = '0 0 6px #f87171'; }\r
+                if (wsEl) wsEl.innerText = 'HATA';\r
+            }\r
+        }\r
+\r
+        // ================================================================\r
+        // 🌍 GLOBAL MAKRO ÖZET + 📢 EKONOMİK TAKVİM\r
+        // ================================================================\r
+        async function fetchMacroData() {\r
+            try {\r
+                const res = await fetch('/api/market/market-index/three-way');\r
+                const data = await res.json();\r
+                const body = document.getElementById('macroSummaryBody');\r
+                const upd = document.getElementById('macroLastUpdate');\r
+                if (body && data) {\r
+                    const lines = [];\r
+                    if (data.nasdaq_summary) lines.push(`🇺🇸 <b>NASDAQ:</b> ${data.nasdaq_summary}`);\r
+                    if (data.bist_summary) lines.push(`🇹🇷 <b>BIST:</b> ${data.bist_summary}`);\r
+                    if (data.crypto_summary) lines.push(`🪙 <b>Kripto:</b> ${data.crypto_summary}`);\r
+                    if (data.global_assessment) lines.push(`🌍 <b>Genel:</b> ${data.global_assessment}`);\r
+                    body.innerHTML = lines.length ? lines.join('<br>') : '<span style="color:#cbd5e1;">Veri bekleniyor...</span>';\r
+                }\r
+                if (upd) upd.innerText = new Date().toLocaleTimeString('tr-TR', {hour:'2-digit',minute:'2-digit'});\r
+                if (data.dxy) document.getElementById('macroDxy') && (document.getElementById('macroDxy').innerText = parseFloat(data.dxy).toFixed(2));\r
+                if (data.us_cpi) document.getElementById('macroCpi') && (document.getElementById('macroCpi').innerText = parseFloat(data.us_cpi).toFixed(1) + '%');\r
+            } catch(e) {\r
+                const body = document.getElementById('macroSummaryBody');\r
+                if (body) body.innerHTML = '<span style="color:#cbd5e1;font-size:10px;">Market index verisi yüklenemedi</span>';\r
+            }\r
+        }\r
+\r
+        async function fetchEconCalendar() {\r
+            // Statik takvim + dinamik haberlerden çek\r
+            try {\r
+                const res = await fetch('/api/market/news');\r
+                const data = await res.json();\r
+                const body = document.getElementById('econCalendarBody');\r
+                if (!body) return;\r
+                let news = [];\r
+                if (Array.isArray(data)) {\r
+                    news = data;\r
+                } else {\r
+                    news = data.news || data.items || data.data || [];\r
+                }\r
+                const econ = news.filter(n =>\r
+                    n.type === 'economic' || n.category === 'calendar' ||\r
+                    (n.headline||n.title||'').match(/CPI|NFP|Fed|FOMC|GDP|PCE|PMI|Merkez|faiz|enflasyon/i)\r
+                ).slice(0, 5);\r
+\r
+                if (econ.length === 0) {\r
+                    // Fallback: show static upcoming events\r
+                    const staticEvents = [\r
+                        { time:'Çrş', event:'Fed FOMC Tutanakları', impact:'🔴', region:'🇺🇸' },\r
+                        { time:'Per', event:'ABD İstihdam (NFP)', impact:'🔴', region:'🇺🇸' },\r
+                        { time:'Cum', event:'TCMB Para Pol. Açıklaması', impact:'🔴', region:'🇹🇷' },\r
+                    ];\r
+                    body.innerHTML = '';\r
+                    staticEvents.forEach(ev => {\r
+                        const row = document.createElement('div');\r
+                        row.style.cssText = 'display:flex;align-items:center;gap:6px;background:rgba(251,146,60,0.06);border-radius:4px;padding:4px 6px;';\r
+                        row.innerHTML = `<span style="font-size:9px;color:#cbd5e1;min-width:24px;">${ev.time}</span><span>${ev.region}</span><span style="font-size:10px;color:#e2e8f0;flex:1;">${ev.event}</span><span>${ev.impact}</span>`;\r
+                        body.appendChild(row);\r
+                    });\r
+                    return;\r
+                }\r
+                body.innerHTML = '';\r
+                econ.forEach(n => {\r
+                    const row = document.createElement('div');\r
+                    row.style.cssText = 'border-radius:4px;padding:4px 6px;background:rgba(251,146,60,0.05);font-size:10px;color:#e2e8f0;';\r
+                    row.innerText = `${n.headline || n.title || ''} (${n.time || n.timestamp || ''})`;\r
+                    body.appendChild(row);\r
+                });\r
+            } catch(e) {}\r
+        }\r
+\r
+        // ================================================================\r
+        // 🤖 LLM CANLI PİYASA YORUMU\r
+        // ================================================================\r
+        let llmLastFetch = 0;\r
+        async function fetchLlmComment(force = false) {\r
+            const now = Date.now();\r
+            if (!force && now - llmLastFetch < 300000) return; // 5dk cache\r
+            llmLastFetch = now;\r
+            const body = document.getElementById('llmCommentBody');\r
+            const badge = document.getElementById('llmSentimentBadge');\r
+            const timeEl = document.getElementById('llmUpdateTime');\r
+            if (!body) return;\r
+            body.innerHTML = '<span style="color:#cbd5e1;font-style:italic;font-size:10px;">AI analiz üretiyor...</span>';\r
+            try {\r
+                const res = await fetch('/api/ide/analyst/custom', {\r
+                    method:'POST', headers:{'Content-Type':'application/json'},\r
+                    body: JSON.stringify({ prompt: `Şu an saat ${new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})} TSİ. Kripto, BIST ve NASDAQ piyasaları için anlık 3 satır kısa piyasa yorumu yap. Türkçe, net, aksiyon odaklı. Her piyasa için bir cümle.` })\r
+                });\r
+                const data = await res.json();\r
+                const text = data.response || data.result || data.content || data.message || '';\r
+                if (text) {\r
+                    body.innerHTML = text.split('\
+').filter(l=>l.trim()).map(l=>`<div style="margin-bottom:3px;">${l}</div>`).join('');\r
+                    if (timeEl) timeEl.innerText = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});\r
+                    // Sentiment detection\r
+                    const lower = text.toLowerCase();\r
+                    const bullish = (lower.match(/yükseliş|pozitif|al|fırsat|toparla/g)||[]).length;\r
+                    const bearish = (lower.match(/düşüş|negatif|sat|risk|bask/g)||[]).length;\r
+                    if (badge) {\r
+                        if (bullish > bearish) { badge.innerText = '📈 Boğa Eğilimi'; badge.style.color = '#4ade80'; badge.style.background = 'rgba(8,153,129,0.1)'; }\r
+                        else if (bearish > bullish) { badge.innerText = '📉 Ayı Eğilimi'; badge.style.color = '#f87171'; badge.style.background = 'rgba(242,54,69,0.1)'; }\r
+                        else { badge.innerText = '↔️ Nötr'; badge.style.color = '#e2e8f0'; badge.style.background = 'rgba(255,255,255,0.05)'; }\r
+                    }\r
+                } else {\r
+                    body.innerHTML = '<span style="color:#cbd5e1;font-size:10px;">AI yanıt üretemedi.</span>';\r
+                }\r
+            } catch(e) {\r
+                body.innerHTML = '<span style="color:#cbd5e1;font-size:10px;">LLM servisi bağlanamadı.</span>';\r
+            }\r
+        }\r
+\r
+        // ================================================================\r
+        // 🧠 BOT KARAR GEREKÇESİ\r
+        // ================================================================\r
+        async function fetchBotDecisions() {\r
+            try {\r
+                const res = await fetch('/api/positions/active');\r
+                const data = await res.json();\r
+                const body = document.getElementById('botDecisionBody');\r
+                if (!body) return;\r
+                const logs = data.recent_decisions || data.decision_log || [];\r
+                if (logs.length === 0) {\r
+                    body.innerHTML = '<div style="font-size:10px;color:#cbd5e1;text-align:center;padding:10px 0;">Henüz karar logu yok</div>';\r
+                    return;\r
+                }\r
+                body.innerHTML = '';\r
+                logs.slice(-5).reverse().forEach(log => {\r
+                    const row = document.createElement('div');\r
+                    const actionColor = (log.action||'').includes('BUY') ? '#4ade80' : ((log.action||'').includes('SKIP') ? '#e2e8f0' : '#f87171');\r
+                    row.style.cssText = 'background:rgba(255,255,255,0.03);border-radius:4px;padding:5px 6px;border-left:2px solid ' + actionColor;\r
+                    row.innerHTML = `<div style="font-size:9px;font-weight:700;color:${actionColor};font-family:'JetBrains Mono';">${log.action||'SCAN'} — ${log.symbol||''}</div><div style="font-size:9px;color:#e2e8f0;margin-top:1px;line-height:1.3;">${log.reason||log.rationale||''}</div>`;\r
+                    body.appendChild(row);\r
+                });\r
+            } catch(e) {}\r
+        }\r
+\r
+        // ================================================================\r
+        // 🔮 LLM ERTESİ GÜN ÖNGÖRÜsü\r
+        // ================================================================\r
+        window.fetchTomorrowForecast = async function() {\r
+            const body = document.getElementById('tomorrowForecastBody');\r
+            if (!body) return;\r
+            body.innerHTML = '<span style="color:#cbd5e1;font-style:italic;font-size:10px;">AI öngörü hazırlıyor...</span>';\r
+            try {\r
+                const res = await fetch('/api/ide/analyst/custom', {\r
+                    method:'POST', headers:{'Content-Type':'application/json'},\r
+                    body: JSON.stringify({ prompt: `Bugünkü piyasa verilerine ve ekonomik takvime göre yarın (${new Date(Date.now()+86400000).toLocaleDateString('tr-TR')}) için kısa bir öngörü hazırla. Kripto, BIST ve NASDAQ için dikkat edilmesi gereken 3 madde. Türkçe, kısa ve net.` })\r
+                });\r
+                const data = await res.json();\r
+                const text = data.response || data.result || data.content || data.message || '';\r
+                if (text) {\r
+                    body.innerHTML = text.split('\
+').filter(l=>l.trim()).slice(0,5).map(l=>`<div style="margin-bottom:4px;padding-left:8px;border-left:2px solid rgba(234,179,8,0.4);">${l}</div>`).join('');\r
+                    window.currentAIForecastText = text.replace(/\
+/g, '   ///   ');\r
+                    \r
+                    try {\r
+                        const pr = await fetch('/api/positions/active');\r
+                        const pdata = await pr.json();\r
+                        updateAlarmTicker(pdata);\r
+                    } catch(err) {}\r
+                    \r
+                } else {\r
+                    body.innerHTML = '<span style="color:#cbd5e1;font-size:10px;">Öngörü üretilemedi.</span>';\r
+                }\r
+            } catch(e) {\r
+                body.innerHTML = '<span style="color:#cbd5e1;font-size:10px;">LLM servisi bağlanamadı.</span>';\r
+            }\r
+        };\r
+\r
+        // ================================================================\r
+        // 🔄 TÜM YENİ WIDGET'LARI ZAMANLA\r
+        // ================================================================\r
+        async function fetchEngineSettings() {\r
+            try {\r
+                const res = await fetch('/api/engine/settings');\r
+                const data = await res.json();\r
+                if (data && data.dynamic_capital_allocation_pct) {\r
+                    const slider = document.getElementById('capitalSlider');\r
+                    const valText = document.getElementById('capitalValue');\r
+                    if (slider && valText) {\r
+                        slider.value = data.dynamic_capital_allocation_pct;\r
+                        valText.textContent = '%' + data.dynamic_capital_allocation_pct;\r
+                    }\r
+                }\r
+            } catch(e) {}\r
+        }\r
+\r
+        async function refreshExtendedPanels() {\r
+            fetchVolumeSpikeAndVix();\r
+            fetchTop5Momentum();\r
+            fetchBotHealth();\r
+        }\r
+        async function refreshSlowExtended() {\r
+            fetchMacroData();\r
+            fetchEconCalendar();\r
+            fetchBotDecisions();\r
+            fetchLlmComment(false);\r
+        }\r
+\r
+        fetchEngineSettings();\r
+        refreshExtendedPanels();\r
+        refreshSlowExtended();\r
+        setInterval(refreshExtendedPanels, 10000);  // Her 10 saniye\r
+        setInterval(refreshSlowExtended, 180000);   // Her 3 dakika\r
+\r
+        // ================================================================\r
+        // 🚀 WEBSOCKET CANLI PİYASA AKIŞI\r
+        // ================================================================\r
+        \r
+\r
+\r
+        // LLM blink animation\r
+        const llmStyle = document.createElement('style');\r
+        llmStyle.innerText = '@keyframes llmBlink { 0%,100%{opacity:1;} 50%{opacity:0.2;} }';\r
+        document.head.appendChild(llmStyle);\r
+\r
+        // ================================================================\r
+        // 🔮 FUTURE ADVANCING ENGINE\r
+        // Çapraz varlık ilişkisel analiz ve gelecek tahmin motoru\r
+        // ================================================================\r
+        const FUTURE_STREAM_POOL = [\r
+            { icon: "🔴", asset: "Ham Petrol / WTI", text: "Brent 91$ üzerine yerleşti. Türkiye'nin yakıt ve lojistik ithalat maliyeti artıyor; THYAO ve FROTO operasyonel marjları baskı altında. Kısa vadeli satış baskısı olası." },\r
+            { icon: "🟡", asset: "NASDAQ / Teknoloji", text: "FED faiz belirsizliği sürüyor. NVDA, AAPL ve MSFT gibi mega-cap hisseler yüksek çarpan riskinde. Volatilite (VIX 18+) ortalama üstü; hamleler kısa vadeli olmalı." },\r
+            { icon: "🟢", asset: "BTC / Kripto", text: "Bitcoin halving (Nisan 2024) sonrası döngü devrede. Tarihsel pattern'e göre 12-18 ay içinde $100K+ seviyeleri test edilebilir. Spot ETF alımları zincir içi birikimi destekliyor." },\r
+            { icon: "🔴", asset: "USD/TRY Kuru", text: "TCMB politika faizi yüksek kalmaya devam etse de global dolar güçlenmesi TL üzerindeki baskıyı artırıyor. BIST100 değer kaybı riskine karşı döviz hedge stratejisi öneriliyor." },\r
+            { icon: "🟢", asset: "Altın / XAU", text: "Merkez bankaları altın alımı rekoru kırıyor (dünya geneli 2024 Q1: 290 ton). Reel faizlerin sınırlı kalması ve jeopolitik risk altını 2,400$+ bölgesinde tutacak." },\r
+            { icon: "🟡", asset: "SOLUSDT", text: "Solana ekosistemi DeFi TVL büyümesi gösteriyor ancak ETH ETF onayı SOL'dan ETH'ye fon rotasyonunu hızlandırabilir. 120-150$ bölgesi kritik destek." },\r
+            { icon: "🟢", asset: "BIST Bankacılık", text: "Yüksek faiz ortamında Türk bankaları (GARAN, AKBNK) net faiz marjlarını genişletiyor. TCMB normalleşme sürecinde bankacılık sektörü cazip risk/ödül sunuyor." },\r
+            { icon: "🔴", asset: "Global Tedarik Zinciri", text: "Kızıldeniz gerginliği lojistik maliyetleri artırıyor. Fright Index %30+ yükseldi. Emtia bazlı enflasyon riski yeniden canlanıyor; merkez bankası pivot beklentisi ötelenebilir." },\r
+            { icon: "🟢", asset: "Yapay Zeka / AI Sektörü", text: "NVDA, Broadcom, AMD veri merkezi siparişleri rekor kırıyor. AI altyapı harcamaları 2025'e kadar %40 büyüme gösterecek. Çip üretim kapasitesi hala arz-talep farkını kapatamıyor." },\r
+            { icon: "🟡", asset: "Gümüş / XAG", text: "Yeşil enerji dönüşümü (güneş paneli, EV) gümüş sanayii talebini artırıyor. Spekülatif pozisyonlar karışık; fiziksel talep güçlü ama fiyat 30$ direncinde takılı." },\r
+            { icon: "🔴", asset: "Çin / Gayrimenkul", text: "Evergrande tasfiyesi ve Vanke krizi Çin ekonomisini baskılıyor. Emtia talebi zayıflıyor; Bakır ve Demir cevheri fiyatlarında düşüş baskısı Avustralya ve Şili'yi etkiliyor." },\r
+            { icon: "🟢", asset: "THYAO / Türk Havacılık", text: "Türkiye'nin güçlü turizm sezonu ve uzun hat kapasitesi büyümesi THYAO'yu destekliyor. Petrol maliyeti riskine karşın seyahat talebi rekor seviyede." },\r
+            { icon: "🟡", asset: "ETHUSDT / Ethereum", text: "Spot ETH ETF onayı sonrası kurumsal giriş beklentisi fiyatlandı. Layer-2 ağları (Arbitrum, Base) Ethereum ekosistemini güçlendiriyor; ancak 3,400$ üstü direnç kritik." },\r
+            { icon: "🟢", asset: "Sağlık Sektörü / ABD", text: "Yaşlanan nüfus ve biyoteknoloji patentleri ile ABD sağlık sektörü döngüsel olmayan büyüme sunuyor. Eli Lilly (GLP-1) ve AstraZeneca pazar payını artırıyor." },\r
+            { icon: "🔴", asset: "Avrupa / Doğalgaz", text: "Rusya-Ukrayna çatışması Avrupa enerji güvenliğini zorlamaya devam ediyor. Kış öncesi rezerv endişesi doğalgaz fiyatlarını yukarı iterek Avrupa üretim maliyetlerini artırıyor." },\r
+            { icon: "🟢", asset: "MSFT / Azure", text: "Microsoft Azure büyümesi Q4'da analistlerin beklentisini aştı. OpenAI ortaklığı ve Copilot lisans gelirleri kurumsal AI monetizasyonunu hızlandırıyor; uzun vadeli güçlü." },\r
+            { icon: "🟡", asset: "Japonya / JPY", text: "Bank of Japan faiz artışı JPY'yi destekledi ancak BoJ'un şahin duruşu limitli kalabilir. YEN carry trade açılması küresel risk iştahını olumsuz etkileyebilir." },\r
+            { icon: "🟢", asset: "Yarı İletken / SOX", text: "TSMC ve Samsung'un 3nm üretim kapasitesini artırması AI akseleratör talebini karşılayacak. 2025 beklentileri güçlü; portföyde NVDA ve AVGO ağırlığı mantıklı." },\r
+        ];\r
+\r
+        const FUTURE_SUGGESTIONS_POOL = [\r
+            "🎯 NVDA, AAPL gibi mega-cap teknoloji hisselerinde yüksek VIX dönemlerinde (>18) pozisyon büyüklüğünü %20 kısın; kâr hedeflerini kademeli takip eden stop-loss ile koruyun.",\r
+            "🎯 BTC ve ETH'de halving döngüsü momentum oynarken, spot ETF akışlarını günlük takip edin. Ani %5'ten fazla hacim artışı gerçek kurumsal girişin sinyali olabilir.",\r
+            "🎯 BIST bankacılık sektörü kısa vadede cazip görünüyor; TCMB faiz indirim takvimine bağlı olarak GARAN, AKBNK 3-6 aylık horizon için değerlendirilebilir.",\r
+            "🎯 Petrol 90$+ seyrederken THYAO gibi yüksek yakıt maliyetli havacılık şirketlerinde makas aralıklarını daraltın; enerji şirketleri (TUPRS) kısa vadede rüzgar alabilir.",\r
+            "🎯 Altın portföyde %5-10 koruma kalkanı olarak tutun. Merkez bankası alımları devam ettiği sürece 2,200-2,500$ bandı olası; uzun vadeli tutma stratejisi makul.",\r
+            "🎯 Yapay Zeka altyapı teması 2025'e kadar güçlü kalmaya devam edecek. NVDA, AMD, Broadcom gibi çip üreticilerinde kar-al seviyelerini periyodik genişletin.",\r
+            "🎯 USD/TRY kur riski taşıyorsanız portföyünüzün en az %15'ini dolar veya dolar bazlı varlıklarda tutmayı değerlendirin; ani kur şoklarına karşı koruma sağlar.",\r
+            "🎯 Çin bağlantılı emtia (Bakır, Demir Cevheri) pozisyonlarında dikkatli olun; Çin gayrimenkul krizi talep baskısını sürdürüyor. Alternatif olarak Altın ve Platin izlenebilir.",\r
+            "🎯 Ethereum Layer-2 tokenleri (ARB, OP) spot ETH ETF akışlarından indirect olarak yararlanabilir. Risk/ödül asimetrisi yüksek ancak likidite risk yönetimiyle sınırlı tutun.",\r
+            "🎯 Japonya dışında Asya piyasaları (Hindistan SENSEX, Güney Kore KOSPI) yapısal büyüme trendi sunuyor; global çeşitlendirme için değerlendirilebilir.",\r
+            "🎯 VIX 20 üzerinde seyrederken tüm pozisyon büyüklüklerini %25 küçültün ve stop-loss aralıklarını daraltın. Yüksek volatilite dönemleri nakit tutma fırsatı da sunar.",\r
+            "🎯 Solana (SOL) için 120$ desteği kritik; bu seviyenin altında kapanış olursa pozisyonları azaltın. 180$+ kırılım ise yeni ATH sürecinin başlangıcı olabilir.",\r
+        ];\r
+\r
+        <script>
+// ================================================================\r
+        // Timestamps initialization for realism (newest first)\r
+        FUTURE_STREAM_POOL.forEach((item, idx) => {\r
+            item.timestamp = Date.now() - (idx * 7 * 60000); // 7 mins gap\r
+        });\r
+        \r
+        // Convert SUGGESTIONS to objects with timestamps\r
+        let FUTURE_SUGGEST_OBJS = FUTURE_SUGGESTIONS_POOL.map((text, idx) => {\r
+            return {\r
+                text: text,\r
+                timestamp: Date.now() - (idx * 11 * 60000) // 11 mins gap\r
+            };\r
+        });\r
+\r
+        function renderFutureStream(items) {\r
+            // Son 25 adedi al (en güncel üstte olacak şekilde, array'in başındakiler en yeni)\r
+            return items.slice(0, 25).map(item => {\r
+                let timeStr = new Date(item.timestamp || Date.now()).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });\r
+                let borderColor = 'rgba(255,255,255,0.04)';\r
+                if (item.icon === '🔴') borderColor = 'rgba(239,68,68,0.18)';\r
+                else if (item.icon === '🟡') borderColor = 'rgba
+<truncated 1754 bytes>
+
+NOTE: The output was truncated because it was too long. Use a more targeted query or a smaller range to get the information you need."}
+
+<EPHEMERAL_MESSAGE>
+You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
+If the user's request warrants a plan then follow this workflow:
+1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
+2. Create an implementation plan artifact with `request_feedback = true` to request approval. Include any open questions for the user directly in the implementation plan. Don't use the ask_question tool to ask these questions. Stop calling tools and allow the user to review the plan and provide feedback or approval.
+3. After receiving approval, begin execution. Create and update the task artifact as you work.
+4. Verify any work that you have done.
+5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
+If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
+
+I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
+
+
+**Refining Tool Selection**
+
+I'm now implementing strict tool selection criteria as per the guidelines. I'm focusing on avoiding `cat` for file manipulation and emphasizing `grep_search` instead of embedded `grep` commands. My thought process prioritizes explicit tool listing before execution, ensuring that each tool call is justified and the most suitable for the task. I will adhere to the listed tools as directed.
+
+I've got the hardcoded dates and relevant lines to be addressed.
+
+
+","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","EndLine":4791,"StartLine":4650,"toolAction":"Viewing file","toolSummary":"View dashboard.html 4650 to 4791"}}]}
+Completed At: 2026-09-06T01:48:24+03:00
+File Path: `file:///c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/templates/dashboard.html`
+Total Lines: 4791
+Total Bytes: 260171
+Showing lines 4650 to 4791
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+            return {\r
+                text: text,\r
+                timestamp: Date.now() - (idx * 11 * 60000) // 11 mins gap\r
+            };\r
+        });\r
+\r
+        function renderFutureStream(items) {\r
+            // Son 25 adedi al (en güncel üstte olacak şekilde, array'in başındakiler en yeni)\r
+            return items.slice(0, 25).map(item => {\r
+                let timeStr = new Date(item.timestamp || Date.now()).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });\r
+                let borderColor = 'rgba(255,255,255,0.04)';\r
+                if (item.icon === '🔴') borderColor = 'rgba(239,68,68,0.18)';\r
+                else if (item.icon === '🟡') borderColor = 'rgba(234,179,8,0.18)';\r
+                else if (item.icon === '🟢') borderColor = 'rgba(34,197,94,0.18)';\r
+                return `<div class="future-stream-item" style="border-color:${borderColor};">\r
+                    <span class="fsi-icon">${item.icon}</span>\r
+                    <div class="fsi-body">\r
+                        <div class="fsi-asset" style="display:flex; justify-content:space-between; align-items:center;">\r
+                            <span>${item.asset}</span>\r
+                            <span style="font-size:9px; color:#cbd5e1; font-weight:normal; font-family:'JetBrains Mono';">${timeStr}</span>\r
+                        </div>\r
+                        <div class="fsi-text">${item.text}</div>\r
+                    </div>\r
+                </div>`;\r
+            }).join('');\r
+        }\r
+\r
+        function renderFutureSuggestions(items) {\r
+            // Son 25 adedi al\r
+            return items.slice(0, 25).map((item, idx) => {\r
+                let timeStr = new Date(item.timestamp || Date.now()).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });\r
+                return `\r
+                <div class="future-suggestion-item">\r
+                    <div class="fsi-num">${idx + 1}</div>\r
+                    <div class="fsi-suggest-text">\r
+                        <div style="font-size:9px; color:#cbd5e1; font-family:'JetBrains Mono'; margin-bottom:4px; letter-spacing:0.5px;">OTONOM ÖNGÖRÜ • ${timeStr}</div>\r
+                        ${item.text}\r
+                    </div>\r
+                </div>`;\r
+            }).join('');\r
+        }\r
+\r
+        function updateFutureAdvancing() {\r
+            // Update clock and footer\r
+            const now = new Date();\r
+            const pad = n => String(n).padStart(2, '0');\r
+            const dateStr = `${pad(now.getDate())}.${pad(now.getMonth()+1)}.${now.getFullYear()}`;\r
+            const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;\r
+            const clockEl = document.getElementById('futureClock');\r
+            if (clockEl) clockEl.textContent = `📅 ${dateStr} | 🕒 ${timeStr}`;\r
+\r
+            // Render ALL stream items (scrollable)\r
+            const streamEl = document.getElementById('futureStreamContainer');\r
+            if (streamEl) {\r
+                streamEl.innerHTML = renderFutureStream(FUTURE_STREAM_POOL);\r
+            }\r
+\r
+            // Render ALL suggestion items (scrollable)\r
+            const suggestEl = document.getElementById('futureSuggestContainer');\r
+            if (suggestEl) {\r
+                suggestEl.innerHTML = renderFutureSuggestions(FUTURE_SUGGEST_OBJS);\r
+            }\r
+\r
+            // Update footer\r
+            const lastUpdEl = document.getElementById('futureLastUpdated');\r
+            if (lastUpdEl) lastUpdEl.textContent = `${timeStr} TSİ`;\r
+        }\r
+\r
+        // Initial render\r
+        updateFutureAdvancing();\r
+\r
+        // Clock ticks every second (date/time display only)\r
+        setInterval(() => {\r
+            const now = new Date();\r
+            const pad = n => String(n).padStart(2, '0');\r
+            const dateStr = `${pad(now.getDate())}.${pad(now.getMonth()+1)}.${now.getFullYear()}`;\r
+            const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;\r
+            const clockEl = document.getElementById('futureClock');\r
+            if (clockEl) clockEl.textContent = `📅 ${dateStr} | 🕒 ${timeStr}`;\r
+        }, 1000);\r
+\r
+        // ==========================================\r
+        // IDE STRATEJİ MODELİ TETİKLEYİCİ\r
+        // ==========================================\r
+        async function triggerIdeModel() {\r
+            const btn = document.getElementById('ideModelBtn');\r
+            const input = document.getElementById('ideModelInput');\r
+            const select = document.getElementById('ideModelSelect');\r
+            \r
+            const query = input.value.trim();\r
+            const model_id = select.value;\r
+            \r
+            if(!query) {\r
+                showToast("Lütfen bir analiz sorgusu girin!", "warn");\r
+                return;\r
+            }\r
+            \r
+            btn.innerText = "⏳ Yapay Zeka Düşünüyor... (Lütfen bekleyin)";\r
+            btn.disabled = true;\r
+            \r
+            try {\r
+                const response = await fetch('/api/ide/trigger', {\r
+                    method: 'POST',\r
+                    headers: { 'Content-Type': 'application/json' },\r
+                    body: JSON.stringify({ query: query, model_id: model_id })\r
+                });\r
+                \r
+                const data = await response.json();\r
+                \r
+                if (response.ok) {\r
+                    showToast(`Başarılı! Harcanan Kredi: ${data.cost}`, 'success');\r
+                    \r
+                    // Yeni öğeyi Future Advancing Paneline ekle\r
+                    const newItem = {\r
+                        icon: '🤖',\r
+                        asset: `YZ Çıkarımı / ${model_id.toUpperCase()}`,\r
+                        text: data.result_text\r
+                    };\r
+                    \r
+                    if (typeof FUTURE_STREAM_POOL !== 'undefined') {\r
+                        FUTURE_STREAM_POOL.unshift(newItem);\r
+                        if (typeof updateFutureAdvancing === 'function') {\r
+                            updateFutureAdvancing();\r
+                        }\r
+                    }\r
+                    input.value = "";\r
+                } else {\r
+                    showToast(data.detail || "Bir hata oluştu", "error");\r
+                }\r
+            } catch (err) {\r
+                showToast("Sunucuya bağlanılamadı!", "error");\r
+            } finally {\r
+                btn.innerText = "🚀 Tetikle";\r
+                btn.disabled = false;\r
+            }\r
+        }\r
+    </script>\r
+\r
+</body>\r
+</html>
