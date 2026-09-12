@@ -51,6 +51,14 @@ async def startup_event():
     # Start WebSocket Broadcaster
     asyncio.create_task(live_data_broadcaster(live_trade_manager_instance))
     
+    # Start Alpaca Trade Updates WebSocket (Zero-latency Close detection)
+    try:
+        from services.broker.alpaca_stream import start_alpaca_stream
+        asyncio.create_task(start_alpaca_stream())
+        logger.info("[STARTUP] Alpaca WS Trade Updates (Sıfır Gecikme) Dinleyicisi Başlatıldı.")
+    except Exception as e:
+        logger.error(f"[STARTUP] Alpaca WS Başlatılamadı: {e}")
+
     # Scheduler (BIST ve NASDAQ Zamanlanmış Görevleri)
     start_scheduler()
 

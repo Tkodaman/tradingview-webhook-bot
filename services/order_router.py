@@ -58,6 +58,13 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     else:
         capital_used = live_trade_manager.get_dynamic_position_capital(signal.symbol)
 
+    if action_clean in ["BUY", "LONG", "SELL", "SHORT"]:
+        try:
+            from services.risk_engine.missing_agents import spread_guard
+            from services.market_feed.live_stream import live_trade_manager
+            is_spread_ok = spread_guard.check_spread(signal.symbol, live_trade_manager.market_prices)
+        except Exception:
+            pass
     if action_clean in ["BUY", "LONG"]:
         from services.ai_agent.system_prompt import RISK_PARAMS
         
@@ -161,7 +168,6 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         }
     elif settings.trading_mode in ["LIVE", "PAPER"]:
         # Canlı Borsa / Broker API Entegrasyonu (Alpaca)
-        from services.broker.factory import get_broker
         # PAPER modunda paper=True, LIVE modunda paper=False
         is_paper_mode = settings.trading_mode.upper() != "LIVE"
         broker = get_broker(settings.active_broker, paper=is_paper_mode)

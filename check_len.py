@@ -1,19 +1,7 @@
-﻿import json
-import glob
-import os
+﻿with open('services/broker/alpaca_client.py', 'r', encoding='utf-8') as f:
+    lines = f.readlines()
 
-brain_dir = r'C:\Users\ASUS\.gemini\antigravity-ide\brain'
-files = glob.glob(os.path.join(brain_dir, '*', '.system_generated', 'logs', '*full.jsonl'))
-
-for f in files:
-    try:
-        with open(f, 'r', encoding='utf-8') as file:
-            for line in file:
-                if '<!DOCTYPE html>' in line:
-                    data = json.loads(line)
-                    if 'content' in data:
-                        c = data['content']
-                        if type(c) == str and '<!DOCTYPE html>' in c:
-                            print("FOUND html in", f[-50:], "length:", len(c), "Ends with html?", '</html>' in c)
-    except Exception as e:
-        pass
+print(f"Len line 105: {len(lines[104]) - len(lines[104].lstrip())}")
+print(f"Len line 106: {len(lines[105]) - len(lines[105].lstrip())}")
+print(f"Len line 107: {len(lines[106]) - len(lines[106].lstrip())}")
+print(f"Len line 109: {len(lines[108]) - len(lines[108].lstrip())}")

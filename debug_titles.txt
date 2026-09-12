@@ -1,0 +1,29 @@
+TERM: TRADINGVIEW AI
+="color: #f43f5e; font-size: 22px;">🧬</span> (a1) TRADINGVIEW AI GATEWAY & 3-PİYASA CANLI KOKPİTİ
+                </div>
+                <div class="h
+----------------------------------------
+TERM: Açık Pozisyonlar
+ader-title">
+                <span>💼</span> Aktif Açık Pozisyonlar & Kâr/Zarar Takibi
+            </div>
+            <div>
+                <button cla
+----------------------------------------
+TERM: Kripto Piyasası
+om:8px; color:#4ade80; text-align:center;">🪙 (a4) Kripto Piyasası</div>
+                <div style="overflow:hidden; white-space:nowrap; margin-bottom
+----------------------------------------
+TERM: TR BIST
+           <span style="color:#10b981;">🇹🇷</span> TR BIST Terminali <span style="font-size:11px; color:#a7f3d0;">(Canlı Akış)</span>
+                <
+----------------------------------------
+TERM: US NASDAQ
+           <span style="color:#3b82f6;">🇺🇸</span> US NASDAQ Terminali <span style="font-size:11px; color:#bfdbfe;">(Canlı Akış)</span>
+               
+----------------------------------------
+TERM: Top 15
+-size:14px;font-weight:700;color:#facc15;">🔥 (a7) Top 15 Alım Isı Haritası & Momentum (Canlı Fiyatlar)</span>
+        </div>
+        <div style="displ
+----------------------------------------

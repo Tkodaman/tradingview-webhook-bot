@@ -2,13 +2,8 @@
     text = f.read()
 
 import re
-import sys
-sys.stdout.reconfigure(encoding='utf-8')
-
-match = re.search(r'top15CryptoBody', text, re.IGNORECASE)
-if match:
-    start = max(0, match.start() - 200)
-    end = min(len(text), match.end() + 2000)
-    print(text[start:end])
-else:
-    print("Not found")
+matches = re.finditer(r'Top 15', text, re.IGNORECASE)
+for match in matches:
+    start = max(0, match.start() - 100)
+    end = min(len(text), match.end() + 100)
+    print("MATCH AROUND:", text[start:end])

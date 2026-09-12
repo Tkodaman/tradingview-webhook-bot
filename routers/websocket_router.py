@@ -33,10 +33,25 @@ manager = ConnectionManager()
 
 # Background task to send live updates
 async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
+    last_multiplier = None
     while True:
         try:
             if manager.active_connections:
                 prices = live_trade_manager.get_live_prices()
+                
+                # Check Supervisor Agent Risk Profile
+                try:
+                    from services.engine.supervisor_agent import supervisor_agent
+                    current_mult = supervisor_agent.calculate_dynamic_budget_multiplier(prices)
+                    if current_mult != last_multiplier:
+                        last_multiplier = current_mult
+                        await manager.broadcast({
+                            "type": "RISK_UPDATE",
+                            "multiplier": current_mult
+                        })
+                except Exception:
+                    pass
+
                 summary = {
                     "account_balance": live_trade_manager.account_balance,
                     "available_cash": live_trade_manager.available_cash,

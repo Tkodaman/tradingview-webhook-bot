@@ -1,8 +1,8 @@
-﻿import re
-with open('templates/dashboard.html', 'r', encoding='utf-8') as f:
+﻿with open('templates/dashboard.html', 'r', encoding='utf-8') as f:
     text = f.read()
-
-# Extract script blocks and compile them to check for JS syntax errors using nodejs if available, or we can just print the exact function again.
-match = re.search(r'function renderHeatmapBoxes[\s\S]*?\}', text)
-if match:
-    print(match.group(0))
+import re
+matches = re.finditer(r'45|50', text)
+for match in matches:
+    start = max(0, match.start() - 50)
+    end = min(len(text), match.end() + 50)
+    print(text[start:end].replace('\n', ' '))

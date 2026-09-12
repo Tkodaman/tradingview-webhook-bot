@@ -3,6 +3,8 @@ from typing import Optional, Dict, Any, List
 
 class WebhookSignal(BaseModel):
     passphrase: str
+    security_token: Optional[str] = None
+    timestamp_ms: Optional[int] = Field(default=None, description="Milisaniye cinsinden TradingView çıkış zamanı")
     action: str = Field(default="BUY", description="BUY, SELL, CLOSE, HOLD (Büyük/Küçük harf duyarsız)")
     symbol: str
     quantity: float = Field(default=1.0, gt=0, description="TradingView tarafından hesaplanan dinamik lot/kontrat")

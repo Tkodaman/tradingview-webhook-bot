@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from core.logger import logger
 from services.engine.experience_memory_engine import experience_memory_engine
 from services.engine.advanced_analytics import advanced_analytics_engine
+from services.engine.supervisor import supervisor_agent
 
 scheduler = AsyncIOScheduler()
 
@@ -60,6 +61,10 @@ async def monthly_seasonal_review_routine():
     experience_memory_engine.add_live_log("GLOBAL", "LLM", "Aylık/Sezonluk Hedef Kitle ve Risk-On/Off Optimizasyonu Tamamlandı.")
 
 def start_scheduler():
+    # STATE RECONCILER (Her 3 dakikada bir)
+    from services.engine.state_reconciler import state_reconciler
+    scheduler.add_job(state_reconciler.reconcile, 'interval', minutes=3, id='state_reconciler_job')
+
     # TRT (UTC+3) -> BIST 09:50 TRT = 06:50 UTC
     scheduler.add_job(bist_pre_market_routine, 'cron', day_of_week='mon-fri', hour=6, minute=50, id='bist_routine')
     
@@ -72,5 +77,10 @@ def start_scheduler():
     # TRT (UTC+3) -> Her ayın 1. günü 08:00 TRT = 05:00 UTC
     scheduler.add_job(monthly_seasonal_review_routine, 'cron', day=1, hour=5, minute=0, id='monthly_seasonal_routine')
     
+    # Supervisor Tasks
+    scheduler.add_job(supervisor_agent.monitor_positions, 'interval', minutes=3, id='supervisor_monitor_pos')
+    scheduler.add_job(supervisor_agent.calculate_dynamic_risk, 'interval', minutes=15, id='supervisor_dynamic_risk')
+    scheduler.add_job(supervisor_agent.generate_eod_report, 'cron', hour=23, minute=55, id='supervisor_eod_report')
+    
     scheduler.start()
-    logger.info("[SCHEDULER] APScheduler başlatıldı. BIST, NASDAQ ve Dönemsel (Haftalık/Aylık) Görevler ayarlandı.")
+    logger.info("[SCHEDULER] APScheduler başlatıldı. BIST, NASDAQ, Supervisor ve Dönemsel Görevler ayarlandı.")

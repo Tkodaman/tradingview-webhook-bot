@@ -42,8 +42,11 @@ async def get_active_positions():
                     sl_price = 0.0
                     
                     if entry_price > 0:
+                        dyn_tp_pct, dyn_sl_pct = 3.5, 1.75
                         from services.engine.experience_memory_engine import experience_memory_engine
-                        dyn_tp_pct, dyn_sl_pct = experience_memory_engine.get_dynamic_margins(sym)
+                        if hasattr(experience_memory_engine, "get_dynamic_margins"):
+                            dyn_tp_pct, dyn_sl_pct = experience_memory_engine.get_dynamic_margins(sym)
+                            
                         if side == "BUY":
                             tp_price = entry_price * (1.0 + (dyn_tp_pct / 100.0))
                             sl_price = entry_price * (1.0 - (dyn_sl_pct / 100.0))

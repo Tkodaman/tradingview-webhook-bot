@@ -5,6 +5,7 @@ from services.risk_engine.market_hours import market_hours_validator
 from services.market_feed.live_stream import live_trade_manager
 
 router = APIRouter()
+rsi_history = {}
 
 @router.get("/live-matrix")
 async def get_live_buy_sell_wait_matrix():
@@ -40,9 +41,24 @@ async def get_live_buy_sell_wait_matrix():
             micro_delta = ((h - 50) / 50.0) * (0.0006 * base_price)
             price = round(base_price + micro_delta, 4 if base_price < 1.0 else 2)
             
+        # RSI Geçmişi Takibi
+        if sym not in rsi_history:
+            rsi_history[sym] = []
+        rsi_history[sym].append(rsi)
+        if len(rsi_history[sym]) > 10:
+            rsi_history[sym].pop(0)
+            
+        hist = rsi_history[sym]
+        rsi_climbed_from_40 = False
+        if len(hist) >= 3 and rsi > 55.0:
+            # Varlık 40'dan 55'e düzenli/kademeli çıktı mı?
+            min_recent_rsi = min(hist)
+            if 40.0 <= min_recent_rsi <= 50.0 and hist[-1] > hist[-2]:
+                rsi_climbed_from_40 = True
+
         # Puanlama
         score = 0
-        if 40.0 <= rsi <= 80.0: score += 1
+        if 40.0 <= rsi <= 72.0: score += 1
         if macd >= -0.50: score += 1
         if data.get("ema_golden_cross", False): score += 1
         if data.get("vwap_bullish", False): score += 1
@@ -62,6 +78,17 @@ async def get_live_buy_sell_wait_matrix():
             decision = "WAIT"
             badge = "💤 SEANS_DISI"
             reason = f"Piyasa Kapalı: {market_status.get('session_text', 'Seans saatleri dışında')}"
+        elif rsi > 72.0 or macd < -1.5:
+            decision = "SELL"
+            badge = "🔴 SELL_SIGNAL"
+            if rsi > 72.0:
+                reason = f"Aşırı Şişkin/Risk Sınırı Aşıldı (RSI={rsi:.1f})"
+            else:
+                reason = "Negatif MACD kesişimi ve satıcı baskısı"
+        elif rsi_climbed_from_40:
+            decision = "BUY"
+            badge = "🟢 BUY_OPPORTUNITY"
+            reason = f"Fırsat: RSI 40-50 bölgesinden ivmelenerek {rsi:.1f} bandını geçti"
         elif score >= 3:
             decision = "BUY"
             badge = "🟢 BUY_SIGNAL"
@@ -77,13 +104,6 @@ async def get_live_buy_sell_wait_matrix():
                 reason = "Aşırı satım dibinden MACD alım kesişimi"
             else:
                 reason = f"Trend gücü {score} indikatör onayıyla pozitif"
-        elif rsi > 75.0 or macd < -1.5:
-            decision = "SELL"
-            badge = "🔴 SELL_SIGNAL"
-            if rsi > 75.0:
-                reason = f"Aşırı Alım Bölgesinde Riskli (RSI={rsi:.1f})"
-            else:
-                reason = "Negatif MACD kesişimi ve satıcı baskısı"
         else:
             decision = "WAIT"
             badge = "🟡 WAIT_PATIENT"

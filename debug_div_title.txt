@@ -1,0 +1,7 @@
+<div class="panel-header-title">                 <span>💼</span> (a2) (a2) Aktif Açık Pozisyonlar & Kâr/Zarar Takibi             </div>
+<div class="panel-header-title">                     <span style="color:#a855f7;">🪙</span> BINANCE Kripto Terminali <span style="font-size:11px; color:#d8b4fe;">(Canlı Akış)</span>                 </div>
+<div class="panel-header-title">                     <span style="color:#10b981;">🇹🇷</span> (a5) TR BIST Terminali <span style="font-size:11px; color:#a7f3d0;">(Canlı Akış)</span>                 </div>
+<div class="panel-header-title">                     <span style="color:#3b82f6;">🇺🇸</span> (a6) US NASDAQ Terminali <span style="font-size:11px; color:#bfdbfe;">(Canlı Akış)</span>                 </div>
+<div class="panel-header-title">                 <span>📑</span> AutoTrader - Trade Breakdown & Execution Log <span style="font-size:11px; color:var(--text-secondary); margin-left:8px;">(İstatistiksel Hata Payı & Öğrenim Birikimi)</span>             </div>
+<div class="panel-header-title">                     <span style="color: var(--accent-yellow);">🛡️</span> Otonom Öğrenilen Kurallar & Koruma Kalkanı                 </div>
+<div class="panel-header-title">                     <span style="color: var(--accent-blue);">🧠</span> Günlük Piyasa Sentezi & Strateji Eğilimi                 </div>

@@ -52,6 +52,9 @@ class LiveTradeManager:
         self.daily_stats: Dict[str, Dict[str, float]] = {} # Günlük İstatistikler
         self.is_macro_standby: bool = False
         self.macro_standby_reason: str = ""
+        self.is_paused: bool = False
+        self.pause_reason: str = ""
+        self.auto_resume_reconciler: bool = True
 
         # Canlı Fiyat Havuzu
         self.market_prices: Dict[str, Dict[str, Any]] = {
@@ -67,6 +70,56 @@ class LiveTradeManager:
         }
 
         self.load_state()
+        self.sync_with_broker()
+
+    def sync_with_broker(self):
+        from services.broker.alpaca_client import alpaca_client
+        import time
+        from datetime import datetime, timezone
+        
+        try:
+            broker_positions = alpaca_client.sync_open_positions()
+            if not broker_positions:
+                return
+
+            for bp in broker_positions:
+                sym = bp.get("symbol")
+                qty = abs(float(bp.get("qty", 0)))
+                if qty == 0: continue
+                
+                # If we don't have it locally, add it
+                if sym not in self.positions:
+                    entry_price = float(bp.get("avg_entry_price", 0))
+                    current_price = float(bp.get("current_price", entry_price))
+                    side = "BUY" if float(bp.get("qty", 0)) > 0 else "SELL"
+                    
+                    # Estimate limits since broker might not return bracket details easily via /positions
+                    tp_price = entry_price * 1.05 if side == "BUY" else entry_price * 0.95
+                    sl_price = entry_price * 0.98 if side == "BUY" else entry_price * 1.02
+                    
+                    pos = ActivePosition(
+                        id=f"sync_{int(time.time())}_{sym}",
+                        symbol=sym,
+                        market="NASDAQ",  # Defaulting to NASDAQ for Alpaca stocks
+                        side=side,
+                        entry_price=entry_price,
+                        current_price=current_price,
+                        quantity=qty,
+                        nominal_value=entry_price * qty,
+                        target_profit_price=tp_price,
+                        stop_loss_price=sl_price,
+                        break_even_trigger_price=entry_price * 1.02 if side == "BUY" else entry_price * 0.98,
+                        opened_at=datetime.now(timezone.utc).isoformat(),
+                        unrealized_pnl=float(bp.get("unrealized_pl", 0)),
+                        unrealized_pnl_pct=float(bp.get("unrealized_plpc", 0)) * 100
+                    )
+                    self.positions[sym] = pos
+            
+            # Save the synced state to local db
+            self.save_state()
+        except Exception as e:
+            from core.logger import logger
+            logger.error(f"Failed to sync with broker: {e}")
 
     def load_state(self):
         try:
@@ -167,10 +220,21 @@ class LiveTradeManager:
 
     def get_dynamic_position_capital(self, symbol: str) -> float:
         """
-        Kasa Bakiyesine Göre Dinamik Pozisyon Bütçesi (%10 Taban = $100)
+        Kasa Bakiyesine Göre Dinamik Pozisyon Bütçesi (%10 Taban = ) + Süpervizör Risk Çarpanı
         """
+        try:
+            from services.engine.supervisor_agent import supervisor_agent
+            multiplier = supervisor_agent.calculate_dynamic_budget_multiplier(self.market_prices)
+        except ImportError:
+            multiplier = 1.0
+            
         base_capital = round(self.total_account_equity * 0.10, 2)
-        return max(25.0, min(self.available_cash, base_capital))
+        adjusted_capital = base_capital * multiplier
+        
+        # En az 10$, en fazla bakiyenin %25'i kadar
+        return max(10.0, min(adjusted_capital, self.total_account_equity * 0.25))
+
+
 
     def get_live_prices(self) -> Dict[str, Any]:
         """
