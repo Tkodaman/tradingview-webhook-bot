@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import json
 import traceback
 try:
@@ -142,39 +142,50 @@ class AlpacaTradeStream:
 
     async def fallback_polling_loop(self):
         """
-        Runs continuously in the background. If WS disconnects, it polls the REST API 
-        to ensure no positions are left hanging (e.g. closed by SL/TP offline).
+        Runs continuously in the background. Polls the REST API periodically 
+        to ensure no positions are left hanging (e.g. closed by SL/TP offline) 
+        and adds any manual positions opened directly on Alpaca.
         """
         while True:
-            if not self.is_connected:
-                try:
-                    from services.broker.factory import get_broker
-                    broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
-                    if broker and broker.api:
-                        raw_positions = broker.get_open_positions()
-                        active_symbols = [p.get("symbol") for p in raw_positions if p.get("symbol")]
+            try:
+                from services.broker.factory import get_broker
+                broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
+                if broker and broker.api:
+                    raw_positions = broker.get_open_positions()
+                    if raw_positions is None:
+                        logger.warning("[FALLBACK POLLING] Fetch positions failed (Network error?). Skipping cycle.")
+                        await asyncio.sleep(5)
+                        continue
                         
-                        # Check local positions
-                        closed_locally = []
-                        for pos_id, pos in live_trade_manager.positions.items():
-                            if pos.status == "OPEN" and pos.symbol not in active_symbols:
+                    active_symbols = [p.get("symbol") for p in raw_positions if p.get("symbol")]
+                    
+                    # 1. Local'de açık olup Alpaca'da olmayanları kapat
+                    closed_locally = []
+                    for pos_id, pos in live_trade_manager.positions.items():
+                        if pos.status == "OPEN":
+                            formatted_sym = broker._format_symbol(pos.symbol) if hasattr(broker, "_format_symbol") else pos.symbol
+                            if formatted_sym not in active_symbols:
                                 closed_locally.append(pos)
-                                
-                        for pos in closed_locally:
-                            logger.info(f"⚠️ [FALLBACK POLLING] {pos.symbol} pozisyonu REST API'de bulunamadi. Kapaniş yansitiliyor.")
-                            live_trade_manager.close_position(pos.id, "CLOSED_OFFLINE_SYNC")
-                            await manager.broadcast({
-                                "type": "TRADE_UPDATE",
-                                "symbol": pos.symbol,
-                                "action": "CLOSED",
-                                "price": 0,
-                                "message": f"{pos.symbol} emri baðlanti kopukken (Fallback) kapandi."
-                            })
-                except Exception as e:
-                    logger.error(f"[FALLBACK POLLING ERROR] {e}")
-            
-            # Poll every 10 seconds if disconnected, or wait 10 seconds silently if connected
-            await asyncio.sleep(10)
+                            
+                    for pos in closed_locally:
+                        logger.info(f"⚠️ [FALLBACK POLLING] {pos.symbol} pozisyonu REST API'de bulunamadi. Kapanis yansitiliyor.")
+                        live_trade_manager.close_position(pos.id, "CLOSED_OFFLINE_SYNC")
+                        await manager.broadcast({
+                            "type": "TRADE_UPDATE",
+                            "symbol": pos.symbol,
+                            "action": "CLOSED",
+                            "price": 0,
+                            "message": f"{pos.symbol} emri baglanti kopukken veya manuel (Fallback) kapandi."
+                        })
+
+                    # 2. Alpaca'da açık olup Local'de olmayanları ekle
+                    live_trade_manager.sync_with_broker()
+                    
+            except Exception as e:
+                logger.error(f"[FALLBACK POLLING ERROR] {e}")
+        
+            # Poll every 15 seconds continuously for Azami Dikkat sync
+            await asyncio.sleep(15)
 
 alpaca_trade_stream = AlpacaTradeStream()
 

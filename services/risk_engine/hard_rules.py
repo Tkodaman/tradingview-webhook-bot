@@ -70,6 +70,12 @@ class HardRuleEngine:
         # Kural 3: Düşük Hacimli Sahte Kırılım (False Breakout) Filtresi — Eşik: Vol.Ratio < 1.2
         volume_ratio = market_analysis.get("volume_ratio", 1.0)
         vol_threshold = getattr(settings, "volume_anomaly_ratio_threshold", 1.2)
+        
+        # Agresif (Hızlı) Modda Hacim Filtresi Esnetilir
+        current_mode = getattr(settings, "current_risk_mode", "NORMAL").upper()
+        if current_mode == "AGGRESSIVE":
+            vol_threshold = 0.2  # Agresifte çok daha küçük hacim hareketlerine izin ver
+            
         if settings.volume_anomalies_filter and volume_ratio < vol_threshold:
             msg = f"HACİM BLOKAJI: Hacim oranı ({volume_ratio:.2f}x) minimum onay eşiğini ({vol_threshold:.1f}x) karşılamıyor — Sahte kırılım (False Breakout) riski."
             rejection_reasons.append(msg)

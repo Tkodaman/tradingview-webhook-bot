@@ -23,6 +23,51 @@ class BotTrainer:
             "max_drawdown": 4.2
         }
 
+    def load_historical_scenarios_from_memory(self) -> List[Dict[str, Any]]:
+        """
+        Deneyim hafızasından gerçek geçmiş işlemleri (kâr/zarar, indikatör durumları, duyarlılık) çeker.
+        Bunları ML eğitim senaryosu formatına dönüştürür.
+        """
+        try:
+            from services.engine.experience_memory_engine import experience_memory_engine
+            history = experience_memory_engine.trade_history
+            scenarios = []
+            for i, trade in enumerate(history):
+                indicators = trade.indicators_at_entry or {}
+                
+                # Gerçek veriden oku, yoksa makul bir ortalama ata
+                volatility = float(indicators.get("volatility", 2.0))
+                volume_ratio = float(indicators.get("volume_ratio", 1.2))
+                rsi = float(indicators.get("rsi", 50.0))
+                sentiment = float(indicators.get("sentiment", 0.0))
+                macro_risk = float(indicators.get("macro_risk", 30.0))
+                
+                # Eğer kayıtlı rejimde belirli kelimeler varsa indikatörleri ona göre tahmini doldur
+                regime = str(trade.market_regime).upper()
+                if "BOĞA" in regime or "MOMENTUM" in regime:
+                    rsi = max(rsi, 55.0)
+                    sentiment = max(sentiment, 20.0)
+                elif "AYI" in regime or "CRASH" in regime:
+                    rsi = min(rsi, 45.0)
+                    sentiment = min(sentiment, -20.0)
+                    
+                scenarios.append({
+                    "id": f"real_{trade.trade_id if hasattr(trade, 'trade_id') else i}",
+                    "category": "REAL_EXPERIENCE",
+                    "action": trade.action,
+                    "price": trade.entry_price,
+                    "volatility": volatility,
+                    "volume_ratio": volume_ratio,
+                    "sentiment": sentiment,
+                    "macro_risk": macro_risk,
+                    "rsi": rsi,
+                    "price_change_pct": trade.pnl_pct
+                })
+            return scenarios
+        except Exception as e:
+            logger.error(f"[BOT TRAINER] Gerçek tecrübe yüklenirken hata: {e}")
+            return []
+
     def generate_synthetic_historical_scenarios(self, count: int = 500) -> List[Dict[str, Any]]:
         """
         Geçmiş piyasa rejimlerini (Trend, Kriz, Şok Haber, Sahte Kırılım) temsil eden veri seti üretir.
@@ -169,11 +214,21 @@ class BotTrainer:
 
     def train_bot(self, iterations: int = 400) -> Dict[str, Any]:
         """
-        Geçmiş veri simülasyonları üzerinde Grid/Randomized Search ile en yüksek Sharpe oranı
-        ve en düşük Max Drawdown veren model ağırlıklarını eğitir ve kaydeder.
+        Gerçek geçmiş verileri ve sentetik verileri harmanlayarak (Data Augmentation) 
+        Grid/Randomized Search ile model ağırlıklarını eğitir.
         """
-        logger.info("[BOT TRAINING STARTED] Generating historical regimes and tuning weights...")
-        scenarios = self.generate_synthetic_historical_scenarios(count=600)
+        logger.info("[BOT TRAINING STARTED] Loading real experience and generating synthetic regimes...")
+        
+        real_scenarios = self.load_historical_scenarios_from_memory()
+        
+        # Eğer yeterince gerçek işlemimiz yoksa, üzerine sentetik senaryo ekle
+        scenarios = real_scenarios.copy()
+        if len(scenarios) < 300:
+            synthetic_needed = 300 - len(scenarios)
+            synthetic_scenarios = self.generate_synthetic_historical_scenarios(count=synthetic_needed)
+            scenarios.extend(synthetic_scenarios)
+            
+        logger.info(f"[BOT TRAINER] Training on {len(real_scenarios)} REAL trades + {len(scenarios)-len(real_scenarios)} SYNTHETIC trades.")
         
         best_score = -999.0
         best_result = {}

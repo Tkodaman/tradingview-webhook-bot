@@ -8,7 +8,7 @@ def setup_logger():
     
     if not logger.handlers:
         # File handler
-        file_handler = logging.FileHandler("logs/trade.log")
+        file_handler = logging.FileHandler("logs/trade.log", encoding="utf-8")
         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)

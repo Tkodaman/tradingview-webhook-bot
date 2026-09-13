@@ -69,25 +69,63 @@ async def export_experience_csv():
     """Tarihsel işlemleri CSV formatında dışa aktar"""
     trades = experience_memory_engine.trade_history
     output = io.StringIO()
-    writer = csv.writer(output)
+    writer = csv.writer(output, delimiter=';', dialect='excel')
     
-    if trades:
-        headers = list(trades[0].model_dump().keys())
-        writer.writerow(headers)
-        for trade in trades:
-            row = []
-            for val in trade.model_dump().values():
-                if isinstance(val, dict):
-                    row.append(str(val))
-                else:
-                    row.append(val)
-            writer.writerow(row)
+    # Kullanıcı dostu, Türkçe ve gruplandırılmış sütun başlıkları
+    headers = [
+        "Tarih/Saat",
+        "İşlem ID",
+        "Sembol",
+        "Yön",
+        "Giriş Fiyatı ($)",
+        "Çıkış Fiyatı ($)",
+        "Kâr/Zarar ($)",
+        "Kâr/Zarar (%)",
+        "İşlem Sonucu",
+        "Süre (Dk)",
+        "Kapanış Sebebi",
+        "Piyasa Rejimi",
+        "Maks. Drawdown (%)",
+        "Giriş İndikatörleri",
+        "Çıkarılan Ders",
+        "Algoritmik Aksiyon Planı"
+    ]
+    writer.writerow(headers)
+    
+    for trade in trades:
+        # İndikatörleri temiz metin formatına çevir
+        inds = trade.indicators_at_entry
+        inds_text = "Yok"
+        if isinstance(inds, dict) and inds:
+            inds_text = " | ".join([f"{str(k).upper()}: {v}" for k, v in inds.items()])
             
-    output.seek(0)
+        row = [
+            trade.timestamp,
+            trade.trade_id,
+            trade.symbol,
+            trade.action,
+            f"{trade.entry_price:.4f}",
+            f"{trade.exit_price:.4f}",
+            f"{trade.pnl_amount:.2f}",
+            f"%{trade.pnl_pct:.2f}",
+            "BAŞARILI" if trade.is_win else "ZARAR",
+            str(trade.duration_minutes),
+            trade.exit_reason,
+            trade.market_regime,
+            f"%{trade.max_drawdown_percent:.2f}",
+            inds_text,
+            trade.lesson_learned,
+            trade.algorithmic_action_plan
+        ]
+        writer.writerow(row)
+            
+    # Türkçe karakter sorunu olmaması için BOM (Byte Order Mark) ekliyoruz
+    csv_bytes = "\ufeff" + output.getvalue()
+    
     return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=experience_history.csv"}
+        iter([csv_bytes.encode('utf-8')]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=Trade_Gecmisi_Raporu.csv"}
     )
 
 class SimulateTradeMemoryRequest(BaseModel):

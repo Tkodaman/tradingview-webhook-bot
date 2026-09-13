@@ -177,11 +177,36 @@
             gap: 8px;
             position: relative;
         }
+        /* Ortak active kuralları (görsel olarak öne çıkma) */
         .risk-btn.active {
-            border-color: #4ade80;
+            transform: scale(1.05);
+            z-index: 2;
+        }
+        
+        /* Her moda özel renk ve belirgin dış çizgi (glowing effect) */
+        .risk-btn.active#risk-btn-AGGRESSIVE {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.4), 0 0 15px rgba(239, 68, 68, 0.6);
+        }
+        .risk-btn.active#risk-btn-NORMAL {
+            border-color: #eab308;
+            background: rgba(234, 179, 8, 0.15);
+            color: #eab308;
+            box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.4), 0 0 15px rgba(234, 179, 8, 0.6);
+        }
+        .risk-btn.active#risk-btn-TIGHT {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.15);
+            color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4), 0 0 15px rgba(59, 130, 246, 0.6);
+        }
+        .risk-btn.active#risk-btn-CONSERVATIVE {
+            border-color: #22c55e;
             background: rgba(34, 197, 94, 0.15);
-            color: #4ade80;
-            box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
+            color: #22c55e;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.4), 0 0 15px rgba(34, 197, 94, 0.6);
         }
         .risk-btn:hover:not(.active) {
             background: rgba(255, 255, 255, 0.1);
@@ -1130,16 +1155,16 @@ The following code has been modified to include a line number before every line,
             <div class="risk-modes-label">
                 <span style="color: #eab308;">⚙️</span> Risk & Frekans Modu:
             </div>
-            <button class="risk-btn" id="risk-btn-AGGRESSIVE" onclick="setRiskMode('AGGRESSIVE')" title="Sık işlem yapar, risk eşiğini esnetir (Min. %60 Kazanma İhtimali, derhal pozisyona girer).">
+            <button class="risk-btn" id="risk-btn-AGGRESSIVE" onclick="setRiskMode('AGGRESSIVE')" title="Sık işlem yapar, risk eşiğini esnetir. Hedef: %0.6 - %1.0 TP, Zarar-Kes: %0.4 SL (Vur-Kaç). Min. %75 Kazanma İhtimalinde pozisyona girer.">
                 🔴 Agresif
             </button>
-            <button class="risk-btn active" id="risk-btn-NORMAL" onclick="setRiskMode('NORMAL')" title="Standart piyasa koşulları, dengeli al-sat (Min. %85 Kazanma İhtimali).">
+            <button class="risk-btn active" id="risk-btn-NORMAL" onclick="setRiskMode('NORMAL')" title="Standart piyasa koşulları, dengeli al-sat. Hedef: %1.5 - %2.5 TP, Zarar-Kes: %0.8 SL. Min. %85 Kazanma İhtimali bekler.">
                 🟡 Normal
             </button>
-            <button class="risk-btn" id="risk-btn-TIGHT" onclick="setRiskMode('TIGHT')" title="Dar Stop-Loss kullanır. Yüksek indikatör onayı bekler (Min. %90 Kazanma İhtimali).">
+            <button class="risk-btn" id="risk-btn-TIGHT" onclick="setRiskMode('TIGHT')" title="Dar Stop-Loss kullanır. Hedef: %2.0 - %3.5 TP, Zarar-Kes: %0.8 SL. Yüksek indikatör onayı (Min. %90 Kazanma İhtimali) bekler.">
                 🔵 Sıkı (Tight)
             </button>
-            <button class="risk-btn" id="risk-btn-CONSERVATIVE" onclick="setRiskMode('CONSERVATIVE')" title="Sadece çok güçlü sinyallerde işleme girer (Min. %90 Kazanma İhtimali).">
+            <button class="risk-btn" id="risk-btn-CONSERVATIVE" onclick="setRiskMode('CONSERVATIVE')" title="Sadece çok güçlü sinyallerde işleme girer. Hedef: %3.0+ TP, Zarar-Kes: %1.5 SL (Silkeleme Koruması). Min. %95 Kazanma İhtimali arar.">
                 🟢 Güvenli (Conservative)
             </button>
           
@@ -1149,11 +1174,11 @@ The following code has been modified to include a line number before every line,
                   <span style="color: #60a5fa;">💰</span> Sermaye Yönetimi (İşlem Başına Bütçe):
               </div>
               <div style="display: flex; align-items: center; gap: 15px;">
-                  <input type="range" id="capitalSlider" min="5" max="50" step="5" value="10" 
+                  <input type="range" id="capitalSlider" min="5" max="100" step="5" value="{{ settings.dynamic_capital_allocation_pct }}" 
                          onchange="setCapitalAllocation(this.value)"
-                         oninput="document.getElementById('capitalValue').innerText = '%' + this.value"
+                         oninput="let bal = (typeof lastAlpacaBalance !== 'undefined' && lastAlpacaBalance > 0) ? lastAlpacaBalance : {{ settings.base_portfolio_size }}; document.getElementById('capitalValue').innerText = '%' + this.value + ' ($' + Math.round(this.value * bal / 100) + ')';"
                          style="flex: 1; cursor: pointer; accent-color: #3b82f6;">
-                  <span id="capitalValue" style="color: #60a5fa; font-weight: 700; font-size: 15px; min-width: 45px;">%10</span>
+                  <span id="capitalValue" style="color: #60a5fa; font-weight: 700; font-size: 15px; min-width: 45px;">%{{ '{:.0f}'.format(settings.dynamic_capital_allocation_pct) }} (${{ '{:.0f}'.format(settings.base_portfolio_size * settings.dynamic_capital_allocation_pct / 100) }})</span>
               </div>
           </div>
         </div>
@@ -1164,6 +1189,19 @@ The following code has been modified to include a line number before every line,
         
         <!-- MAIN CONTENT (Chart Removed) -->
         <div style="flex: 1 1 100%; min-width: 0; width: 100%;">
+
+    <!-- KAZAN KAZAN RAMAK KALA (SCROLLING TICKER) -->
+    <style>
+        @keyframes customMarquee {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+    </style>
+    <div id="vergeOfBuyTicker" style="display: none; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 8px; margin-bottom: 12px; padding: 10px; overflow: hidden; white-space: nowrap; box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);">
+        <div style="display: inline-block; animation: customMarquee 15s linear infinite; color: #4ade80; font-weight: 600; font-size: 15px; letter-spacing: 0.5px; width: 100%;">
+            <span id="vergeOfBuyContent"></span>
+        </div>
+    </div>
 
     <!-- ===== 📅 CANLI TARİH + SAAT + SEANS BİLGİSİ ŞERİDİ ===== -->
     <div id="tarihSaatBar" style="
@@ -1199,12 +1237,13 @@ The following code has been modified to include a line number before every line,
     <div class="wallet-bar">
         <div class="wallet-info">
             <span class="live-dot"></span>
-            <span>ALPACA REAL-TIME EQUITY:</span>
-            <span class="wallet-val" id="walletBalance">$1000.00</span>
-            <span id="freeCash" style="color: var(--text-secondary); font-weight:400;">(Serbest Nakit: $1000.00)</span>
+            <span>BÜTÇE (LİMİT $5000):</span>
+            <span class="wallet-val" id="walletBalance">${{ '{:.2f}'.format(settings.base_portfolio_size) }}</span>
+            <span id="freeCash" style="color: var(--text-secondary); font-weight:400;">(Serbest Nakit: ${{ '{:.2f}'.format(settings.base_portfolio_size) }})</span>
             <span id="alpacaCommission" style="color: #fca5a5; font-weight:400; font-size: 11px; margin-left: 8px;">(Alpaca Komisyon Gideri: -$0.00)</span>
             <span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">(Updated 1.5s)</span>
         </div>
+        <button onclick="runBacktest()" class="btn-primary" style="margin-left:auto; padding: 6px 12px; font-size: 12px; border-radius: 4px; border: none; background: #60a5fa; color: #111827; font-weight: bold; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#93c5fd'" onmouseout="this.style.background='#60a5fa'">🧪 Backtest Çalıştır (TSLA, AAPL)</button>
     </div>
 
 
@@ -1213,7 +1252,7 @@ The following code has been modified to include a line number before every line,
 <div class="panel" style="order:1;">
         <div class="panel-header">
             <div class="panel-header-title">
-                <span>💼</span> (a2) Aktif Açık Pozisyonlar & Kâr/Zarar Takibi
+                <span>💼</span> [A1] Aktif Açık Pozisyonlar & Kâr/Zarar Takibi
             </div>
             <div>
                 <button class="btn btn-green" onclick="openNewPositionModal()">⚡ Hızlı Pozisyon Aç</button>
@@ -1245,38 +1284,38 @@ The following code has been modified to include a line number before every line,
     
 
 
-    <div id="top5OpportunitiesWrap" style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 6px; margin: 10px 14px 20px 14px; padding: 12px;">
+    <div id="top5OpportunitiesWrap" style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 0; margin: 10px -16px 20px -16px; padding: 12px 16px; border-left: none; border-right: none;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <span style="font-size:14px;font-weight:700;color:#facc15;">🔥 (a9) Top 15 Alım Isı Haritası & Momentum (Canlı Fiyatlar)</span>
+            <span style="font-size:14px;font-weight:700;color:#facc15;">🔥 [A2] Top 15 Alım Isı Haritası & Momentum (Canlı Fiyatlar)</span>
         </div>
-        <div style="display:flex; gap:12px; align-items:flex-start;">
+        <div style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">
             <!-- Kripto -->
-            <div style="flex:1; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
+            <div style="flex:1; min-width:280px; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
                 <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#4ade80; text-align:center;">🪙 Kripto Piyasası</div>
                 <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
-                    <marquee id="tickerCrypto" scrollamount="4" style="font-size:10px; color:#94a3b8; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
+                    <marquee id="tickerCrypto" scrollamount="4" style="font-size:10px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
                 </div>
                 <div id="top15CryptoBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
                     <!-- Data here -->
                 </div>
             </div>
-            <!-- Bist -->
-            <div style="flex:1; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
-                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#38bdf8; text-align:center;">🇹🇷 BIST 100/30</div>
+            <!-- Nasdaq -->
+            <div style="flex:1; min-width:280px; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#f472b6; text-align:center;">🇺🇸 NASDAQ Mega-Cap</div>
                 <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
-                    <marquee id="tickerBist" scrollamount="4" style="font-size:10px; color:#94a3b8; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
+                    <marquee id="tickerNasdaq" scrollamount="4" style="font-size:10px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
                 </div>
-                <div id="top15BistBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
+                <div id="top15NasdaqBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
                     <!-- Data here -->
                 </div>
             </div>
-            <!-- Nasdaq -->
-            <div style="flex:1; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
-                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#f472b6; text-align:center;">🇺🇸 NASDAQ Mega-Cap</div>
+            <!-- Bist -->
+            <div style="flex:1; min-width:280px; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#38bdf8; text-align:center;">🇹🇷 BIST 100/30</div>
                 <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
-                    <marquee id="tickerNasdaq" scrollamount="4" style="font-size:10px; color:#94a3b8; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
+                    <marquee id="tickerBist" scrollamount="4" style="font-size:10px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
                 </div>
-                <div id="top15NasdaqBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
+                <div id="top15BistBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
                     <!-- Data here -->
                 </div>
             </div>
@@ -1532,7 +1571,7 @@ The following code has been modified to include a line number before every line,
             <div class="modal-body">
                 <div class="stat-grid">
                     <div class="stat-card">
-                        <div class="stat-label">Toplam İşlem</div>
+                        <div class="stat-label">[C4] Toplam İşlem</div>
                         <div class="stat-value" id="modalStatTotalTrades">0</div>
                     </div>
                     <div class="stat-card">
@@ -1714,7 +1753,7 @@ The following code has been modified to include a line number before every line,
         let latestSummaryData = null;
         let currentFilter = 'ALL';
         let prevPriceMap = {};
-        let lastAlpacaBalance = 1000.0; // Önceki fiyatları tutarak tick animasyonunu hesaplar
+        let lastAlpacaBalance = {{ settings.base_portfolio_size }}; // Önceki fiyatları tutarak tick animasyonunu hesaplar
 
         // TOAST ENGINE
         function showToast(message, type = 'info') {
@@ -1763,7 +1802,7 @@ The following code has been modified to include a line number before every line,
                     labels: ['Başlangıç'],
                     datasets: [{
                         label: 'Tüm Zamanlar Kümülatif PnL ($)',
-                        data: [1000],
+                        data: [{{ settings.base_portfolio_size }}],
                         borderColor: '#089981',
                         borderWidth: 2.5,
                         backgroundColor: gradient,
@@ -2016,7 +2055,7 @@ The following code has been modified to include a line number before every line,
                         textNasdaqNotice.innerHTML = `<b>🟢 NASDAQ Seansı Açık:</b> Wall Street düzenli seansı aktiftir. Tüm mega-cap hisseler canlı dalgalanmaktadır.`;
                     } else {
                         bannerNasdaqNotice.className = 'market-notice-banner banner-closed';
-                        textNasdaqNotice.innerHTML = `<b>🔴 Seans Dışı (Kapalı):</b> NASDAQ seans saatleri Hafta İçi 16:30 - 23:00 TSİ arasındadır. Varlıklar soluk renkte son kapanış değerleriyle sergilenir.`;
+                        textNasdaqNotice.innerHTML = `<b>🔴 Seans Dışı (Kapalı):</b> NASDAQ seans saatleri Hafta İçi 16:30 - 23:00 TSİ arasındadır. Varlıklar soluk renkte son kapanış fiyatlarıyla sergilenir.`;
                     }
                 }
 
@@ -2024,6 +2063,42 @@ The following code has been modified to include a line number before every line,
                 renderHeatmapBoxes('top15CryptoBody', data.grouped.CRYPTO || [], cryptoInfo.is_open, 'tickerCrypto');
                 renderHeatmapBoxes('top15BistBody', data.grouped.BIST || [], bistInfo.is_open, 'tickerBist');
                 renderHeatmapBoxes('top15NasdaqBody', data.grouped.NASDAQ || [], nasdaqInfo.is_open, 'tickerNasdaq');
+
+                // RAMAK KALA (VERGE OF BUY) HESAPLAMASI (HER PİYASA İÇİN EN İYİSİ)
+                function getBestForMarket(marketData) {
+                    if (!marketData) return null;
+                    let best = null;
+                    let maxConf = -999;
+                    marketData.forEach(item => {
+                        if (item.confidence_score > 30 && item.rsi < 70) {
+                            if (item.confidence_score > maxConf) {
+                                maxConf = item.confidence_score;
+                                best = item;
+                            }
+                        }
+                    });
+                    return best;
+                }
+
+                const bestCrypto = getBestForMarket(data.grouped.CRYPTO);
+                const bestBist = getBestForMarket(data.grouped.BIST);
+                const bestNasdaq = getBestForMarket(data.grouped.NASDAQ);
+                
+                // Ticker güncelleme fonksiyonunu çağır
+                if (typeof updateVergeTicker === "function") {
+                    updateVergeTicker(bestCrypto, bestBist, bestNasdaq);
+                }
+
+                // DYNAMIC REORDERING OF MARKET WINDOWS
+                const wCrypto = document.getElementById('windowCrypto');
+                const wBist = document.getElementById('windowBist');
+                const wNasdaq = document.getElementById('windowNasdaq');
+                
+                if (wCrypto && wBist && wNasdaq) {
+                    wBist.style.order = bistInfo.is_open ? 1 : 10;
+                    wNasdaq.style.order = nasdaqInfo.is_open ? 2 : 11;
+                    wCrypto.style.order = 3; // Crypto her zaman açık, BIST/NASDAQ kapalıysa en üste çıkar
+                }
 
                 // RENDER EACH GRID SEPARATELY
                 renderMarketGroup('gridCrypto', data.grouped.CRYPTO || [], cryptoInfo.is_open, 'cryptoStatsCount');
@@ -2038,6 +2113,62 @@ The following code has been modified to include a line number before every line,
         
                 
         if (!window.heatmapPrevPrices) window.heatmapPrevPrices = {};
+
+        function formatDyn(val) {
+            let v = parseFloat(val);
+            if (isNaN(v)) return "0.00";
+            if (v < 0.0001) return v.toFixed(8);
+            if (v < 0.01) return v.toFixed(6);
+            if (v < 1.0) return v.toFixed(4);
+            return v.toFixed(2);
+        }
+
+        function estimateTimeToTarget(item) {
+            let estimatedTime = "2-4 Gün"; // Varsayılan Swing
+            const vRatio = item.volume_ratio || 1.0;
+            const rsi = item.rsi || 50.0;
+            
+            if (item.market === "CRYPTO") {
+                if (vRatio >= 1.5 || item.cmf > 0.1) estimatedTime = "Gün İçi (1-12 Saat)";
+                else if (vRatio >= 1.0) estimatedTime = "24-48 Saat";
+            } else {
+                if (vRatio >= 1.8) estimatedTime = "Gün İçi (Seans Kapanışına Kadar)";
+                else if (vRatio >= 1.2 && rsi > 60) estimatedTime = "1-2 Gün";
+                else if (rsi < 40) estimatedTime = "Dip Dönüşü (3-7 Gün)";
+                else estimatedTime = "3-4 Gün";
+            }
+            return estimatedTime;
+        }
+
+        let lastVergeSymbols = "";
+
+        function updateVergeTicker(bestCrypto, bestBist, bestNasdaq) {
+            const vergeTicker = document.getElementById('vergeOfBuyTicker');
+            const vergeContent = document.getElementById('vergeOfBuyContent');
+            if (!vergeTicker || !vergeContent) return;
+            
+            let segments = [];
+            let currentSymbols = "";
+            
+            function buildSegment(item, label) {
+                if (!item) return "";
+                currentSymbols += item.symbol + "-";
+                const estimatedTime = estimateTimeToTarget(item);
+                return `[${label}] 🚀 <strong>${item.symbol}</strong> ($${formatDyn(item.price)}) | Skor: ${item.confidence_score} | CMF: ${item.cmf} | 🟢 Onay Alındı! | 🎯 Hedef: ${estimatedTime}`;
+            }
+            
+            if (bestNasdaq) segments.push(buildSegment(bestNasdaq, "🇺🇸 NASDAQ"));
+            if (bestBist) segments.push(buildSegment(bestBist, "🇹🇷 BIST"));
+            if (bestCrypto) segments.push(buildSegment(bestCrypto, "🪙 KRİPTO"));
+            
+            if (segments.length > 0) {
+                vergeTicker.style.display = 'block';
+                // Update in real-time. CSS animation ensures it doesn't stutter or reset.
+                vergeContent.innerHTML = " 🔥 KAZAN-KAZAN RAMAK KALA FIRSATLARI: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; " + segments.join(" &nbsp;&nbsp;&nbsp;🌟&nbsp;&nbsp;&nbsp; ");
+            } else {
+                vergeTicker.style.display = 'none';
+            }
+        }
 
         function renderHeatmapBoxes(containerId, items, isOpen, tickerId) {
             const container = document.getElementById(containerId);
@@ -2055,20 +2186,21 @@ The following code has been modified to include a line number before every line,
                 const prev = window.heatmapPrevPrices[item.symbol];
                 let flashClass = "";
                 let dirArrow = "";
+                let flashColor = ""; // Flash anında fiyat ve yön ikonunun rengi
                 if (prev !== undefined && isOpen) {
-                    if (item.price > prev) { flashClass = "flash-up"; dirArrow = "↑"; }
-                    else if (item.price < prev) { flashClass = "flash-down"; dirArrow = "↓"; }
+                    if (item.price > prev) { flashClass = "flash-up"; dirArrow = "↑"; flashColor = "#4ade80"; }
+                    else if (item.price < prev) { flashClass = "flash-down"; dirArrow = "↓"; flashColor = "#f43f5e"; }
                 }
                 window.heatmapPrevPrices[item.symbol] = item.price;
                 
                 // Color logic
                 const isUp = item.change_pct >= 0;
-                const chgColor = isUp ? '#4ade80' : '#f43f5e';
+                const chgColor = flashColor ? flashColor : (isUp ? '#4ade80' : '#f43f5e');
                 const borderColor = isUp ? 'rgba(74, 222, 128, 0.7)' : 'rgba(244, 63, 94, 0.7)';
                 const bgGradient = isUp ? 'linear-gradient(90deg, rgba(74,222,128,0.15) 0%, rgba(0,0,0,0.3) 20%)' : 'linear-gradient(90deg, rgba(244,63,94,0.15) 0%, rgba(0,0,0,0.3) 20%)';
                 
                 const closedStyle = isOpen ? "" : "opacity: 0.4; filter: grayscale(80%);";
-                const formattedPrice = item.price < 1.0 ? parseFloat(item.price).toFixed(4) : parseFloat(item.price).toFixed(2);
+                const formattedPrice = formatDyn(item.price);
                 const rsiStr = item.rsi ? parseFloat(item.rsi).toFixed(1) : '-';
                 const volStr = item.volume_ratio ? parseFloat(item.volume_ratio).toFixed(1) : '-';
                 
@@ -2082,32 +2214,32 @@ The following code has been modified to include a line number before every line,
                 if(hasConf && confScore >= 80) tpFactor = 0.045;
                 else if(hasConf && confScore < 40) tpFactor = 0.02;
                 const hedefPrice = parseFloat(item.price) * (1 + (isUp ? tpFactor : -tpFactor));
-                const formattedHedef = hedefPrice < 1.0 ? hedefPrice.toFixed(4) : hedefPrice.toFixed(2);
+                const formattedHedef = formatDyn(hedefPrice);
                 
                 // Add to ticker
                 if (index < 5 && isOpen) {
                     const tArrow = isUp ? "🟢" : "🔴";
                     const chgStr = isUp ? "+" + item.change_pct + "%" : item.change_pct + "%";
                     const tickerConfStr = hasConf ? "%" + confScore.toFixed(0) + " Güven" : "Hesaplanıyor...";
-                    tickerText += "[" + item.symbol + ": $" + formattedPrice + " (" + chgStr + ") " + tArrow + " YZ: " + tickerConfStr + "] &nbsp;&nbsp;&nbsp;&nbsp;";
+                    tickerText += "[" + item.symbol + ": $" + formattedPrice + " (" + chgStr + ") " + tArrow + " YZ: " + tickerConfStr + " | 🎯 " + aiRec + "] &nbsp;&nbsp;&nbsp;&nbsp;";
                 }
                 
                 const boxConfStr = hasConf ? "%" + confScore.toFixed(1) : "-";
                 const boxHtml =  
-                    '<div class="' + flashClass + '" style="border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); border-left: 4px solid ' + borderColor + '; padding: 8px; display:flex; flex-direction:column; gap:6px; transition: all 0.3s ease; cursor:pointer; background: ' + bgGradient + '; ' + closedStyle + ' box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onclick="document.getElementById(\'newPosSymbol\').value = \'' + item.symbol + '\'; openNewPositionModal();">' +
+                    '<div class="' + flashClass + '" title="' + item.symbol + ' AI Analizi: ' + aiRec + '" style="border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: 2px solid ' + borderColor + '; padding: 3px 5px; display:flex; flex-direction:column; gap:2px; transition: all 0.3s ease; cursor:pointer; background: ' + bgGradient + '; ' + closedStyle + ' box-shadow: 0 2px 4px rgba(0,0,0,0.15);" onclick="document.getElementById(\'newPosSymbol\').value = \'' + item.symbol + '\'; openNewPositionModal();">' +
                         '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-                            '<div style="display:flex; align-items:center; gap:6px;">' +
-                                '<span style="font-weight:700; font-size:13px; color:#fbbf24;">' + item.symbol + '</span>' +
-                                '<span style="font-size:10px; color:#fbbf24; background: rgba(251,191,36,0.15); padding: 2px 5px; border-radius:4px; font-weight:600;">Güven: ' + boxConfStr + '</span>' +
+                            '<div style="display:flex; align-items:center; gap:3px;">' +
+                                '<span style="font-weight:700; font-size:10px; color:#fbbf24; letter-spacing: -0.3px;">' + item.symbol + '</span>' +
+                                '<span style="font-size:8px; color:#fbbf24; background: rgba(251,191,36,0.15); padding: 1px 2px; border-radius:2px; font-weight:600;">Güven: ' + boxConfStr + '</span>' +
                             '</div>' +
-                            '<span style="font-weight:800; font-size:13px; color:' + chgColor + ';">$' + formattedPrice + ' ' + dirArrow + '</span>' +
+                            '<span style="font-weight:800; font-size:10.5px; color:' + chgColor + ';">$' + formattedPrice + ' ' + dirArrow + '</span>' +
                         '</div>' +
-                        '<div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:#cbd5e1; font-weight: 500;">' +
+                        '<div style="display:flex; justify-content:space-between; align-items:center; font-size:8.5px; color:#cbd5e1; font-weight: 500;">' +
                             '<span>RSI: <span style="color:#fff;">' + rsiStr + '</span> | Hac: <span style="color:#fff;">' + volStr + 'x</span></span>' +
-                            '<span style="color:#4ade80;">Hedef: $' + formattedHedef + '</span>' +
+                            '<span style="color:' + chgColor + ';">Hedef: $' + formattedHedef + '</span>' +
                         '</div>' +
-                        '<div style="font-size:10px; color:#94a3b8; display:flex; align-items:center; gap:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-                            '<span style="font-size:10px;">🎯</span> ' + aiRec +
+                        '<div title="' + aiRec + '" style="font-size:8.5px; color:#94a3b8; display:flex; align-items:center; gap:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                            '<span style="font-size:8.5px;">🎯</span> ' + aiRec +
                         '</div>' +
                     '</div>' ;
                 container.innerHTML += boxHtml;
@@ -2155,9 +2287,9 @@ The following code has been modified to include a line number before every line,
                 const closedClass = !isOpen ? 'market-closed' : '';
                 const activeClass = item.has_active_position ? 'active-position-card' : '';
 
-                const formattedPrice = item.price < 1.0 ? parseFloat(item.price).toFixed(4) : parseFloat(item.price).toFixed(2);
-                const formattedLow = item.low < 1.0 ? parseFloat(item.low).toFixed(4) : parseFloat(item.low).toFixed(2);
-                const formattedHigh = item.high < 1.0 ? parseFloat(item.high).toFixed(4) : parseFloat(item.high).toFixed(2);
+                const formattedPrice = formatDyn(item.price);
+                const formattedLow = formatDyn(item.low);
+                const formattedHigh = formatDyn(item.high);
 
                 if (!card) {
                     card = document.createElement('div');
@@ -2571,13 +2703,13 @@ The following code has been modified to include a line number before every line,
                     body: JSON.stringify({ symbol, side, capital, tp_pct, sl_pct })
                 });
                 const json = await res.json();
-                if (res.ok) {
+                if (res.ok && json.status !== 'error') {
                     showToast(`🚀 ${symbol} için $${capital} tutarında ${side} pozisyonu açıldı!`, 'success');
                     closeModal('newPosModal');
                     fetchPositions();
                     fetchSummary();
                 } else {
-                    showToast(`Pozisyon açılamadı: ${json.detail || 'Limit yetersiz'}`, 'error');
+                    showToast(`Pozisyon açılamadı: ${json.message || json.detail || 'Limit yetersiz'}`, 'error');
                 }
             } catch (err) {
                 showToast('Hata: Pozisyon emri iletilemedi.', 'error');
@@ -2613,11 +2745,11 @@ The following code has been modified to include a line number before every line,
 
         // RESET WALLET
         window.resetAccountWallet = async function() {
-            if(!confirm("Kasa bakiyesi ve trade geçmişi 1000$ olarak sıfırlanacaktır. Onaylıyor musunuz?")) return;
+            if(!confirm("Kasa bakiyesi ve trade geçmişi " + {{ settings.base_portfolio_size }} + "$ olarak sıfırlanacaktır. Onaylıyor musunuz?")) return;
             try {
                 const res = await fetch('/api/account/reset', { method: 'POST' });
                 if(res.ok) {
-                    showToast('Kasa bakiyesi 1000$ olarak sıfırlandı.', 'success');
+                    showToast('Kasa bakiyesi ' + {{ settings.base_portfolio_size }} + '$ olarak sıfırlandı.', 'success');
                     refreshData(true);
                 } else {
                     showToast('Sıfırlama işlemi başarısız oldu.', 'error');
@@ -2832,6 +2964,28 @@ The following code has been modified to include a line number before every line,
         // checkLiveStatus();
         fetchPositions();
         
+        window.pendingRiskMode = "";
+        
+        function openRiskModal(mode) {
+            window.pendingRiskMode = mode;
+            let text = mode;
+            if(mode === 'AGGRESSIVE') text = "🔴 Agresif (Yüksek Risk & Sık İşlem)";
+            else if(mode === 'NORMAL') text = "🟡 Normal (Dengeli Büyüme)";
+            else if(mode === 'TIGHT') text = "🔵 Sıkı (Dar Stop, Yüksek Seçicilik)";
+            else if(mode === 'CONSERVATIVE') text = "🟢 Güvenli (Az Risk, Garanti Hamle)";
+            
+            const el = document.getElementById('newRiskModeText');
+            if(el) el.innerHTML = text;
+            openModal('riskModal');
+        }
+        
+        function confirmRiskMode() {
+            if(window.pendingRiskMode) {
+                setRiskMode(window.pendingRiskMode);
+            }
+            closeModal('riskModal');
+        }
+
         async function setRiskMode(mode) {
             try {
                 const response = await fetch('/api/engine/risk-mode', {
@@ -2842,22 +2996,117 @@ The following code has been modified to include a line number before every line,
                 const data = await response.json();
                 
                 if(data.status === 'success') {
-                    // Butonları güncelle
                     document.querySelectorAll('.risk-btn').forEach(btn => btn.classList.remove('active'));
                     const activeBtn = document.getElementById('risk-btn-' + mode);
                     if(activeBtn) activeBtn.classList.add('active');
                     
-                    showToast('success', 'Risk Modu Güncellendi', data.message);
+                    showToast(data.message, 'success');
                 } else {
-                    showToast('error', 'Hata', data.message);
+                    showToast(data.message, 'error');
                 }
             } catch (error) {
-                showToast('error', 'Bağlantı Hatası', 'Risk modu değiştirilemedi.');
+                showToast('Risk modu değiştirilemedi. Sunucu hatası.', 'error');
             }
         }
         
-        // Ensure the correct mode button is selected based on page load data if possible.
-        // For now, it defaults to NORMAL visually until manually clicked, or we could fetch status.
+        async function setCapitalAllocation(val) {
+            try {
+                const response = await fetch('/api/engine/capital-allocation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ allocation_pct: parseFloat(val) })
+                });
+                const data = await response.json();
+                if(data.status === 'success') {
+                    showToast(data.message, 'success');
+                } else {
+                    showToast(data.message || 'Sermaye güncellenemedi', 'error');
+                }
+            } catch (error) {
+                showToast('Sermaye değiştirilemedi. Sunucu hatası.', 'error');
+            }
+        }
+
+        async function loadActiveRiskMode() {
+            try {
+                const response = await fetch('/api/engine/risk-mode');
+                const data = await response.json();
+                if(data.status === 'success' && data.current_mode) {
+                    document.querySelectorAll('.risk-btn').forEach(btn => btn.classList.remove('active'));
+                    const activeBtn = document.getElementById('risk-btn-' + data.current_mode);
+                    if(activeBtn) activeBtn.classList.add('active');
+                }
+            } catch (error) {
+                console.error("Risk mode yüklenemedi", error);
+            }
+        }
+        
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+        window.scrollTo(0, 0);
+        window.addEventListener('load', function() {
+            window.scrollTo(0, 0);
+        });
+        
+        loadActiveRiskMode();
+        
+        // YENİ: Sermaye Yönetimi (Capital Management) Slider JS
+        const capitalSlider = document.getElementById('capitalSlider');
+        const capitalValue = document.getElementById('capitalValue');
+        
+        if (capitalSlider && capitalValue) {
+            capitalSlider.addEventListener('input', function() {
+                const val = parseFloat(this.value);
+                const baseCapital = {{ settings.base_portfolio_size }};
+                const dollarValue = (baseCapital * val / 100).toFixed(0);
+                capitalValue.textContent = '%' + val + ' ($' + dollarValue + ')';
+            });
+
+            capitalSlider.addEventListener('change', async function() {
+                try {
+                    const response = await fetch('/api/engine/capital-allocation', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({allocation_pct: parseFloat(this.value)})
+                    });
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        showToast(data.message, 'success');
+                    } else {
+                        showToast(data.message, 'error');
+                    }
+                } catch (err) {
+                    showToast('Bağlantı hatası: Bütçe değiştirilemedi.', 'error');
+                }
+            });
+        }
+        
+        // ---- Backtest Engine (Komut 15) -----
+        async function runBacktest() {
+            const symbols = ["TSLA", "AAPL"];
+            showToast("Backtest başlatıldı, veriler çekiliyor (1-2 dakika sürebilir)...", "info");
+            try {
+                const response = await fetch('/api/engine/run-backtest', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({symbols: symbols, timeframe: "15Min", days_back: 30})
+                });
+                const data = await response.json();
+                if(data.status === 'success') {
+                    let msg = "Backtest Sonuçları (Son 30 Gün - 15Dk):\n";
+                    data.data.forEach(r => {
+                        msg += `Eşik: ${r.threshold}/9 | Kâr: %${r.total_pnl_pct} | WinRate: %${r.win_rate} | İşlem: ${r.total_trades}\n`;
+                    });
+                    alert(msg);
+                    showToast("Backtest başarıyla tamamlandı.", "success");
+                } else {
+                    showToast("Backtest hatası: " + data.message, "error");
+                }
+            } catch (error) {
+                showToast("Sunucu ile iletişim kurulamadı.", "error");
+            }
+        }
     
 </script>
 
@@ -2900,26 +3149,7 @@ The following code has been modified to include a line number before every line,
                     </div>
                 </div>
                 
-                <button onclick="submitNewPosition()" class="btn btn-green" style="width:100%; padding:12px; font-weight:bold; margin-top:10px;">Emri Piyasaya İlet</button>
-            </div>
-        </div>
-    </div
-
-
-    <!-- RISK CONFIRMATION MODAL -->
-    <div id="riskModal" class="modal-overlay">
-        <div class="modal-content" style="max-width:450px;">
-            <div class="modal-header">
-                <h2>⚠️ Risk Modu Değişikliği Onayı</h2>
-                <button class="modal-close" onclick="closeModal('riskModal')">×</button>
-            </div>
-            <div style="font-size: 14px; color: #cbd5e1; line-height: 1.5; margin-bottom: 20px;">
-                Yapay Zeka Risk ve Frekans Modunu <b id="newRiskModeText" style="color:#fff;">---</b> olarak değiştirmek üzeresiniz.<br><br>
-                Bu değişiklik algoritmanın piyasaya girerken arayacağı minimum güven skorunu ve kullanacağı TP/SL oranlarını etkiler. Yeni açılacak pozisyonlar için hemen geçerli olacaktır.
-            </div>
-            <div style="display:flex; gap:12px; justify-content:flex-end;">
-                <button class="btn" style="padding:10px 20px;" onclick="closeModal('riskModal')">İptal</button>
-                <button class="btn btn-yellow" style="padding:10px 20px;" onclick="confirmRiskMode()">Değişikliği Onayla</button>
+                <button onclick="submitOpenPosition()" class="btn btn-green" style="width:100%; padding:12px; font-weight:bold; margin-top:10px;">Emri Piyasaya İlet</button>
             </div>
         </div>
     </div>
@@ -2943,5 +3173,77 @@ The following code has been modified to include a line number before every line,
         </div>
     </div>
 
+
+    <!-- RISK CONFIRMATION MODAL -->
+    <div id="riskModal" class="modal-overlay">
+        <div class="modal-content" style="max-width:450px;">
+            <div class="modal-header">
+                <h2>⚠️ Risk Modu Değişikliği Onayı</h2>
+                <button class="modal-close" onclick="closeModal('riskModal')">×</button>
+            </div>
+            <div style="font-size: 14px; color: #cbd5e1; line-height: 1.5; margin-bottom: 20px;">
+                Yapay Zeka Risk ve Frekans Modunu <b id="newRiskModeText" style="color:#fff;">---</b> olarak değiştirmek üzeresiniz.<br><br>
+                Bu değişiklik algoritmanın piyasaya girerken arayacağı minimum güven skorunu ve kullanacağı TP/SL oranlarını etkiler. Yeni açılacak pozisyonlar için hemen geçerli olacaktır.
+            </div>
+            <div style="display:flex; gap:12px; justify-content:flex-end;">
+                <button class="btn" style="padding:10px 20px;" onclick="closeModal('riskModal')">İptal</button>
+                <button class="btn btn-yellow" style="padding:10px 20px;" onclick="confirmRiskMode()">Değişikliği Onayla</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Clean old manual labels like (a6), (a1), [A1], [B2] etc.
+    // (Removed innerHTML string replace because it breaks DOM event bindings and <marquee> tags)
+
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .visual-tag {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(255, 215, 0, 0.2);
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.5);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            z-index: 999;
+            pointer-events: none;
+            backdrop-filter: blur(2px);
+        }
+        .panel, .kpi-card, .market-window {
+            position: relative !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    let counter = 1;
+    document.querySelectorAll('.panel').forEach((el) => {
+        let tag = document.createElement('div');
+        tag.className = 'visual-tag';
+        tag.innerText = 'P' + counter++;
+        el.appendChild(tag);
+    });
+
+    counter = 1;
+    document.querySelectorAll('.market-window').forEach((el) => {
+        let tag = document.createElement('div');
+        tag.className = 'visual-tag';
+        tag.innerText = 'W' + counter++;
+        el.appendChild(tag);
+    });
+
+    counter = 1;
+    document.querySelectorAll('.kpi-card').forEach((el) => {
+        let tag = document.createElement('div');
+        tag.className = 'visual-tag';
+        tag.innerText = 'K' + counter++;
+        el.appendChild(tag);
+    });
+});
+</script>
 </body>
 </html>

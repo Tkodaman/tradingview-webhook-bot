@@ -92,14 +92,14 @@ class AlpacaClient:
             response = requests.get(f"{self.base_url}/positions", headers=headers)
             if response.status_code == 200:
                 data = response.json()
-                logger.info(f"🔄 [ALPACA SYNC] Successfully fetched {len(data)} open positions from broker.")
+                logger.info(f"[ALPACA SYNC] Successfully fetched {len(data)} open positions from broker.")
                 return data
             else:
                 logger.error(f"❌ [ALPACA SYNC ERROR] {response.status_code} - {response.text}")
-                return []
+                return None
         except Exception as e:
             logger.error(f"❌ [ALPACA SYNC NETWORK ERROR] {e}")
-            return []
+            return None
 
     def get_bid_ask_spread(self, symbol: str) -> float:
         """
@@ -157,6 +157,46 @@ class AlpacaClient:
             return 0.0
         except Exception as e:
             logger.error(f"❌ [ALPACA SPREAD FETCH ERROR] {e}")
+            return 0.0
+
+    def get_current_price(self, symbol: str) -> float:
+        """Fetches the latest trade price from Alpaca Data API"""
+        if not self.api_key or not self.api_secret:
+            return 0.0
+            
+        try:
+            import requests
+            headers = {
+                "APCA-API-KEY-ID": self.api_key,
+                "APCA-API-SECRET-KEY": self.api_secret,
+                "accept": "application/json"
+            }
+            data_url = "https://data.alpaca.markets/v2/stocks"
+            is_crypto = "USD" in symbol.upper() or len(symbol) > 5
+            
+            if is_crypto:
+                clean_sym = symbol.upper().replace("USDT", "/USD")
+                if "/" not in clean_sym and clean_sym.endswith("USD"):
+                    clean_sym = clean_sym[:-3] + "/USD"
+                
+                req_url = f"https://data.alpaca.markets/v1beta3/crypto/us/latest/trades?symbols={clean_sym}"
+                response = requests.get(req_url, headers=headers, timeout=2.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    trades = data.get("trades", {})
+                    trade = trades.get(clean_sym)
+                    if trade:
+                        return float(trade.get("p", 0.0))
+            else:
+                req_url = f"{data_url}/{symbol.upper()}/trades/latest"
+                response = requests.get(req_url, headers=headers, timeout=2.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    trade = data.get("trade", {})
+                    return float(trade.get("p", 0.0))
+            return 0.0
+        except Exception as e:
+            logger.error(f"❌ [ALPACA PRICE FETCH ERROR] {e}")
             return 0.0
 
 alpaca_client = AlpacaClient()

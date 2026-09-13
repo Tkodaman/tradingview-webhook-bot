@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
+from typing import List
 from services.engine.auto_runner import tv_auto_runner
 from services.engine.autonomous_lab import autonomous_lab
 from services.data_ingestion.tradingview_live_client import tradingview_live_client
@@ -66,6 +67,14 @@ async def get_latest_autonomous_lab_experiment():
 class RiskModeRequest(BaseModel):
     mode: str = Field(..., description="Strateji Modu (AGGRESSIVE, NORMAL, TIGHT, CONSERVATIVE)")
 
+@router.get("/engine/risk-mode")
+def get_risk_mode():
+    from core.config import settings
+    return {
+        "status": "success",
+        "current_mode": settings.current_risk_mode
+    }
+
 @router.post("/engine/risk-mode")
 async def set_risk_mode(req: RiskModeRequest):
     from core.config import settings
@@ -82,3 +91,52 @@ async def set_risk_mode(req: RiskModeRequest):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+class CapitalAllocationRequest(BaseModel):
+    allocation_pct: float = Field(..., description="Kasa üzerinden işlem başına kullanılacak bakiye yüzdesi (örn: 10.0)")
+
+@router.post("/engine/capital-allocation")
+async def set_capital_allocation(req: CapitalAllocationRequest):
+    from core.config import settings
+    import dotenv
+    from pathlib import Path
+    try:
+        # Bellekte güncelle
+        settings.dynamic_capital_allocation_pct = req.allocation_pct
+        
+        # Kalıcı olması için .env dosyasına yaz
+        env_path = Path(".env")
+        if not env_path.exists():
+            env_path.touch()
+        dotenv.set_key(str(env_path), "DYNAMIC_CAPITAL_ALLOCATION_PCT", str(req.allocation_pct))
+        
+        return {
+            "status": "success",
+            "message": f"Sermaye yönetimi %{req.allocation_pct} olarak güncellendi ve kaydedildi.",
+            "dynamic_capital_allocation_pct": settings.dynamic_capital_allocation_pct
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+class BacktestRequest(BaseModel):
+    symbols: List[str] = Field(..., description="Sembol listesi (Örn: AAPL, TSLA)")
+    timeframe: str = Field("15Min", description="Zaman dilimi: 1Min, 5Min, 15Min, 1Hour, 1Day")
+    days_back: int = Field(30, description="Kaç günlük geçmiş veri çekilecek?")
+
+@router.post("/engine/run-backtest")
+async def run_backtest_endpoint(req: BacktestRequest):
+    try:
+        from services.agents.backtest_engine import BacktestEngine
+        engine = BacktestEngine(symbols=req.symbols, timeframe=req.timeframe, days_back=req.days_back)
+        results = engine.run_sweep()
+        return {"status": "success", "data": [r.model_dump() for r in results]}
+    except Exception as e:
+        import traceback
+        logger.error(f"Backtest failed: {e}\n{traceback.format_exc()}")
+        return {"status": "error", "message": str(e)}
+
+
+@router.get("/shadow-trades")
+def get_shadow_trades():
+    from services.engine.trade_journal_learning import trade_journal_engine
+    return {"status": "success", "shadow_trades": trade_journal_engine.shadow_journal_entries}

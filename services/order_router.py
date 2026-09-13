@@ -116,13 +116,19 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         # Güvenlik: SL asla %1.5'in altına inmez
         sl_pct = max(1.5, sl_pct)
 
+        # Get atr for Chandelier Exit
+        atr_pct = signal.indicators.get("volatility", signal.indicators.get("atr_pct", 1.5)) if signal.indicators else 1.5
+        calculated_atr = signal.price * (atr_pct / 100.0)
+
         pos = live_trade_manager.open_position(
             symbol=signal.symbol,
             capital=capital_used,
             side="BUY",
             tp_pct=tp_pct,
             sl_pct=sl_pct,
-            entry_price_override=signal.price
+            entry_price_override=signal.price,
+            atr_value=calculated_atr,
+            use_chandelier_exit=True
         )
         if pos:
             exec_message = f"TradingView Canlı Alış Tetiklendi: {pos.symbol} @ ${pos.entry_price} (Hedef: ${pos.target_profit_price}, Stop: ${pos.stop_loss_price})"
@@ -186,7 +192,16 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
                 res = broker.place_bracket_order(signal.symbol, "BUY", final_qty, tp_price, sl_price)
                 if res.get("status") == "error":
                     logger.warning(f"[BROKER FALLBACK] Alpaca API error: {res.get('message')}. Falling back to Simulation Mode.")
-                    pos = live_trade_manager.open_position(signal.symbol, capital_used, "BUY", tp_pct, sl_pct, signal.price)
+                    pos = live_trade_manager.open_position(
+                        symbol=signal.symbol, 
+                        capital=capital_used, 
+                        side="BUY", 
+                        tp_pct=tp_pct, 
+                        sl_pct=sl_pct, 
+                        entry_price_override=signal.price,
+                        atr_value=signal.price * (signal.indicators.get("volatility", 1.5) / 100.0) if signal.indicators else signal.price * 0.015,
+                        use_chandelier_exit=True
+                    )
                     if pos:
                         res = {"status": "success", "order_id": f"SIM-{pos.id}", "details": "Simulated fallback"}
             elif action_clean in ["SELL", "CLOSE", "FLAT"]:

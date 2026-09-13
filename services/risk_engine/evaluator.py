@@ -49,6 +49,35 @@ class RiskEvaluator:
         signal_alignment = (tech_dir * action_factor) # + if aligned with trade
         confidence_score = round(max(-100.0, min(100.0, signal_alignment * 0.6 + avg_sentiment * 0.4 - (raw_risk_score * 0.3))), 2)
 
+        # Yeni Eklenen (Komut 10 ve Komut 11) İndikatörlerin Güven Skoruna Etkisi
+        if signal.indicators:
+            cmf = signal.indicators.get("cmf", 0.0)
+            rs_score = signal.indicators.get("rs_score", 0.0)
+            trend_conflict = signal.indicators.get("trend_conflict", False)
+            
+            # OBV / Para Girişi Bonusu
+            if cmf > 0.05:
+                confidence_score += 15.0
+                logger.debug(f"[SCORE BOOST] {signal.symbol} CMF Pozitif, Güven skoru +15 arttı.")
+            elif cmf < -0.05:
+                confidence_score -= 15.0
+                logger.debug(f"[SCORE DROP] {signal.symbol} CMF Negatif, Güven skoru -15 düştü.")
+                
+            # RS Line (Göreceli Güç) Bonusu
+            if rs_score > 0.0:
+                confidence_score += 15.0
+                logger.debug(f"[SCORE BOOST] {signal.symbol} RS Line Pozitif, Güven skoru +15 arttı.")
+            elif rs_score < -1.0:
+                confidence_score -= 10.0
+                logger.debug(f"[SCORE DROP] {signal.symbol} RS Line Negatif, Güven skoru -10 düştü.")
+                
+            # Supertrend Uyuşmazlık Cezası
+            if trend_conflict:
+                confidence_score -= 25.0
+                logger.debug(f"[SCORE DROP] {signal.symbol} Trend Conflict Tespit Edildi, Güven skoru -25 düştü.")
+                
+        confidence_score = round(max(-100.0, min(100.0, confidence_score)), 2)
+
         # Sert Kurallar Denetimi (Hard-Rule Engine)
         passed, rejections, triggered_rules, adjusted_qty = HardRuleEngine.evaluate_hard_rules(
             signal=signal,

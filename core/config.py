@@ -17,8 +17,9 @@ class Settings(BaseSettings):
     moderate_risk_threshold: float = 45.0
     
     # Position Sizing
-    max_capital_per_trade_pct: float = 10.0 # Max 10% of portfolio per trade ($100 @ $1,000 kasa)
-    base_portfolio_size: float = 1000.0 # Başlangıç Kasa: $1,000.00 (Kesin Taban)
+    max_capital_per_trade_pct: float = 10.0 # Max 10% of portfolio per trade ($300 @ $3,000 kasa)
+    base_portfolio_size: float = 5000.0 # Başlangıç Kasa: $5,000.00 (Kesin Taban)
+    dynamic_capital_allocation_pct: float = 10.0  # YENİ: Arayüzden değiştirilebilir işlem büyüklüğü (%)
     
     # Circuit Breakers & Hard Rules
     flash_crash_volatility_limit: float = 8.0 # Volatilite kilidi %8.0

@@ -17,20 +17,12 @@ class AssetUniverseManager:
         self.active_bist_targets: List[str] = []
         self.active_nasdaq_targets: List[str] = []
 
-        # Master Universal Lists (Genişletilmiş Kapsam)
+        # Master Universal Lists (Alpaca'nın şu an desteklediği sınırlı kripto varlıkları)
+        # Sistem sürekli Alpaca'dan red yemesin diye sadece %100 desteklenenler eklendi
         self.master_crypto_universe = [
-            "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:SOLUSDT", "BINANCE:BNBUSDT",
-            "BINANCE:XRPUSDT", "BINANCE:AVAXUSDT", "BINANCE:DOGEUSDT", "BINANCE:ADAUSDT",
-            "BINANCE:LINKUSDT", "BINANCE:NEARUSDT", "BINANCE:SUIUSDT", "BINANCE:PEPEUSDT",
-            "BINANCE:DOTUSDT", "BINANCE:SHIBUSDT", "BINANCE:RENDERUSDT", "BINANCE:FETUSDT",
-            "BINANCE:INJUSDT", "BINANCE:APTUSDT", "BINANCE:TAOUSDT", "BINANCE:ARBUSDT",
-            "BINANCE:ATOMUSDT", "BINANCE:LTCUSDT", "BINANCE:MATICUSDT", "BINANCE:OPUSDT",
-            "BINANCE:FTMUSDT", "BINANCE:SANDUSDT", "BINANCE:MANAUSDT", "BINANCE:GALAUSDT",
-            "BINANCE:DYDXUSDT", "BINANCE:MKRUSDT", "BINANCE:AAVEUSDT", "BINANCE:SNXUSDT",
-            "BINANCE:RUNEUSDT", "BINANCE:TIAUSDT", "BINANCE:SEIUSDT", "BINANCE:FILUSDT",
-            "BINANCE:WLDUSDT", "BINANCE:IMXUSDT", "BINANCE:STXUSDT", "BINANCE:UNIUSDT",
-            "BINANCE:BCHUSDT", "BINANCE:ETCUSDT", "BINANCE:XLMUSDT", "BINANCE:ICPUSDT"
-        ] # 44 assets
+            "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:BCHUSDT", 
+            "BINANCE:LTCUSDT", "BINANCE:LINKUSDT"
+        ] # Sadece Alpaca destekli varlıklar
         
         self.master_bist_universe = [
             "BIST:THYAO", "BIST:ASELS", "BIST:EREGL", "BIST:TUPRS", "BIST:KCHOL",
@@ -80,6 +72,14 @@ class AssetUniverseManager:
         shuffled_nasdaq = list(self.master_nasdaq_universe)
         random.shuffle(shuffled_nasdaq)
         self.active_nasdaq_targets = sorted(shuffled_nasdaq[:self.target_nasdaq_count])
+
+        # Benchmark'ların (RS Line için) her zaman izlendiğinden emin ol
+        if "BINANCE:BTCUSDT" not in self.active_crypto_targets:
+            self.active_crypto_targets.append("BINANCE:BTCUSDT")
+        if "BIST:XU100" not in self.active_bist_targets:
+            self.active_bist_targets.append("BIST:XU100")
+        if "NASDAQ:QQQ" not in self.active_nasdaq_targets:
+            self.active_nasdaq_targets.append("NASDAQ:QQQ")
 
     def get_active_tickers(self) -> Dict[str, List[str]]:
         now = time.time()

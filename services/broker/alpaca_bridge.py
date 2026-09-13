@@ -52,22 +52,32 @@ class AlpacaBroker(BaseBroker):
             logger.error(f"Alpaca: Error fetching balance: {e}")
             return 0.0
 
+    def _format_symbol(self, symbol: str) -> str:
+        sym = symbol.upper()
+        if sym.endswith("USDT"):
+            return sym.replace("USDT", "USD")
+        # Keep slash removal for any other edge cases
+        if "/" in sym:
+            return sym.replace("/", "")
+        return sym
+
     def place_market_order(self, symbol: str, side: str, qty: float) -> Dict[str, Any]:
         if not self.api:
             return {"status": "error", "message": "API not initialized"}
         
         try:
+            alpaca_sym = self._format_symbol(symbol)
             order = self.api.submit_order(
-                symbol=symbol.upper(),
+                symbol=alpaca_sym,
                 qty=qty,
                 side=side.lower(),
                 type='market',
-                time_in_force='day'
+                time_in_force='gtc' # Crypto requires gtc, day is often invalid for crypto
             )
-            logger.info(f"Alpaca Market Order Placed: {side} {qty} {symbol} - OrderID: {order.id}")
+            logger.info(f"Alpaca Market Order Placed: {side} {qty} {alpaca_sym} - OrderID: {order.id}")
             return {"status": "success", "order_id": order.id, "details": order._raw}
         except Exception as e:
-            logger.error(f"Alpaca Market Order Failed: {e}")
+            logger.error(f"Alpaca Market Order Failed for {symbol}: {e}")
             return {"status": "error", "message": str(e)}
 
     def place_bracket_order(self, symbol: str, side: str, qty: float, 
@@ -76,8 +86,9 @@ class AlpacaBroker(BaseBroker):
             return {"status": "error", "message": "API not initialized"}
             
         try:
+            alpaca_sym = self._format_symbol(symbol)
             order = self.api.submit_order(
-                symbol=symbol.upper(),
+                symbol=alpaca_sym,
                 qty=qty,
                 side=side.lower(),
                 type='market',
@@ -87,27 +98,63 @@ class AlpacaBroker(BaseBroker):
                     limit_price=take_profit_price,
                 ),
                 stop_loss=dict(
-                    stop_price=stop_loss_price,
-                    limit_price=stop_loss_price
+                    stop_price=stop_loss_price
                 )
             )
-            logger.info(f"Alpaca Bracket Order Placed: {side} {qty} {symbol} - OrderID: {order.id}")
+            logger.info(f"Alpaca Bracket Order Placed: {side} {qty} {alpaca_sym} - OrderID: {order.id}")
             return {"status": "success", "order_id": order.id, "details": order._raw}
         except Exception as e:
-            logger.error(f"Alpaca Bracket Order Failed: {e}")
+            logger.error(f"Alpaca Bracket Order Failed for {symbol}: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def update_bracket_orders(self, symbol: str, take_profit_price: float = None, stop_loss_price: float = None) -> Dict[str, Any]:
+        if not self.api:
+            return {"status": "error"}
+            
+        try:
+            sym = self._format_symbol(symbol)
+            open_orders = self.api.list_orders(status="open", symbols=[sym])
+            
+            for order in open_orders:
+                try:
+                    if order.type == "limit" and take_profit_price:
+                        # Bu Take Profit emri
+                        self.api.replace_order(order.id, limit_price=take_profit_price)
+                        logger.info(f"[ALPACA] {sym} TP güncellendi -> {take_profit_price}")
+                    elif (order.type == "stop" or order.type == "stop_limit") and stop_loss_price:
+                        # Bu Stop Loss emri
+                        self.api.replace_order(order.id, stop_price=stop_loss_price)
+                        logger.info(f"[ALPACA] {sym} SL güncellendi -> {stop_loss_price}")
+                except Exception as ex:
+                    logger.warning(f"Alpaca Emir Güncelleme Hatası ({sym}): {ex}")
+                    
+            return {"status": "success"}
+        except Exception as e:
+            logger.error(f"Alpaca Bracket Update Failed for {symbol}: {e}")
             return {"status": "error", "message": str(e)}
 
     def close_position(self, symbol: str) -> Dict[str, Any]:
         if not self.api:
-            return {"status": "error", "message": "API not initialized"}
+            return {"status": "error"}
             
         try:
-            # Liquidates the position
-            order = self.api.close_position(symbol.upper())
-            logger.info(f"Alpaca Position Closed: {symbol}")
-            return {"status": "success", "order_id": order.id, "details": order._raw}
+            # symbol'u Alpaca'nın anlayacağı slash'siz formata çevir
+            sym = self._format_symbol(symbol)
+            
+            # 1) Olası açık emirleri (TP/SL braketleri) iptal et ki bakiye blokesi kalksın
+            try:
+                open_orders = self.api.list_orders(status="open", symbols=[sym])
+                for order in open_orders:
+                    self.api.cancel_order(order.id)
+            except Exception as e:
+                logger.warning(f"Açık emir iptali sırasında hata: {e}")
+                
+            # 2) Pozisyonu güvenle kapat
+            res = self.api.close_position(sym)
+            logger.info(f"Alpaca Position Closed: {sym}")
+            return {"status": "success", "closed_position": res}
         except Exception as e:
-            logger.error(f"Alpaca Close Position Failed: {e}")
+            logger.error(f"Alpaca Close Position Failed for {symbol}: {e}")
             return {"status": "error", "message": str(e)}
 
     def get_open_positions(self) -> list:
@@ -118,4 +165,4 @@ class AlpacaBroker(BaseBroker):
             return [p._raw for p in positions]
         except Exception as e:
             logger.error(f"Alpaca Fetch Positions Failed: {e}")
-            return []
+            return None

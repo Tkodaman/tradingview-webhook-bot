@@ -60,6 +60,22 @@ async def monthly_seasonal_review_routine():
     advanced_analytics_engine.get_seasonal_evaluation()
     experience_memory_engine.add_live_log("GLOBAL", "LLM", "Aylık/Sezonluk Hedef Kitle ve Risk-On/Off Optimizasyonu Tamamlandı.")
 
+async def weekly_cleanup_routine():
+    """Her Pazar 00:00 TRT haftalık çöp dosya temizliği (Cleanup Agent) yapar."""
+    import asyncio
+    import sys
+    logger.info("[SCHEDULER] Haftalık Temizlik Ajanı (Cleanup Agent) Başlatılıyor...")
+    try:
+        process = await asyncio.create_subprocess_exec(
+            sys.executable, "tools/cleanup_agent.py", "--apply"
+        )
+        await process.communicate()
+        logger.info("[SCHEDULER] Temizlik Ajanı tamamlandı.")
+        experience_memory_engine.add_live_log("SYSTEM", "CLEANUP", "Haftalık çöp dosya temizliği tamamlandı.")
+    except Exception as e:
+        logger.error(f"[SCHEDULER] Temizlik Ajanı çalıştırılamadı: {e}")
+
+
 def start_scheduler():
     # STATE RECONCILER (Her 3 dakikada bir)
     from services.engine.state_reconciler import state_reconciler
@@ -76,6 +92,9 @@ def start_scheduler():
 
     # TRT (UTC+3) -> Her ayın 1. günü 08:00 TRT = 05:00 UTC
     scheduler.add_job(monthly_seasonal_review_routine, 'cron', day=1, hour=5, minute=0, id='monthly_seasonal_routine')
+    
+    # TRT (UTC+3) -> Her Pazar 00:00 TRT = Cumartesi 21:00 UTC
+    scheduler.add_job(weekly_cleanup_routine, 'cron', day_of_week='sat', hour=21, minute=0, id='weekly_cleanup_routine')
     
     # Supervisor Tasks
     scheduler.add_job(supervisor_agent.monitor_positions, 'interval', minutes=3, id='supervisor_monitor_pos')

@@ -20,9 +20,19 @@ class StateReconciler:
         
         try:
             raw_positions = self.broker.get_open_positions()
+            if raw_positions is None:
+                logger.warning("[RECONCILER] Alpaca returned None for positions (Network error?). Skipping this cycle.")
+                return
+                
             broker_symbols = {p.get("symbol") for p in raw_positions if p.get("symbol")}
             
-            local_open_positions = {pos.symbol for pos in live_trade_manager.positions.values() if pos.status == "OPEN"}
+            # Format local symbols to match broker symbols (e.g. LINKUSDT -> LINKUSD)
+            local_open_positions = set()
+            for pos in live_trade_manager.positions.values():
+                if pos.status == "OPEN":
+                    formatted_sym = self.broker._format_symbol(pos.symbol) if hasattr(self.broker, "_format_symbol") else pos.symbol
+                    local_open_positions.add(formatted_sym)
+            
             
             desync_reasons = []
             

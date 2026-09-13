@@ -24,9 +24,9 @@ async def get_active_positions():
         if broker and broker.api:
             try:
                 # Canlı bakiye ve pozisyonları çek
-                real_balance = broker.get_account_balance()
-                # Kullanıcı isteği üzerine 1000$ sanal sınır
-                effective_balance = min(1000.0, real_balance)
+                # Kullanıcı isteği üzerine bot bütçesi her koşulda 3000$ (base_portfolio_size) sabitlenir.
+                # Alpaca'daki reel nakit ne olursa olsun, bot matematiksel hesaplarını bu bütçeye göre yapar.
+                effective_balance = live_trade_manager.total_account_equity
                 
                 raw_positions = broker.get_open_positions()
                 active_list = []
@@ -71,10 +71,12 @@ async def get_active_positions():
                         "status": "OPEN"
                     })
                 
+                real_available_cash = live_trade_manager.available_cash
+                
                 return {
                     "account_balance": round(effective_balance, 2),
-                    "available_cash": round(effective_balance, 2), # Basitleştirildi
-                    "total_commissions_paid": 0.0,
+                    "available_cash": round(real_available_cash, 2),
+                    "total_commissions_paid": round(live_trade_manager.total_commissions_paid, 2),
                     "active_positions": active_list,
                     "history": live_trade_manager.trade_history[:10]
                 }
@@ -98,32 +100,40 @@ async def open_live_position(req: OpenPositionRequest):
     """
     1-Tıkla Canlı Pozisyon Açılışı (Alpaca Broker Destekli)
     """
-    if settings.trading_mode in ["LIVE", "PAPER"]:
-        from services.broker.factory import get_broker
-        broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
-        if broker and broker.api:
-            # Hızlı hesaplama: anlık fiyatı tradingview feed'den al
-            live_trade_manager.get_live_prices()
-            curr_price = live_trade_manager.market_prices.get(req.symbol.upper(), {}).get("price", 0)
-            if curr_price > 0:
-                qty = round(req.capital / curr_price, 4)
-                tp_price = curr_price * (1 + (req.tp_pct / 100.0))
-                sl_price = curr_price * (1 - (req.sl_pct / 100.0))
-                
-                res = broker.place_bracket_order(req.symbol, req.side, qty, tp_price, sl_price)
-                if res.get("status") == "success":
-                    return res
-            
-    # Fallback to local
-    return live_trade_manager.open_position(
-        symbol=req.symbol,
-        capital=req.capital,
-        side=req.side,
-        tp_pct=req.tp_pct,
-        sl_pct=req.sl_pct
-    )
+    try:
+        from services.broker.alpaca_client import alpaca_client
 
-@router.post("/close/{pos_id}")
+        # 1. Anlık fiyatı al (lokalde yoksa Alpaca'dan çek)
+        live_trade_manager.get_live_prices()
+        curr_price = live_trade_manager.market_prices.get(req.symbol.upper(), {}).get("price", 0)
+        if curr_price == 0:
+            curr_price = alpaca_client.get_current_price(req.symbol)
+            
+        if curr_price == 0:
+            return {"status": "error", "message": f"{req.symbol} için canlı fiyat alınamadı."}
+
+        # 2. Her zaman lokal canlı yönetim motoruna (Dashboard için) pozisyon açtır
+        pos = live_trade_manager.open_position(
+            symbol=req.symbol,
+            capital=req.capital,
+            side=req.side,
+            tp_pct=req.tp_pct,
+            sl_pct=req.sl_pct,
+            entry_price_override=curr_price
+        )
+        
+        if not pos:
+            return {"status": "error", "message": "Yetersiz bütçe veya maksimum açık işlem limitine ulaşıldı."}
+
+
+
+        return {"status": "success", "position": pos.dict()}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"status": "error", "message": f"Server error: {str(e)}"}
+
+@router.post("/close/{pos_id:path}")
 async def close_live_position(pos_id: str):
     """
     1-Tıkla Canlı Pozisyon Kapatma (Alpaca Broker Destekli)

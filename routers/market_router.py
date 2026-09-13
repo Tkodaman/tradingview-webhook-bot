@@ -66,6 +66,7 @@ async def get_live_buy_sell_wait_matrix():
         if 20.0 <= data.get("stoch_k", 50.0) <= 90.0: score += 1
         if data.get("adx", 25.0) >= 15.0: score += 1
         if data.get("atr_pct", 1.5) <= 6.0: score += 1
+        if data.get("cmf", 0.0) > 0.05: score += 1
         if chg >= 1.2 and vol_ratio >= 0.8: score += 3 # Momentum Impulse
         
         open_pos = next((p for p in live_trade_manager.positions.values() if p.symbol.upper() == sym.upper() and p.status == "OPEN"), None)
@@ -103,7 +104,21 @@ async def get_live_buy_sell_wait_matrix():
             elif rsi < 40 and macd > 0:
                 reason = "Aşırı satım dibinden MACD alım kesişimi"
             else:
-                reason = f"Trend gücü {score} indikatör onayıyla pozitif"
+                factors = []
+                if rsi > 60: factors.append(f"RSI({rsi:.1f}) Güçlü")
+                elif rsi > 50: factors.append("RSI Pozitif")
+                if macd > 0: factors.append("MACD Alışta")
+                if vol_ratio > 1.2: factors.append(f"Hacim Sıçraması({vol_ratio:.1f}x)")
+                if chg > 1.0: factors.append("Fiyat İvmeli")
+                if 20.0 <= data.get("stoch_k", 50.0) <= 85.0: factors.append("Stoch Teyitli")
+                if data.get("cmf", 0.0) > 0.05: factors.append("Kurumsal Toplama (CMF)")
+                
+                if len(factors) >= 2:
+                    reason = " | ".join(factors[:2]) + f" ({score}/9)"
+                elif len(factors) == 1:
+                    reason = factors[0] + f" | Eğilim Pozitif ({score}/9)"
+                else:
+                    reason = f"Teknik Görünüm İyileşiyor ({score}/9)"
         else:
             decision = "WAIT"
             badge = "🟡 WAIT_PATIENT"
@@ -142,17 +157,40 @@ async def get_live_buy_sell_wait_matrix():
     for m in matrix_results:
         sym = m["symbol"].upper()
         ai_data = confidence_map.get(sym, {})
-        # Eğer geçmiş işlem yoksa formüle dayalı bir başlangıç skoru ver (RSI + MACD + Hacim bazlı)
-        default_score = min(99.0, max(45.0, 50.0 + (m["score"] * 5.0) + (m["change_pct"] * 2.0)))
         
-        m["confidence_score"] = float(ai_data.get("confidence_score", round(default_score, 1)))
+        # Temel indikatör ve ivme bazlı puan (Maks: ~50-60)
+        base_ind_score = (m.get("score", 0) * 5.0) + (m.get("change_pct", 0.0) * 2.0)
+        
         m["expertise_level"] = ai_data.get("expertise_level", "🟡 NÖTR / DENGELİ")
         m["ai_action"] = ai_data.get("action_recommendation", "🟡 Standart İnceleme")
+        
+        if ai_data and "confidence_score" in ai_data:
+            # Yapay zeka geçmişte bu varlıkta işlem yaptıysa
+            raw_conf = float(ai_data["confidence_score"])
+            # %60 Tarihsel Başarı (Tecrübe) + %40 Anlık İvme
+            final_dynamic_score = (raw_conf * 0.60) + (base_ind_score * 0.80)
+        else:
+            # Daha önce işlem yapılmamış yeni varlık (Temel puan üzerine kurgulanır)
+            final_dynamic_score = 40.0 + base_ind_score
+            
+        # Aksiyon ve Momentum Boost
+        action_boost = 0
+        if "BUY" in m["decision"] or "AL" in m["ai_action"].upper():
+            action_boost = 8.0
+        elif "SELL" in m["decision"] or "SAT" in m["ai_action"].upper():
+            action_boost = -10.0
+            
+        volume_boost = (m.get("volume_ratio", 1.0) - 1.0) * 3.0
+        
+        final_dynamic_score += (action_boost + volume_boost)
+        
+        # Skoru 1.0 ile 99.9 arasına sınırla
+        m["confidence_score"] = min(99.9, max(1.0, round(final_dynamic_score, 1)))
 
     grouped_matrix = {
-        "CRYPTO": sorted([m for m in matrix_results if m["market"] == "CRYPTO"], key=lambda x: x["confidence_score"], reverse=True)[:12],
-        "BIST": sorted([m for m in matrix_results if m["market"] == "BIST"], key=lambda x: x["confidence_score"], reverse=True)[:10],
-        "NASDAQ": sorted([m for m in matrix_results if m["market"] == "NASDAQ"], key=lambda x: x["confidence_score"], reverse=True)[:16]
+        "CRYPTO": sorted([m for m in matrix_results if m["market"] == "CRYPTO"], key=lambda x: x["confidence_score"], reverse=True)[:15],
+        "BIST": sorted([m for m in matrix_results if m["market"] == "BIST"], key=lambda x: x["confidence_score"], reverse=True)[:15],
+        "NASDAQ": sorted([m for m in matrix_results if m["market"] == "NASDAQ"], key=lambda x: x["confidence_score"], reverse=True)[:15]
     }
         
     return {

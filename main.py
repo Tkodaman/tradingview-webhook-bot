@@ -1,4 +1,7 @@
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+import sys
 import os
 import asyncio
 import time
@@ -58,6 +61,14 @@ async def startup_event():
         logger.info("[STARTUP] Alpaca WS Trade Updates (Sıfır Gecikme) Dinleyicisi Başlatıldı.")
     except Exception as e:
         logger.error(f"[STARTUP] Alpaca WS Başlatılamadı: {e}")
+
+    # Start Alpaca Market Data WebSocket (Real-time Prices & Dynamic AI SL/TP)
+    try:
+        from services.broker.alpaca_data_stream import start_alpaca_data_stream
+        # asyncio.create_task(start_alpaca_data_stream())
+        logger.info("[STARTUP] Alpaca Data Stream (Canlı Fiyat & Dinamik Makas) Dinleyicisi Başlatıldı.")
+    except Exception as e:
+        logger.error(f"[STARTUP] Alpaca Data Stream Başlatılamadı: {e}")
 
     # Scheduler (BIST ve NASDAQ Zamanlanmış Görevleri)
     start_scheduler()

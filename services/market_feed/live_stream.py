@@ -22,7 +22,7 @@ from services.engine.advanced_analytics import advanced_analytics_engine
 TRT = ZoneInfo("Europe/Istanbul")
 
 from core.database import db_manager
-
+from core.config import settings
 class ActivePosition(BaseModel):
     id: str
     symbol: str
@@ -36,18 +36,23 @@ class ActivePosition(BaseModel):
     stop_loss_price: float
     break_even_trigger_price: float
     break_even_activated: bool = False
+    highest_price_seen: float = 0.0
+    trailing_stop_activated: bool = False
     unrealized_pnl: float = 0.0
     unrealized_pnl_pct: float = 0.0
     opened_at: str
     commission_fees: float = 0.0
-    status: str = "OPEN"  # OPEN, CLOSED_TP, CLOSED_SL, CLOSED_MANUAL
+    status: str = "OPEN"  # OPEN, CLOSED_TP, CLOSED_SL, CLOSED_MANUAL, CLOSED_TRAILING, CLOSED_EARLY
+    atr_value: float = 0.0
+    use_chandelier_exit: bool = False
 
 class LiveTradeManager:
     def __init__(self):
-        self.initial_capital: float = 1000.00       # $1,000.00 Taban Sermaye
+        self.initial_capital: float = float(settings.base_portfolio_size)
         self.realized_pnl: float = 0.0               # Gerçekleşen Toplam Net Kâr/Zarar
         self.total_commissions_paid: float = 0.0    # Ödenen Toplam Komisyon ve Kesintiler
         self.positions: Dict[str, ActivePosition] = {}
+        self.shadow_positions: Dict[str, ActivePosition] = {}
         self.trade_history: List[Dict[str, Any]] = []
         self.daily_stats: Dict[str, Dict[str, float]] = {} # Günlük İstatistikler
         self.is_macro_standby: bool = False
@@ -87,8 +92,11 @@ class LiveTradeManager:
                 qty = abs(float(bp.get("qty", 0)))
                 if qty == 0: continue
                 
+                # Check if we already have it locally
+                already_have = any(p.symbol == sym and p.status == "OPEN" for p in self.positions.values())
+                
                 # If we don't have it locally, add it
-                if sym not in self.positions:
+                if not already_have:
                     entry_price = float(bp.get("avg_entry_price", 0))
                     current_price = float(bp.get("current_price", entry_price))
                     side = "BUY" if float(bp.get("qty", 0)) > 0 else "SELL"
@@ -113,7 +121,7 @@ class LiveTradeManager:
                         unrealized_pnl=float(bp.get("unrealized_pl", 0)),
                         unrealized_pnl_pct=float(bp.get("unrealized_plpc", 0)) * 100
                     )
-                    self.positions[sym] = pos
+                    self.positions[pos.id] = pos
             
             # Save the synced state to local db
             self.save_state()
@@ -125,7 +133,7 @@ class LiveTradeManager:
         try:
             data = db_manager.get_store("wallet_state")
             if data:
-                self.initial_capital = data.get("initial_capital", 1000.00)
+                self.initial_capital = float(settings.base_portfolio_size) # Bütçe ayardan gelir
                 self.realized_pnl = data.get("realized_pnl", 0.0)
                 self.total_commissions_paid = data.get("total_commissions_paid", 0.0)
                 self.daily_stats = data.get("daily_stats", {})
@@ -155,7 +163,7 @@ class LiveTradeManager:
 
     def reset_account(self):
         """Hesap Bakiyesini Kesin Olarak $1,000.00 Tabanına Sıfırlama Metodu"""
-        self.initial_capital = 1000.00
+        self.initial_capital = float(settings.base_portfolio_size)
         self.realized_pnl = 0.0
         self.total_commissions_paid = 0.0
         self.positions.clear()
@@ -220,21 +228,24 @@ class LiveTradeManager:
 
     def get_dynamic_position_capital(self, symbol: str) -> float:
         """
-        Kasa Bakiyesine Göre Dinamik Pozisyon Bütçesi (%10 Taban = ) + Süpervizör Risk Çarpanı
+        Kasa Bakiyesine Göre Dinamik Pozisyon Bütçesi + Süpervizör Risk Çarpanı
         """
+        from core.config import settings
+        alloc_pct = getattr(settings, "dynamic_capital_allocation_pct", 10.0) / 100.0
+        
         try:
             from services.engine.supervisor_agent import supervisor_agent
             multiplier = supervisor_agent.calculate_dynamic_budget_multiplier(self.market_prices)
         except ImportError:
             multiplier = 1.0
             
-        base_capital = round(self.total_account_equity * 0.10, 2)
+        base_capital = round(self.total_account_equity * alloc_pct, 2)
         adjusted_capital = base_capital * multiplier
         
-        # En az 10$, en fazla bakiyenin %25'i kadar
-        return max(10.0, min(adjusted_capital, self.total_account_equity * 0.25))
-
-
+        # En az 10$, en fazla bakiyenin %99'u kadar
+        cap = max(10.0, min(adjusted_capital, self.total_account_equity * 0.99))
+        # Kesin Alpaca bütçe uyumluluğu: Serbest nakitin %95'ini geçemez
+        return min(cap, max(10.0, self.available_cash * 0.95))
 
     def get_live_prices(self) -> Dict[str, Any]:
         """
@@ -268,13 +279,61 @@ class LiveTradeManager:
         for sym, data in self.market_prices.items():
             is_open, _, _ = market_hours_validator.is_market_open(sym)
             has_active_pos = any(p.status == "OPEN" and p.symbol.upper() == sym for p in self.positions.values())
+            
+            price = data["price"]
+            change_pct = data["change_pct"]
+            high = data["high"]
+            low = data["low"]
+            market_type = data["market"]
+
+            # --- SHADOW POSITION CHECK ---
+            for pid, pos in list(self.shadow_positions.items()):
+                if "SHADOW_OPEN" not in pos.status:
+                    continue
+                if pos.symbol == sym:
+                    curr = price
+                    pos.current_price = curr
+                    pnl_pct = round(((curr - pos.entry_price) / pos.entry_price) * 100.0, 2)
+                    
+                    is_closed = False
+                    is_success = False
+                    if pos.side == "BUY":
+                        if curr >= pos.target_profit_price:
+                            is_closed = True
+                            is_success = True
+                        elif curr <= pos.stop_loss_price:
+                            is_closed = True
+                            is_success = False
+                    else: # SELL
+                        if curr <= pos.target_profit_price:
+                            is_closed = True
+                            is_success = True
+                        elif curr >= pos.stop_loss_price:
+                            is_closed = True
+                            is_success = False
+                        
+                    if is_closed:
+                        pos.status = "SHADOW_CLOSED"
+                        try:
+                            from services.engine.trade_journal_learning import trade_journal_engine
+                            opened_dt = datetime.strptime(pos.opened_at, "%Y-%m-%d %H:%M UTC")
+                            duration = int((datetime.now(timezone.utc).replace(tzinfo=None) - opened_dt).total_seconds() / 60)
+                            trade_journal_engine.evaluate_shadow_trade_autopsy(
+                                symbol=pos.symbol, side=pos.side, entry_price=pos.entry_price,
+                                exit_price=curr, pnl_pct=pnl_pct, duration_mins=duration, success=is_success
+                            )
+                        except Exception as e:
+                            logger.error(f"[SHADOW EVAL ERROR] {e}")
+                        del self.shadow_positions[pid]
+            # -----------------------------
+
             updated_data[sym] = {
                 "symbol": sym,
-                "price": data["price"],
-                "change_pct": data["change_pct"],
-                "high": data["high"],
-                "low": data["low"],
-                "market": data["market"],
+                "price": price,
+                "change_pct": change_pct,
+                "high": high,
+                "low": low,
+                "market": market_type,
                 "is_open": is_open,
                 "has_active_position": has_active_pos,
                 "source": "TRADINGVIEW_REALTIME_FEED",
@@ -296,10 +355,35 @@ class LiveTradeManager:
             "macro_standby_reason": self.macro_standby_reason
         }
 
-    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None) -> Optional[ActivePosition]:
+    
+    def open_shadow_position(self, symbol: str, side: str, tp_pct: float, sl_pct: float, entry_price_override: float, reason: str):
+        market = market_hours_validator.get_market_type(symbol)
+        pos_id = f"SHADOW-{symbol}-{int(time.time())}"
+        target_profit_price = round(entry_price_override * (1 + (tp_pct / 100)), 4)
+        stop_loss_price = round(entry_price_override * (1 - (sl_pct / 100)), 4)
+
+        pos = ActivePosition(
+            id=pos_id,
+            symbol=symbol,
+            market=market,
+            side=side,
+            entry_price=entry_price_override,
+            current_price=entry_price_override,
+            quantity=0,
+            nominal_value=0,
+            target_profit_price=target_profit_price,
+            stop_loss_price=stop_loss_price,
+            break_even_trigger_price=0,
+            opened_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            status=f"SHADOW_OPEN ({reason})"
+        )
+        self.shadow_positions[pos_id] = pos
+        logger.info(f"[SHADOW TRADE] {symbol} sanal olarak işleme alındı. Neden: {reason}")
+        return pos
+
+    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None, atr_value: float = 0.0, use_chandelier_exit: bool = True) -> Optional[ActivePosition]:
         # MAKRO FORESIGHT KORUMASI: Serbest bakiyeyi güvende tut.
         if self.is_macro_standby:
-            from core.logger import logger
             logger.warning(f"MAKRO KORUMA AKTİF: İşlem reddedildi ({symbol}). {self.macro_standby_reason}")
             return None
 
@@ -314,7 +398,8 @@ class LiveTradeManager:
             capital = self.get_dynamic_position_capital(sym)
 
         open_count = len([p for p in self.positions.values() if p.status == "OPEN"])
-        if open_count >= 15 or self.available_cash < 10.0:
+        if open_count >= 15 or self.available_cash < 10.0 or capital > self.available_cash:
+            logger.warning(f"BÜTÇE LİMİTİ AŞILDI (Alpaca uyumlu): {sym} İşlemi reddedildi. İstenen: ${capital}, Serbest Nakit: ${self.available_cash}")
             return None
 
         # %0.08 Slippage ile gerçek giriş fiyatı
@@ -346,7 +431,10 @@ class LiveTradeManager:
             target_profit_price=tp_price,
             stop_loss_price=sl_price,
             break_even_trigger_price=be_trigger,
-            opened_at=datetime.now(TRT).strftime("%H:%M:%S")
+            highest_price_seen=entry_price,
+            opened_at=datetime.now(TRT).strftime("%H:%M:%S"),
+            atr_value=atr_value,
+            use_chandelier_exit=use_chandelier_exit
         )
 
         # ✔ ALPACA BROKER-SIDE BRACKET ORDER (AlpacaBroker — düzeltilmiş köprü)
@@ -358,13 +446,21 @@ class LiveTradeManager:
                 is_paper = settings.trading_mode.upper() != "LIVE"
                 broker = get_broker("ALPACA", paper=is_paper)
                 if broker and broker.api:
-                    res = broker.place_bracket_order(
-                        symbol=sym,
-                        side=side,
-                        qty=qty,
-                        take_profit_price=tp_price,
-                        stop_loss_price=sl_price
-                    )
+                    if market == "CRYPTO":
+                        res = broker.place_market_order(
+                            symbol=sym,
+                            side=side,
+                            qty=qty
+                        )
+                    else:
+                        res = broker.place_bracket_order(
+                            symbol=sym,
+                            side=side,
+                            qty=qty,
+                            take_profit_price=tp_price,
+                            stop_loss_price=sl_price
+                        )
+                    
                     if res.get("status") == "success":
                         logger.info(f"[ALPACA BRACKET] {sym} emir başarıyla iletildi. OrderID: {res.get('order_id')}")
                     else:
@@ -490,37 +586,69 @@ class LiveTradeManager:
             pos.current_price = curr_price
 
             if pos.side == "BUY":
+                # En yüksek fiyat güncellemesi (Trailing Stop İçin)
+                if curr_price > pos.highest_price_seen:
+                    pos.highest_price_seen = curr_price
+
                 gross = (curr_price - pos.entry_price) * pos.quantity
                 pct = ((curr_price - pos.entry_price) / pos.entry_price) * 100.0
+
+                # AKILLI ÇIKIŞ (Erken Kâr Alma)
+                # Eğer pozisyon %1.5'tan fazla kârdaysa ve momentum zayıflıyorsa (RSI aşırı şişmiş vs. veya hacim düştüyse)
+                # Otonom Tarayıcı RSI verisine doğrudan erişemediğimizden fiyatın tepeden %1 düşüşüne de bakabiliriz.
+                
+                # İZLEYEN STOP (Trailing Stop)
+                # Kâr > %2.0 olduğunda izleyen stop aktif olur
+                if pct > 2.0:
+                    pos.trailing_stop_activated = True
+                    # Stop seviyesini görülen en yüksek fiyatın %1 altına çek
+                    new_sl = round(pos.highest_price_seen * 0.99, 2)
+                    if new_sl > pos.stop_loss_price:
+                        pos.stop_loss_price = new_sl
 
                 # 1. Başa Baş (Break-Even) Kontrolü (+%1.00 kârda)
                 if not pos.break_even_activated and curr_price >= pos.break_even_trigger_price:
                     pos.break_even_activated = True
-                    pos.stop_loss_price = round(pos.entry_price * 1.002, 2)
+                    if pos.entry_price * 1.002 > pos.stop_loss_price:
+                        pos.stop_loss_price = round(pos.entry_price * 1.002, 2)
 
                 # 2. TP Kontrolü (+%3.0)
                 if curr_price >= pos.target_profit_price:
                     self.close_position(pos_id, "CLOSED_TP")
                     continue
 
-                # 3. SL Kontrolü
+                # 3. SL / Trailing Stop Kontrolü
                 if curr_price <= pos.stop_loss_price:
-                    self.close_position(pos_id, "CLOSED_SL")
+                    reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
+                    self.close_position(pos_id, reason)
                     continue
             else:
+                # SHORT (Açığa Satış) için Trailing Stop
+                if pos.highest_price_seen == 0.0 or curr_price < pos.highest_price_seen:
+                    pos.highest_price_seen = curr_price
+
                 gross = (pos.entry_price - curr_price) * pos.quantity
                 pct = ((pos.entry_price - curr_price) / pos.entry_price) * 100.0
 
+                if pct > 2.0:
+                    pos.trailing_stop_activated = True
+                    # Stop seviyesini görülen en düşük fiyatın %1 üstüne çek
+                    new_sl = round(pos.highest_price_seen * 1.01, 2)
+                    if new_sl < pos.stop_loss_price:
+                        pos.stop_loss_price = new_sl
+
                 if not pos.break_even_activated and curr_price <= pos.break_even_trigger_price:
                     pos.break_even_activated = True
-                    pos.stop_loss_price = round(pos.entry_price * 0.998, 2)
+                    if pos.entry_price * 0.998 < pos.stop_loss_price:
+                        pos.stop_loss_price = round(pos.entry_price * 0.998, 2)
 
                 if curr_price <= pos.target_profit_price:
                     self.close_position(pos_id, "CLOSED_TP")
                     continue
 
                 if curr_price >= pos.stop_loss_price:
-                    self.close_position(pos_id, "CLOSED_SL")
+                    reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
+                    self.close_position(pos_id, reason)
                     continue
 
             pos.unrealized_pnl = round(gross, 2)

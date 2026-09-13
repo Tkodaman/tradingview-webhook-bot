@@ -67,12 +67,20 @@ class TradingViewAutoStrategyRunner:
             rsi = data.get("rsi", 50.0)
             macd = data.get("macd", 0.0)
             ema_golden = data.get("ema_golden_cross", False)
+            supertrend_bullish = data.get("supertrend_bullish", True)
             vwap_bull = data.get("vwap_bullish", False)
+            
+            # Trend Uyuşmazlığı (Trend Conflict)
+            trend_conflict = False
+            if ema_golden != supertrend_bullish:
+                trend_conflict = True
             vol_ratio = data.get("volume_ratio", round(random.uniform(0.8, 3.5), 2))
             stoch_k = data.get("stoch_k", 50.0)
             adx = data.get("adx", 25.0)
             atr_pct = data.get("atr_pct", 1.5)
             chg_pct = data.get("change_pct", 0.0)
+            cmf = data.get("cmf", 0.0)
+            rs_score = data.get("rs_score", 0.0)
 
             # ==========================================
             # DERS ÇIKARIMLI KATI FİLTRELER (ÖĞRENİLEN TELER & TUZAK ENGELLERİ)
@@ -138,6 +146,14 @@ class TradingViewAutoStrategyRunner:
                 score += 1
             if adx >= 15.0:
                 score += 1
+            
+            # Komut 11: OBV & RS Line Puanlaması
+            if cmf > 0.05:
+                score += 1  # Para girişi var
+            if rs_score > 0.0:
+                score += 1  # Endeksten pozitif ayrışıyor
+
+            is_strong_obv_rs = (cmf > 0.05 and rs_score > 0.0)
 
             # DERS KURALI 4: Hacimsiz Kırılım Cezası (Volume Ratio < 1.2)
             if vol_ratio < 1.2 and chg_pct > 1.0:
@@ -184,22 +200,24 @@ class TradingViewAutoStrategyRunner:
             required_score = 4 
             min_vol = 1.0
             global_max_pos = 10 # En fazla 5 pozisyon olabilir
+            market_pos_multiplier = 1.0
             
             if current_mode == "AGGRESSIVE":
-                required_score = 2
-                min_vol = 0.5
+                required_score = 1  # Kullanıcı talebi: Anında eyleme geçmesi için eşik 1'e indirildi
+                min_vol = 0.0       # Hacim dar boğazı tamamen kaldırıldı
                 global_max_pos = 15
+                market_pos_multiplier = 2.0 # Kripto limitini 4'ten 8'e çıkarır
             elif current_mode == "NORMAL":
-                required_score = 4
-                min_vol = 1.0
+                required_score = 5
+                min_vol = 0.7
                 global_max_pos = 10
             elif current_mode == "TIGHT":
-                required_score = 5
-                min_vol = 1.2
+                required_score = 7
+                min_vol = 1.0
                 global_max_pos = 5
             elif current_mode == "CONSERVATIVE":
-                required_score = 6
-                min_vol = 1.5
+                required_score = 8
+                min_vol = 1.2
                 global_max_pos = 3
 
             is_buy_signal = score >= required_score
@@ -214,13 +232,17 @@ class TradingViewAutoStrategyRunner:
                 continue
             # O2 DÜZELTİLDİ: Piyasa başı açık pozisyon limiti kontrolü
             market_type = market_hours_validator.get_market_type(sym)
-            max_pos_for_market = RISK_PARAMS.get("max_positions_per_market", {}).get(market_type, 3)
+            max_pos_for_market = int(RISK_PARAMS.get("max_positions_per_market", {}).get(market_type, 3) * market_pos_multiplier)
             open_pos_in_market = sum(
                 1 for p in live_trade_manager.positions.values()
                 if p.status == "OPEN" and p.market == market_type
             )
             if open_pos_in_market >= max_pos_for_market:
                 logger.info(f"[MARKET LIMIT BLOCK] {sym} ({market_type}) piyasasında max pozisyon sayısına ulaşıldı ({open_pos_in_market}/{max_pos_for_market}).")
+                try:
+                    live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Market Limit")
+                except Exception:
+                    pass
                 continue
 
             # SİSTEM GENELİ MAKSİMUM POZİSYON LİMİTİ (GLOBAL LIMIT BLOCK)
@@ -230,23 +252,33 @@ class TradingViewAutoStrategyRunner:
                 logger.info(msg)
                 try:
                     experience_memory_engine.add_live_log(market_type, "BLOCK", msg)
+                    live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Global Limit")
                 except Exception:
                     pass
                 continue
 
             # BÜTÇE LİMİT KONTROLÜ
             total_invested = sum(p.nominal_value for p in live_trade_manager.positions.values() if p.status == "OPEN")
-            if total_invested >= 1200.0:
-                msg = f"[BUDGET LIMIT BLOCK] {sym} reddedildi. 1200$ bütçe limitine ulaşıldı (Mevcut Yatırım: ${total_invested:.2f})."
+            if total_invested >= settings.base_portfolio_size:
+                msg = f"[BUDGET LIMIT BLOCK] {sym} reddedildi. {settings.base_portfolio_size}$ bütçe limitine ulaşıldı (Mevcut Yatırım: ${total_invested:.2f})."
                 logger.info(msg)
                 try:
                     experience_memory_engine.add_live_log(market_type, "BLOCK", msg)
+                    live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Budget Limit")
                 except Exception:
                     pass
                 continue
 
             # Mevcut açık pozisyon kontrolü
             open_pos = next((p for p in live_trade_manager.positions.values() if p.symbol.upper() == sym.upper() and p.status == "OPEN"), None)
+            if open_pos:
+                # AKILLI ERKEN ÇIKIŞ (Smart Exit)
+                # Kârdayken momentum düşerse TP beklemeden cebe at
+                if open_pos.unrealized_pnl_pct >= 1.5:
+                    if rsi < 55.0 or vol_ratio < 0.8:
+                        logger.info(f"[SMART EXIT] {sym} %{open_pos.unrealized_pnl_pct} kârda ancak momentum zayıfladı (RSI: {rsi:.1f}, Vol: {vol_ratio:.2f}). Erken kâr alımı (CLOSED_EARLY) tetikleniyor.")
+                        live_trade_manager.close_position(open_pos.id, "CLOSED_EARLY")
+                continue
 
             # ==========================================
             # MEAN REVERSION (ORTALAMAYA DÖNÜŞ) MOTORU
@@ -284,6 +316,20 @@ class TradingViewAutoStrategyRunner:
                 
                 # İşlem Otopsisi & Hafıza Çarpanı (Ödül veya Temkinlilik)
                 qty_mult = mem_check.get("qty_multiplier", 1.0)
+                
+                # Komut 11: OBV ve RS Line Agresif Atak / Savunma
+                if is_strong_obv_rs and current_mode in ["NORMAL", "TIGHT"]:
+                    qty_mult *= 1.20
+                    logger.info(f"[AGGRESSIVE ATTACK] {sym} OBV ve RS Güçlü! Lot boyutu %20 artırıldı (Cüretkar Atak).")
+                elif cmf < -0.05:
+                    qty_mult *= 0.80
+                    logger.info(f"[WEAK VOLUME DEFENSE] {sym} OBV Zayıf (Para Çıkışı Var). Lot boyutu %20 düşürüldü.")
+
+                # Supertrend Trend Uyuşmazlığı Cezası
+                if trend_conflict:
+                    qty_mult *= 0.70
+                    logger.info(f"[TREND CONFLICT] {sym} EMA Golden Cross ile Supertrend uyuşmuyor! Risk azaltıldı (%30 Daha Küçük Pozisyon).")
+                    
                 if qty_mult != 1.0:
                     dyn_cap = round(dyn_cap * qty_mult, 2)
                     logger.info(f"[ALGORITHMIC LEARNING] İşlem Otopsisi sonucu oransal müdahale: Lot çarpanı {qty_mult}x uygulandı. Yeni bütçe: ${dyn_cap}")
@@ -318,7 +364,15 @@ class TradingViewAutoStrategyRunner:
                     stop_loss=target_sl_price,
                     account_equity=dyn_cap,
                     market_position="long",
-                    indicators={"rsi": rsi, "volatility": atr_pct, "volume_ratio": vol_ratio},
+                    indicators={
+                        "rsi": rsi, 
+                        "volatility": atr_pct, 
+                        "volume_ratio": vol_ratio,
+                        "cmf": cmf,
+                        "rs_score": rs_score,
+                        "supertrend_bullish": supertrend_bullish,
+                        "trend_conflict": trend_conflict
+                    },
                     macro_tags=[f"STRATEGY_{strategy_tag}", f"SCORE_{score}_OF_8"]
                 )
                 res = process_order(signal)
