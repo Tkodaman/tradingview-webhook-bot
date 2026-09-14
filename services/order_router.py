@@ -27,10 +27,15 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     if live_high > 0 and signal.price > live_high * 1.15:
         logger.warning(f"[ANOMALY DETECTED] {signal.symbol} — Fiyat (${signal.price}) 24h yüksek (${live_high}) üzerinde %15+ sapma. MACRO SHOCK filtresi devreye alındı.")
 
-    # 0.5 OTONOM KORUMA KALKANI — hard_rules.py içinde zaten çalışacak.
-    # Burada 2. bir sorgu yapmak hem yavaşlatır hem de farklı market_regime 
-    # parametresiyle tutarsız sonuç üretir. Bu blok kaldırıldı.
-    # (Koruma: hard_rules.py > Kural 2.5 — ExperienceMemoryEngine)
+    # 0.5 PİYASA SAATİ KORUMASI (Market Hours Check)
+    # KULLANICI TALEBİ: Piyasa kapalıyken (Örn. NASDAQ Pre-Market) işlemler reddedilmeli
+    from services.risk_engine.market_hours import market_hours_validator
+    is_open, msg, _ = market_hours_validator.is_market_open(signal.symbol)
+    if not is_open:
+        logger.warning(f"[MARKET CLOSED] {signal.symbol} piyasası şu anda kapalı veya seans dışı. Sinyal reddedildi. Mesaj: {msg}")
+        return {"status": "rejected", "reason": "MARKET_CLOSED", "symbol": signal.symbol, "message": msg}
+
+    # Koruma: hard_rules.py > Kural 2.5 — ExperienceMemoryEngine (Zaten aşağıda çalışacak)
 
 
     # 1. Ajan Analizi ve Dereceli Risk Değerlendirmesi
@@ -57,6 +62,11 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         capital_used = signal.account_equity
     else:
         capital_used = live_trade_manager.get_dynamic_position_capital(signal.symbol)
+        
+    # KULLANICI TALEBİ: "otonom asla 500$ üstünde alım yapamasın sınırlı olmalı kesinlikle"
+    if capital_used > 500.0:
+        logger.warning(f"[HARD CAP] {signal.symbol} için gelen sermaye talebi (${capital_used}) $500 sınırını aşıyor. $500'a sabitlendi.")
+        capital_used = 500.0
 
     if action_clean in ["BUY", "LONG", "SELL", "SHORT"]:
         try:

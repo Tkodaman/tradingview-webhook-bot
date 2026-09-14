@@ -42,17 +42,14 @@ from services.market_feed.live_stream import LiveTradeManager
 
 app = FastAPI(title="TradingView AI Webhook Gateway, Risk Engine & 10-Skill Financial AI Analyst")
 
-# Create a global instance of LiveTradeManager to pass to broadcaster
-from services.market_feed.live_stream import LiveTradeManager
-live_trade_manager_instance = LiveTradeManager()
-
+from services.market_feed.live_stream import live_trade_manager
 @app.on_event("startup")
 async def startup_event():
     logger.info("[STARTUP] Başlatılıyor: 7/24 Kesintisiz Otonom Strateji Motoru Arka Planda Aktif Edildi.")
     asyncio.create_task(tv_auto_runner.start_continuous_background_loop())
     
     # Start WebSocket Broadcaster
-    asyncio.create_task(live_data_broadcaster(live_trade_manager_instance))
+    asyncio.create_task(live_data_broadcaster(live_trade_manager))
     
     # Start Alpaca Trade Updates WebSocket (Zero-latency Close detection)
     try:
@@ -65,7 +62,7 @@ async def startup_event():
     # Start Alpaca Market Data WebSocket (Real-time Prices & Dynamic AI SL/TP)
     try:
         from services.broker.alpaca_data_stream import start_alpaca_data_stream
-        # asyncio.create_task(start_alpaca_data_stream())
+        asyncio.create_task(start_alpaca_data_stream())
         logger.info("[STARTUP] Alpaca Data Stream (Canlı Fiyat & Dinamik Makas) Dinleyicisi Başlatıldı.")
     except Exception as e:
         logger.error(f"[STARTUP] Alpaca Data Stream Başlatılamadı: {e}")

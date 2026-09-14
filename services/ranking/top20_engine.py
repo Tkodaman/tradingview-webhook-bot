@@ -215,6 +215,28 @@ class Top20Engine:
             # Bileşik Skor = (%40 * ind) + (%20 * news) + (%20 * macro) + (%20 * 6mo)
             composite = round((ind_score * 0.40) + (news_score * 0.20) + (macro_score * 0.20) + (six_mo_score * 0.20), 2)
 
+            # --- OTONOM ML ADAPTASYONU (Experience Memory Engine) ---
+            from services.engine.experience_memory_engine import experience_memory_engine
+            # ML motoruna sinyali sor
+            ml_eval = experience_memory_engine.evaluate_signal_against_memory(
+                symbol=item["symbol"], 
+                action="BUY", 
+                indicators={"rsi": item["ind"].rsi, "volume_ratio": 1.0}
+            )
+            
+            if not ml_eval["is_safe"]:
+                composite = 0.0 # Otonom Kalkan (BLOCK) devrede
+                item["tech_notes"].insert(0, f"⛔ ML BLOCK: {ml_eval['reason']}")
+            else:
+                # Modifikasyon (Örn: +0.20 ise +4 puan ekle, -0.30 ise -6 puan düşür)
+                modifier_points = ml_eval["confidence_modifier"] * 20.0 
+                composite = round(max(0.0, min(100.0, composite + modifier_points)), 2)
+                if modifier_points > 0:
+                    item["tech_notes"].insert(0, f"🟢 ML ÖDÜLÜ: {ml_eval['reason']}")
+                elif modifier_points < 0:
+                    item["tech_notes"].insert(0, f"⚠️ ML TEMKİN: {ml_eval['reason']}")
+            # -----------------------------------------------------------
+
             # Matematiksel +%3.0 TP / -%1.5 SL (2:1 R:R), +%1.0 BE, %0.08 Slippage Marj Hesaplaması
             margin_plan = margin_controller.calculate_plan(MarginCalculationRequest(
                 account_size=10000.0,

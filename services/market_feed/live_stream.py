@@ -48,7 +48,7 @@ class ActivePosition(BaseModel):
 
 class LiveTradeManager:
     def __init__(self):
-        self.initial_capital: float = float(settings.base_portfolio_size)
+        self.initial_capital: float = min(float(settings.base_portfolio_size), 5000.0)
         self.realized_pnl: float = 0.0               # Gerçekleşen Toplam Net Kâr/Zarar
         self.total_commissions_paid: float = 0.0    # Ödenen Toplam Komisyon ve Kesintiler
         self.positions: Dict[str, ActivePosition] = {}
@@ -57,6 +57,8 @@ class LiveTradeManager:
         self.daily_stats: Dict[str, Dict[str, float]] = {} # Günlük İstatistikler
         self.is_macro_standby: bool = False
         self.macro_standby_reason: str = ""
+        self.auto_trade_enabled: bool = False  # YZ tam otonom al-sat tetikleyicisi
+        self.last_autonomous_check: float = 0.0
         self.is_paused: bool = False
         self.pause_reason: str = ""
         self.auto_resume_reconciler: bool = True
@@ -88,15 +90,26 @@ class LiveTradeManager:
                 return
 
             for bp in broker_positions:
-                sym = bp.get("symbol")
+                raw_sym = bp.get("symbol")
+                asset_class = bp.get("asset_class", "us_equity")
                 qty = abs(float(bp.get("qty", 0)))
                 if qty == 0: continue
                 
+                # Alpaca represents crypto as BATUSD, we might have it as BATUSDT locally.
+                possible_symbols = [raw_sym]
+                if asset_class == "crypto" or (raw_sym.endswith("USD") and raw_sym != "USD"):
+                    if raw_sym.endswith("USD"):
+                        possible_symbols.append(raw_sym + "T")
+                
                 # Check if we already have it locally
-                already_have = any(p.symbol == sym and p.status == "OPEN" for p in self.positions.values())
+                local_pos = next((p for p in self.positions.values() if p.symbol in possible_symbols and p.status == "OPEN"), None)
                 
                 # If we don't have it locally, add it
-                if not already_have:
+                if not local_pos:
+                    # Choose standard symbol (prefer USDT for crypto to match TV)
+                    sym = possible_symbols[-1] if (asset_class == "crypto" and len(possible_symbols) > 1) else raw_sym
+                    market = "CRYPTO" if asset_class == "crypto" or raw_sym.endswith("USD") else "NASDAQ"
+
                     entry_price = float(bp.get("avg_entry_price", 0))
                     current_price = float(bp.get("current_price", entry_price))
                     side = "BUY" if float(bp.get("qty", 0)) > 0 else "SELL"
@@ -108,7 +121,7 @@ class LiveTradeManager:
                     pos = ActivePosition(
                         id=f"sync_{int(time.time())}_{sym}",
                         symbol=sym,
-                        market="NASDAQ",  # Defaulting to NASDAQ for Alpaca stocks
+                        market=market,
                         side=side,
                         entry_price=entry_price,
                         current_price=current_price,
@@ -122,6 +135,14 @@ class LiveTradeManager:
                         unrealized_pnl_pct=float(bp.get("unrealized_plpc", 0)) * 100
                     )
                     self.positions[pos.id] = pos
+                else:
+                    # LOCAL'DE VARSA: Alpaca'nın GERÇEK gerçekleşme (Fill) fiyatını ve miktarını senkronize et
+                    # Bu sayede TradingView ile Alpaca arasındaki fiyat/makas (slippage) farkı kâr/zarar hesabını bozmaz!
+                    real_entry_price = float(bp.get("avg_entry_price", 0))
+                    if real_entry_price > 0:
+                        local_pos.entry_price = real_entry_price
+                        local_pos.quantity = qty
+                        local_pos.nominal_value = real_entry_price * qty
             
             # Save the synced state to local db
             self.save_state()
@@ -162,8 +183,26 @@ class LiveTradeManager:
             logger.error(f"State save error: {e}")
 
     def reset_account(self):
-        """Hesap Bakiyesini Kesin Olarak $1,000.00 Tabanına Sıfırlama Metodu"""
-        self.initial_capital = float(settings.base_portfolio_size)
+        """Hesap Bakiyesini Alpaca'dan Çekerek Sıfırlama Metodu"""
+        try:
+            if settings.trading_mode in ["LIVE", "PAPER"]:
+                from services.broker.factory import get_broker
+                broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
+                if broker and broker.api:
+                    alpaca_equity = broker.get_account_balance()
+                    if alpaca_equity > 0:
+                        self.initial_capital = float(alpaca_equity)
+                    else:
+                        self.initial_capital = float(settings.base_portfolio_size)
+                else:
+                    self.initial_capital = float(settings.base_portfolio_size)
+            else:
+                self.initial_capital = float(settings.base_portfolio_size)
+        except Exception as e:
+            from core.logger import logger
+            logger.error(f"Alpaca bakiye çekme hatası (Sıfırlama): {e}")
+            self.initial_capital = float(settings.base_portfolio_size)
+            
         self.realized_pnl = 0.0
         self.total_commissions_paid = 0.0
         self.positions.clear()
@@ -183,12 +222,32 @@ class LiveTradeManager:
 
     @property
     def available_cash(self) -> float:
-        """Kasadaki kullanılabilir serbest nakit tutarı"""
+        """Kasadaki kullanılabilir serbest nakit tutarı (Alpaca'dan canlı çekilir)"""
+        from core.config import settings
+        if settings.trading_mode in ["PAPER", "LIVE"]:
+            try:
+                from services.broker.alpaca_client import alpaca_client
+                return round(alpaca_client.get_available_cash(), 2)
+            except Exception as e:
+                from core.logger import logger
+                logger.error(f"[CASH FETCH ERROR] {e}")
+                
+        # Fallback to local calculation
         return round(max(0.0, self.initial_capital + self.realized_pnl - self.allocated_margin), 2)
 
     @property
     def total_account_equity(self) -> float:
-        """NET KASA PORTFÖY DEĞERİ (Net Equity = Nakit + Teminat + Anlık PnL)"""
+        """NET KASA PORTFÖY DEĞERİ (Alpaca'dan canlı çekilir)"""
+        from core.config import settings
+        if settings.trading_mode in ["PAPER", "LIVE"]:
+            try:
+                from services.broker.alpaca_client import alpaca_client
+                return round(alpaca_client.get_account_balance(), 2)
+            except Exception as e:
+                from core.logger import logger
+                logger.error(f"[EQUITY FETCH ERROR] {e}")
+                
+        # Fallback to local calculation
         return round(self.initial_capital + self.realized_pnl + self.total_unrealized_pnl, 2)
 
     @property
@@ -215,7 +274,9 @@ class LiveTradeManager:
             finra_fee = round(min(8.30, max(0.01, quantity * 0.000166)), 4)
 
         slippage_cost = round((notional_entry + notional_exit) * 0.0008, 4)
-        total_comm = round(buy_comm + sell_comm + sec_fee + finra_fee + slippage_cost, 2)
+        # Kullanıcı talebi: Sadece Alpaca'nın kestiği GERÇEK borsa komisyonları sayılacak, 
+        # botun kendi hesapladığı otonom/sanal "kayma (slippage)" zararı komisyona dahil edilmeyecek.
+        total_comm = round(buy_comm + sell_comm + sec_fee + finra_fee, 2)
         
         return {
             "buy_comm": buy_comm,
@@ -223,7 +284,7 @@ class LiveTradeManager:
             "sec_fee": sec_fee,
             "finra_fee": finra_fee,
             "slippage_cost": slippage_cost,
-            "total_commission": max(0.05, total_comm)
+            "total_commission": total_comm
         }
 
     def get_dynamic_position_capital(self, symbol: str) -> float:
@@ -244,6 +305,10 @@ class LiveTradeManager:
         
         # En az 10$, en fazla bakiyenin %99'u kadar
         cap = max(10.0, min(adjusted_capital, self.total_account_equity * 0.99))
+        
+        # KULLANICI TALEBİ: Kesinlikle 500$ üzerinde alım yapılamaz (Hard Limit)
+        cap = min(cap, 500.0)
+        
         # Kesin Alpaca bütçe uyumluluğu: Serbest nakitin %95'ini geçemez
         return min(cap, max(10.0, self.available_cash * 0.95))
 
@@ -342,6 +407,10 @@ class LiveTradeManager:
 
         # Açık pozisyonların PnL ve Başa Baş (Break-Even) kontrolü
         self._evaluate_open_positions()
+        
+        # Otonom (Auto-Trade) Alım Denetleyicisi
+        if self.auto_trade_enabled:
+            self._autonomous_opportunity_hunter()
 
         return {
             "timestamp": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S UTC+3"),
@@ -358,6 +427,14 @@ class LiveTradeManager:
     
     def open_shadow_position(self, symbol: str, side: str, tp_pct: float, sl_pct: float, entry_price_override: float, reason: str):
         market = market_hours_validator.get_market_type(symbol)
+        
+        # OTONOM ÖĞRENİM KORUMASI: Piyasa kapalıyken sahte işlem (shadow trade) açmayı reddet.
+        # Böylece ML motoruna, piyasa kapalıyken yaşanan yatay ve anlamsız hareketler çöp veri olarak kaydedilmez.
+        is_open, _, _ = market_hours_validator.is_market_open(symbol)
+        if not is_open:
+            logger.info(f"🛑 [SHADOW REJECTED] {symbol} piyasası kapalı. Çöp otonom veri birikimini önlemek için işlem reddedildi.")
+            return None
+            
         pos_id = f"SHADOW-{symbol}-{int(time.time())}"
         target_profit_price = round(entry_price_override * (1 + (tp_pct / 100)), 4)
         stop_loss_price = round(entry_price_override * (1 - (sl_pct / 100)), 4)
@@ -388,11 +465,19 @@ class LiveTradeManager:
             return None
 
         sym = symbol.upper()
+        # NORMALIZE SYMBOL: Prevent BATUSD vs BATUSDT duplicates
+        if sym.endswith("USD") and sym != "USD":
+            sym = sym + "T"
+            
         if entry_price_override and entry_price_override > 0:
             curr_price = entry_price_override
         else:
             curr_price = self.market_prices.get(sym, {}).get("price", 100.0)
+            
         market = self.market_prices.get(sym, {}).get("market", "NASDAQ")
+        # Ensure market is set correctly for normalized cryptos
+        if sym.endswith("USDT") or sym.endswith("USD"):
+            market = "CRYPTO"
 
         if capital is None or capital <= 0 or capital > self.available_cash:
             capital = self.get_dynamic_position_capital(sym)
@@ -412,11 +497,11 @@ class LiveTradeManager:
         if side == "BUY":
             tp_price = round(entry_price * (1.0 + (tp_pct / 100.0)), decimals)
             sl_price = round(entry_price * (1.0 - (sl_pct / 100.0)), decimals)
-            be_trigger = round(entry_price * 1.010, decimals)
+            be_trigger = round(entry_price * 1.025, decimals) # %2.50 kârda Break-Even
         else:
             tp_price = round(entry_price * (1.0 - (tp_pct / 100.0)), decimals)
             sl_price = round(entry_price * (1.0 + (sl_pct / 100.0)), decimals)
-            be_trigger = round(entry_price * 0.990, decimals)
+            be_trigger = round(entry_price * 0.975, decimals) # %2.50 kârda Break-Even
 
         pos_id = f"POS-{sym}-{int(time.time())}"
         pos = ActivePosition(
@@ -432,7 +517,7 @@ class LiveTradeManager:
             stop_loss_price=sl_price,
             break_even_trigger_price=be_trigger,
             highest_price_seen=entry_price,
-            opened_at=datetime.now(TRT).strftime("%H:%M:%S"),
+            opened_at=datetime.now(timezone.utc).isoformat(),
             atr_value=atr_value,
             use_chandelier_exit=use_chandelier_exit
         )
@@ -447,10 +532,13 @@ class LiveTradeManager:
                 broker = get_broker("ALPACA", paper=is_paper)
                 if broker and broker.api:
                     if market == "CRYPTO":
+                        # Kriptoda makas (spread) kaybını önlemek için 0.5% (binde 5) kayma toleransıyla limit order at
+                        limit_prc = round(entry_price * 1.005, 4 if entry_price < 1.0 else 2) if side == "BUY" else round(entry_price * 0.995, 4 if entry_price < 1.0 else 2)
                         res = broker.place_market_order(
                             symbol=sym,
                             side=side,
-                            qty=qty
+                            qty=qty,
+                            limit_price=limit_prc
                         )
                     else:
                         res = broker.place_bracket_order(
@@ -565,13 +653,107 @@ class LiveTradeManager:
 
         return trade_log
 
+    def _autonomous_opportunity_hunter(self):
+        """
+        Tam Otonom (Fully Autonomous) Al-Sat Motoru.
+        Piyasa açıkken sürekli olarak fırsatları kollar ve yüksek güven skorlu hedeflere otomatik girer.
+        """
+        now = time.time()
+        # Her 5 saniyede bir kontrol et ki piyasaya ve işlemciye aşırı yük binmesin
+        if now - self.last_autonomous_check < 5.0:
+            return
+        self.last_autonomous_check = now
+        
+        active_positions = [p for p in self.positions.values() if p.status == "OPEN"]
+        
+        crypto_count = len([p for p in active_positions if p.market == "CRYPTO"])
+        stock_count = len([p for p in active_positions if p.market in ["NASDAQ", "BIST", "STOCK"]])
+        
+        if crypto_count + stock_count >= 8:
+            return  # Kasa riski yönetimi: Genel maksimum 8 aktif pozisyon (4 Kripto + 4 Hisse)
+            
+        try:
+            from routers.market_router import matrix_results
+            for m in matrix_results:
+                sym = m.get("symbol", "")
+                market = m.get("market", "")
+                score = m.get("confidence_score", 0.0)
+                vol_ratio = m.get("volume_ratio", 1.0)
+                decision = m.get("decision", "WAIT")
+                
+                # Halihazırda bu varlıkta açık işlemimiz (veya Gölge İşlemimiz) varsa pas geç
+                has_pos = any(p.symbol == sym and p.status == "OPEN" for p in self.positions.values())
+                has_shadow = any(p.symbol == sym and "SHADOW_OPEN" in p.status for p in self.shadow_positions.values())
+                if has_pos or has_shadow:
+                    continue
+                    
+                # Piyasanın açık olup olmadığını teyit et
+                from services.risk_engine.market_hours import market_hours_validator
+                is_open, _, _ = market_hours_validator.is_market_open(sym)
+                if not is_open:
+                    continue
+                    
+                # BIST Koruması: BIST için otonom al-sat yapılmasın, sadece izlensin
+                if market == "BIST":
+                    continue
+                    
+                # Sepet (Portföy Çeşitlendirmesi) Koruması: Kriptoda max 4, Hisselerde max 4
+                if market == "CRYPTO" and crypto_count >= 4:
+                    continue
+                if market != "CRYPTO" and stock_count >= 4:
+                    continue
+                    
+                # TETİKLEME ŞARTI: Güven Skoru > 85, Hacim İvmesi > 1.2x ve Karar = BUY
+                if score >= 85.0 and vol_ratio >= 1.2 and decision == "BUY":
+                    # Kasa bütçesini tüketmemek için işlem başına 100$ - 300$ arası sabit bütçe
+                    import random
+                    auto_capital = random.uniform(100.0, 300.0)
+                    if self.available_cash < auto_capital:
+                        auto_capital = self.available_cash # Eğer yeterli nakit yoksa eldekini kullan
+                        
+                    if auto_capital < 10.0:  # Minimum bütçe koruması
+                        continue
+                        
+                    logger.info(f"🤖 [OTONOM MOTOR TETİKLENDİ] {sym} | Skor: {score} | Hacim: {vol_ratio}x. Sisteme otomatik alım emri gönderiliyor.")
+                    
+                    # İşlemi Sanal/Gerçek aç
+                    self.open_position(
+                        symbol=sym,
+                        capital=auto_capital,
+                        side="BUY",
+                        tp_pct=3.0,
+                        sl_pct=1.5
+                    )
+                    
+                    # Tek bir döngüde maksimum 1 işlem açsın, spami engellesin.
+                    break
+        except Exception as e:
+            logger.error(f"Otonom fırsat avcısı hatası: {e}")
+
     def _evaluate_open_positions(self):
         for pos_id, pos in list(self.positions.items()):
             if pos.status != "OPEN":
                 continue
 
-            curr_price = self.market_prices.get(pos.symbol, {}).get("price", pos.current_price)
-            last_ts = self.market_prices.get(pos.symbol, {}).get("last_updated_ts", None)
+            # Hayalet Senkronizasyon (Ghost Position Loop) Koruması:
+            # Piyasa kapalıyken yerel Stop Loss / Take Profit değerlendirmesi yapma.
+            # Alpaca kapalı piyasada emri beklemeye alır, ancak yerel motor pozisyonu
+            # kapatıp ML'e "ZARAR REJİM" kaydeder. Sonra sync_with_broker çalışıp
+            # kapanmamış Alpaca pozisyonunu geri getirir ve bu döngü ML veritabanını çöplüğe çevirir.
+            try:
+                from services.risk_engine.market_hours import market_hours_validator
+                is_open, _, _ = market_hours_validator.is_market_open(pos.symbol)
+                if not is_open:
+                    continue
+            except Exception:
+                pass
+
+            search_sym = pos.symbol
+            if search_sym not in self.market_prices and (search_sym + "T") in self.market_prices:
+                search_sym = search_sym + "T"
+
+            curr_price = self.market_prices.get(search_sym, {}).get("price", pos.current_price)
+            last_ts = self.market_prices.get(search_sym, {}).get("last_updated_ts", None)
 
             # STALENESS KORUMASI: last_updated_ts varsa ve 90 saniyeden eskiyse bekle.
             # last_updated_ts yoksa (statik fiyat) doğrudan devam et.
@@ -598,19 +780,35 @@ class LiveTradeManager:
                 # Otonom Tarayıcı RSI verisine doğrudan erişemediğimizden fiyatın tepeden %1 düşüşüne de bakabiliriz.
                 
                 # İZLEYEN STOP (Trailing Stop)
-                # Kâr > %2.0 olduğunda izleyen stop aktif olur
-                if pct > 2.0:
+                is_sniper = settings.current_risk_mode.upper() == "SNIPER"
+                trailing_trigger = 1.5 if is_sniper else 3.0
+                trailing_dist = 0.985 if is_sniper else 0.975
+                
+                if pct > trailing_trigger:
                     pos.trailing_stop_activated = True
-                    # Stop seviyesini görülen en yüksek fiyatın %1 altına çek
-                    new_sl = round(pos.highest_price_seen * 0.99, 2)
+                    new_sl = round(pos.highest_price_seen * trailing_dist, 5)
                     if new_sl > pos.stop_loss_price:
+                        old_sl = pos.stop_loss_price
                         pos.stop_loss_price = new_sl
+                        logger.info(f"🤖 [AI-TRAILING] {pos.symbol} için İzleyen Stop makası yapay zeka tarafından daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
+                        try:
+                            from services.broker.alpaca_client import alpaca_client
+                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
+                        except Exception:
+                            pass
 
-                # 1. Başa Baş (Break-Even) Kontrolü (+%1.00 kârda)
+                # 1. Başa Baş (Break-Even) Kontrolü (+%2.50 kârda)
                 if not pos.break_even_activated and curr_price >= pos.break_even_trigger_price:
                     pos.break_even_activated = True
                     if pos.entry_price * 1.002 > pos.stop_loss_price:
-                        pos.stop_loss_price = round(pos.entry_price * 1.002, 2)
+                        old_sl = pos.stop_loss_price
+                        pos.stop_loss_price = round(pos.entry_price * 1.002, 5)
+                        logger.info(f"🛡️ [AI-RISK] {pos.symbol} kâra geçti. Başabaş (Break-Even) noktasına çekildi: ${old_sl} -> ${pos.stop_loss_price}")
+                        try:
+                            from services.broker.alpaca_client import alpaca_client
+                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=pos.stop_loss_price)
+                        except Exception:
+                            pass
 
                 # 2. TP Kontrolü (+%3.0)
                 if curr_price >= pos.target_profit_price:
@@ -630,17 +828,34 @@ class LiveTradeManager:
                 gross = (pos.entry_price - curr_price) * pos.quantity
                 pct = ((pos.entry_price - curr_price) / pos.entry_price) * 100.0
 
-                if pct > 2.0:
+                is_sniper = settings.current_risk_mode.upper() == "SNIPER"
+                trailing_trigger = 1.5 if is_sniper else 3.0
+                trailing_dist = 1.015 if is_sniper else 1.025
+
+                if pct > trailing_trigger:
                     pos.trailing_stop_activated = True
-                    # Stop seviyesini görülen en düşük fiyatın %1 üstüne çek
-                    new_sl = round(pos.highest_price_seen * 1.01, 2)
+                    new_sl = round(pos.highest_price_seen * trailing_dist, 5)
                     if new_sl < pos.stop_loss_price:
+                        old_sl = pos.stop_loss_price
                         pos.stop_loss_price = new_sl
+                        logger.info(f"🤖 [AI-TRAILING SHORT] {pos.symbol} için İzleyen Stop makası yapay zeka tarafından daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
+                        try:
+                            from services.broker.alpaca_client import alpaca_client
+                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
+                        except Exception:
+                            pass
 
                 if not pos.break_even_activated and curr_price <= pos.break_even_trigger_price:
                     pos.break_even_activated = True
                     if pos.entry_price * 0.998 < pos.stop_loss_price:
-                        pos.stop_loss_price = round(pos.entry_price * 0.998, 2)
+                        old_sl = pos.stop_loss_price
+                        pos.stop_loss_price = round(pos.entry_price * 0.998, 5)
+                        logger.info(f"🛡️ [AI-RISK SHORT] {pos.symbol} kâra geçti. Başabaş noktasına çekildi: ${old_sl} -> ${pos.stop_loss_price}")
+                        try:
+                            from services.broker.alpaca_client import alpaca_client
+                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=pos.stop_loss_price)
+                        except Exception:
+                            pass
 
                 if curr_price <= pos.target_profit_price:
                     self.close_position(pos_id, "CLOSED_TP")

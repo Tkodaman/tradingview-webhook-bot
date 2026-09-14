@@ -51,11 +51,30 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                         })
                 except Exception:
                     pass
+                # Varsayılan (Simülasyon Modu veya Alpaca kapalıysa)
+                effective_balance = live_trade_manager.account_balance
+                real_available_cash = live_trade_manager.available_cash
+                
+                # Canlı Alpaca bakiyelerini çek
+                try:
+                    from core.config import settings
+                    if settings.trading_mode in ["LIVE", "PAPER"]:
+                        from services.broker.factory import get_broker
+                        broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
+                        if broker and broker.api:
+                            alpaca_eq = float(broker.get_account_balance())
+                            raw_positions = broker.get_open_positions()
+                            active_assets = sum(float(p.get("market_value", 0)) for p in raw_positions)
+                            
+                            effective_balance = min(alpaca_eq, 5000.0)
+                            real_available_cash = max(0.0, effective_balance - active_assets)
+                except Exception:
+                    pass
 
                 summary = {
-                    "account_balance": live_trade_manager.account_balance,
-                    "available_cash": live_trade_manager.available_cash,
-                    "total_commissions_paid": live_trade_manager.total_commissions_paid,
+                    "account_balance": round(effective_balance, 2),
+                    "available_cash": round(real_available_cash, 2),
+                    "total_commissions_paid": round(live_trade_manager.total_commissions_paid, 2),
                     "active_positions": [p.dict() for p in live_trade_manager.positions.values() if p.status == "OPEN"]
                 }
                 

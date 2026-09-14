@@ -47,9 +47,19 @@ class AlpacaBroker(BaseBroker):
             return 0.0
         try:
             account = self.api.get_account()
-            return float(account.buying_power)
+            return float(account.equity)
         except Exception as e:
             logger.error(f"Alpaca: Error fetching balance: {e}")
+            return 0.0
+
+    def get_cash_balance(self) -> float:
+        if not self.api:
+            return 0.0
+        try:
+            account = self.api.get_account()
+            return float(account.cash)
+        except Exception as e:
+            logger.error(f"Alpaca: Error fetching cash: {e}")
             return 0.0
 
     def _format_symbol(self, symbol: str) -> str:
@@ -61,20 +71,24 @@ class AlpacaBroker(BaseBroker):
             return sym.replace("/", "")
         return sym
 
-    def place_market_order(self, symbol: str, side: str, qty: float) -> Dict[str, Any]:
+    def place_market_order(self, symbol: str, side: str, qty: float, limit_price: float = None) -> Dict[str, Any]:
         if not self.api:
             return {"status": "error", "message": "API not initialized"}
         
         try:
             alpaca_sym = self._format_symbol(symbol)
-            order = self.api.submit_order(
-                symbol=alpaca_sym,
-                qty=qty,
-                side=side.lower(),
-                type='market',
-                time_in_force='gtc' # Crypto requires gtc, day is often invalid for crypto
-            )
-            logger.info(f"Alpaca Market Order Placed: {side} {qty} {alpaca_sym} - OrderID: {order.id}")
+            kwargs = {
+                "symbol": alpaca_sym,
+                "qty": qty,
+                "side": side.lower(),
+                "type": 'market' if limit_price is None else 'limit',
+                "time_in_force": 'gtc'
+            }
+            if limit_price is not None:
+                kwargs["limit_price"] = limit_price
+                
+            order = self.api.submit_order(**kwargs)
+            logger.info(f"Alpaca {'Limit' if limit_price else 'Market'} Order Placed: {side} {qty} {alpaca_sym} - OrderID: {order.id}")
             return {"status": "success", "order_id": order.id, "details": order._raw}
         except Exception as e:
             logger.error(f"Alpaca Market Order Failed for {symbol}: {e}")
@@ -92,7 +106,7 @@ class AlpacaBroker(BaseBroker):
                 qty=qty,
                 side=side.lower(),
                 type='market',
-                time_in_force='gtc',
+                time_in_force='day',
                 order_class='bracket',
                 take_profit=dict(
                     limit_price=take_profit_price,

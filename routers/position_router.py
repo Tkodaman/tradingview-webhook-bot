@@ -13,6 +13,16 @@ class OpenPositionRequest(BaseModel):
     tp_pct: float = Field(3.0, description="Kâr Al Yüzdesi")
     sl_pct: float = Field(1.5, description="Zarar Kes Yüzdesi")
 
+class AutoTradeToggleRequest(BaseModel):
+    enabled: bool = Field(..., description="Tam Otonom Mod Durumu")
+
+@router.post("/toggle-auto-trade")
+async def toggle_auto_trade(req: AutoTradeToggleRequest):
+    from services.market_feed.live_stream import live_trade_manager
+    live_trade_manager.auto_trade_enabled = req.enabled
+    status_str = "AÇIK" if req.enabled else "KAPALI"
+    return {"status": "success", "message": f"Tam Otonom Mod {status_str} konuma getirildi."}
+
 @router.get("/active")
 async def get_active_positions():
     """
@@ -24,28 +34,71 @@ async def get_active_positions():
         if broker and broker.api:
             try:
                 # Canlı bakiye ve pozisyonları çek
-                # Kullanıcı isteği üzerine bot bütçesi her koşulda 3000$ (base_portfolio_size) sabitlenir.
-                # Alpaca'daki reel nakit ne olursa olsun, bot matematiksel hesaplarını bu bütçeye göre yapar.
-                effective_balance = live_trade_manager.total_account_equity
+                # Kullanıcı talebi: Gerçek Alpaca bütçesi akışa yansıtılmalı.
+                try:
+                    alpaca_eq = float(broker.get_account_balance())
+                    
+                    raw_positions = broker.get_open_positions()
+                    active_assets = sum(float(p.get("market_value", 0)) for p in raw_positions)
+                    
+                    effective_balance = float(alpaca_eq)
+                    real_available_cash = max(0.0, effective_balance - active_assets)
+                except Exception as e:
+                    effective_balance = live_trade_manager.total_account_equity
+                    real_available_cash = live_trade_manager.available_cash
+                    raw_positions = []
                 
-                raw_positions = broker.get_open_positions()
                 active_list = []
                 for p in raw_positions:
                     sym = p.get("symbol")
                     local_pos = next((lp for lp in live_trade_manager.positions.values() if lp.symbol == sym and lp.status == "OPEN"), None)
                     opened_at_val = local_pos.opened_at if local_pos else "Senkronize"
 
-                    entry_price = float(p.get("avg_entry_price", 0))
+                    entry_price = float(p.get("avg_entry_price") or 0.0)
                     side = "BUY" if p.get("side") == "long" else "SELL"
+                    qty = float(p.get("qty") or 0.0)
+                    
+                    # Alpaca'nın gecikmeli olabilen fiyatı yerine, TRADINGVIEW CANLI (WebSocket) fiyatını önceliklendir
+                    alpaca_curr_price = float(p.get("current_price") or 0.0)
+                    tv_price = 0.0
+                    
+                    # Sembol uyumluluğu kontrolü
+                    tv_sym = sym or ""
+                    if tv_sym.endswith("USD") and tv_sym != "USD": tv_sym = tv_sym.replace("USD", "USDT")
+                    
+                    # market_prices içinde TradingView'den gelen anlık son veri var
+                    if tv_sym in live_trade_manager.market_prices:
+                        tv_price = live_trade_manager.market_prices[tv_sym].get("price", 0.0)
+                        
+                    final_current_price = tv_price if tv_price > 0 else alpaca_curr_price
+                    
+                    # PnL'yi yeni fiyata göre baştan hesapla
+                    real_pnl = 0.0
+                    real_pnl_pct = 0.0
+                    if entry_price > 0 and final_current_price > 0:
+                        if side == "BUY":
+                            real_pnl = (final_current_price - entry_price) * qty
+                            real_pnl_pct = (final_current_price - entry_price) / entry_price * 100
+                        else:
+                            real_pnl = (entry_price - final_current_price) * qty
+                            real_pnl_pct = (entry_price - final_current_price) / entry_price * 100
                     
                     tp_price = 0.0
                     sl_price = 0.0
                     
-                    if entry_price > 0:
+                    if local_pos:
+                        tp_price = local_pos.target_profit_price
+                        sl_price = local_pos.stop_loss_price
+                        # Alpaca'dan gelen güncel fiyatı yerel pozisyona da yansıt (Senkronize kalsın)
+                        local_pos.current_price = final_current_price
+                    elif entry_price > 0:
                         dyn_tp_pct, dyn_sl_pct = 3.5, 1.75
-                        from services.engine.experience_memory_engine import experience_memory_engine
-                        if hasattr(experience_memory_engine, "get_dynamic_margins"):
-                            dyn_tp_pct, dyn_sl_pct = experience_memory_engine.get_dynamic_margins(sym)
+                        try:
+                            from services.engine.experience_memory_engine import experience_memory_engine
+                            if hasattr(experience_memory_engine, "get_dynamic_margins"):
+                                dyn_tp_pct, dyn_sl_pct = experience_memory_engine.get_dynamic_margins(sym)
+                        except Exception:
+                            pass
                             
                         if side == "BUY":
                             tp_price = entry_price * (1.0 + (dyn_tp_pct / 100.0))
@@ -60,18 +113,18 @@ async def get_active_positions():
                         "market": str(p.get("asset_class", "STOCK")).upper(),
                         "side": side,
                         "entry_price": entry_price,
-                        "current_price": float(p.get("current_price", 0)),
-                        "quantity": float(p.get("qty", 0)),
-                        "nominal_value": float(p.get("market_value", 0)),
+                        "current_price": final_current_price,
+                        "quantity": qty,
+                        "nominal_value": final_current_price * qty if final_current_price > 0 else float(p.get("market_value") or 0.0),
                         "target_profit_price": round(tp_price, 4),
                         "stop_loss_price": round(sl_price, 4),
-                        "unrealized_pnl": float(p.get("unrealized_pl", 0)),
-                        "unrealized_pnl_pct": float(p.get("unrealized_plpc", 0)) * 100,
+                        "unrealized_pnl": float(real_pnl if tv_price > 0 else (p.get("unrealized_pl") or 0.0)),
+                        "unrealized_pnl_pct": float(real_pnl_pct if tv_price > 0 else float(p.get("unrealized_plpc") or 0.0) * 100),
                         "opened_at": opened_at_val,
                         "status": "OPEN"
                     })
                 
-                real_available_cash = live_trade_manager.available_cash
+                # real_available_cash already fetched from broker above
                 
                 return {
                     "account_balance": round(effective_balance, 2),
@@ -104,17 +157,21 @@ async def open_live_position(req: OpenPositionRequest):
         from services.broker.alpaca_client import alpaca_client
 
         # 1. Anlık fiyatı al (lokalde yoksa Alpaca'dan çek)
-        live_trade_manager.get_live_prices()
-        curr_price = live_trade_manager.market_prices.get(req.symbol.upper(), {}).get("price", 0)
+        # NORMALIZE SYMBOL
+        req_sym = req.symbol.upper()
+        if req_sym.endswith("USD") and req_sym != "USD":
+            req_sym += "T"
+
+        curr_price = live_trade_manager.market_prices.get(req_sym, {}).get("price", 0)
         if curr_price == 0:
-            curr_price = alpaca_client.get_current_price(req.symbol)
+            curr_price = alpaca_client.get_current_price(req_sym)
             
         if curr_price == 0:
             return {"status": "error", "message": f"{req.symbol} için canlı fiyat alınamadı."}
 
         # 2. Her zaman lokal canlı yönetim motoruna (Dashboard için) pozisyon açtır
         pos = live_trade_manager.open_position(
-            symbol=req.symbol,
+            symbol=req_sym,
             capital=req.capital,
             side=req.side,
             tp_pct=req.tp_pct,
@@ -167,7 +224,7 @@ async def reset_account_balance():
         "status": "success",
         "account_balance": live_trade_manager.total_account_equity,
         "cash_balance": live_trade_manager.available_cash,
-        "message": "Kasa bakiyesi kesin olarak $1,000.00 tabanına sıfırlandı."
+        "message": "Kasa bakiyesi Alpaca üzerinden güncellenerek sıfırlandı."
     }
 
 @router.get("/daily-stats")
@@ -209,4 +266,30 @@ async def get_alpaca_clock():
         "timestamp": now.isoformat(),
         "next_open": now.isoformat(),
         "next_close": now.isoformat()
+    }
+
+@router.get("/history/summary")
+async def get_history_summary():
+    """Returns a summary and list of all historically closed positions."""
+    from services.market_feed.live_stream import live_trade_manager
+    history = live_trade_manager.trade_history
+    
+    total_trades = len(history)
+    winning_trades = 0
+    total_net_pnl = 0.0
+    
+    # Calculate stats
+    for trade in history:
+        pnl = float(trade.get("net_pnl", 0.0))
+        total_net_pnl += pnl
+        if pnl > 0:
+            winning_trades += 1
+            
+    win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
+    
+    return {
+        "total_trades": total_trades,
+        "win_rate": round(win_rate, 2),
+        "total_net_pnl": round(total_net_pnl, 2),
+        "recent_trades": history[:30] # Return up to 30 most recent for the UI table
     }

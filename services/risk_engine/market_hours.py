@@ -39,9 +39,9 @@ class MarketHoursValidator:
         s = symbol.upper()
         if s.startswith("BIST:") or s in cls.BIST_SYMBOLS:
             return "BIST"
-        if s.startswith("BINANCE:") or s.endswith("USDT") or s in cls.CRYPTO_SYMBOLS:
+        if s.startswith("BINANCE:") or s.startswith("CRYPTO:") or s.endswith("USDT") or (s.endswith("USD") and s != "USD") or s in cls.CRYPTO_SYMBOLS:
             return "CRYPTO"
-        clean = s.replace("BIST:", "").replace("NASDAQ:", "").replace("BINANCE:", "").replace("USDT", "")
+        clean = s.replace("BIST:", "").replace("NASDAQ:", "").replace("NYSE:", "").replace("BINANCE:", "").replace("USDT", "")
         if clean in cls.BIST_SYMBOLS:
             return "BIST"
         if clean in cls.US_SYMBOLS or s.startswith("NASDAQ:"):
@@ -148,8 +148,8 @@ class MarketHoursValidator:
                     "market": "NASDAQ", "is_open": True, "trt_time": current_time_str, "hours": "16:30 - 23:00 TRT"
                 }
             elif (11 * 60) <= current_minute < us_open_minute:
-                return True, f"🟡 NASDAQ Pre-Market Açık ({current_time_str} TRT)", {
-                    "market": "NASDAQ", "is_open": True, "session": "PRE_MARKET", "trt_time": current_time_str
+                return False, f"🟡 NASDAQ Pre-Market Açık Ancak Otonom İşlemlere Kapalı ({current_time_str} TRT)", {
+                    "market": "NASDAQ", "is_open": False, "session": "PRE_MARKET", "trt_time": current_time_str
                 }
             else:
                 return False, f"🔴 NASDAQ KAPALI: Seans saatleri dışındadır (İşlem Saatleri: 16:30 - 23:00 TRT). Şu an: {current_time_str} TRT", {

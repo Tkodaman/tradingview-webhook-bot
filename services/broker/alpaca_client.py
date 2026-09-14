@@ -101,6 +101,44 @@ class AlpacaClient:
             logger.error(f"❌ [ALPACA SYNC NETWORK ERROR] {e}")
             return None
 
+    def get_account_details(self) -> dict:
+        if not self.api_key or not self.api_secret:
+            return {}
+        try:
+            import requests
+            headers = {
+                "APCA-API-KEY-ID": self.api_key,
+                "APCA-API-SECRET-KEY": self.api_secret,
+                "accept": "application/json"
+            }
+            response = requests.get(f"{self.base_url}/account", headers=headers, timeout=2.0)
+            if response.status_code == 200:
+                return response.json()
+        except Exception as e:
+            logger.error(f"❌ [ALPACA ACCOUNT ERROR] {e}")
+        return {}
+
+    def get_account_balance(self) -> float:
+        """Gerçek hesap bakiyesi (Equity)"""
+        data = self.get_account_details()
+        if data and "equity" in data:
+            return float(data["equity"])
+        
+        # Fallback
+        from core.config import settings
+        return float(getattr(settings, "base_portfolio_size", 5000.0))
+
+    def get_available_cash(self) -> float:
+        """Kullanılabilir serbest nakit / alım gücü (Buying Power)"""
+        data = self.get_account_details()
+        if data and "buying_power" in data:
+            return float(data["buying_power"])
+            
+        # Fallback
+        from core.config import settings
+        return float(getattr(settings, "base_portfolio_size", 5000.0))
+
+
     def get_bid_ask_spread(self, symbol: str) -> float:
         """
         Fetches the latest quote (Bid and Ask) from Alpaca Data API and calculates the spread percentage.

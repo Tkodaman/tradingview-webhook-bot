@@ -10,19 +10,27 @@ class AssetUniverseManager:
     """
     def __init__(self):
         self.last_rotation_time = 0
-        self.rotation_interval_seconds = 3600  # Saat başı rotasyon (Öntanımlı)
+        self.rotation_interval_seconds = 300  # 5 dakikada bir momentum bazlı yeniden sıralama
 
         # Aktif hedeflenen havuz (Current targets)
         self.active_crypto_targets: List[str] = []
         self.active_bist_targets: List[str] = []
         self.active_nasdaq_targets: List[str] = []
 
-        # Master Universal Lists (Alpaca'nın şu an desteklediği sınırlı kripto varlıkları)
-        # Sistem sürekli Alpaca'dan red yemesin diye sadece %100 desteklenenler eklendi
+        # Master Universal Lists (Alpaca'nın ŞU AN AKTİF OLARAK desteklediği Kripto varlıkları)
+        # Sistem Alpaca'dan "Asset not found" red yememek için Alpaca'nın /v2/assets API'sinden
+        # bizzat onaylanmış tüm 33 adet trade edilebilir varlıkla güncellenmiştir.
         self.master_crypto_universe = [
-            "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:BCHUSDT", 
-            "BINANCE:LTCUSDT", "BINANCE:LINKUSDT"
-        ] # Sadece Alpaca destekli varlıklar
+            "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:SOLUSDT", "BINANCE:DOGEUSDT",
+            "BINANCE:AVAXUSDT", "BINANCE:ADAUSDT", "BINANCE:DOTUSDT", "BINANCE:UNIUSDT",
+            "BINANCE:SHIBUSDT", "BINANCE:POLUSDT", "BINANCE:AAVEUSDT", "BINANCE:CRVUSDT",
+            "BINANCE:GRTUSDT", "BINANCE:BATUSDT", "BINANCE:SUSHIUSDT", "BINANCE:LINKUSDT",
+            "BINANCE:BCHUSDT", "BINANCE:LTCUSDT", "BINANCE:XRPUSDT", "BINANCE:YFIUSDT",
+            "BINANCE:PEPEUSDT", "BINANCE:WIFUSDT", "BINANCE:RENDERUSDT", "BINANCE:BONKUSDT",
+            "BINANCE:ARBUSDT", "BINANCE:ONDOUSDT", "BINANCE:LDOUSDT", "BINANCE:FILUSDT",
+            "BINANCE:XTZUSDT", "BINANCE:PAXGUSDT", "CRYPTO:TRUMPUSD", "CRYPTO:SKYUSD", 
+            "CRYPTO:HYPEUSD"
+        ] # Tam destekli ve likiditesi yüksek Alpaca Kripto Listesi (Maksimum Kapasite)
         
         self.master_bist_universe = [
             "BIST:THYAO", "BIST:ASELS", "BIST:EREGL", "BIST:TUPRS", "BIST:KCHOL",
@@ -34,44 +42,155 @@ class AssetUniverseManager:
         ] # 30 assets
 
         self.master_nasdaq_universe = [
+            # Top-Tier Big Tech & Growth
             "NASDAQ:NVDA", "NASDAQ:AAPL", "NASDAQ:MSFT", "NASDAQ:AMZN", "NASDAQ:GOOGL",
             "NASDAQ:GOOG", "NASDAQ:META", "NASDAQ:TSLA", "NASDAQ:AVGO", "NASDAQ:AMD",
             "NASDAQ:COST", "NASDAQ:NFLX", "NASDAQ:TMUS", "NASDAQ:ASML", "NASDAQ:PEP",
             "NASDAQ:LIN", "NASDAQ:CSCO", "NASDAQ:ADBE", "NASDAQ:TXN", "NASDAQ:QCOM",
+            
+            # High Momentum & AI / Chips
             "NASDAQ:AMAT", "NASDAQ:ISRG", "NASDAQ:CMCSA", "NASDAQ:INTU", "NASDAQ:AMGN",
             "NASDAQ:BKNG", "NASDAQ:HON", "NASDAQ:VRTX", "NASDAQ:LRCX", "NASDAQ:PANW",
             "NASDAQ:MU", "NASDAQ:REGN", "NASDAQ:ADP", "NASDAQ:ADI", "NASDAQ:MDLZ",
             "NASDAQ:KLAC", "NASDAQ:SNPS", "NASDAQ:CDNS", "NASDAQ:SBUX", "NASDAQ:INTC",
-            "NASDAQ:GILD", "NASDAQ:MELI", "NASDAQ:CRWD", "NASDAQ:PYPL", "NASDAQ:CTAS",
-            "NASDAQ:CSX", "NASDAQ:MAR", "NASDAQ:ORLY", "NASDAQ:ABNB", "NASDAQ:MNST",
-            "NASDAQ:NXPI", "NASDAQ:WDAY", "NASDAQ:FTNT", "NASDAQ:AEP", "NASDAQ:ROST",
-            "NASDAQ:PLTR", "NASDAQ:COIN", "NASDAQ:MDB", "NASDAQ:ARM", "NASDAQ:QQQ",
-            "NASDAQ:SMCI", "NASDAQ:ZS", "NASDAQ:MSTR", "NASDAQ:DDOG"
-        ] # 64 assets
+            "NASDAQ:SMCI", "NASDAQ:ARM", "NASDAQ:MRVL", "NYSE:DELL", "NYSE:HPE", 
+            "NASDAQ:WDC", "NASDAQ:STX", "NYSE:ANET", "NYSE:AI", "NYSE:TSM",
+            
+            # Cloud, Cybersecurity & Software
+            "NASDAQ:CRWD", "NASDAQ:PYPL", "NASDAQ:CTAS", "NASDAQ:CSX", "NASDAQ:MAR",
+            "NASDAQ:ORLY", "NASDAQ:ABNB", "NASDAQ:MNST", "NASDAQ:NXPI", "NASDAQ:WDAY",
+            "NASDAQ:FTNT", "NASDAQ:AEP", "NASDAQ:ROST", "NYSE:PLTR", "NASDAQ:MDB",
+            "NASDAQ:ZS", "NASDAQ:DDOG", "NYSE:CRM", "NYSE:NOW", "NASDAQ:TEAM", 
+            "NYSE:NET", "NYSE:SNOW", "NYSE:DOCN", "NASDAQ:OKTA", "NASDAQ:ZM", 
+            "NYSE:TWLO", "NASDAQ:ROKU", "NYSE:U", "NASDAQ:TTD", "NYSE:PATH",
+            
+            # FinTech, E-Commerce & Retail
+            "NASDAQ:MELI", "NYSE:SHOP", "NYSE:SQ", "NYSE:SPOT", "NYSE:RBLX",
+            "NASDAQ:SOFI", "NASDAQ:AFRM", "NYSE:V", "NYSE:MA", "NYSE:AXP",
+            "NYSE:JPM", "NYSE:BAC", "NYSE:GS", "NYSE:MS", "NYSE:BLK",
+            "NYSE:WMT", "NYSE:TGT", "NYSE:HD", "NYSE:MCD", "NYSE:NKE",
+            "NASDAQ:LULU", "NYSE:DIS", "NYSE:SONY", "NYSE:RACE", "NYSE:UBER",
+            
+            # Crypto-Adjacent & Memes
+            "NASDAQ:COIN", "NASDAQ:MSTR", "NASDAQ:MARA", "NASDAQ:RIOT", "NASDAQ:CLSK",
+            "NASDAQ:HOOD", "NASDAQ:IREN", "NASDAQ:CIFR", "NASDAQ:HUT", "NASDAQ:GME", 
+            "NYSE:AMC", "NYSE:RDDT",
+            
+            # Biotech, Pharma & Health
+            "NASDAQ:GILD", "NYSE:LLY", "NYSE:NVO", "NYSE:PFE", "NYSE:MRK",
+            "NYSE:ABBV", "NYSE:JNJ", "NASDAQ:BIIB", "NASDAQ:MRNA", "NASDAQ:ILMN",
+            "NYSE:UNH", "NYSE:PG",
+            
+            # EV, Auto, Energy & Industrials
+            "NASDAQ:RIVN", "NASDAQ:LCID", "NYSE:F", "NYSE:GM", "NYSE:XOM", 
+            "NYSE:CVX", "NYSE:OXY", "NASDAQ:ENPH", "NASDAQ:FSLR", "NASDAQ:SEDG",
+            "NASDAQ:SPWR", "NYSE:BA", "NYSE:CAT", "NYSE:GE", "NYSE:LMT",
+            "NYSE:RTX", "NYSE:NOC", "NYSE:GD",
+            
+            # Indexes / ETFs (For Macro Baseline)
+            "NASDAQ:QQQ", "AMEX:SPY", "AMEX:DIA", "AMEX:IWM"
+        ] # 150+ Mega & Volatile US Stocks
         
         self.target_crypto_count = 40
         self.target_bist_count = 20
-        self.target_nasdaq_count = 60
+        self.target_nasdaq_count = 150
 
         self._force_rotation()
 
+    def _momentum_score(self, ticker: str) -> float:
+        """
+        Kazan-Kazan Erken Trend (Yarış) Skoru
+        Yükselişini tamamlamamış, patlama potansiyelli varlıkları öne alır.
+        Canlı veri yoksa 0 döner (tüm varlıklar eşit muamele görür).
+        """
+        try:
+            from services.data_ingestion.tradingview_live_client import tradingview_live_client
+            sym = ticker.split(":")[-1]
+            cached = {
+                **tradingview_live_client.cached_us_data,
+                **tradingview_live_client.cached_tr_data,
+                **tradingview_live_client.cached_crypto_data
+            }
+            d = cached.get(sym)
+            if not d:
+                return 0.0
+            rsi = float(d.get("rsi", 50))
+            vol_ratio = float(d.get("volume_ratio", 1.0))
+            chg = float(d.get("change_pct", 0.0))
+            ema_gc = bool(d.get("ema_golden_cross", False))
+            cmf = float(d.get("cmf", 0.0))
+            adx = float(d.get("adx", 20.0))
+
+            score = 0.0
+            # 1. Yükselişini tamamlamamış Erken Trend (RSI 40-60 = taze ivme)
+            if 38.0 <= rsi <= 62.0:
+                score += 30.0
+            elif 62.0 < rsi <= 72.0:
+                score += 10.0
+            elif rsi > 72.0:
+                score -= 20.0  # Zirveye yakın ceza
+
+            # 2. Balina / Hacim Patlaması
+            if vol_ratio >= 2.0:
+                score += 40.0
+            elif vol_ratio >= 1.5:
+                score += 25.0
+            elif vol_ratio >= 1.2:
+                score += 10.0
+
+            # 3. Fiyat Momentumu (pozitif değişim)
+            if chg >= 1.5:
+                score += 20.0
+            elif chg >= 0.5:
+                score += 10.0
+            elif chg < -2.0:
+                score -= 15.0  # Serbest düşüş cezası
+
+            # 4. EMA Golden Cross (Taze Kırılım)
+            if ema_gc:
+                score += 15.0
+
+            # 5. CMF (Kurumsal Para Girişi)
+            if cmf > 0.10:
+                score += 10.0
+            elif cmf < -0.10:
+                score -= 10.0
+
+            # 6. ADX Trend Gücü
+            if adx >= 30.0:
+                score += 5.0
+
+            return score
+        except Exception:
+            return 0.0
+
     def _force_rotation(self):
-        """Tüm grupları ML/Volatilite (simüle) tabanlı olarak yeniden oluşturur"""
+        """
+        KAZAN-KAZAN Momentum Öncelikli Akıllı Rotasyon
+        Canlı veriler varsa yükselişini tamamlamamış, patlayan varlıkları öne alır.
+        Canlı veri yoksa rastgele sıralar (başlangıç güvenliği).
+        """
         self.last_rotation_time = time.time()
-        
-        # Basitçe shuffle yapıp ilk N tanesini alarak "dinamik ML seçimi" mantığını işletiyoruz.
-        # Gerçek üretimde buralar hacim ve volatilite apilerinden süzülür.
-        shuffled_crypto = list(self.master_crypto_universe)
-        random.shuffle(shuffled_crypto)
-        self.active_crypto_targets = shuffled_crypto[:self.target_crypto_count]
-        
-        shuffled_bist = list(self.master_bist_universe)
-        random.shuffle(shuffled_bist)
-        self.active_bist_targets = sorted(shuffled_bist[:self.target_bist_count])
-        
-        shuffled_nasdaq = list(self.master_nasdaq_universe)
-        random.shuffle(shuffled_nasdaq)
-        self.active_nasdaq_targets = sorted(shuffled_nasdaq[:self.target_nasdaq_count])
+
+        # Momentum skorlarıyla sırala (yüksek skor = öne al)
+        def sort_by_momentum(universe: list) -> list:
+            try:
+                scored = [(t, self._momentum_score(t)) for t in universe]
+                scored.sort(key=lambda x: x[1], reverse=True)
+                return [t for t, _ in scored]
+            except Exception:
+                shuffled = list(universe)
+                random.shuffle(shuffled)
+                return shuffled
+
+        sorted_crypto = sort_by_momentum(self.master_crypto_universe)
+        self.active_crypto_targets = sorted_crypto[:self.target_crypto_count]
+
+        sorted_bist = sort_by_momentum(self.master_bist_universe)
+        self.active_bist_targets = sorted_bist[:self.target_bist_count]
+
+        sorted_nasdaq = sort_by_momentum(self.master_nasdaq_universe)
+        self.active_nasdaq_targets = sorted_nasdaq[:self.target_nasdaq_count]
 
         # Benchmark'ların (RS Line için) her zaman izlendiğinden emin ol
         if "BINANCE:BTCUSDT" not in self.active_crypto_targets:

@@ -132,20 +132,29 @@ class TradingViewAutoStrategyRunner:
                 base_tp = 2.0
                 base_sl = 2.0
             
-            if 40.0 <= rsi <= 80.0:
-                score += 1
-            if macd >= -0.50:
+            # 1. Temel İndikatörler (Yükselişini tamamlamamış, ivmelenen varlıklar)
+            if 40.0 <= rsi <= 60.0:
+                score += 2 # Erken Trend Onayı
+            elif 60.0 < rsi <= 72.0:
+                score += 1 
+            if macd >= 0.0:
                 score += 1
             if ema_golden:
-                score += 1
+                score += 2 # Güçlü sinyal
             if vwap_bull:
                 score += 1
-            if vol_ratio >= 0.70:
+            if vol_ratio >= 1.5:
+                score += 3 # Hacim patlaması (Balina)
+            elif vol_ratio >= 0.80:
                 score += 1
-            if 20.0 <= stoch_k <= 90.0:
+            if 20.0 <= stoch_k <= 80.0:
                 score += 1
-            if adx >= 15.0:
+            if adx >= 20.0:
                 score += 1
+
+            # ML Katkısı (Otonom Ödül Puanı)
+            ml_modifier = mem_check.get("confidence_modifier", 0.0)
+            score += int(ml_modifier * 10.0) # +0.20 -> +2 Puan, -0.20 -> -2 Puan
             
             # Komut 11: OBV & RS Line Puanlaması
             if cmf > 0.05:
@@ -192,8 +201,8 @@ class TradingViewAutoStrategyRunner:
                     logger.info(f"[QUANT-TRADING] {sym} Volatility Breakout (Bollinger Squeeze Anomaly) tespit edildi.")
 
             # Kripto için Çok Katı (Sıkı) Onay Eşiği ve Premium Agent Hibrit Kararı
-            # YENİ: KULLANICI RİSK MODUNA GÖRE DİNAMİK DAR BOĞAZ (BOTTLENECK) YÖNETİMİ
-            # Kullanıcının sesli mesajdaki haklı şikayeti: "Çok sıkıştırılmış, dar boğaz var".
+            # Piyasa türünü hacim kurallarında kullanmak için önceden alalım
+            market_type = market_hours_validator.get_market_type(sym)
             current_mode = settings.current_risk_mode.upper()
             
             # Varsayılan (NORMAL)
@@ -202,9 +211,16 @@ class TradingViewAutoStrategyRunner:
             global_max_pos = 10 # En fazla 5 pozisyon olabilir
             market_pos_multiplier = 1.0
             
-            if current_mode == "AGGRESSIVE":
-                required_score = 1  # Kullanıcı talebi: Anında eyleme geçmesi için eşik 1'e indirildi
-                min_vol = 0.0       # Hacim dar boğazı tamamen kaldırıldı
+            if current_mode == "SNIPER":
+                required_score = 3  # Balina dalgası için az sayıda sinyal yeterli
+                # Kriptoda 0.4x, NASDAQ'da 0.7x hacim (BIST için 1.0)
+                min_vol = 0.4 if market_type == "CRYPTO" else (0.7 if market_type == "NASDAQ" else 1.0)
+                global_max_pos = 15
+                market_pos_multiplier = 2.0
+            elif current_mode == "AGGRESSIVE":
+                required_score = 3  # Puan şartı 3
+                # Kriptoda 0.6x, NASDAQ'da 0.8x hacim (BIST için 0.7)
+                min_vol = 0.6 if market_type == "CRYPTO" else (0.8 if market_type == "NASDAQ" else 0.7)
                 global_max_pos = 15
                 market_pos_multiplier = 2.0 # Kripto limitini 4'ten 8'e çıkarır
             elif current_mode == "NORMAL":
@@ -224,14 +240,13 @@ class TradingViewAutoStrategyRunner:
 
             # Hacim filtresi (Tüm piyasalar için Risk moduna göre)
             if vol_ratio < min_vol:
-                logger.debug(f"[RISK SHIELD] {sym} Hacim yetersiz (Ratio: {vol_ratio:.2f} < {min_vol}). Mod: {current_mode}")
+                logger.info(f"[RISK SHIELD] {sym} Hacim yetersiz (Ratio: {vol_ratio:.2f} < {min_vol}). Mod: {current_mode}")
                 continue
 
             if not is_buy_signal:
-                logger.debug(f"[SCORE SHIELD] {sym} Sinyal zayıf ({score}/{required_score}). Mod: {current_mode}")
+                logger.info(f"[SCORE SHIELD] {sym} Sinyal zayıf ({score}/{required_score}). Mod: {current_mode}")
                 continue
             # O2 DÜZELTİLDİ: Piyasa başı açık pozisyon limiti kontrolü
-            market_type = market_hours_validator.get_market_type(sym)
             max_pos_for_market = int(RISK_PARAMS.get("max_positions_per_market", {}).get(market_type, 3) * market_pos_multiplier)
             open_pos_in_market = sum(
                 1 for p in live_trade_manager.positions.values()
@@ -274,7 +289,11 @@ class TradingViewAutoStrategyRunner:
             if open_pos:
                 # AKILLI ERKEN ÇIKIŞ (Smart Exit)
                 # Kârdayken momentum düşerse TP beklemeden cebe at
-                if open_pos.unrealized_pnl_pct >= 1.5:
+                if current_mode == "SNIPER" and open_pos.unrealized_pnl_pct >= 0.5:
+                    if rsi < 70.0 or vol_ratio < 1.0:
+                        logger.info(f"[SNIPER SMART EXIT] {sym} dalga sönümleniyor (RSI: {rsi:.1f}, Vol: {vol_ratio:.2f}). Erken kâr alımı tetikleniyor.")
+                        live_trade_manager.close_position(open_pos.id, "CLOSED_EARLY")
+                elif open_pos.unrealized_pnl_pct >= 1.5:
                     if rsi < 55.0 or vol_ratio < 0.8:
                         logger.info(f"[SMART EXIT] {sym} %{open_pos.unrealized_pnl_pct} kârda ancak momentum zayıfladı (RSI: {rsi:.1f}, Vol: {vol_ratio:.2f}). Erken kâr alımı (CLOSED_EARLY) tetikleniyor.")
                         live_trade_manager.close_position(open_pos.id, "CLOSED_EARLY")
@@ -355,7 +374,7 @@ class TradingViewAutoStrategyRunner:
                 target_sl_price = round(price * (1 - (base_sl / 100)), 4)
 
                 signal = WebhookSignal(
-                    passphrase="secret_key",
+                    passphrase=settings.passphrase,  # settings'den al
                     action="BUY",
                     symbol=sym,
                     price=price,
@@ -365,15 +384,18 @@ class TradingViewAutoStrategyRunner:
                     account_equity=dyn_cap,
                     market_position="long",
                     indicators={
-                        "rsi": rsi, 
-                        "volatility": atr_pct, 
+                        "rsi": rsi,
+                        "volatility": atr_pct,
+                        "atr_pct": atr_pct,
                         "volume_ratio": vol_ratio,
                         "cmf": cmf,
                         "rs_score": rs_score,
                         "supertrend_bullish": supertrend_bullish,
-                        "trend_conflict": trend_conflict
+                        "trend_conflict": trend_conflict,
+                        "adx": adx,
+                        "stoch_k": stoch_k
                     },
-                    macro_tags=[f"STRATEGY_{strategy_tag}", f"SCORE_{score}_OF_8"]
+                    macro_tags=[f"STRATEGY_{strategy_tag}", f"SCORE_{score}_OF_8", f"MODE_{current_mode}"]
                 )
                 res = process_order(signal)
                 # Y1 AUTO-RUNNER için journal kaydı (process_order içinde de yapılıyor, burada ek log)

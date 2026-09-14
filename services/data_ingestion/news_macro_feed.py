@@ -35,11 +35,12 @@ class NewsMacroFeedService:
     def __init__(self):
         self.cached_news: List[Dict[str, Any]] = []
         self.last_fetch_time = 0.0
-        self.cache_ttl = 300 # 5 minutes
+        self.cache_ttl = 900  # 15 dakika - RSS trafiği azaltıldı, darboğaz önlendi
 
     def fetch_live_news(self) -> List[Dict[str, Any]]:
         """
         RSS kaynaklarından ve finansal akışlardan haberleri çeker ve etiketler.
+        Not: Bot kritik yolunda (sinyal -> emir) çağrılmaz; arka planda önbelleklenir.
         """
         now = time.time()
         if self.cached_news and (now - self.last_fetch_time < self.cache_ttl):
@@ -56,19 +57,12 @@ class NewsMacroFeedService:
                     link = getattr(entry, "link", "")
                     
                     analysis = self.analyze_text_sentiment(f"{title} {summary}")
-                    
-                    # Çeviri işlemi (İngilizce -> Türkçe)
-                    try:
-                        tr_title = GoogleTranslator(source='auto', target='tr').translate(title) if title else ""
-                        tr_summary = GoogleTranslator(source='auto', target='tr').translate(summary[:200]) if summary else ""
-                    except Exception as trans_err:
-                        logger.warning(f"Translation error: {trans_err}")
-                        tr_title = title
-                        tr_summary = summary[:200]
 
+                    # Çeviri kaldırıldı: RSS içeriği İngilizce sentiment analizi için yeterli,
+                    # GoogleTranslate + sleep(0.25) darboğazı sistemi kilitliyordu.
                     news_items.append({
-                        "title": tr_title,
-                        "summary": tr_summary,
+                        "title": title,
+                        "summary": summary[:200],
                         "published": published,
                         "link": link,
                         "sentiment_score": analysis["sentiment_score"],
@@ -76,6 +70,7 @@ class NewsMacroFeedService:
                         "category": analysis["category"],
                         "keywords_matched": analysis["keywords_matched"]
                     })
+
             except Exception as e:
                 logger.warning(f"Error fetching RSS from {feed_url}: {e}")
 

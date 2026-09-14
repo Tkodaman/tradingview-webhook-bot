@@ -32,13 +32,12 @@ def get_auto_runner_status():
     """
     7/24 Kesintisiz Otonom Motorun Çalışma Durumu
     """
-    triggers = tv_auto_runner.evaluate_live_market_and_trigger() if tv_auto_runner.is_running else []
     return {
         "status": "success",
         "is_running": tv_auto_runner.is_running,
-        "scan_interval_seconds": getattr(tv_auto_runner, "scan_interval_seconds", 5),
-        "capital_per_trade": tv_auto_runner.trade_capital,
-        "recent_triggers": triggers
+        "scan_interval_seconds": getattr(tv_auto_runner, "scan_interval_seconds", 3.0),
+        "capital_per_trade": tv_auto_runner.trade_capital if hasattr(tv_auto_runner, 'trade_capital') else 100.0,
+        "recent_triggers": []
     }
 
 class AutonomousLabRequest(BaseModel):

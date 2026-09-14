@@ -39,10 +39,17 @@ class Settings(BaseSettings):
 
     def apply_risk_mode(self, mode: str):
         self.current_risk_mode = mode.upper()
-        if self.current_risk_mode == "AGGRESSIVE":
-            self.max_risk_score_allowed = 60.0
-            self.high_risk_threshold = 40.0
-            self.volume_anomaly_ratio_threshold = 0.5
+        if self.current_risk_mode == "SNIPER":
+            self.max_risk_score_allowed = 92.0
+            self.high_risk_threshold = 82.0
+            # SNIPER: auto_runner'ın kendi balina filtresi devreye girer (vol_ratio>=1.5)
+            # hard_rules'da bu eşiği düşür ki auto_runner'ın seçtikleri geçebilsin
+            self.volume_anomaly_ratio_threshold = 0.3  # Fiili filtreyi auto_runner yapıyor
+            self.max_capital_per_trade_pct = 15.0  # Balina vurunca tam güç
+        elif self.current_risk_mode == "AGGRESSIVE":
+            self.max_risk_score_allowed = 88.0  # Yüksek tolerans
+            self.high_risk_threshold = 60.0
+            self.volume_anomaly_ratio_threshold = 0.4
             self.max_capital_per_trade_pct = 15.0
         elif self.current_risk_mode == "TIGHT":
             self.max_risk_score_allowed = 90.0

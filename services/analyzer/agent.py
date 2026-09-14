@@ -1,4 +1,5 @@
 from typing import Dict, Any, List
+import time
 from core.logger import logger
 from schemas.webhook import WebhookSignal, RiskAnalysisResult
 from services.data_ingestion.market_feed import market_feed
@@ -11,29 +12,58 @@ class AutonomousMarketAgent:
     Arka Planda Otomatik Tetiklenen Piyasa Analizör & 10-Skill Denetim Ajanı
     Webhook sinyali geldiğinde:
     1. Canlı teknik piyasa koşullarını ve indikatörleri çeker.
-    2. Küresel haber ve makroekonomik duygu analizini yapar.
+    2. Küresel haber ve makroekonomik duygu analizini (önbellekten) yapar.
     3. Dereceli sayısal risk motorunu çalıştırır.
     4. 10 Borsa Yeteneğini (Skills Suite) eş zamanlı test ve denetimden geçirir.
     5. Sert kural filtresi sonuçlarını ve emir kararını hazırlar.
     """
     def __init__(self):
         self.decision_history: List[Dict[str, Any]] = []
+        # Makro analizi önbelleği: sık RSS çekimini önlemek için sınıf düzeyinde sakla
+        self._cached_macro: Dict[str, Any] = {}
+        self._macro_cache_time: float = 0.0
+        self._macro_cache_ttl: float = 600.0  # 10 dakika - makro şok anlık değil
+
+    def _get_cached_macro(self, symbol: str, macro_tags) -> Dict[str, Any]:
+        """
+        Makro riski önbellekten al. Eğer önbellek tazeye yeni RSS çekmez,
+        zaten kilitli olmayan fallback döner → kritik yolu temiz tutar.
+        """
+        now = time.time()
+        if self._cached_macro and (now - self._macro_cache_time < self._macro_cache_ttl):
+            return self._cached_macro  # Önbellekten dön, RSS yok
+        try:
+            result = news_macro_feed.evaluate_macro_risk(
+                symbol=symbol,
+                custom_macro_tags=macro_tags
+            )
+            self._cached_macro = result
+            self._macro_cache_time = now
+            return result
+        except Exception as e:
+            logger.warning(f"[MACRO CACHE MISS] RSS erişilemedi, nötr değer kullanılıyor: {e}")
+            # Nötr fallback: blok yok, sıfır etki
+            return {
+                "average_sentiment": 0.0,
+                "max_macro_impact": 0.0,
+                "macro_risk_score": 30.0,  # nötr - ne çok yüksek ne çok düşük
+                "high_risk_alerts": [],
+                "recent_news_count": 0,
+                "macro_state": "NEUTRAL"
+            }
 
     def analyze_and_evaluate(self, signal: WebhookSignal) -> Dict[str, Any]:
         logger.info(f"[AGENT TRIGGERED] Analyzing incoming signal for {signal.symbol} ({signal.action})")
 
-        # 1. Teknik & Piyasa Verisi Analizi
+        # 1. Teknik & Piyasa Verisi Analizi (hızlı - yerel hesaplama)
         market_analysis = market_feed.analyze_market_conditions(
             symbol=signal.symbol,
             current_price=signal.price,
             indicators=signal.indicators
         )
 
-        # 2. Makroekonomik, Jeopolitik ve Haber Duygu Analizi
-        macro_analysis = news_macro_feed.evaluate_macro_risk(
-            symbol=signal.symbol,
-            custom_macro_tags=signal.macro_tags
-        )
+        # 2. Makroekonomik Analiz (ÖNBELLEKten - RSS yok, blok yok)
+        macro_analysis = self._get_cached_macro(signal.symbol, signal.macro_tags)
 
         # 3. Dereceli Sayısal Risk ve Sert Kurallar Denetimi
         risk_result: RiskAnalysisResult = risk_evaluator.evaluate(

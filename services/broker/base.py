@@ -9,12 +9,18 @@ class BaseBroker(ABC):
     
     @abstractmethod
     def get_account_balance(self) -> float:
-        """Returns available buying power in USD/TRY."""
+        """Returns total account equity (cash + holdings)."""
+        pass
+        
+    @abstractmethod
+    def get_cash_balance(self) -> float:
+        """Returns available free cash."""
         pass
 
     @abstractmethod
-    def place_market_order(self, symbol: str, side: str, qty: float) -> Dict[str, Any]:
-        """Places a simple market order."""
+    @abstractmethod
+    def place_market_order(self, symbol: str, side: str, qty: float, limit_price: float = None) -> Dict[str, Any]:
+        """Places a simple market or limit entry order."""
         pass
         
     @abstractmethod
