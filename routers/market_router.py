@@ -3,18 +3,28 @@ from fastapi import APIRouter
 from services.data_ingestion.tradingview_live_client import tradingview_live_client
 from services.risk_engine.market_hours import market_hours_validator
 from services.market_feed.live_stream import live_trade_manager
+from services.risk_engine.fakeout_guard import fakeout_guard
 
 router = APIRouter()
 rsi_history = {}
 
+# 30 saniyelik cache — her cagri TradingView'e gitmez
+_matrix_cache = {"data": None, "ts": 0}
+_CACHE_TTL = 30  # saniye
+
 @router.get("/live-matrix")
 async def get_live_buy_sell_wait_matrix():
     """
-    Anlık Gerçek Zamanlı BUY / SELL / WAIT Canlı Sinyal Kokpiti
-    Taranan tüm NASDAQ (60), BIST (10) ve KRİPTO (20) varlıklarının anlık sinyal durumunu hesaplar.
-    Piyasa açık/kapalı durumunu kontrol eder ve gruplandırır.
+    Anlik Gercek Zamanli BUY / SELL / WAIT Canli Sinyal Kokpiti
+    30 saniye önbellekle TradingView yükünü azaltır.
     """
+    global _matrix_cache
+    now = time.time()
+    if _matrix_cache["data"] is not None and (now - _matrix_cache["ts"]) < _CACHE_TTL:
+        return _matrix_cache["data"]
+
     live_data = tradingview_live_client.fetch_live_market_data()
+
     overview = market_hours_validator.get_market_overview()
     matrix_results = []
     t_sec = int(time.time() * 1.5)
@@ -51,41 +61,32 @@ async def get_live_buy_sell_wait_matrix():
             if 40.0 <= min_recent_rsi <= 50.0 and hist[-1] > hist[-2]:
                 rsi_climbed_from_40 = True
 
-        # OTONOM ML & YÜKSELİŞ POTANSİYELİ PUANLAMASI (Kazan-Kazan Erken Keşif)
+        # OTONOM ML & YÜKSELİŞ POTANSİYELİ PUANLAMASI (Standart Yarış Modu)
         score = 0
         
-        # 1. Temel İndikatörler (Yükselişini tamamlamamış, ivmelenen varlıklar)
-        if 40.0 <= rsi <= 60.0: score += 2 # Henüz şişmemiş, potansiyelli
-        elif 60.0 < rsi <= 72.0: score += 1 # Trendde ama yolun yarısında
+        # 1. Temel İndikatörler (Tüm algoritmik değerler standart yarışır)
+        if rsi >= 60.0: score += 2 # Güçlü trend
+        elif rsi >= 50.0: score += 1 # Pozitif bölge
+        
         if macd >= 0.0: score += 1
         if data.get("ema_golden_cross", False): score += 2 # Güçlü sinyal
         if data.get("vwap_bullish", False): score += 1
+        
         if vol_ratio >= 1.5: score += 3 # Hacim patlaması (Balina)
         elif vol_ratio >= 0.80: score += 1
+        
         if 20.0 <= data.get("stoch_k", 50.0) <= 80.0: score += 1
         if data.get("adx", 25.0) >= 20.0: score += 1 # Trend yeni başlıyor/güçleniyor
         if data.get("cmf", 0.0) > 0.10: score += 2 # Yüksek Kurumsal Giriş
-        if chg >= 0.5 and vol_ratio >= 1.2: score += 3 # Momentum Impulse (Dipten Dönüş)
-
-        # ==========================================
-        # KAZAN-KAZAN ERKEN PATLAMA TESPITI
-        # "Yükselişini tamamlamamış" varlıklar için mega bonus
-        # ==========================================
-        momentum_phase = "NEUTRAL"  # Varsayılan
+        if chg >= 0.5 and vol_ratio >= 1.2: score += 2 # Momentum Impulse
         
-        # A. ERKEN PATLAMA: RSI 35-55 bölgesinde hacim patlaması var
-        if 35.0 <= rsi <= 55.0 and vol_ratio >= 1.5 and chg >= 0.5:
-            score += 5  # Mega bonus: yükseliş henüz başlıyor
-            momentum_phase = "EARLY_EXPLOSION"
-        # B. TAZE İVME: RSI 40-60 arasında EMA Golden Cross taze kırılım
-        elif 40.0 <= rsi <= 62.0 and data.get("ema_golden_cross", False):
-            score += 3
-            momentum_phase = "FRESH_BREAKOUT"
-        # C. BALINA DALGASI: vol_ratio >= 2.0 her durumda
-        elif vol_ratio >= 2.0:
+        momentum_phase = "NEUTRAL"
+        if vol_ratio >= 2.0:
             score += 4
             momentum_phase = "WHALE_WAVE"
-        # D. ZİRVEYE YAKIN (Ceza): RSI > 72 ve zaten çok yükselmiş
+        elif 50.0 <= rsi <= 70.0 and data.get("ema_golden_cross", False):
+            score += 3
+            momentum_phase = "FRESH_BREAKOUT"
         elif rsi > 72.0 and chg > 3.0:
             score -= 3
             momentum_phase = "PEAK_RISK"
@@ -100,10 +101,45 @@ async def get_live_buy_sell_wait_matrix():
         
         open_pos = next((p for p in live_trade_manager.positions.values() if p.symbol.upper() == sym.upper() and p.status == "OPEN"), None)
         
+        # === KAZAN-KAZAN: RİSK KALKANI ENTEGRASYONU (DASHBOARD SKORU İÇİN) ===
+        stoch_k = data.get("stoch_k", 50.0)
+        cmf = data.get("cmf", 0.0)
+        atr_pct = data.get("atr_pct", 1.5)
+        adx = data.get("adx", 25.0)
+        ema_golden = data.get("ema_golden_cross", False)
+        supertrend_bullish = data.get("supertrend_bullish", True)
+        
+        fakeout_res = fakeout_guard.check(
+            symbol=sym, price=price, change_pct=chg, vol_ratio=vol_ratio,
+            rsi=rsi, cmf=cmf, stoch_k=stoch_k, atr_pct=atr_pct
+        )
+        
+        risk_block_reason = None
+        if fakeout_res.is_fakeout:
+            score -= 10
+            momentum_phase = "FAKEOUT_RISK"
+            risk_block_reason = f"Sahte Kırılım (Fakeout) Tespit Edildi: {fakeout_res.reason}"
+        elif vol_ratio < 1.2:
+            score -= 5
+            momentum_phase = "VOLUME_RISK"
+            risk_block_reason = "Hacimsiz Yükseliş Riski (Vol < 1.2)"
+        elif adx < 25.0 and chg > 0.5:
+            score -= 5
+            momentum_phase = "TREND_RISK"
+            risk_block_reason = "Yatay Piyasada Sahte Yükseliş (ADX < 25)"
+        elif ema_golden and not supertrend_bullish:
+            score -= 5
+            momentum_phase = "TREND_RISK"
+            risk_block_reason = "Çelişen Trend Sinyali (EMA Boğa, Supertrend Ayı)"
+            
         if open_pos:
             decision = "HOLD"
             badge = "🟢 POSITION_OPEN"
             reason = f"Açık Pozisyon Aktif (Giriş: ${open_pos.entry_price}, PnL: ${open_pos.unrealized_pnl})"
+        elif risk_block_reason:
+            decision = "WAIT"
+            badge = "🚧 RISK_BLOCK"
+            reason = risk_block_reason
         elif not is_open:
             decision = "WAIT"
             badge = "💤 SEANS_DISI"
@@ -188,60 +224,63 @@ async def get_live_buy_sell_wait_matrix():
         sym = m["symbol"].upper()
         ai_data = confidence_map.get(sym, {})
         
-        # Temel indikatör ve ivme bazlı puan (Maks: ~50-60)
-        base_ind_score = (m.get("score", 0) * 5.0) + (m.get("change_pct", 0.0) * 2.0)
+        # Temel indikatör ve ivme bazlı puan — her indikatör adil yarışır
+        # score: max ~18 (standart) + bonuslar. *6 ile normalize edilir → ~108 max
+        base_ind_score = min(70.0, (m.get("score", 0) * 6.0) + (m.get("change_pct", 0.0) * 1.5))
         
         m["expertise_level"] = ai_data.get("expertise_level", "🟡 NÖTR / DENGELİ")
         m["ai_action"] = ai_data.get("action_recommendation", "🟡 Standart İnceleme")
         
+        # Taban skor: Her varlık 40 puandan başlıyor (sıfırdan yarışmaz)
+        final_dynamic_score = 40.0 + base_ind_score
+        
+        # AI Geçmişi BONUS olarak ekleniyor (katsayı değil düz bonus)
         if ai_data and "confidence_score" in ai_data:
-            # Yapay zeka geçmişte bu varlıkta işlem yaptıysa
             raw_conf = float(ai_data["confidence_score"])
-            # %60 Tarihsel Başarı (Tecrübe) + %40 Anlık İvme
-            final_dynamic_score = (raw_conf * 0.60) + (base_ind_score * 0.80)
-        else:
-            # Daha önce işlem yapılmamış yeni varlık (Temel puan üzerine kurgulanır)
-            final_dynamic_score = 40.0 + base_ind_score
+            # Geçmişteki başarı oranını 0-15 aralığında bonus olarak ekle
+            ai_bonus = min(15.0, max(-5.0, (raw_conf - 50.0) * 0.30))
+            final_dynamic_score += ai_bonus
             
-        # Aksiyon ve Momentum Boost
-        action_boost = 0
+        # Aksiyon Boost (Al sinyali güçlü, Sat sinyali düşür)
+        action_boost = 0.0
         if "BUY" in m["decision"] or "AL" in m["ai_action"].upper():
             action_boost = 8.0
         elif "SELL" in m["decision"] or "SAT" in m["ai_action"].upper():
-            action_boost = -10.0
+            action_boost = -8.0
             
-        volume_boost = (m.get("volume_ratio", 1.0) - 1.0) * 3.0
+        # Hacim Boost: 1.0x'ten sapma kadar ek puan (max +12, min -3)
+        vol_ratio_val = m.get("volume_ratio", 1.0) or 1.0
+        volume_boost = min(12.0, max(-3.0, (vol_ratio_val - 1.0) * 6.0))
         
-        # Algoritmik "Adil Değer" (Fair Value) ve Dip/Zirve Hesaplaması
+        # Adil Değer (Fair Value) Hesaplaması — orta banda ceza YOK
         fair_value_boost = 0.0
         session_high = m.get("high", price * 1.02)
         session_low = m.get("low", price * 0.98)
         
         if session_high > session_low:
-            # Fiyatın dip ile zirve arasındaki göreceli konumu (0 = Tam Dip, 1 = Tam Zirve)
             position_in_range = (price - session_low) / (session_high - session_low)
             
             if position_in_range <= 0.30:
-                # Fiyat alt çeyrekte (Dipten ucuz fiyatlanıyor)
+                # Güne dipte işlem görüyor → Fırsat (Eşiği 0.25'ten 0.30'a çektim biraz daha esnek olsun)
                 fair_value_boost = 10.0
-                m["reason"] += " | 📉 Adil Değerin Altında (Dipten Giriş Fırsatı)"
-            elif position_in_range >= 0.70:
-                # Fiyat üst çeyrekte (Şişkin / Zirvede)
-                fair_value_boost = -10.0
-                m["reason"] += " | 📈 Zirve Fiyatlama (Düzeltme Riski)"
-            else:
-                # Tam Ortada (0.30 ile 0.70 arası)
-                fair_value_boost = -5.0
+                dist_from_low = max(0, ((price - session_low) / session_low) * 100)
+                m["reason"] += f" | 📉 Adil Değer Altı (Dibe %{dist_from_low:.1f} Yakın)"
+            elif position_in_range >= 0.75:
+                # Güne zirvede işlem görüyor → Risk (0.80'den 0.75'e çektim)
+                fair_value_boost = -8.0
+                dist_from_high = max(0, ((session_high - price) / price) * 100)
+                m["reason"] += f" | 📈 Zirve Fiyatlama (Zirveye %{dist_from_high:.1f} Yakın)"
+            # Orta bant: nötr, ceza yok
                 
         final_dynamic_score += (action_boost + volume_boost + fair_value_boost)
         
-        # ARAF (Nötr Bölge) Cezası: Kullanıcı talebi (Ortadan girmeyelim)
-        # Eğer RSI 42 ile 58 arasındaysa ve hacim düşükse (Yatay/Kararsız Piyasa)
+        # Yatay / Kararsız Piyasa Cezası (Hafif)
+        # RSI 44-56 + düşük hacim = yatay bekleniyor, sadece hafif indir
         current_rsi = m.get("rsi", 50.0)
-        current_vol = m.get("volume_ratio", 1.0)
-        if 42.0 <= current_rsi <= 58.0 and current_vol < 1.0:
-            final_dynamic_score -= 20.0 # Puanı kırarak listeye çıkmasını engelle
-            m["reason"] += " (Araf/Yatay Bölge Cezası)"
+        current_vol = m.get("volume_ratio", 1.0) or 1.0
+        if 44.0 <= current_rsi <= 56.0 and current_vol < 0.8:
+            final_dynamic_score -= 8.0  # Eskisi -20, artık hafif -8
+            m["reason"] += " (Yatay Bölge/Düşük Hacim)"
         
         # Skoru 1.0 ile 99.9 arasına sınırla
         m["confidence_score"] = min(99.9, max(1.0, round(final_dynamic_score, 1)))
@@ -249,16 +288,16 @@ async def get_live_buy_sell_wait_matrix():
     grouped_matrix = {
         "CRYPTO": sorted([m for m in matrix_results if m["market"] == "CRYPTO"], key=lambda x: x["confidence_score"], reverse=True)[:15],
         "BIST": sorted([m for m in matrix_results if m["market"] == "BIST"], key=lambda x: x["confidence_score"], reverse=True)[:15],
-        "NASDAQ": sorted([m for m in matrix_results if m["market"] == "NASDAQ"], key=lambda x: x["confidence_score"], reverse=True)[:30]
+        "NASDAQ": sorted([m for m in matrix_results if m["market"] == "NASDAQ"], key=lambda x: x["confidence_score"], reverse=True)[:50]
     }
         
-    return {
+    result = {
         "status": "success",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC"),
         "markets_overview": overview,
         "total_monitored_assets": len(matrix_results),
         "signals_summary": {
-            "BUY": len([m for m in matrix_results if m["decision"] == "BUY"]),
+            "BUY":  len([m for m in matrix_results if m["decision"] == "BUY"]),
             "SELL": len([m for m in matrix_results if m["decision"] == "SELL"]),
             "WAIT": len([m for m in matrix_results if m["decision"] == "WAIT"]),
             "HOLD": len([m for m in matrix_results if m["decision"] == "HOLD"])
@@ -266,6 +305,11 @@ async def get_live_buy_sell_wait_matrix():
         "grouped": grouped_matrix,
         "matrix": matrix_results
     }
+    # Cache'e kaydet
+    _matrix_cache["data"] = result
+    _matrix_cache["ts"] = time.time()
+    return result
+
 
 @router.get("/market-index/three-way")
 async def get_three_way_market_index():

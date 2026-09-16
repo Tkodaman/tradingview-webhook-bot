@@ -1,11 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from typing import List
 from services.engine.auto_runner import tv_auto_runner
 from services.engine.autonomous_lab import autonomous_lab
 from services.data_ingestion.tradingview_live_client import tradingview_live_client
+from core.security import verify_ip
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(verify_ip)])
 
 class AutoRunnerToggleRequest(BaseModel):
     enabled: bool = Field(True, description="Otonom strateji motorunu aç/kapat")

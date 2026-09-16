@@ -19,7 +19,7 @@ async def health_check():
         "status": "ok",
         "service": "TradingView Webhook Gateway, Autonomous Risk Analyzer & 10-Skill AI Analyst",
         "trading_mode": settings.trading_mode,
-        "max_risk_allowed": settings.max_risk_allowed if hasattr(settings, 'max_risk_allowed') else 100
+        "max_risk_allowed": settings.max_risk_score_allowed if hasattr(settings, 'max_risk_score_allowed') else 100
     }
 
 @router.get("/webhook")

@@ -18,6 +18,7 @@ if BASE_DIR_PATH not in sys.path:
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from core.config import settings
@@ -73,6 +74,30 @@ async def startup_event():
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+# Static dosyalar (logo, resimler) için
+images_dir = BASE_DIR / "static" / "images"
+images_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+# Kodaman logo base64 - statik dosya yolu sorununu tamamen ortadan kaldirir
+import base64
+_LOGO_B64 = ""
+try:
+    _logo_path = BASE_DIR / "static" / "images" / "kodaman_logo.png"
+    if _logo_path.exists():
+        _LOGO_B64 = "data:image/png;base64," + base64.b64encode(_logo_path.read_bytes()).decode()
+except Exception:
+    pass
+
+# Kodaman logo2 (gumus/gri - sag ust kose icin)
+_LOGO2_B64 = ""
+try:
+    _logo2_path = BASE_DIR / "static" / "images" / "kodaman_logo2.png"
+    if _logo2_path.exists():
+        _LOGO2_B64 = "data:image/png;base64," + base64.b64encode(_logo2_path.read_bytes()).decode()
+except Exception:
+    pass
+
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard(request: Request):
     """
@@ -85,7 +110,9 @@ async def get_dashboard(request: Request):
             "trading_mode": settings.trading_mode,
             "passphrase": settings.passphrase,
             "settings": settings,
-            "trainer_params": bot_trainer.best_params
+            "trainer_params": bot_trainer.best_params,
+            "kodaman_logo_b64": _LOGO_B64,
+            "kodaman_logo2_b64": _LOGO2_B64
         }
     )
 

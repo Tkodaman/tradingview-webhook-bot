@@ -9,6 +9,7 @@ router = APIRouter(prefix="/api/ide", tags=["ide"])
 
 import asyncio
 from google.api_core.exceptions import ResourceExhausted, TooManyRequests
+from openai import AsyncOpenAI
 
 async def _call_gemini_with_retry(model, prompt, max_retries=3):
     for attempt in range(max_retries):
@@ -23,6 +24,26 @@ async def _call_gemini_with_retry(model, prompt, max_retries=3):
                 await asyncio.sleep(wait_time)
             else:
                 raise e
+
+async def _call_openai_with_retry(client, model_name, prompt, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            response = await client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            if "429" in str(e):
+                if attempt == max_retries - 1:
+                    raise e
+                wait_time = 4 + (attempt * 2)
+                logger.warning(f"OpenAI API Quota Exceeded (429). Retrying in {wait_time}s... (Attempt {attempt+1}/{max_retries})")
+                await asyncio.sleep(wait_time)
+            else:
+                raise e
+
 
 
 class IDETriggerRequest(BaseModel):
@@ -49,12 +70,25 @@ async def trigger_ide_model(req: IDETriggerRequest):
     live_trade_manager.user_credits -= cost
     
     try:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise Exception("API Key eksik.")
-            
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+        
+        gemini_model = None
+        openai_client = None
+        openai_model_name = "gpt-4o-mini"
+        
+        if llm_provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise Exception("OPENAI_API_KEY eksik.")
+            openai_client = AsyncOpenAI(api_key=api_key)
+            if "pro" in req.model_id.lower() or "ultra" in req.model_id.lower() or "omni" in req.model_id.lower():
+                openai_model_name = "gpt-4o"
+        else:
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise Exception("GEMINI_API_KEY eksik.")
+            genai.configure(api_key=api_key)
+            gemini_model = genai.GenerativeModel("gemini-1.5-flash")
         
         if req.model_id == "gemini-3.1-pro-low":
             prompt = f"""
@@ -120,8 +154,13 @@ Verileri kendi içinde sentezle ve Çıktını SADECE aşağıdaki JSON formatı
   "anlik_ozet": "Maliyet={cost} Anlık varlık takibi sağ panelde aktif."
 }}
 """
-        response = await _call_gemini_with_retry(model, prompt)
-        ai_text = response.text.strip()
+"""
+        if llm_provider == "openai":
+            ai_text = await _call_openai_with_retry(openai_client, openai_model_name, prompt)
+            ai_text = ai_text.strip()
+        else:
+            response = await _call_gemini_with_retry(gemini_model, prompt)
+            ai_text = response.text.strip()
         
         import json
         import re
@@ -191,25 +230,25 @@ class CustomPromptRequest(BaseModel):
 
 @router.post("/analyst/custom")
 async def trigger_analyst_custom(req: CustomPromptRequest):
-    try:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise Exception("API Key eksik.")
-            
-        history = live_trade_manager.trade_history
-        total_pnl = sum(p.get("net_pnl", 0) for p in history)
-        wins = sum(1 for p in history if p.get("net_pnl", 0) > 0)
-        win_rate = (wins / len(history) * 100) if history else 0
-        
-        ml_context = f"\n\n[ML ÖĞRENİM ÖZETİ - GEÇMİŞ İŞLEMLER]: Toplam İşlem: {len(history)}, Başarı Oranı: %{win_rate:.1f}, Toplam Kar/Zarar: {total_pnl:.2f} USD. Lütfen bu geçmiş performans verisini bir 'makine öğrenimi değerlendirmesi' gibi ele alıp, yarının öngörüsünü bu PnL birikimlerinden çıkardığın derslere göre şekillendir."
-
         final_prompt = req.prompt + ml_context
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = await _call_gemini_with_retry(model, final_prompt)
+        llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+        if llm_provider == "openai":
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise Exception("OPENAI_API_KEY eksik.")
+            openai_client = AsyncOpenAI(api_key=api_key)
+            ai_text = await _call_openai_with_retry(openai_client, "gpt-4o-mini", final_prompt)
+        else:
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise Exception("GEMINI_API_KEY eksik.")
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = await _call_gemini_with_retry(model, final_prompt)
+            ai_text = response.text.strip()
         
-        return {"response": response.text.strip()}
+        return {"response": ai_text}
     except Exception as e:
         logger.error(f"Analyst Error: {e}")
         return {"response": f"Hata: {str(e)}"}

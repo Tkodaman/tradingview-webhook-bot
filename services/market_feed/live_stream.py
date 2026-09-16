@@ -45,6 +45,7 @@ class ActivePosition(BaseModel):
     status: str = "OPEN"  # OPEN, CLOSED_TP, CLOSED_SL, CLOSED_MANUAL, CLOSED_TRAILING, CLOSED_EARLY
     atr_value: float = 0.0
     use_chandelier_exit: bool = False
+    capital_allocated: float = 0.0  # Pozisyon için ayrılan sermaye ($)
 
 class LiveTradeManager:
     def __init__(self):
@@ -171,6 +172,21 @@ class LiveTradeManager:
 
     def save_state(self):
         try:
+            # KOMISYON GUVENCESI: Kaydetmeden once CLOSED_OFFLINE_SYNC ve simülasyon
+            # kaynaklı komisyonlari otomatik temizle — gercek olmayan islem komisyon sayilmaz.
+            COMMISSION_EXEMPT = {
+                "CLOSED_OFFLINE_SYNC", "SHADOW_CLOSED", "SIMULATION_CLOSE",
+                "SYNC_CLOSE", "OFFLINE_SYNC", "MANUAL_SYNC"
+            }
+            clean_comm = round(sum(
+                float(t.get("alpaca_commission", 0.0) or 0.0)
+                for t in self.trade_history
+                if t.get("reason", "") not in COMMISSION_EXEMPT
+            ), 2)
+            # Sadece hesaplanan deger gerçekten farkliysa guncelle (gereksiz yazma engeli)
+            if abs(clean_comm - self.total_commissions_paid) > 0.01:
+                self.total_commissions_paid = clean_comm
+
             db_manager.set_store("wallet_state", {
                 "initial_capital": self.initial_capital,
                 "realized_pnl": self.realized_pnl,
@@ -458,7 +474,7 @@ class LiveTradeManager:
         logger.info(f"[SHADOW TRADE] {symbol} sanal olarak işleme alındı. Neden: {reason}")
         return pos
 
-    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None, atr_value: float = 0.0, use_chandelier_exit: bool = True, qty_override: Optional[float] = None) -> Optional[ActivePosition]:
+    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None, atr_value: float = 0.0, use_chandelier_exit: bool = True, qty_override: Optional[float] = None, status: str = "OPEN") -> Optional[ActivePosition]:
         # MAKRO FORESIGHT KORUMASI: Serbest bakiyeyi güvende tut.
         if self.is_macro_standby:
             logger.warning(f"MAKRO KORUMA AKTİF: İşlem reddedildi ({symbol}). {self.macro_standby_reason}")
@@ -524,7 +540,8 @@ class LiveTradeManager:
             highest_price_seen=entry_price,
             opened_at=datetime.now(timezone.utc).isoformat(),
             atr_value=atr_value,
-            use_chandelier_exit=use_chandelier_exit
+            use_chandelier_exit=use_chandelier_exit,
+            status=status
         )
 
         # ✔ ALPACA BROKER-SIDE BRACKET ORDER (AlpacaBroker — düzeltilmiş köprü)
@@ -551,7 +568,8 @@ class LiveTradeManager:
                             side=side,
                             qty=qty,
                             take_profit_price=tp_price,
-                            stop_loss_price=sl_price
+                            stop_loss_price=sl_price,
+                            limit_price=entry_price
                         )
                     
                     if res.get("status") == "success":
@@ -599,9 +617,22 @@ class LiveTradeManager:
                 logger.warning(f"[ALPACA SYNC HATA] {pos.symbol} Alpaca kapatma hatası: {e}")
 
         # Alpaca Doğrusal Komisyon
-        comm_details = self.calculate_alpaca_commission(pos.symbol, pos.market, pos.entry_price, curr_price, pos.quantity, pos.nominal_value)
-        total_comm = comm_details["total_commission"]
-        net_pnl = round(gross_pnl - total_comm, 2)
+        # KURAL: CLOSED_OFFLINE_SYNC, SHADOW veya SIMULATION kaynakli kapanislarda
+        # komisyon HESAPLANMAZ — gercek Alpaca dolumu olmayan islemlere komisyon uygulanamaz.
+        COMMISSION_EXEMPT_REASONS = {
+            "CLOSED_OFFLINE_SYNC", "SHADOW_CLOSED", "SIMULATION_CLOSE",
+            "SYNC_CLOSE", "OFFLINE_SYNC", "MANUAL_SYNC"
+        }
+        is_simulation_mode = getattr(__import__('core.config', fromlist=['settings']).settings, 'trading_mode', '') == 'SIMULATION'
+
+        if reason in COMMISSION_EXEMPT_REASONS or is_simulation_mode or pos.status == "SHADOW_OPEN":
+            total_comm = 0.0
+            net_pnl = round(gross_pnl, 2)
+        else:
+            comm_details = self.calculate_alpaca_commission(pos.symbol, pos.market, pos.entry_price, curr_price, pos.quantity, pos.nominal_value)
+            total_comm = comm_details["total_commission"]
+            net_pnl = round(gross_pnl - total_comm, 2)
+
 
         pos.status = reason
         pos.unrealized_pnl = net_pnl
@@ -655,6 +686,26 @@ class LiveTradeManager:
         except Exception as me:
             from core.logger import logger
             logger.warning(f"[MEMORY WARN] Deneyim hafizası güncelleme hatası: {me}")
+
+        # === DEVRE KESICI: Kapanan pozisyonun sonucunu kaydet ===
+        try:
+            from services.risk_engine.consecutive_loss_breaker import consecutive_loss_breaker
+            consecutive_loss_breaker.record_trade_result(pos.symbol, net_pnl)
+        except Exception as clb_e:
+            pass
+
+        # === ML MODEL: Kapanan pozisyonun ozelliklerini egitim verisine ekle ===
+        try:
+            from services.trainer.ml_signal_predictor import ml_predictor
+            indicators_at_close = {"market": pos.market, "reason": reason}
+            ml_predictor.record_trade_result(
+                symbol=pos.symbol,
+                indicators=indicators_at_close,
+                pnl=net_pnl,
+                context={}
+            )
+        except Exception as ml_e:
+            pass
 
         return trade_log
 
@@ -713,6 +764,9 @@ class LiveTradeManager:
                     # Kasa bütçesini tüketmemek için işlem başına 100$ - 300$ arası sabit bütçe
                     import random
                     auto_capital = random.uniform(100.0, 300.0)
+                    # Pozisyon rollback: capital_allocated varsa iade et, yoksa nominal_value kullan
+                    pos = None
+                    refund = getattr(pos, 'capital_allocated', None) or getattr(pos, 'nominal_value', 0.0)
                     if self.available_cash < auto_capital:
                         auto_capital = self.available_cash # Eğer yeterli nakit yoksa eldekini kullan
                         
@@ -770,7 +824,9 @@ class LiveTradeManager:
             if curr_price <= 0.0:
                 continue
 
-            pos.current_price = curr_price
+            # Sadece simülasyon modunda yerel fiyatı arayüze yansıt (LIVE modda Alpaca senkronizasyonu devralır)
+            if settings.trading_mode == "SIMULATION":
+                pos.current_price = curr_price
 
             if pos.side == "BUY":
                 # En yüksek fiyat güncellemesi (Trailing Stop İçin)
@@ -780,27 +836,32 @@ class LiveTradeManager:
                 gross = (curr_price - pos.entry_price) * pos.quantity
                 pct = ((curr_price - pos.entry_price) / pos.entry_price) * 100.0
 
+                # === KAZAN-KAZAN: FLASH CRASH (HABER ETKİSİ) KORUMASI ===
+                if pct <= -3.0 and not pos.trailing_stop_activated:
+                    logger.warning(f"🚨 [FLASH CRASH DETECTED] {pos.symbol} %{pct:.2f} düştü! Acil stop tetikleniyor.")
+                    self.close_position(pos_id, "CLOSED_FLASH_CRASH")
+                    continue
+
                 # AKILLI ÇIKIŞ (Erken Kâr Alma)
                 # Eğer pozisyon %1.5'tan fazla kârdaysa ve momentum zayıflıyorsa (RSI aşırı şişmiş vs. veya hacim düştüyse)
                 # Otonom Tarayıcı RSI verisine doğrudan erişemediğimizden fiyatın tepeden %1 düşüşüne de bakabiliriz.
                 
-                # İZLEYEN STOP (Trailing Stop)
+                # İZLEYEN STOP (Sürekli Trailing Stop)
                 is_sniper = settings.current_risk_mode.upper() == "SNIPER"
-                trailing_trigger = 1.5 if is_sniper else 3.0
                 trailing_dist = 0.985 if is_sniper else 0.975
                 
-                if pct > trailing_trigger:
-                    pos.trailing_stop_activated = True
-                    new_sl = round(pos.highest_price_seen * trailing_dist, 5)
-                    if new_sl > pos.stop_loss_price:
-                        old_sl = pos.stop_loss_price
-                        pos.stop_loss_price = new_sl
-                        logger.info(f"🤖 [AI-TRAILING] {pos.symbol} için İzleyen Stop makası yapay zeka tarafından daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
-                        try:
-                            from services.broker.alpaca_client import alpaca_client
-                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
-                        except Exception:
-                            pass
+                # İşleme girildiği andan itibaren her yükselişte anında iz sürer
+                pos.trailing_stop_activated = True
+                new_sl = round(pos.highest_price_seen * trailing_dist, 5)
+                if new_sl > pos.stop_loss_price:
+                    old_sl = pos.stop_loss_price
+                    pos.stop_loss_price = new_sl
+                    logger.info(f"🤖 [AI-TRAILING] {pos.symbol} için İzleyen Stop makası daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
+                    try:
+                        from services.broker.alpaca_client import alpaca_client
+                        alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
+                    except Exception:
+                        pass
 
                 # 1. Başa Baş (Break-Even) Kontrolü (+%2.50 kârda)
                 if not pos.break_even_activated and curr_price >= pos.break_even_trigger_price:
@@ -822,6 +883,18 @@ class LiveTradeManager:
 
                 # 3. SL / Trailing Stop Kontrolü
                 if curr_price <= pos.stop_loss_price:
+                    # === KAZAN-KAZAN: İLK 5 DAKİKA ERKEN STOP (STOP-HUNT) KORUMASI ===
+                    import datetime
+                    from dateutil import parser
+                    opened_at_dt = parser.parse(pos.opened_at)
+                    time_alive_secs = (datetime.datetime.now(datetime.timezone.utc) - opened_at_dt).total_seconds()
+                    
+                    if not pos.trailing_stop_activated and time_alive_secs < 300: # 5dk dolmadı
+                        # Fiyat %3'ten fazla düşmediyse stop olma (gürültü filtresi)
+                        if pct > -3.0:
+                            logger.info(f"🛡️ [EARLY STOP SHIELD] {pos.symbol} açılalı {int(time_alive_secs)}s oldu. Geçici stop-hunt iptal (Kayıp: %{pct:.2f}).")
+                            continue
+                    
                     reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
                     self.close_position(pos_id, reason)
                     continue
@@ -871,7 +944,16 @@ class LiveTradeManager:
                     self.close_position(pos_id, reason)
                     continue
 
-            pos.unrealized_pnl = round(gross, 2)
-            pos.unrealized_pnl_pct = round(pct, 2)
+            # CANLI KOKPİT GERÇEK ZAMANLI PNL HESABI (Tüm Modlar İçin)
+            # Kullanıcı talebi: Gerçek al-sat için komisyon totalden çıkarılsın, simülasyon hesaplanmasın.
+            is_sim = settings.trading_mode == "SIMULATION" or pos.status == "SHADOW_OPEN"
+            est_comm = 0.0
+            if not is_sim:
+                comm_details = self.calculate_alpaca_commission(pos.symbol, pos.market, pos.entry_price, curr_price, pos.quantity, pos.nominal_value)
+                est_comm = comm_details["total_commission"]
+            
+            pos.commission_fees = est_comm
+            pos.unrealized_pnl = round(gross - est_comm, 2)
+            pos.unrealized_pnl_pct = round((pos.unrealized_pnl / pos.nominal_value) * 100.0, 2) if pos.nominal_value > 0 else 0.0
 
 live_trade_manager = LiveTradeManager()

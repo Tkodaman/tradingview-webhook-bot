@@ -1,6 +1,7 @@
 import os
 import json
 import google.generativeai as genai
+from openai import OpenAI
 from typing import Dict, Any, Tuple
 import logging
 import time
@@ -9,12 +10,19 @@ logger = logging.getLogger("CryptoPremiumAgent")
 
 class CryptoPremiumAgent:
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
-        if self.api_key:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel("gemini-2.0-flash")
+        self.llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+        self.openai_client = None
+        self.gemini_model = None
+
+        if self.llm_provider == "openai":
+            self.api_key = os.getenv("OPENAI_API_KEY")
+            if self.api_key:
+                self.openai_client = OpenAI(api_key=self.api_key)
         else:
-            self.model = None
+            self.api_key = os.getenv("GEMINI_API_KEY")
+            if self.api_key:
+                genai.configure(api_key=self.api_key)
+                self.gemini_model = genai.GenerativeModel("gemini-2.0-flash")
             
         self.sentiment_cache = {}
         self.CACHE_TTL = 300  # 5 dakika önbellek
@@ -24,8 +32,8 @@ class CryptoPremiumAgent:
         LLM tabanlı Multi-Agent sosyal duyarlılık analizi.
         Geri dönüş: (is_approved, premium_score (0-10), insight_reasoning)
         """
-        if not self.model:
-            logger.warning("[CRYPTO PREMIUM] Gemini API Key bulunamadı. Kripto analizi varsayılan (Onay) dönüyor.")
+        if not self.openai_client and not self.gemini_model:
+            logger.warning("[CRYPTO PREMIUM] API Key bulunamadı (Gemini/OpenAI). Kripto analizi varsayılan (Onay) dönüyor.")
             return True, 7.0, "API Key eksik, varsayılan onay."
             
         # Cache kontrolü
@@ -58,8 +66,18 @@ Lütfen sadece aşağıdaki formatta, geçerli bir JSON objesi döndür (kod blo
 }}
 """
         try:
-            response = self.model.generate_content(prompt)
-            raw_text = response.text.replace("```json", "").replace("```", "").strip()
+            if self.llm_provider == "openai" and self.openai_client:
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.5
+                )
+                raw_text = response.choices[0].message.content.replace("```json", "").replace("```", "").strip()
+            elif self.gemini_model:
+                response = self.gemini_model.generate_content(prompt)
+                raw_text = response.text.replace("```json", "").replace("```", "").strip()
+            else:
+                raise Exception("Provider configured but no client created.")
             result = json.loads(raw_text)
             
             is_app = bool(result.get("is_approved", False))

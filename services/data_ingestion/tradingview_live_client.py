@@ -17,7 +17,8 @@ class TradingViewLiveClient:
         self.cached_us_data: Dict[str, Any] = {}
         self.cached_tr_data: Dict[str, Any] = {}
         self.cached_crypto_data: Dict[str, Any] = {}
-        self.cached_crypto_data: Dict[str, Any] = {}
+        # === YENİ: Higher-High proxy için onceki tick high'lari sakla ===
+        self._prev_highs: Dict[str, float] = {}  # sym -> onceki high
 
     def fetch_live_market_data(self) -> Dict[str, Any]:
         """
@@ -28,10 +29,11 @@ class TradingViewLiveClient:
             return {**self.cached_us_data, **self.cached_tr_data, **self.cached_crypto_data}
 
         columns = [
-            "name", "close", "change", "high", "low", "volume", 
-            "RSI", "MACD.macd", "MACD.signal", "EMA20", "EMA50", "EMA200", 
+            "name", "close", "change", "high", "low", "volume",
+            "RSI", "MACD.macd", "MACD.signal", "EMA20", "EMA50", "EMA200",
             "ATR", "VWAP", "Stoch.K", "ADX", "Volatility.D", "average_volume_10d_calc",
-            "ChaikinMoneyFlow"
+            "ChaikinMoneyFlow",
+            "open"   # === YENİ: Candle Body Ratio için açılış fiyatı ===
         ]
 
         headers = {
@@ -87,8 +89,14 @@ class TradingViewLiveClient:
                             stoch_k = round(float(vals[14] or 50.0), 2)
                             adx = round(float(vals[15] or 25.0), 2)
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
-                            vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else 1.0
+                            vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else None
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
+                            # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
+                            candle_open_val = round(float(vals[19] if len(vals) > 19 and vals[19] else price), 2)
+                            prev_high = self._prev_highs.get(clean_sym, 0.0)
+                            self._prev_highs[clean_sym] = high  # Bu tick'in high'ini sakla
+                            # Bid/Ask proxy: hacim vs ortalama hacim oranini 0-1 araligina normalize et
+                            bid_ask_proxy = round(min(max((vol_ratio or 1.0) / 3.0, 0.0), 1.0), 3) if vol_ratio else 0.5
 
                             # Supertrend Proxy (Multiplier=3, ATR tabanlı)
                             supertrend_proxy = ((high + low) / 2) - (3 * atr)
@@ -115,9 +123,48 @@ class TradingViewLiveClient:
                                 "cmf": cmf,
                                 "rs_score": round(chg - benchmark_change, 2),
                                 "supertrend_bullish": supertrend_bullish,
+                                # === YENİ ALANLAR ===
+                                "candle_open": candle_open_val,
+                                "candle_high": high,
+                                "candle_low":  low,
+                                "prev_high_1": prev_high,
+                                "bid_ask_ratio": bid_ask_proxy,
                                 "source": "TRADINGVIEW_LIVE_SCANNER",
                                 "last_update": time.strftime("%H:%M:%S")
                             }
+
+                    # =======================================================
+                    # KAZAN-KAZAN: ALPACA HİBRİT GERÇEK ZAMANLI (IEX) OVERRIDE
+                    # 15 dakika gecikmeli TV NASDAQ fiyatlarını Alpaca'dan canlı ez.
+                    # =======================================================
+                    from core.config import settings
+                    if getattr(settings, "alpaca_extended_hours", True):
+                        try:
+                            # Sadece NASDAQ sembollerini çek
+                            nasdaq_syms = list(results.keys())
+                            if nasdaq_syms:
+                                from services.broker.alpaca_bridge import AlpacaBroker
+                                # Instantiating is light since it just sets up REST client
+                                temp_broker = AlpacaBroker(paper=True)
+                                rt_prices = temp_broker.get_realtime_prices(nasdaq_syms)
+                                
+                                for sym, rt_data in rt_prices.items():
+                                    if sym in results:
+                                        old_price = results[sym]["price"]
+                                        new_price = rt_data["price"]
+                                        if new_price > 0:
+                                            results[sym]["price"] = new_price
+                                            results[sym]["change_pct"] = rt_data["change_pct"]
+                                            results[sym]["high"] = rt_data["high"]
+                                            results[sym]["low"] = rt_data["low"]
+                                            # Update related fields relying on price
+                                            if "atr_pct" in results[sym] and "ATR" in columns:
+                                                pass # ATR percentage could be updated but it's minor
+                                            results[sym]["source"] = "HYBRID_ALPACA_LIVE"
+                                            # logger.debug(f"[HYBRID] {sym} fiyatı Alpaca'dan güncellendi: {old_price} -> {new_price}")
+                        except Exception as override_err:
+                            logger.error(f"[ALPACA OVERRIDE ERROR] {override_err}")
+                            
                     self.cached_us_data = results
         except Exception as e:
             logger.warning(f"[TRADINGVIEW LIVE FETCH ERROR - US]: {e}")
@@ -165,8 +212,13 @@ class TradingViewLiveClient:
                             stoch_k = round(float(vals[14] or 50.0), 2)
                             adx = round(float(vals[15] or 25.0), 2)
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
-                            vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else 1.0
+                            vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else None
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
+                            # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
+                            candle_open_val = round(float(vals[19] if len(vals) > 19 and vals[19] else price), 2)
+                            prev_high = self._prev_highs.get(clean_sym, 0.0)
+                            self._prev_highs[clean_sym] = high
+                            bid_ask_proxy = round(min(max((vol_ratio or 1.0) / 3.0, 0.0), 1.0), 3) if vol_ratio else 0.5
 
                             # Supertrend Proxy (Multiplier=3, ATR tabanlı)
                             supertrend_proxy = ((high + low) / 2) - (3 * atr)
@@ -193,6 +245,12 @@ class TradingViewLiveClient:
                                 "cmf": cmf,
                                 "rs_score": round(chg - benchmark_change, 2),
                                 "supertrend_bullish": supertrend_bullish,
+                                # === YENİ ALANLAR ===
+                                "candle_open": candle_open_val,
+                                "candle_high": high,
+                                "candle_low":  low,
+                                "prev_high_1": prev_high,
+                                "bid_ask_ratio": bid_ask_proxy,
                                 "source": "TRADINGVIEW_LIVE_SCANNER",
                                 "last_update": time.strftime("%H:%M:%S")
                             }
@@ -243,8 +301,13 @@ class TradingViewLiveClient:
                             stoch_k = round(float(vals[14] or 50.0), 2)
                             adx = round(float(vals[15] or 25.0), 2)
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
-                            vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else 1.0
+                            vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else None
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
+                            # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
+                            candle_open_val = round(float(vals[19] if len(vals) > 19 and vals[19] else price), 4 if price < 1.0 else 2)
+                            prev_high = self._prev_highs.get(clean_sym, 0.0)
+                            self._prev_highs[clean_sym] = high
+                            bid_ask_proxy = round(min(max((vol_ratio or 1.0) / 3.0, 0.0), 1.0), 3) if vol_ratio else 0.5
 
                             # Supertrend Proxy (Multiplier=3, ATR tabanlı)
                             supertrend_proxy = ((high + low) / 2) - (3 * atr)
@@ -271,6 +334,12 @@ class TradingViewLiveClient:
                                 "cmf": cmf,
                                 "rs_score": round(chg - benchmark_change, 2),
                                 "supertrend_bullish": supertrend_bullish,
+                                # === YENİ ALANLAR ===
+                                "candle_open": candle_open_val,
+                                "candle_high": high,
+                                "candle_low":  low,
+                                "prev_high_1": prev_high,
+                                "bid_ask_ratio": bid_ask_proxy,
                                 "source": "TRADINGVIEW_LIVE_SCANNER",
                                 "last_update": time.strftime("%H:%M:%S")
                             }

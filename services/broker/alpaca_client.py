@@ -31,7 +31,7 @@ class AlpacaClient:
             "qty": str(round(qty, 5)),
             "side": side.lower(),  # 'buy' or 'sell'
             "type": "limit",       # Entry using limit to prevent slippage
-            "time_in_force": "gtc",
+            "time_in_force": "day",  # Alpaca: fractional + extended hours emirler 'day' zorunlu
             "limit_price": str(round(limit_price, 2)),
             "order_class": "bracket",
             "take_profit": {
@@ -39,8 +39,6 @@ class AlpacaClient:
             },
             "stop_loss": {
                 "stop_price": str(round(stop_loss_price, 2)),
-                # Optional: "limit_price" for stop-limit order, 
-                # but "stop_price" triggers a market order to ensure exit during a crash
             },
             "client_order_id": f"agy_oco_{uuid.uuid4().hex[:8]}"
         }

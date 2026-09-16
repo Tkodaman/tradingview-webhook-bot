@@ -63,7 +63,16 @@ class MarketHoursValidator:
         bist_open = not is_weekend and (10 * 60 <= current_minute <= 18 * 60 + 5)
         # NASDAQ: Hafta içi 16:30 - 23:00
         nasdaq_open = not is_weekend and (16 * 60 + 30 <= current_minute <= 23 * 60)
+        # NASDAQ Pre-Market: 11:00 - 16:30 TSİ
         nasdaq_pre = not is_weekend and (11 * 60 <= current_minute < 16 * 60 + 30)
+        # NASDAQ Post-Market: 23:00 - 03:00 TSİ (Geceyarısını geçer)
+        nasdaq_post = not is_weekend and (current_minute > 23 * 60 or current_minute < 3 * 60)
+
+        # Extended hours config check
+        from core.config import settings
+        ext_enabled = getattr(settings, "alpaca_extended_hours", True)
+        
+        nasdaq_is_active = nasdaq_open or (ext_enabled and (nasdaq_pre or nasdaq_post))
 
         return {
             "CRYPTO": {
@@ -84,10 +93,11 @@ class MarketHoursValidator:
             },
             "NASDAQ": {
                 "market": "NASDAQ",
-                "is_open": nasdaq_open,
+                "is_open": nasdaq_is_active,
                 "is_pre_market": nasdaq_pre,
-                "status_badge": "🟢 CANLI SEANS AÇIK" if nasdaq_open else ("🟡 PRE-MARKET" if nasdaq_pre else "🔴 PİYASA KAPALI"),
-                "session_text": "Hafta İçi 16:30 - 23:00 TSİ (Wall Street)" if nasdaq_open else "Seans Dışı (Hafta İçi 16:30 - 23:00 TSİ)",
+                "is_post_market": nasdaq_post,
+                "status_badge": "🟢 CANLI SEANS AÇIK" if nasdaq_open else ("🟡 PRE-MARKET AKTİF" if (nasdaq_pre and ext_enabled) else ("🟣 POST-MARKET AKTİF" if (nasdaq_post and ext_enabled) else "🔴 PİYASA KAPALI")),
+                "session_text": "Hafta İçi 16:30 - 23:00 TSİ (Wall Street)" if nasdaq_open else ("Piyasa Öncesi İşlemler (Pre-Market)" if nasdaq_pre else ("Piyasa Sonrası İşlemler (Post-Market)" if nasdaq_post else "Seans Dışı")),
                 "hours": "16:30 - 23:00 TSİ",
                 "trt_time": current_time_str
             }

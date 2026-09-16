@@ -82,10 +82,14 @@ class AlpacaBroker(BaseBroker):
                 "qty": qty,
                 "side": side.lower(),
                 "type": 'market' if limit_price is None else 'limit',
-                "time_in_force": 'gtc'
+                "time_in_force": 'day'  # Alpaca: fractional/market emirler 'day' olmalı
             }
             if limit_price is not None:
                 kwargs["limit_price"] = limit_price
+                from core.config import settings
+                if getattr(settings, "alpaca_extended_hours", True):
+                    kwargs["extended_hours"] = True
+                    kwargs["time_in_force"] = "day"
                 
             order = self.api.submit_order(**kwargs)
             logger.info(f"Alpaca {'Limit' if limit_price else 'Market'} Order Placed: {side} {qty} {alpaca_sym} - OrderID: {order.id}")
@@ -95,44 +99,104 @@ class AlpacaBroker(BaseBroker):
             return {"status": "error", "message": str(e)}
 
     def place_bracket_order(self, symbol: str, side: str, qty: float, 
-                            take_profit_price: float, stop_loss_price: float) -> Dict[str, Any]:
+                            take_profit_price: float, stop_loss_price: float, limit_price: float = None) -> Dict[str, Any]:
         if not self.api:
             return {"status": "error", "message": "API not initialized"}
             
         try:
             alpaca_sym = self._format_symbol(symbol)
-            is_fractional = qty != int(qty)
-            
+            is_fractional = (qty != int(qty)) or (qty < 1.0)
+
             if is_fractional:
-                logger.info(f"Alpaca: Fractional quantity ({qty}) detected for {alpaca_sym}. Placing simple market order instead of bracket. TP/SL will be tracked locally.")
+                # === KESİRLİ LOT: Önce market order, sonra ayrı SL/TP emirleri ===
+                # Alpaca bracket order kesirli lot desteklemez.
+                # Çözüm: Market order + ayrı stop order + ayrı limit order
+                logger.info(f"Alpaca: Fractional qty ({qty}) - market + separate SL/TP orders for {alpaca_sym}")
                 order = self.api.submit_order(
                     symbol=alpaca_sym,
                     qty=qty,
                     side=side.lower(),
                     type='market',
-                    time_in_force='day'
+                    time_in_force='day'  # Alpaca: fractional emirler için zorunlu
                 )
-                logger.info(f"Alpaca Market Order Placed (Fallback from Bracket): {side} {qty} {alpaca_sym} - OrderID: {order.id}")
+                logger.info(f"Alpaca Market Order (Fractional): {side} {qty} {alpaca_sym} - OrderID: {order.id}")
+
+                # === AYRI STOP-LOSS EMRİ (Alpaca sunucusunda aktif kalır) ===
+                sl_side = "sell" if side.lower() == "buy" else "buy"
+                try:
+                    sl_order = self.api.submit_order(
+                        symbol=alpaca_sym,
+                        qty=qty,
+                        side=sl_side,
+                        type='stop',
+                        time_in_force='day',  # Alpaca zorunlu: 'day'
+                        stop_price=round(stop_loss_price, 4)
+                    )
+                    logger.info(f"[SL ORDER] {alpaca_sym} SL emri Alpaca'ya gönderildi: ${stop_loss_price:.4f} - OrderID: {sl_order.id}")
+                except Exception as sl_err:
+                    logger.warning(f"[SL ORDER WARN] {alpaca_sym} SL emri gönderilemedi: {sl_err}. Yerel takip aktif.")
+
+                # === AYRI TAKE-PROFIT EMRİ ===
+                try:
+                    tp_order = self.api.submit_order(
+                        symbol=alpaca_sym,
+                        qty=qty,
+                        side=sl_side,
+                        type='limit',
+                        time_in_force='day',  # Alpaca zorunlu: 'day'
+                        limit_price=round(take_profit_price, 4)
+                    )
+                    logger.info(f"[TP ORDER] {alpaca_sym} TP emri Alpaca'ya gönderildi: ${take_profit_price:.4f} - OrderID: {tp_order.id}")
+                except Exception as tp_err:
+                    logger.warning(f"[TP ORDER WARN] {alpaca_sym} TP emri gönderilemedi: {tp_err}. Yerel takip aktif.")
+
             else:
-                order = self.api.submit_order(
-                    symbol=alpaca_sym,
-                    qty=qty,
-                    side=side.lower(),
-                    type='market',
-                    time_in_force='day',
-                    order_class='bracket',
-                    take_profit=dict(
+                from core.config import settings
+                ext_hours = getattr(settings, "alpaca_extended_hours", True)
+                
+                kwargs = {
+                    "symbol": alpaca_sym,
+                    "qty": qty,
+                    "side": side.lower(),
+                    "type": 'limit' if (limit_price is not None and ext_hours) else 'market',
+                    "time_in_force": 'day' if ext_hours else 'day',
+                    "order_class": 'bracket',
+                    "take_profit": dict(
                         limit_price=take_profit_price,
                     ),
-                    stop_loss=dict(
+                    "stop_loss": dict(
                         stop_price=stop_loss_price
                     )
-                )
-                logger.info(f"Alpaca Bracket Order Placed: {side} {qty} {alpaca_sym} - OrderID: {order.id}")
+                }
+                
+                if limit_price is not None and ext_hours:
+                    kwargs["limit_price"] = limit_price
+                    kwargs["extended_hours"] = True
+
+                order = self.api.submit_order(**kwargs)
+                logger.info(f"Alpaca Bracket Order Placed: {side} {qty} {alpaca_sym} - OrderID: {order.id} | ExtHours: {ext_hours}")
             return {"status": "success", "order_id": order.id, "details": order._raw}
         except Exception as e:
-            logger.error(f"Alpaca Bracket Order Failed for {symbol}: {e}")
-            return {"status": "error", "message": str(e)}
+            err_str = str(e).lower()
+            if "wash trade" in err_str or "complex orders" in err_str:
+                logger.warning(f"Alpaca rejected bracket order for {symbol} ({err_str}). Falling back to simple entry order.")
+                try:
+                    order = self.api.submit_order(
+                        symbol=self._format_symbol(symbol),
+                        qty=qty,
+                        side=side.lower(),
+                        type='market',
+                        time_in_force='day'
+                    )
+                    logger.info(f"Alpaca Simple Order Fallback Placed: {side} {qty} {symbol} - OrderID: {order.id}")
+                    return {"status": "success", "order_id": order.id, "details": order._raw}
+                except Exception as fb_err:
+                    logger.error(f"Alpaca Fallback Order also failed: {fb_err}")
+                    return {"status": "error", "message": f"{str(e)} -> Fallback error: {str(fb_err)}"}
+            else:
+                logger.error(f"Alpaca Bracket Order Failed for {symbol}: {e}")
+                return {"status": "error", "message": str(e)}
+
 
     def update_bracket_orders(self, symbol: str, take_profit_price: float = None, stop_loss_price: float = None) -> Dict[str, Any]:
         if not self.api:
@@ -193,3 +257,37 @@ class AlpacaBroker(BaseBroker):
         except Exception as e:
             logger.error(f"Alpaca Fetch Positions Failed: {e}")
             return None
+
+    def get_realtime_prices(self, symbols: list) -> Dict[str, Any]:
+        """
+        Fetches real-time snapshots from Alpaca (IEX) for a list of symbols.
+        Returns a dict: { 'AAPL': {'price': 150.5, 'change_pct': 1.2, 'high': 151.0, 'low': 149.0} }
+        """
+        if not self.api or not symbols:
+            return {}
+        try:
+            res = {}
+            # Sadece NASDAQ / ABD hisselerini (kısa kodluları) filtrele
+            valid_syms = [s for s in symbols if isinstance(s, str) and len(s) < 6]
+            if not valid_syms:
+                return {}
+            
+            # alpaca_trade_api v2 snapshot endpoint
+            snapshots = self.api.get_snapshots(valid_syms)
+            for sym, snap in snapshots.items():
+                if snap and snap.latest_trade:
+                    current_price = snap.latest_trade.p
+                    prev_close = snap.prev_daily_bar.c if snap.prev_daily_bar else current_price
+                    change_pct = ((current_price - prev_close) / prev_close * 100.0) if prev_close else 0.0
+                    
+                    res[sym] = {
+                        "price": round(current_price, 2),
+                        "change_pct": round(change_pct, 2),
+                        "high": round(snap.daily_bar.h, 2) if snap.daily_bar else round(current_price, 2),
+                        "low": round(snap.daily_bar.l, 2) if snap.daily_bar else round(current_price, 2)
+                    }
+            return res
+        except Exception as e:
+            logger.error(f"Alpaca Fetch Realtime Prices Failed: {e}")
+            return {}
+

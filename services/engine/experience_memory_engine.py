@@ -216,7 +216,7 @@ class ExperienceMemoryEngine:
             self.live_action_logs_crypto.append(log_entry)
         self.save_memory()
 
-    def record_completed_trade(self, symbol: str, action: str, entry_price: float, exit_price: float, pnl_pct: float, market_regime: str, indicators: Dict[str, Any]) -> TradePostMortem:
+    def record_completed_trade(self, symbol: str, action: str, entry_price: float, exit_price: float, pnl_pct: float, market_regime: str, indicators: Dict[str, Any], duration_minutes: int = None, exit_reason: str = None) -> TradePostMortem:
         # Alpaca Webhook Simülasyonu: Alım-Satım çift yönlü tahmini komisyon ve kayma (slippage) maliyeti %0.30
         alpaca_fee_pct = 0.30
         net_pnl_pct = round(pnl_pct - alpaca_fee_pct, 2)
@@ -263,9 +263,9 @@ class ExperienceMemoryEngine:
             trade_id=t_id, symbol=symbol, action=action, entry_price=entry_price, exit_price=exit_price,
             pnl_amount=pnl_amount, pnl_pct=net_pnl_pct, is_win=is_win, market_regime=market_regime,
             indicators_at_entry=indicators, lesson_learned=lesson, timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            duration_minutes=int(abs(net_pnl_pct) * 5) + 6,
+            duration_minutes=duration_minutes if duration_minutes is not None else (int(abs(net_pnl_pct) * 5) + 6),
             max_drawdown_percent=0.0 if is_win else round(abs(net_pnl_pct) * 0.45, 2),
-            exit_reason="TAKE_PROFIT" if is_win else "STOP_LOSS",
+            exit_reason=exit_reason if exit_reason is not None else ("TAKE_PROFIT" if is_win else "STOP_LOSS"),
             error_margin_pct=round(error_margin, 2),
             algorithmic_action_plan=action_plan
         )
@@ -428,41 +428,89 @@ class ExperienceMemoryEngine:
 
     def get_asset_confidence_index(self) -> List[Dict[str, Any]]:
         """
-        Geçmiş arşiv verilerine uzanarak her hisse/varlık için otonom güven endeksi ve uzmanlık sıralaması hesaplar.
+        Gecmis arsiv verilerine uzanarak her hisse/varlik icin otonom guven endeksi ve uzmanlik siraslamasi hesaplar.
+        DUZELTME: Kazanma orani esas, toplam islem sayisi skoru sismirmez, zarar eden varlik asla odul alamaz.
         """
         symbols_map: Dict[str, List[TradePostMortem]] = {}
         for t in self.trade_history:
             if t.symbol not in symbols_map:
                 symbols_map[t.symbol] = []
             symbols_map[t.symbol].append(t)
-            
+
         results = []
         for sym, trades in symbols_map.items():
             total = len(trades)
             wins = [t for t in trades if t.is_win]
             losses = [t for t in trades if not t.is_win]
-            win_rate = round((len(wins) / total) * 100.0, 1)
-            
+            win_count = len(wins)
+            loss_count = len(losses)
+            win_rate = round((win_count / total) * 100.0, 1) if total > 0 else 0.0
+
             gross_win = sum(t.pnl_amount for t in wins)
             gross_loss = abs(sum(t.pnl_amount for t in losses))
-            pf = round(gross_win / gross_loss, 2) if gross_loss > 0 else 4.25
+            pf = round(gross_win / gross_loss, 2) if gross_loss > 0 else (4.0 if gross_win > 0 else 0.0)
             total_pnl = round(sum(t.pnl_amount for t in trades), 2)
-            
-            # 0 - 100 Otonom Varlık Güven Endeksi Formülü
-            score = round(min(99.0, max(45.0, (win_rate * 0.55) + (pf * 7.5) + (total * 2.0))), 1)
-            
-            if score >= 88.0:
-                expertise = "🔥 UZMAN / MASTER (Mükemmel Uyum)"
-                action = "🟢 Pozisyon Büyüklüğü +%20 Ödüllü"
-            elif score >= 75.0:
-                expertise = "🟢 GÜÇLÜ KÂRLI (Stabil Getiri)"
-                action = "🔵 Standart Bütçe (%100 Lot)"
-            elif score >= 60.0:
-                expertise = "🟡 NÖTR / DENGELİ (Normal Risk)"
-                action = "🟡 Standart Bütçe (%100 Lot)"
+
+            # ==========================================
+            # DUZELTILMIS GUVEN ENDEKSI FORMULU
+            # Eski hata: (total * 2.0) --> 236 islem = +472 puan (tamamen yanlis)
+            # Yeni kural: Kazanma orani kral, zarar eden HICBIR ZAMAN odul alamaz
+            # ==========================================
+
+            # Temel skor: Win-rate agirlikli (0-70 puan)
+            base_score = win_rate * 0.70
+
+            # Profit Factor bonusu (0-20 puan, max 2.0 PF = 20 puan)
+            pf_bonus = min(20.0, pf * 10.0) if pf > 0 else 0.0
+
+            # Deneyim bonusu: min islem sayisi (5-10 islem = +5, 20+ islem = +10, MAX +10)
+            # NOT: Cok kayip yapan varligi odul olarak degil, deneyim olarak ekle
+            exp_bonus = 0.0
+            if total >= 20:
+                exp_bonus = 10.0
+            elif total >= 10:
+                exp_bonus = 5.0
+            elif total >= 5:
+                exp_bonus = 2.0
+
+            score = base_score + pf_bonus + exp_bonus
+
+            # === SERT SINIRLAR (HARD CAPS) ===
+            # Kural 1: Hic kazanc yoksa maks 20 puan
+            if win_count == 0:
+                score = min(score, 20.0)
+
+            # Kural 2: Win rate < %30 ise maks 35 puan
+            if win_rate < 30.0:
+                score = min(score, 35.0)
+
+            # Kural 3: Net PnL negatif VE win rate < %40 ise maks 45 puan
+            if total_pnl < 0 and win_rate < 40.0:
+                score = min(score, 45.0)
+
+            # Kural 4: Net PnL negatif VE win rate > %50 ise hafif indirim
+            if total_pnl < 0 and win_rate >= 50.0:
+                score = min(score, 72.0)
+
+            # Final: 0-99 araligina kilitle
+            score = round(min(99.0, max(0.0, score)), 1)
+
+            # Uzmanlik seviyesi ve oneri
+            if score >= 80.0 and win_rate >= 55.0 and total_pnl > 0:
+                expertise = "🔥 UZMAN / MASTER (Mukemmel Uyum)"
+                action = "🟢 Pozisyon Buyuklugu +%20 Odullu"
+            elif score >= 65.0 and win_rate >= 45.0:
+                expertise = "🟢 GUCLU KARLI (Stabil Getiri)"
+                action = "🔵 Standart Butce (%100 Lot)"
+            elif score >= 45.0 and win_rate >= 35.0:
+                expertise = "🟡 NOTR / DENGELI (Normal Risk)"
+                action = "🟡 Standart Butce (%100 Lot)"
+            elif win_count == 0:
+                expertise = "⛔ SIFIR KAZANC (Bloke)"
+                action = "🚫 Giris Engellendi (0 Kazanc Kaydi)"
             else:
-                expertise = "🔴 DÜŞÜK UYUM (Sıkı Filtre)"
-                action = "⚠️ Filtre Sıkılaştırıldı (%70 Bütçe)"
+                expertise = "🔴 DUSUK UYUM (Siki Filtre)"
+                action = "⚠️ Filtre Sikilestirildi (%70 Butce)"
 
             if sym.endswith("USDT") or sym in ["BTC", "ETH", "SOL", "BNB"]:
                 mkt = "CRYPTO"
@@ -478,8 +526,8 @@ class ExperienceMemoryEngine:
                 "win_rate_pct": win_rate,
                 "profit_factor": pf,
                 "total_trades": total,
-                "wins_count": len(wins),
-                "losses_count": len(losses),
+                "wins_count": win_count,
+                "losses_count": loss_count,
                 "net_pnl_usd": total_pnl,
                 "expertise_level": expertise,
                 "action_recommendation": action
@@ -690,70 +738,160 @@ class ExperienceMemoryEngine:
     def get_advanced_metrics(self) -> dict:
         """
         Gelişmiş analitik grafikler için gerekli olan
-        5 farklı metriği hesaplayıp döndürür.
+        5 farklı metriği hesaplayıp döndürür (Gerçek işlem geçmişine dayalı).
         """
-        import random
+        from collections import defaultdict
         
         # 1. Radar Chart: Piyasa Rejimi Başarı Oranları
-        base_win_rate = 55.0
-        if len(self.trade_history) > 0:
-            wins = sum(1 for t in self.trade_history if getattr(t, 'pnl_pct', 0) > 0)
-            base_win_rate = (wins / len(self.trade_history)) * 100
+        regime_stats = defaultdict(lambda: {"wins": 0, "total": 0})
+        for t in self.trade_history:
+            regime = getattr(t, 'market_regime', "Bilinmiyor")
+            if not regime or regime.strip() == "":
+                regime = "Bilinmiyor"
+            regime_stats[regime]["total"] += 1
+            if getattr(t, 'pnl_pct', 0) > 0 or getattr(t, 'is_win', False):
+                regime_stats[regime]["wins"] += 1
+                
+        radar_labels = []
+        radar_data = []
+        radar_tooltips = []
         
-        radar_data = {
-            "labels": ["Boğa (Bull)", "Ayı (Bear)", "Testere (Choppy)", "Yüksek Volatilite", "Yatay (Ranging)"],
-            "data": [
-                round(base_win_rate + random.uniform(5, 15), 1),
-                round(base_win_rate - random.uniform(5, 10), 1),
-                round(base_win_rate - random.uniform(10, 20), 1),
-                round(base_win_rate + random.uniform(0, 10), 1),
-                round(base_win_rate - random.uniform(15, 25), 1)
-            ]
-        }
+        # En çok işlem yapılan rejimleri al
+        sorted_regimes = sorted(regime_stats.items(), key=lambda x: x[1]["total"], reverse=True)
+        # Maksimum 6 veya 7 köşe olsun ama var olan kadarını göstersin
+        for regime, stats in sorted_regimes[:6]:
+            # Çok uzun etiketleri ( ) işaretinden bölüp kısalt
+            short_label = regime.split('(')[0].strip()
+            if len(short_label) > 15:
+                short_label = short_label[:15] + "..."
+            
+            radar_labels.append(short_label)
+            win_rate = (stats["wins"] / stats["total"]) * 100 if stats["total"] > 0 else 0
+            radar_data.append(round(win_rate, 1))
+            
+            # Özel Metin Bilgisi (Tooltip)
+            radar_tooltips.append(f"Tam Rejim: {regime} | İşlem: {stats['total']} | Kâr: {stats['wins']} | Başarı: %{round(win_rate,1)}")
+            
+        # Eğer hiç veri yoksa, radar grafiği boş dönmesin diye nötr bir yapı koy ama "Veri Yok" de
+        if not radar_labels:
+            radar_labels = ["Veri Bekleniyor"]
+            radar_data = [0]
+            radar_tooltips = ["Henüz yeterli işlem geçmişi yok"]
         
-        # 2. Donut Chart: İndikatör Ağırlıkları
+        # 2. Donut Chart: İndikatör Ağırlıkları (İlerde dinamik olabilir, şimdilik gerçek verilerden okuyalım)
+        # Hangi indikatörler daha çok kullanıldı? (Entry Indicators)
+        indicator_usage = defaultdict(int)
+        excluded_keys = {'price', 'timestamp', 'market', 'reason', 'action', 'symbol', 'entry_price', 'pnl_pct', 'is_win', 'exit_reason', 'duration_minutes'}
+        for t in self.trade_history:
+            inds = getattr(t, 'indicators_at_entry', {})
+            if isinstance(inds, dict):
+                for k, v in inds.items():
+                    if k.lower() not in excluded_keys and v:
+                        indicator_usage[k] += 1
+                        
+        donut_labels = []
+        donut_data_vals = []
+        if indicator_usage:
+            for k, v in sorted(indicator_usage.items(), key=lambda x: x[1], reverse=True)[:5]:
+                donut_labels.append(k.upper())
+                donut_data_vals.append(v)
+        else:
+            donut_labels = ["Veri Bekleniyor"]
+            donut_data_vals = [1]
+            
         donut_data = {
-            "labels": ["Hacim (Volume)", "RSI", "MACD", "Fibonacci", "Emir Defteri (Orderbook)"],
-            "data": [35, 25, 15, 15, 10]
+            "labels": donut_labels,
+            "data": donut_data_vals
         }
         
         # 3. Scatter Chart: Kâr/Zarar Dağılımı (Süre vs PnL)
         scatter_data = []
-        for i, t in enumerate(self.trade_history[-30:]): # Son 30 işlem
-            duration_mins = random.randint(5, 120) # Tahmini süre (gerçekte yoksa uydur)
+        for t in self.trade_history[-50:]: # Son 50 işlem
+            duration = getattr(t, 'duration_minutes', 0)
+            if duration <= 0:
+                continue # Gerçek süresi olmayanları grafiğe dahil etme
+                
+            pnl = round(getattr(t, 'pnl_pct', 0), 2)
+            symbol = getattr(t, 'symbol', 'UNKNOWN')
+            
+            tooltip = f"Sembol: {symbol} | Süre: {duration}dk | PnL: %{pnl}"
             scatter_data.append({
-                "x": duration_mins,
-                "y": round(getattr(t, 'pnl_pct', 0), 2),
-                "symbol": t.symbol
+                "x": duration,
+                "y": pnl,
+                "symbol": symbol,
+                "tooltip": tooltip
             })
             
-        # Eğer geçmiş çok boşsa biraz dummy ekle
-        if len(scatter_data) < 10:
-            for _ in range(15 - len(scatter_data)):
-                scatter_data.append({"x": random.randint(10, 200), "y": round(random.uniform(-5.0, 5.0), 2), "symbol": "DUMMY"})
-
-        # 4. Bar Chart: Hata Türleri
-        bar_data = {
-            "labels": ["Erken Stop", "Sahte Kırılım (Fakeout)", "Hacimsiz Yükseliş", "Haber Etkisi", "Trend Dönüşü"],
-            "data": [random.randint(5,15), random.randint(10,20), random.randint(3,10), random.randint(1,5), random.randint(4,12)]
+        # 4. Bar Chart: Hata Türleri (Zarar Eden İşlemlerin Çıkış Nedenleri)
+        error_counts = defaultdict(int)
+        for t in self.trade_history:
+            pnl = getattr(t, 'pnl_pct', 0)
+            is_win = getattr(t, 'is_win', pnl > 0)
+            if not is_win or pnl < 0:
+                reason = getattr(t, 'exit_reason', "Bilinmeyen Neden")
+                if not reason or reason.strip() == "":
+                    reason = "Bilinmeyen Neden"
+                
+                # Çok uzun nedenleri kısalt
+                if len(reason) > 25:
+                    if "Stop" in reason: reason = "Stop-Loss Vuruldu"
+                    elif "Time" in reason: reason = "Zaman Aşımı"
+                    else: reason = reason[:22] + "..."
+                
+                error_counts[reason] += 1
+                
+        bar_labels = []
+        bar_values = []
+        bar_tooltips = []
+        for reason, count in sorted(error_counts.items(), key=lambda x: x[1], reverse=True)[:5]:
+            bar_labels.append(reason)
+            bar_values.append(count)
+            bar_tooltips.append(f"Hata Kaynağı: {reason} | Tekrar: {count} Kez")
+            
+        if not bar_labels:
+            bar_labels = ["Hata Yok"]
+            bar_values = [0]
+            bar_tooltips = ["Henüz kaydedilmiş bir zarar/hata bulunmuyor."]
+            
+        bar_data_dict = {
+            "labels": bar_labels,
+            "data": bar_values,
+            "tooltips": bar_tooltips
         }
         
-        # 5. Area Chart: Risk ve Drawdown (Son 20 işlemdeki terste kalma ortalaması)
+        # 5. Area Chart: Risk ve Drawdown (Son 20 işlemdeki terste kalma oranı)
         area_labels = []
         area_data = []
-        for i in range(1, 21):
-            area_labels.append(f"İşlem {i}")
-            # -0.5 ile -4.0 arası rastgele drawdown
-            area_data.append(round(random.uniform(-0.5, -4.0), 2))
+        area_tooltips = []
+        recent_20 = self.trade_history[-20:]
+        for i, t in enumerate(recent_20):
+            symbol = getattr(t, 'symbol', f"İşlem {i+1}")
+            area_labels.append(symbol)
+            dd = getattr(t, 'max_drawdown_percent', 0.0)
+            
+            # Gerçek DD yoksa 0 kullan (rastgele uydurma)
+            if dd > 0: dd = -dd
+            area_data.append(round(dd, 2))
+            area_tooltips.append(f"Sembol: {symbol} | Max DD: %{round(dd, 2)}")
+            
+        if not area_labels:
+            area_labels = ["Veri Yok"]
+            area_data = [0]
+            area_tooltips = ["Henüz kaydedilmiş işlem yok"]
             
         return {
-            "radar": radar_data,
+            "radar": {
+                "labels": radar_labels,
+                "data": radar_data,
+                "tooltips": radar_tooltips
+            },
             "donut": donut_data,
             "scatter": scatter_data,
-            "bar": bar_data,
+            "bar": bar_data_dict,
             "area": {
                 "labels": area_labels,
-                "data": area_data
+                "data": area_data,
+                "tooltips": area_tooltips
             }
         }
 

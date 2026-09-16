@@ -161,10 +161,27 @@ class AlpacaTradeStream:
                     
                     # 1. Local'de açık olup Alpaca'da olmayanları kapat
                     closed_locally = []
+                    import datetime
                     for pos_id, pos in live_trade_manager.positions.items():
                         if pos.status == "OPEN":
                             formatted_sym = broker._format_symbol(pos.symbol) if hasattr(broker, "_format_symbol") else pos.symbol
                             if formatted_sym not in active_symbols:
+                                # GRACE PERIOD (2 dk): Yeni açılan emirler Alpaca'da henüz PENDING (bekleyen/kuyrukta) olabilir.
+                                try:
+                                    opened_dt = datetime.datetime.fromisoformat(pos.opened_at)
+                                    # Ensure both are timezone aware or naive to compare safely
+                                    now_utc = datetime.datetime.now(datetime.timezone.utc)
+                                    if opened_dt.tzinfo is None:
+                                        opened_dt = opened_dt.replace(tzinfo=datetime.timezone.utc)
+                                        
+                                    diff_seconds = (now_utc - opened_dt).total_seconds()
+                                    if diff_seconds < 120:
+                                        # Emir henüz 2 dakikadan yeni, PENDING olabilir, hemen kapatma!
+                                        continue
+                                except Exception as e:
+                                    logger.debug(f"Grace period time parsing error: {e}")
+                                    pass
+                                    
                                 closed_locally.append(pos)
                             
                     for pos in closed_locally:

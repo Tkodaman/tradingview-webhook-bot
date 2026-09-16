@@ -2,100 +2,133 @@ import asyncio
 from core.logger import logger
 from core.config import settings
 
+
+def calculate_atr_based_tp_sl(
+    entry_price: float,
+    atr_value: float,
+    side: str = "BUY",
+    is_crypto: bool = False,
+) -> tuple:
+    # === FIX-4: R:R orani düzetme — SL daha sıkı, TP daha geniş ===
+    if entry_price <= 0 or atr_value <= 0:
+        # Fallback: Minimum R:R 1:2 garantisi
+        return (4.0 if is_crypto else 3.5), (1.5 if is_crypto else 1.5)
+
+    tp_multiplier = 3.0 if is_crypto else 2.5   # FIX: 2.5/2.0 -> 3.0/2.5 (TP genisletme)
+    sl_multiplier = 1.0                          # FIX: 1.5 -> 1.0 (SL sıkılaştırma)
+    tp_pct = ((atr_value * tp_multiplier) / entry_price) * 100.0
+    sl_pct = ((atr_value * sl_multiplier) / entry_price) * 100.0
+
+    # === SL üst limiti %2.5 (%4.3'ten düşürüldü) ===
+    sl_pct = max(1.0, min(sl_pct + 0.2, 2.5))   # FIX: max 4.3 -> 2.5
+    # === TP alt limiti %2.5 (%1.8'den yükseltildi) ===
+    tp_pct = max(2.5, min(tp_pct, 9.0))          # FIX: min 1.8 -> 2.5
+    # === Minimum R:R 1:2 garantisi ===
+    if tp_pct < sl_pct * 2.0:
+        tp_pct = sl_pct * 2.0                    # FIX: 1.8x -> 2.0x (katı R:R kuralı)
+
+    from core.logger import logger
+    logger.debug(f"[ATR TP/SL] entry={entry_price} atr={atr_value:.4f} crypto={is_crypto} -> TP=%{tp_pct:.2f} SL=%{sl_pct:.2f} R:R={tp_pct/sl_pct:.2f}")
+    return round(tp_pct, 2), round(sl_pct, 2)
 class DynamicRiskManager:
     def __init__(self):
-        # symbol -> { "last_price": 100.0, "high_water_mark": 100.0, "low_water_mark": 100.0 }
+        # symbol -> { "high_water_mark": float, "initial_sl_set": bool }
         self.price_history = {}
-        # Trailing stop parametresi (örn. fiyat %1.5 artarsa, SL'yi %1 yukarı çek)
-        self.trailing_activation_pct = 1.0 
-        self.trailing_distance_pct = 0.5 
+
+        # === SIKI TRAILING STOP PARAMETRESİ ===
+        # trailing_distance_pct: SL her zaman en yüksek fiyatın %1.5 altında
+        # Aktivasyon yok — giriş anından itibaren geçerli, asla aşağı inmez
+        self.trailing_distance_pct = 1.5   # Kullanıcı isteği: %1.5 sıkı takip
 
     async def on_price_update(self, symbol: str, current_price: float):
         """
-        Called on every tick from AlpacaDataStream.
+        Her tick'te cagrilir. SL = max(mevcut_SL, current_price * (1 - 0.015))
+        Asla asagi inmez. Aktivasyon esigi yok — giri anından itibaren aktif.
         """
         if symbol not in self.price_history:
             self.price_history[symbol] = {
-                "last_price": current_price,
                 "high_water_mark": current_price,
-                "low_water_mark": current_price
+                "initial_sl_set": False
             }
-            return
-            
+
         history = self.price_history[symbol]
-        history["last_price"] = current_price
-        
+
+        # Zirveyi güncelle (asla aşağı gitme)
         if current_price > history["high_water_mark"]:
             history["high_water_mark"] = current_price
-        if current_price < history["low_water_mark"]:
-            history["low_water_mark"] = current_price
-            
+
         await self._evaluate_trailing_stop(symbol, current_price, history)
 
     async def _evaluate_trailing_stop(self, symbol: str, current_price: float, history: dict):
         from services.market_feed.live_stream import live_trade_manager
-        
-        # Sadece OPEN statüsündeki pozisyonları değerlendir
+
         matched_pos = None
         for pos_id, pos in live_trade_manager.positions.items():
             if pos.symbol == symbol and pos.status == "OPEN":
                 matched_pos = pos
                 break
-                
+
         if not matched_pos:
             return
-            
-        entry_price = matched_pos.entry_price
-        current_sl = matched_pos.stop_loss_price
-        
+
+        entry_price  = matched_pos.entry_price
+        current_sl   = matched_pos.stop_loss_price
+        trail_pct    = self.trailing_distance_pct / 100.0
+
         if matched_pos.side == "BUY":
-            # Chandelier Exit Kontrolü
+            # === Chandelier Exit (ATR bazlı) ===
             if getattr(matched_pos, "use_chandelier_exit", False) and getattr(matched_pos, "atr_value", 0.0) > 0:
                 new_sl = history["high_water_mark"] - (matched_pos.atr_value * 3.0)
                 if new_sl > current_sl:
-                    logger.info(f"🚀 [CHANDELIER EXIT] {symbol} Zirve ({history['high_water_mark']}) görüldü (ATR: {matched_pos.atr_value:.2f}). SL {current_sl:.4f} -> {new_sl:.4f} olarak guncelleniyor.")
+                    logger.info(f"[CHANDELIER] {symbol} SL {current_sl:.4f} -> {new_sl:.4f} (ATR bazli)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
                     await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
                     await self._notify_ui(symbol, matched_pos)
                 return
 
-            # Kâr yüzdesini hesapla
-            profit_pct = ((current_price - entry_price) / entry_price) * 100.0
-            
-            if profit_pct >= self.trailing_activation_pct:
-                # Yeni SL seviyesi
-                new_sl = current_price * (1 - (self.trailing_distance_pct / 100.0))
-                
-                # Sadece SL'yi yukarı çekiyoruz, asla aşağı indirmeyiz
-                if new_sl > current_sl:
-                    logger.info(f"🚀 [DYNAMIC SL] {symbol} fiyati {current_price} oldu (Kar: %{profit_pct:.2f}). SL {current_sl:.4f} -> {new_sl:.4f} olarak guncelleniyor.")
-                    matched_pos.stop_loss_price = round(new_sl, 4)
-                    
-                    # Broker'a ilet
-                    await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
-                    
-                    # Arayüze WebSocket ile yansıt
-                    await self._notify_ui(symbol, matched_pos)
-                    
+            # === %1.5 SIKI TRAILING STOP ===
+            # SL = en yüksek görülen fiyatın %1.5 altı
+            # İlk SL: giriş fiyatının %1.5 altı (eğer mevcut SL daha uzaksa ezip geçer)
+            candidate_sl = history["high_water_mark"] * (1.0 - trail_pct)
+
+            # SL'yi asla aşağı indirme; her zaman en yüksek olanı kullan
+            new_sl = max(candidate_sl, current_sl)
+
+            # Değişim varsa güncelle
+            if new_sl > current_sl:
+                profit_pct = ((current_price - entry_price) / entry_price) * 100.0
+                logger.info(
+                    f"[TRAILING SL] {symbol} | Fiyat={current_price:.4f} "
+                    f"| HWM={history['high_water_mark']:.4f} "
+                    f"| SL {current_sl:.4f} -> {new_sl:.4f} "
+                    f"| PnL={profit_pct:+.2f}%"
+                )
+                matched_pos.stop_loss_price = round(new_sl, 4)
+                await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
+                await self._notify_ui(symbol, matched_pos)
+
         elif matched_pos.side == "SELL":
-            # Chandelier Exit Kontrolü
+            # === Chandelier Exit (ATR bazlı) ===
             if getattr(matched_pos, "use_chandelier_exit", False) and getattr(matched_pos, "atr_value", 0.0) > 0:
-                new_sl = history["low_water_mark"] + (matched_pos.atr_value * 3.0)
+                new_sl = history.get("low_water_mark", current_price) + (matched_pos.atr_value * 3.0)
                 if new_sl < current_sl:
-                    logger.info(f"🚀 [CHANDELIER EXIT] {symbol} Dip ({history['low_water_mark']}) görüldü (ATR: {matched_pos.atr_value:.2f}). SL {current_sl:.4f} -> {new_sl:.4f} olarak guncelleniyor.")
+                    logger.info(f"[CHANDELIER] {symbol} SELL SL {current_sl:.4f} -> {new_sl:.4f} (ATR bazli)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
                     await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
                     await self._notify_ui(symbol, matched_pos)
                 return
-                
-            profit_pct = ((entry_price - current_price) / entry_price) * 100.0
-            if profit_pct >= self.trailing_activation_pct:
-                new_sl = current_price * (1 + (self.trailing_distance_pct / 100.0))
-                if new_sl < current_sl: # Short için daha aşağıda (daha düşük) olması lazım
-                    logger.info(f"🚀 [DYNAMIC SL] {symbol} fiyati {current_price} oldu (Kar: %{profit_pct:.2f}). SL {current_sl:.4f} -> {new_sl:.4f} olarak guncelleniyor.")
-                    matched_pos.stop_loss_price = round(new_sl, 4)
-                    await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
-                    await self._notify_ui(symbol, matched_pos)
+
+            # SELL trailing: SL = en düşük fiyatın %1.5 üstü
+            low_water = min(current_price, history.get("low_water_mark", current_price))
+            if current_price < history.get("low_water_mark", current_price):
+                history["low_water_mark"] = current_price
+            candidate_sl = history.get("low_water_mark", current_price) * (1.0 + trail_pct)
+            new_sl = min(candidate_sl, current_sl)   # SELL'de daha düşük olmalı
+            if new_sl < current_sl:
+                logger.info(f"[TRAILING SL] {symbol} SELL SL {current_sl:.4f} -> {new_sl:.4f}")
+                matched_pos.stop_loss_price = round(new_sl, 4)
+                await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
+                await self._notify_ui(symbol, matched_pos)
 
     async def _update_broker_sl(self, symbol: str, tp_price: float, sl_price: float):
         if settings.trading_mode in ["LIVE", "PAPER"]:

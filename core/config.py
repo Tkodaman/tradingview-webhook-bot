@@ -1,8 +1,9 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 from typing import List
 
 class Settings(BaseSettings):
-    passphrase: str = "secret_key"
+    passphrase: str
     trading_mode: str = "PAPER" # PAPER or LIVE (Alpaca Sandbox vs Real)
     active_broker: str = "ALPACA" # ALPACA, INTERACTIVE_BROKERS, MIDAS
     allowed_ips: str = "127.0.0.1,localhost,testclient,52.89.214.238,34.212.75.30,54.218.53.128,52.32.178.7"
@@ -10,6 +11,7 @@ class Settings(BaseSettings):
     # Alpaca API Credentials
     alpaca_api_key: str = ""
     alpaca_secret_key: str = ""
+    alpaca_extended_hours: bool = True # Piyasa öncesi ve sonrası işlemler aktif
     
     # Risk Parameters (Esnetilmiş Aktif İşlem Modu)
     max_risk_score_allowed: float = 88.0 # Tavan risk skoru esnetildi
@@ -35,7 +37,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Dynamic Risk Mode
-    current_risk_mode: str = "NORMAL"
+    current_risk_mode: str = Field("NORMAL", alias="CURRENT_RISK_MODE")
 
     def apply_risk_mode(self, mode: str):
         self.current_risk_mode = mode.upper()

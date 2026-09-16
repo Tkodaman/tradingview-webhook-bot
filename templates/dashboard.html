@@ -12,7 +12,7 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TradingView AI Webhook Gateway & Otonom Piyasa Kokpiti</title>
+    <title>Kodaman&amp;Studio | Piyasa Canlı Kokpiti</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -56,6 +56,25 @@
             min-height: 100vh;
             padding: 18px 24px;
             overflow-x: hidden;
+            /* Kodaman Studio logo arka plan (watermark) */
+            position: relative;
+        }
+        /* Kodaman Logo Watermark - Sabit tabana kenetli */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: min(600px, 60vw);
+            height: min(600px, 60vw);
+            background-image: url('{{ kodaman_logo_b64 }}');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            opacity: 0.045;
+            pointer-events: none;
+            z-index: 0;
         }
 
         @keyframes flashGreen {
@@ -1122,9 +1141,32 @@ The following code has been modified to include a line number before every line,
     <!-- TOP HEADER -->
     <div class="header-section">
         <div class="header-top">
-            <div>
+            <div style="display:flex; align-items:center; gap:14px;">
+                {% if kodaman_logo_b64 %}
+                <div style="position:relative;display:inline-block;cursor:pointer;" id="ksLogoWrap"
+                     onmouseover="document.getElementById('ksTooltip').style.opacity='1';document.getElementById('ksTooltip').style.visibility='visible';"
+                     onmouseout="document.getElementById('ksTooltip').style.opacity='0';document.getElementById('ksTooltip').style.visibility='hidden';">
+                    <img src="{{ kodaman_logo_b64 }}" alt="Kodaman Studio"
+                         style="height:48px;width:auto;opacity:0.92;filter:drop-shadow(0 0 8px rgba(139,92,246,0.6));transition:transform 0.2s,opacity 0.2s;"
+                         onmouseover="this.style.transform='scale(1.08)';this.style.opacity='1';"
+                         onmouseout="this.style.transform='scale(1)';this.style.opacity='0.92';">
+                    <div id="ksTooltip" style="position:absolute;top:58px;left:0;width:280px;background:linear-gradient(135deg,#1c1f2e 0%,#0f1117 100%);border:1px solid rgba(139,92,246,0.4);border-radius:12px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,0.6),0 0 20px rgba(139,92,246,0.15);opacity:0;visibility:hidden;transition:opacity 0.2s ease,visibility 0.2s ease;z-index:9999;pointer-events:none;">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;border-bottom:1px solid rgba(139,92,246,0.2);padding-bottom:8px;">
+                            <span style="font-size:18px;">&#128640;</span>
+                            <span style="color:#c4b5fd;font-weight:700;font-size:13px;letter-spacing:0.5px;">KODAMAN&amp;STUDIO</span>
+                        </div>
+                        <div style="color:#94a3b8;font-size:11px;line-height:1.7;">
+                            <div style="margin-bottom:6px;"><span style="color:#a78bfa;font-weight:600;">&#128202; Piyasa Kokpiti</span><br>Kripto, BIST ve NASDAQ icin 7/24 otonom izleme ve sinyal motoru</div>
+                            <div style="margin-bottom:6px;"><span style="color:#34d399;font-weight:600;">&#129302; Yapay Zeka Motoru</span><br>12 indikator + ML modeli + Fear &amp; Greed + Korelasyon filtresi</div>
+                            <div style="margin-bottom:6px;"><span style="color:#60a5fa;font-weight:600;">&#128279; Alpaca Entegrasyonu</span><br>Anlik pozisyon senkronizasyonu ve gercek zamanli PnL takibi</div>
+                            <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);color:#64748b;font-size:10px;">Software &amp; Applications &bull; v2.0 &bull; 2024-2026</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
                 <div class="header-title">
-                    <span style="color: #f43f5e; font-size: 22px;">🧬</span> (a1) TRADINGVIEW AI GATEWAY & 3-PİYASA CANLI KOKPİTİ
+                    Kodaman&amp;Studio Piyasa Canlı Kokpiti
                 </div>
                 <div class="header-subtitle">
                     Kripto (7/24), BIST 100/30 ve NASDAQ Mega-Cap • Dinamik Seans Kontrolü • Otonom Risk & Hafıza Motoru
@@ -1147,8 +1189,21 @@ The following code has been modified to include a line number before every line,
                 <button class="btn" style="border-color: rgba(255,255,255,0.15);" onclick="calibrateEngine()">
                     <span>🔄</span> Kalibre Et
                 </button>
+
+                <!-- SAG UST KOSE: Kodaman Studio Gumus Logo -->
+                {% if kodaman_logo2_b64 %}
+                <img src="{{ kodaman_logo2_b64 }}"
+                     alt="Kodaman Studio"
+                     title="Kodaman&Studio — Software and Applications"
+                     style="height:52px; width:auto; opacity:0.88; margin-left:18px;
+                            filter: drop-shadow(0 0 6px rgba(200,200,200,0.25));
+                            transition: opacity 0.2s, transform 0.2s; cursor:default;"
+                     onmouseover="this.style.opacity='1'; this.style.transform='scale(1.06)';"
+                     onmouseout="this.style.opacity='0.88'; this.style.transform='scale(1)';">
+                {% endif %}
             </div>
         </div>
+
         
         <!-- YENİ: STRATEJİ & RİSK MODU BUTONLARI -->
         <div class="risk-modes-bar">
@@ -1212,11 +1267,12 @@ The following code has been modified to include a line number before every line,
             animation-play-state: paused;
         }
     </style>
-    <div id="vergeOfBuyTicker" style="display: none; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 8px; margin-bottom: 12px; padding: 10px; overflow: hidden; white-space: nowrap; box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);">
+    <div id="vergeOfBuyTicker" style="display: block; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 8px; margin-bottom: 12px; padding: 10px; overflow: hidden; white-space: nowrap; box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);">
         <div class="scrolling-ticker-wrapper">
-            <span id="vergeOfBuyContent"></span>
+            <span id="vergeOfBuyContent">🔥 KAZAN-KAZAN RAMAK KALA FIRSATLARI: &nbsp;&nbsp;&nbsp; Piyasa verileri yükleniyor... &nbsp;&nbsp;&nbsp; ⏳ Lütfen bekleyin...</span>
         </div>
     </div>
+
 
     <!-- ===== 📅 CANLI TARİH + SAAT + SEANS BİLGİSİ ŞERİDİ ===== -->
     <div id="tarihSaatBar" style="
@@ -1259,7 +1315,6 @@ The following code has been modified to include a line number before every line,
             <span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">(Updated 1.5s)</span>
         </div>
 
-        <button onclick="runBacktest()" class="btn-primary" style="margin-left:8px; padding: 6px 12px; font-size: 12px; border-radius: 4px; border: none; background: #60a5fa; color: #111827; font-weight: bold; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#93c5fd'" onmouseout="this.style.background='#60a5fa'">🧪 Backtest Çalıştır (TSLA, AAPL)</button>
         <button onclick="resetAccountWallet()" class="btn-primary" style="margin-left:8px; padding: 6px 12px; font-size: 12px; border-radius: 4px; border: none; background: #ef4444; color: white; font-weight: bold; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#f87171'" onmouseout="this.style.background='#ef4444'">🗑️ KASAYI SIFIRLA</button>
     </div>
 
@@ -1351,16 +1406,16 @@ The following code has been modified to include a line number before every line,
         <!-- Summary Stats Cards -->
         <div style="display:flex; gap:16px; margin-bottom: 16px;">
             <div style="flex:1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 12px; text-align:center;">
-                <div style="font-size:11px; color:#9ca3af; margin-bottom:4px;">Toplam Kapatılan İşlem</div>
-                <div id="summaryTotalTrades" style="font-size:20px; font-weight:bold; color:#ffffff;">0</div>
+                <div style="font-size:11px; color:#9ca3af; margin-bottom:4px;">Toplam Kapatılan İşlem (Manuel / Otonom)</div>
+                <div id="summaryTotalTrades" style="font-size:20px; font-weight:bold; color:#ffffff;">0 / 0</div>
             </div>
             <div style="flex:1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 12px; text-align:center;">
-                <div style="font-size:11px; color:#9ca3af; margin-bottom:4px;">Başarı Oranı (Win Rate)</div>
-                <div id="summaryWinRate" style="font-size:20px; font-weight:bold; color:#4ade80;">%0.0</div>
+                <div style="font-size:11px; color:#9ca3af; margin-bottom:4px;">Başarı Oranı (Manuel / Otonom)</div>
+                <div id="summaryWinRate" style="font-size:20px; font-weight:bold; color:#4ade80;">%0.0 / %0.0</div>
             </div>
             <div style="flex:1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 12px; text-align:center;">
-                <div style="font-size:11px; color:#9ca3af; margin-bottom:4px;">Toplam Net PnL</div>
-                <div id="summaryTotalPnl" style="font-size:20px; font-weight:bold; color:#ffffff;">$0.00</div>
+                <div style="font-size:11px; color:#9ca3af; margin-bottom:4px;">Net PnL (Manuel / Otonom)</div>
+                <div id="summaryTotalPnl" style="font-size:20px; font-weight:bold; color:#ffffff;">$0.00 / $0.00</div>
             </div>
         </div>
 
@@ -1375,11 +1430,12 @@ The following code has been modified to include a line number before every line,
                         <th style="padding: 8px; text-align:right; color:#9ca3af;">Çıkış</th>
                         <th style="padding: 8px; text-align:right; color:#9ca3af;">Miktar</th>
                         <th style="padding: 8px; text-align:right; color:#9ca3af;">Net PnL</th>
+                        <th style="padding: 8px; text-align:center; color:#9ca3af;">Tarih / Saat</th>
                         <th style="padding: 8px; text-align:left; color:#9ca3af;">Kapanış Nedeni</th>
                     </tr>
                 </thead>
                 <tbody id="summaryTableBody">
-                    <tr><td colspan="7" style="text-align:center; padding: 16px; color:#6b7280;">Geçmiş işlem verisi yükleniyor...</td></tr>
+                    <tr><td colspan="8" style="text-align:center; padding: 16px; color:#6b7280;">Geçmiş işlem verisi yükleniyor...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -2315,7 +2371,8 @@ The following code has been modified to include a line number before every line,
                             <div class="duration-timer" data-time="${p.opened_at}" style="display:flex; align-items:center; justify-content:center; gap:4px; font-family: 'JetBrains Mono', monospace; font-size:11px; color:#94a3b8; background:rgba(0,0,0,0.3); padding:4px; border-radius:4px;">--</div>
                         </td>
                         <td>
-                            <button class="btn btn-close" style="padding:3px 8px; font-size:11px;" onclick="quickClosePosition('${p.id}')">Kapat</button>
+                            <button class="btn btn-close" style="padding:3px 8px; font-size:11px;" onclick="quickClosePosition('${p.symbol}')">Kapat</button>
+
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -2435,9 +2492,9 @@ The following code has been modified to include a line number before every line,
 
                 // RENDER HEATMAP BOXES
                 // SADECE İLK 15'İ (veya Top 15'i) HEATMAP'E GÖNDER
-                renderHeatmapBoxes('top15CryptoBody', (data.grouped.CRYPTO || []).slice(0, 15), cryptoInfo.is_open, 'tickerCrypto');
-                renderHeatmapBoxes('top15BistBody', (data.grouped.BIST || []).slice(0, 15), bistInfo.is_open, 'tickerBist');
-                renderHeatmapBoxes('top15NasdaqBody', (data.grouped.NASDAQ || []).slice(0, 15), nasdaqInfo.is_open, 'tickerNasdaq');
+                renderHeatmapBoxes('top15CryptoBody', (data.grouped.CRYPTO || []).slice(0, 15), cryptoInfo, 'tickerCrypto');
+                renderHeatmapBoxes('top15BistBody', (data.grouped.BIST || []).slice(0, 15), bistInfo, 'tickerBist');
+                renderHeatmapBoxes('top15NasdaqBody', (data.grouped.NASDAQ || []).slice(0, 15), nasdaqInfo, 'tickerNasdaq');
 
                 // RAMAK KALA (VERGE OF BUY) HESAPLAMASI (HER PİYASA İÇİN EN İYİSİ)
                 function getBestForMarket(marketData) {
@@ -2606,12 +2663,20 @@ The following code has been modified to include a line number before every line,
             }
         }
 
-        function renderHeatmapBoxes(containerId, items, isOpen, tickerId) {
+        function renderHeatmapBoxes(containerId, items, marketInfo, tickerId) {
             const container = document.getElementById(containerId);
             const ticker = document.getElementById(tickerId);
             if (!container) return;
             
-            let tickerText = isOpen ? "" : "🔴 PİYASA KAPALI - ";
+            const isOpen = marketInfo && marketInfo.is_open;
+            let tickerText = "";
+            if (!isOpen) {
+                tickerText = "🔴 PİYASA KAPALI - ";
+            } else if (marketInfo && marketInfo.is_pre_market) {
+                tickerText = "🟡 PRE-MARKET (Piyasa Öncesi) AKTİF - ";
+            } else if (marketInfo && marketInfo.is_post_market) {
+                tickerText = "🟣 POST-MARKET (Piyasa Sonrası) AKTİF - ";
+            }
             
             // Remove boxes that are no longer in the top 15
             const currentBoxes = Array.from(container.children);
@@ -3255,17 +3320,24 @@ The following code has been modified to include a line number before every line,
                 const data = await res.json();
                 
                 document.getElementById('summaryTotalTrades').innerText = data.total_trades;
-                document.getElementById('summaryWinRate').innerText = "%" + data.win_rate.toFixed(1);
+                document.getElementById('summaryWinRate').innerText = data.win_rate;
                 
                 const pnlEl = document.getElementById('summaryTotalPnl');
-                pnlEl.innerText = "$" + data.total_net_pnl.toFixed(2);
-                pnlEl.style.color = data.total_net_pnl >= 0 ? "#4ade80" : "#ef4444";
+                
+                // Real / Virtual PnL formatting
+                const pnlRealStr = "$" + data.pnl_real.toFixed(2);
+                const pnlVirtualStr = "$" + data.pnl_virtual.toFixed(2);
+                
+                const realColor = data.pnl_real >= 0 ? "#4ade80" : "#ef4444";
+                const virtColor = data.pnl_virtual >= 0 ? "#4ade80" : "#ef4444";
+                
+                pnlEl.innerHTML = `<span style="color:${realColor}">${pnlRealStr}</span> / <span style="color:${virtColor}">${pnlVirtualStr}</span>`;
                 
                 const tbody = document.getElementById('summaryTableBody');
                 tbody.innerHTML = "";
                 
                 if (data.recent_trades.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 16px; color:#6b7280;">Henüz geçmiş işlem kaydı yok.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 16px; color:#6b7280;">Henüz geçmiş işlem kaydı yok.</td></tr>';
                     return;
                 }
                 
@@ -3283,6 +3355,7 @@ The following code has been modified to include a line number before every line,
                         <td style="padding: 8px; text-align:right;">${trade.exit_price ? parseFloat(trade.exit_price).toFixed(2) : '-'}</td>
                         <td style="padding: 8px; text-align:right;">${parseFloat(trade.quantity).toFixed(4)}</td>
                         <td style="padding: 8px; text-align:right; font-weight:bold; color:${pnlColor};">${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)}</td>
+                        <td style="padding: 8px; text-align:center; color:#9ca3af; font-size:11px;">${trade.closed_at || '-'}</td>
                         <td style="padding: 8px; text-align:left; color:#9ca3af; font-size:10px;">${trade.reason || 'Bilinmiyor'}</td>
                     `;
                     tbody.appendChild(tr);
@@ -3409,7 +3482,18 @@ The following code has been modified to include a line number before every line,
                             commEl.innerText = `(Alpaca Komisyon Gideri: -$${parseFloat(summary.total_commissions_paid).toFixed(2)})`;
                         }
 
-                        // Chart Güncellemesi
+                        // Bot Uptime & Son Scan Guncelle
+                        const uptimeEl = document.getElementById('tsBotUptime');
+                        const lastScanEl = document.getElementById('tsLastScan');
+                        if (uptimeEl && summary.bot_uptime) {
+                            uptimeEl.innerText = summary.bot_uptime;
+                        }
+                        if (lastScanEl && summary.last_scan) {
+                            lastScanEl.innerText = summary.last_scan + ' UTC';
+                        }
+
+                        // Chart Guncellemesi
+
                         const chartEquity = document.getElementById('chartLatestEquity');
                         if (chartEquity && summary.account_balance !== undefined) {
                             chartEquity.innerText = `$${parseFloat(summary.account_balance).toFixed(2)}`;
@@ -3474,30 +3558,9 @@ The following code has been modified to include a line number before every line,
         setInterval(updateClock, 1000);
         updateClock();
 
-        
-        // Update Clock
-        function updateClock() {
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('tr-TR', { hour12: false });
-            
-            const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-            const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-            
-            const dateStr = now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + ' ' + days[now.getDay()];
-            
-            const start = new Date(now.getFullYear(), 0, 0);
-            const diff = now - start;
-            const oneDay = 1000 * 60 * 60 * 24;
-            const dayOfYear = Math.floor(diff / oneDay);
-            const weekOfYear = Math.ceil(dayOfYear / 7);
 
-            document.getElementById('tsClock').innerText = timeStr;
-            document.getElementById('tsDate').innerText = dateStr;
-            document.getElementById('tsWeek').innerText = 'Hafta ' + weekOfYear;
-            document.getElementById('tsYear').innerText = 'Günün ' + dayOfYear + '. günü';
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
+        // ---- Saat ve Tarih guncelleme (tek kopya) ----
+
 
         connectWebSocket();
         fetchLiveMatrix(); // Varlık matrix verisini ilk girişte çek
@@ -4026,7 +4089,19 @@ document.addEventListener("DOMContentLoaded", function() {
                             options: {
                                 responsive: true, maintainAspectRatio: false,
                                 scales: { r: { ticks: { display: false }, grid: { color: 'rgba(255,255,255,0.1)' }, pointLabels: { color: '#94a3b8', font: { size: 9 } } } },
-                                plugins: { legend: { display: false } }
+                                plugins: { 
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(ctx) {
+                                                if (metrics.radar.tooltips && metrics.radar.tooltips[ctx.dataIndex]) {
+                                                    return metrics.radar.tooltips[ctx.dataIndex];
+                                                }
+                                                return `Başarı Oranı: %${ctx.raw}`;
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         });
                     }
@@ -4090,7 +4165,11 @@ document.addEventListener("DOMContentLoaded", function() {
                                 },
                                 plugins: { 
                                     legend: { display: false },
-                                    tooltip: { callbacks: { label: (ctx) => `PnL: %${ctx.raw.y} (Süre: ${ctx.raw.x}dk)` } }
+                                    tooltip: { 
+                                        callbacks: { 
+                                            label: (ctx) => ctx.raw.tooltip ? ctx.raw.tooltip : `PnL: %${ctx.raw.y} (Süre: ${ctx.raw.x}dk)` 
+                                        } 
+                                    }
                                 }
                             }
                         });
@@ -4124,7 +4203,19 @@ document.addEventListener("DOMContentLoaded", function() {
                                     x: { grid: { display: false }, ticks: { color: '#cbd5e1', font: {size: 9} } },
                                     y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', stepSize: 5 } }
                                 },
-                                plugins: { legend: { display: false } }
+                                plugins: { 
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(ctx) {
+                                                if (metrics.bar.tooltips && metrics.bar.tooltips[ctx.dataIndex]) {
+                                                    return metrics.bar.tooltips[ctx.dataIndex];
+                                                }
+                                                return `Hata Frekansı: ${ctx.raw}`;
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         });
                     }
@@ -4159,7 +4250,19 @@ document.addEventListener("DOMContentLoaded", function() {
                                     x: { display: false },
                                     y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
                                 },
-                                plugins: { legend: { display: false } }
+                                plugins: { 
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(ctx) {
+                                                if (metrics.area.tooltips && metrics.area.tooltips[ctx.dataIndex]) {
+                                                    return metrics.area.tooltips[ctx.dataIndex];
+                                                }
+                                                return `Drawdown: %${ctx.raw}`;
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         });
                     }

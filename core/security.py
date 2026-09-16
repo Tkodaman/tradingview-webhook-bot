@@ -22,25 +22,4 @@ def verify_passphrase(passphrase: str):
         raise HTTPException(status_code=401, detail="Unauthorized: Invalid passphrase")
     return True
 
-import hmac
-import hashlib
 
-def verify_webhook_signature(request_body: bytes, signature_header: str) -> bool:
-    """
-    HMAC-SHA256 kullanarak webhook imzasını doğrular.
-    TradingView'in X-Signature header'ı göndermesi gerekir.
-    """
-    if not signature_header:
-        raise HTTPException(status_code=401, detail="Unauthorized: Missing signature header")
-        
-    expected_signature = hmac.new(
-        settings.passphrase.encode('utf-8'), 
-        request_body, 
-        hashlib.sha256
-    ).hexdigest()
-    
-    if not hmac.compare_digest(expected_signature, signature_header):
-        logger.warning("Blocked request with invalid webhook signature")
-        raise HTTPException(status_code=401, detail="Unauthorized: Invalid signature")
-        
-    return True

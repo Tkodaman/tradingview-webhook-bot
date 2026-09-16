@@ -10,7 +10,7 @@ class AssetUniverseManager:
     """
     def __init__(self):
         self.last_rotation_time = 0
-        self.rotation_interval_seconds = 300  # 5 dakikada bir momentum bazlı yeniden sıralama
+        self.rotation_interval_seconds = 90  # 90 saniyede bir — erken sinyali daha hizli yakalar (eskisi 300s)
 
         # Aktif hedeflenen havuz (Current targets)
         self.active_crypto_targets: List[str] = []
@@ -28,9 +28,15 @@ class AssetUniverseManager:
             "BINANCE:BCHUSDT", "BINANCE:LTCUSDT", "BINANCE:XRPUSDT", "BINANCE:YFIUSDT",
             "BINANCE:PEPEUSDT", "BINANCE:WIFUSDT", "BINANCE:RENDERUSDT", "BINANCE:BONKUSDT",
             "BINANCE:ARBUSDT", "BINANCE:ONDOUSDT", "BINANCE:LDOUSDT", "BINANCE:FILUSDT",
-            "BINANCE:XTZUSDT", "BINANCE:PAXGUSDT", "CRYPTO:TRUMPUSD", "CRYPTO:SKYUSD", 
-            "CRYPTO:HYPEUSD"
-        ] # Tam destekli ve likiditesi yüksek Alpaca Kripto Listesi (Maksimum Kapasite)
+            "BINANCE:XTZUSDT", "BINANCE:PAXGUSDT", "CRYPTO:TRUMPUSD", "CRYPTO:SKYUSD",
+            "CRYPTO:HYPEUSD",
+            # === +5 YENI KRIPTO (Yuksek Momentum & Likidite) ===
+            "BINANCE:SUIUSDT",   # SUI - Layer1, kurumsal ilgi yuksek
+            "BINANCE:TONUSDT",   # TON - Telegram ekosistemi, hacim patlamasi
+            "BINANCE:NEARUSDT",  # NEAR - AI zinciri, guclu momentum
+            "BINANCE:JUPUSDT",   # JUP - Solana DEX aggregator, yuksek hacim
+            "BINANCE:INJUSDT",   # INJ - DeFi/Cosmos, guvenilir volatilite
+        ] # 38 adet - Tam destekli ve likiditesi yuksek Alpaca + Binance Kripto Listesi
         
         self.master_bist_universe = [
             "BIST:THYAO", "BIST:ASELS", "BIST:EREGL", "BIST:TUPRS", "BIST:KCHOL",
@@ -73,8 +79,18 @@ class AssetUniverseManager:
             
             # Crypto-Adjacent & Memes
             "NASDAQ:COIN", "NASDAQ:MSTR", "NASDAQ:MARA", "NASDAQ:RIOT", "NASDAQ:CLSK",
-            "NASDAQ:HOOD", "NASDAQ:IREN", "NASDAQ:CIFR", "NASDAQ:HUT", "NASDAQ:GME", 
+            "NASDAQ:HOOD", "NASDAQ:IREN", "NASDAQ:CIFR", "NASDAQ:HUT", "NASDAQ:GME",
             "NYSE:AMC", "NYSE:RDDT",
+
+            # High-Volatility & Leveraged ETFs (Yüksek beta / erken fırsat)
+            "AMEX:SOXL",   # SOXL - 3x Leveraged Semiconductor ETF (çok oynak)
+            "AMEX:TQQQ",   # TQQQ - 3x NASDAQ Leveraged ETF
+            "AMEX:LABU",   # LABU - 3x Leveraged Biotech ETF
+            "AMEX:FNGU",   # FNGU - 3x Big Tech ETF
+
+            # Telecom & Value (Düşük fiyat, yüksek ivme potansiyeli)
+            "NYSE:NOK",    # Nokia - Telecom/5G, düşük fiyatlı geniş hacim
+            "NASDAQ:ERIC", # Ericsson - 5G Telecom rakibi
             
             # Biotech, Pharma & Health
             "NASDAQ:GILD", "NYSE:LLY", "NYSE:NVO", "NYSE:PFE", "NYSE:MRK",
@@ -88,20 +104,29 @@ class AssetUniverseManager:
             "NYSE:RTX", "NYSE:NOC", "NYSE:GD",
             
             # Indexes / ETFs (For Macro Baseline)
-            "NASDAQ:QQQ", "AMEX:SPY", "AMEX:DIA", "AMEX:IWM"
-        ] # 150+ Mega & Volatile US Stocks
-        
-        self.target_crypto_count = 40
+            "NASDAQ:QQQ", "AMEX:SPY", "AMEX:DIA", "AMEX:IWM",
+
+            # === +5 YENI NASDAQ (Yuksek Momentum & Buyume) ===
+            "NASDAQ:HIMS",   # HIMS - Saglik/wellness, guclu momentum trendi
+            "NASDAQ:APP",    # AppLovin - AI reklam motoru, 2024-25 en iyi hisse
+            "NASDAQ:SOUN",   # SoundHound AI - AI ses teknolojisi, spekulatif yuksek beta
+            "NYSE:JOBY",     # JOBY Aviation - eVTOL/ucen taksi, buyuk kurumsal ilgi
+            "NYSE:WOLF",     # Wolfspeed - Sic karbur yari iletken, EV/AI chip
+        ] # 165+ Mega & Volatile US Stocks
+
+        self.target_crypto_count = 38
         self.target_bist_count = 20
-        self.target_nasdaq_count = 150
+        self.target_nasdaq_count = 165  # Tüm universe izlenir
 
         self._force_rotation()
 
-    def _momentum_score(self, ticker: str) -> float:
+    def _early_entry_score(self, ticker: str) -> float:
         """
-        Kazan-Kazan Erken Trend (Yarış) Skoru
-        Yükselişini tamamlamamış, patlama potansiyelli varlıkları öne alır.
-        Canlı veri yoksa 0 döner (tüm varlıklar eşit muamele görür).
+        STANDART ÇOKLU FAKTÖR ROTASYON SKORU
+
+        Felsefe: Hiçbir RSI bandına ayrıcalık tanıma. Tüm varlıklar
+        hacim, CMF, EMA, ADX ve fiyat momentumuna göre adil yarışır.
+        Bu skor yalnızca hangi varlıkların AKTIF listeye gireceğini belirler.
         """
         try:
             from services.data_ingestion.tradingview_live_client import tradingview_live_client
@@ -113,69 +138,99 @@ class AssetUniverseManager:
             }
             d = cached.get(sym)
             if not d:
-                return 0.0
-            rsi = float(d.get("rsi", 50))
-            vol_ratio = float(d.get("volume_ratio", 1.0))
-            chg = float(d.get("change_pct", 0.0))
-            ema_gc = bool(d.get("ema_golden_cross", False))
-            cmf = float(d.get("cmf", 0.0))
-            adx = float(d.get("adx", 20.0))
+                return 50.0  # Veri yoksa nötr puan ver (listeden çıkarmak yerine)
 
-            score = 0.0
-            # 1. Yükselişini tamamlamamış Erken Trend (RSI 40-60 = taze ivme)
-            if 38.0 <= rsi <= 62.0:
-                score += 30.0
-            elif 62.0 < rsi <= 72.0:
-                score += 10.0
-            elif rsi > 72.0:
-                score -= 20.0  # Zirveye yakın ceza
+            rsi        = float(d.get("rsi", 50))
+            vol_ratio  = float(d.get("volume_ratio", 1.0) or 1.0)
+            chg        = float(d.get("change_pct", 0.0))
+            ema_gc     = bool(d.get("ema_golden_cross", False))
+            cmf        = float(d.get("cmf", 0.0))
+            adx        = float(d.get("adx", 20.0))
+            macd       = float(d.get("macd", 0.0))
+            supertrend = bool(d.get("supertrend_bullish", True))
 
-            # 2. Balina / Hacim Patlaması
-            if vol_ratio >= 2.0:
-                score += 40.0
-            elif vol_ratio >= 1.5:
-                score += 25.0
-            elif vol_ratio >= 1.2:
-                score += 10.0
+            score = 50.0  # Taban puan — her varlık 50'den başlar
 
-            # 3. Fiyat Momentumu (pozitif değişim)
-            if chg >= 1.5:
-                score += 20.0
-            elif chg >= 0.5:
-                score += 10.0
-            elif chg < -2.0:
-                score -= 15.0  # Serbest düşüş cezası
+            # ── 1. RSI: Tüm güçlü bantlar ödüllendirilir ─────────────
+            # Aşırı satım (<30) ve çok güçlü trend (>70) hariç her bant adil
+            if rsi >= 60.0:   score += 15.0   # Güçlü trend
+            elif rsi >= 50.0: score += 10.0   # Pozitif bölge
+            elif rsi >= 35.0: score +=  5.0   # Dip yakını / toparlanma
+            elif rsi < 25.0:  score -= 10.0   # Aşırı baskı altında
+            if rsi > 78.0:    score -= 15.0   # Sadece aşırı şişmiş ceza al
 
-            # 4. EMA Golden Cross (Taze Kırılım)
-            if ema_gc:
-                score += 15.0
+            # ── 2. Hacim: Her türlü hacim artışı ödüllenir ───────────
+            if vol_ratio >= 3.0:   score += 30.0  # Balina dalgası
+            elif vol_ratio >= 1.5: score += 20.0  # Güçlü hacim
+            elif vol_ratio >= 1.0: score += 10.0  # Normal üstü
+            elif vol_ratio < 0.5:  score -= 10.0  # Çok düşük hacim
 
-            # 5. CMF (Kurumsal Para Girişi)
-            if cmf > 0.10:
-                score += 10.0
-            elif cmf < -0.10:
-                score -= 10.0
+            # ── 3. MACD ve EMA ───────────────────────────────────────
+            if macd >= 0.0: score += 8.0
+            if ema_gc:      score += 12.0
+            elif supertrend: score += 5.0
 
-            # 6. ADX Trend Gücü
-            if adx >= 30.0:
-                score += 5.0
+            # ── 4. CMF: Kurumsal para girişi ─────────────────────────
+            if cmf > 0.15:    score += 15.0
+            elif cmf > 0.05:  score += 8.0
+            elif cmf < -0.10: score -= 10.0
+
+            # ── 5. ADX: Trend gücü ───────────────────────────────────
+            if adx >= 30.0:    score += 10.0  # Güçlü trend aktif
+            elif adx >= 20.0:  score +=  5.0  # Trend başlıyor
+
+            # ── 6. Fiyat momentumu ───────────────────────────────────
+            if chg >= 2.0:   score += 10.0
+            elif chg >= 0.5: score +=  5.0
+            elif chg < -3.0: score -= 10.0  # Serbest düşüş
 
             return score
+
         except Exception:
-            return 0.0
+            return 50.0
+
+    # Geriye dönük uyumluluk için alias
+    def _momentum_score(self, ticker: str) -> float:
+        return self._early_entry_score(ticker)
+
+    def _early_alert_watchlist(self) -> list:
+        """
+        Her rotasyonda tüm master universe'i tarayarak ERKEN sinyal veren
+        sembolleri tespit et ve log'a yaz. Henüz aktif listeye girmemiş
+        olanları da yakalar — asıl değer buradan geliyor.
+        """
+        from core.logger import logger
+        all_candidates = []
+
+        for ticker in (self.master_crypto_universe +
+                       self.master_bist_universe +
+                       self.master_nasdaq_universe):
+            sc = self._early_entry_score(ticker)
+            if sc >= 55.0:
+                all_candidates.append((ticker.split(":")[-1], round(sc, 1)))
+
+        all_candidates.sort(key=lambda x: x[1], reverse=True)
+
+        if all_candidates:
+            top5 = all_candidates[:5]
+            logger.info(
+                "[ERKEN RADAR] Top-5 erken giris adayi: "
+                + " | ".join([f"{s}(skor={sc})" for s, sc in top5])
+            )
+        return all_candidates
 
     def _force_rotation(self):
         """
-        KAZAN-KAZAN Momentum Öncelikli Akıllı Rotasyon
-        Canlı veriler varsa yükselişini tamamlamamış, patlayan varlıkları öne alır.
-        Canlı veri yoksa rastgele sıralar (başlangıç güvenliği).
+        ERKEN TESPITCI Oncelikli Rotasyon
+        Yukseldikten sonra degil — yukselmeden ONCE olan varliklari one alir.
+        Her 90 saniyede bir calisir.
         """
+        from core.logger import logger
         self.last_rotation_time = time.time()
 
-        # Momentum skorlarıyla sırala (yüksek skor = öne al)
-        def sort_by_momentum(universe: list) -> list:
+        def sort_by_early_entry(universe: list) -> list:
             try:
-                scored = [(t, self._momentum_score(t)) for t in universe]
+                scored = [(t, self._early_entry_score(t)) for t in universe]
                 scored.sort(key=lambda x: x[1], reverse=True)
                 return [t for t, _ in scored]
             except Exception:
@@ -183,16 +238,16 @@ class AssetUniverseManager:
                 random.shuffle(shuffled)
                 return shuffled
 
-        sorted_crypto = sort_by_momentum(self.master_crypto_universe)
+        sorted_crypto = sort_by_early_entry(self.master_crypto_universe)
         self.active_crypto_targets = sorted_crypto[:self.target_crypto_count]
 
-        sorted_bist = sort_by_momentum(self.master_bist_universe)
+        sorted_bist = sort_by_early_entry(self.master_bist_universe)
         self.active_bist_targets = sorted_bist[:self.target_bist_count]
 
-        sorted_nasdaq = sort_by_momentum(self.master_nasdaq_universe)
+        sorted_nasdaq = sort_by_early_entry(self.master_nasdaq_universe)
         self.active_nasdaq_targets = sorted_nasdaq[:self.target_nasdaq_count]
 
-        # Benchmark'ların (RS Line için) her zaman izlendiğinden emin ol
+        # Benchmark'larin her zaman izlenmesi
         if "BINANCE:BTCUSDT" not in self.active_crypto_targets:
             self.active_crypto_targets.append("BINANCE:BTCUSDT")
         if "BIST:XU100" not in self.active_bist_targets:
@@ -200,11 +255,14 @@ class AssetUniverseManager:
         if "NASDAQ:QQQ" not in self.active_nasdaq_targets:
             self.active_nasdaq_targets.append("NASDAQ:QQQ")
 
+        # Erken uyari radar taramasi — top-5'i logla
+        self._early_alert_watchlist()
+
     def get_active_tickers(self) -> Dict[str, List[str]]:
         now = time.time()
         if now - self.last_rotation_time > self.rotation_interval_seconds:
             self._force_rotation()
-            
+
         return {
             "CRYPTO": self.active_crypto_targets,
             "BIST": self.active_bist_targets,
@@ -212,3 +270,4 @@ class AssetUniverseManager:
         }
 
 asset_universe_manager = AssetUniverseManager()
+

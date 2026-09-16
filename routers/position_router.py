@@ -1,10 +1,19 @@
-from fastapi import APIRouter
+import time
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from services.market_feed.live_stream import live_trade_manager, ActivePosition
 from core.config import settings
+from core.logger import logger
+from core.security import verify_ip
 
-router = APIRouter()
+
+router = APIRouter(dependencies=[Depends(verify_ip)])
+
+# 15 saniyelik pozisyon cache — Alpaca API her cagride sorgulanmaz
+_pos_cache = {"data": None, "ts": 0}
+_POS_CACHE_TTL = 15
+
 
 class OpenPositionRequest(BaseModel):
     symbol: str = Field("NVDA", description="Sembol")
@@ -23,16 +32,23 @@ async def toggle_auto_trade(req: AutoTradeToggleRequest):
     status_str = "AÇIK" if req.enabled else "KAPALI"
     return {"status": "success", "message": f"Tam Otonom Mod {status_str} konuma getirildi."}
 
+
 @router.get("/active")
 async def get_active_positions():
     """
-    Canlı Açık Pozisyonlar ve Kâr/Zarar Listesi
+    Canli Acik Pozisyonlar ve Kar/Zarar Listesi (15s cache ile)
     """
+    global _pos_cache
+    now = time.time()
+    if _pos_cache["data"] is not None and (now - _pos_cache["ts"]) < _POS_CACHE_TTL:
+        return _pos_cache["data"]
+
     if settings.trading_mode in ["LIVE", "PAPER"]:
         from services.broker.factory import get_broker
         broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
         if broker and broker.api:
             try:
+
                 # Canlı bakiye ve pozisyonları çek
                 # Kullanıcı talebi: Gerçek Alpaca bütçesi akışa yansıtılmalı.
                 try:
@@ -58,19 +74,37 @@ async def get_active_positions():
                     side = "BUY" if p.get("side") == "long" else "SELL"
                     qty = float(p.get("qty") or 0.0)
                     
-                    # Alpaca'nın gecikmeli olabilen fiyatı yerine, TRADINGVIEW CANLI (WebSocket) fiyatını önceliklendir
+                    # === FİYAT KAYNAĞI: Alpaca GERCEK ZAMANLI — TV fallback ===
+                    # Alpaca'nın current_price'ı broker'dan direkt gelen en güncel fiyattır.
+                    # TradingView fiyatı sadece Alpaca yoksa VEYA 90s'den tazeyse kullanılır.
                     alpaca_curr_price = float(p.get("current_price") or 0.0)
                     tv_price = 0.0
-                    
-                    # Sembol uyumluluğu kontrolü
+                    tv_is_fresh = False
+
+                    # Sembol uyumluluğu kontrolü (PAXGUSD → PAXGUSDT gibi)
                     tv_sym = sym or ""
-                    if tv_sym.endswith("USD") and tv_sym != "USD": tv_sym = tv_sym.replace("USD", "USDT")
-                    
-                    # market_prices içinde TradingView'den gelen anlık son veri var
+                    if tv_sym.endswith("USD") and tv_sym != "USD":
+                        tv_sym = tv_sym.replace("USD", "USDT")
+
+                    # TV fiyatı tazeyse (< 90s) al
                     if tv_sym in live_trade_manager.market_prices:
-                        tv_price = live_trade_manager.market_prices[tv_sym].get("price", 0.0)
-                        
-                    final_current_price = tv_price if tv_price > 0 else alpaca_curr_price
+                        tv_entry = live_trade_manager.market_prices[tv_sym]
+                        tv_price = tv_entry.get("price", 0.0)
+                        last_ts  = tv_entry.get("last_updated_ts", 0)
+                        import time as _time
+                        tv_is_fresh = (last_ts > 0 and (_time.time() - last_ts) < 90)
+
+                    # Öncelik: Alpaca > TV (TV sadece Alpaca yoksa ve tazeyse)
+                    if alpaca_curr_price > 0:
+                        final_current_price = alpaca_curr_price   # ✅ Her zaman Alpaca önce
+                    elif tv_price > 0 and tv_is_fresh:
+                        final_current_price = tv_price            # Fallback: TV taze ise
+                    elif tv_price > 0:
+                        final_current_price = tv_price            # Son çare: TV stale ama Alpaca yok
+                    else:
+                        final_current_price = 0.0
+
+
                     
                     # PnL'yi yeni fiyata göre baştan hesapla
                     real_pnl = 0.0
@@ -126,13 +160,16 @@ async def get_active_positions():
                 
                 # real_available_cash already fetched from broker above
                 
-                return {
+                result = {
                     "account_balance": round(effective_balance, 2),
                     "available_cash": round(real_available_cash, 2),
-                    "total_commissions_paid": round(live_trade_manager.total_commissions_paid, 2),
+                    "total_commissions_paid": round(live_trade_manager.total_commissions_paid + sum(p.commission_fees for p in live_trade_manager.positions.values() if p.status == "OPEN"), 2),
                     "active_positions": active_list,
                     "history": live_trade_manager.trade_history[:10]
                 }
+                _pos_cache["data"] = result
+                _pos_cache["ts"] = time.time()
+                return result
             except Exception as e:
                 import logging
                 logging.error(f"Alpaca entegrasyon hatası (Dashboard): {e}")
@@ -140,13 +177,16 @@ async def get_active_positions():
     # Fallback (Simülasyon Modu)
     live_trade_manager.get_live_prices()
     active_list = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
-    return {
+    result = {
         "account_balance": round(live_trade_manager.account_balance, 2),
         "available_cash": round(live_trade_manager.available_cash, 2),
-        "total_commissions_paid": round(live_trade_manager.total_commissions_paid, 2),
+        "total_commissions_paid": round(live_trade_manager.total_commissions_paid + sum(p.commission_fees for p in live_trade_manager.positions.values() if p.status == "OPEN"), 2),
         "active_positions": active_list,
         "history": live_trade_manager.trade_history[:10]
     }
+    _pos_cache["data"] = result
+    _pos_cache["ts"] = time.time()
+    return result
 
 @router.post("/open")
 async def open_live_position(req: OpenPositionRequest):
@@ -182,7 +222,19 @@ async def open_live_position(req: OpenPositionRequest):
         if not pos:
             return {"status": "error", "message": "Yetersiz bütçe veya maksimum açık işlem limitine ulaşıldı."}
 
-
+        # 3. Canlı Broker'a Gönder (BIST hariç)
+        if settings.trading_mode in ["LIVE", "PAPER"] and pos.market in ["NASDAQ", "CRYPTO"]:
+            from services.broker.factory import get_broker
+            is_paper = (settings.trading_mode == "PAPER")
+            broker = get_broker(settings.active_broker, paper=is_paper)
+            if broker:
+                res = broker.place_bracket_order(req_sym, req.side, pos.quantity, pos.target_profit_price, pos.stop_loss_price, limit_price=curr_price)
+                if res.get("status") == "error":
+                    # Fallback: Alpaca hatası verirse, yerel pozisyonu geri al (Senkronu korumak için)
+                    live_trade_manager.positions.pop(pos.id, None)
+                    refund = getattr(pos, 'capital_allocated', 0.0) or getattr(pos, 'nominal_value', 0.0)
+                    logger.warning(f"[ROLLBACK] {req_sym} Alpaca hatasi. Iade: ${refund:.2f}")
+                    return {"status": "error", "message": f"Alpaca API Reddi: {res.get('message')}"}
 
         return {"status": "success", "position": pos.dict()}
     except Exception as e:
@@ -193,24 +245,67 @@ async def open_live_position(req: OpenPositionRequest):
 @router.post("/close/{pos_id:path}")
 async def close_live_position(pos_id: str):
     """
-    1-Tıkla Canlı Pozisyon Kapatma (Alpaca Broker Destekli)
+    1-Tikla Canli Pozisyon Kapatma (Alpaca Broker Destekli)
+    Alpaca basarisiz olsa bile yerel pozisyon her zaman kapatilir.
     """
-    if settings.trading_mode in ["LIVE", "PAPER"]:
-        from services.broker.factory import get_broker
-        broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
-        if broker and broker.api:
-            # Eğer Alpaca pozisyonu kapatılmak isteniyorsa pos_id veya symbol olabilir.
-            # Alpaca close_position() methodu symbol bekler. Dashboard id veya symbol gönderebilir.
-            # pos_id'de symbol varsa onu parse edelim (örn: POS-NVDA -> NVDA)
-            symbol = pos_id.split("-")[1] if "POS-" in pos_id else pos_id
-            res = broker.close_position(symbol)
-            if res.get("status") == "success":
-                return {"status": "success", "closed_position": res}
+    # pos_id formatlarini normalize et:
+    # "POS-COIN" -> "COIN"
+    # "POS-COIN-20241231" -> "COIN"
+    # "COIN" -> "COIN"
+    parts = pos_id.split("-")
+    if parts[0] == "POS" and len(parts) >= 2:
+        symbol = parts[1]
+    else:
+        symbol = pos_id
 
-    res = live_trade_manager.close_position(pos_id, "MANUAL_CLOSE")
-    if not res:
-        return JSONResponse(status_code=404, content={"error": "Pozisyon bulunamadı veya zaten kapalı"})
-    return {"status": "success", "closed_position": res}
+    alpaca_ok = False
+    alpaca_msg = ""
+
+    # 1. Alpaca'da kapat (piyasa kapali veya hata olsa bile devam et)
+    if settings.trading_mode in ["LIVE", "PAPER"]:
+        try:
+            from services.broker.factory import get_broker
+            broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
+            if broker and broker.api:
+                res = broker.close_position(symbol)
+                if res.get("status") == "success":
+                    alpaca_ok = True
+                    logger.info(f"[MANUEL KAPAT] {symbol} Alpaca'da kapatildi.")
+                else:
+                    alpaca_msg = res.get("message", "Alpaca hatasi")
+                    logger.warning(f"[MANUEL KAPAT] {symbol} Alpaca hatasi: {alpaca_msg}. Yerel kapatma yapiliyor.")
+        except Exception as e:
+            alpaca_msg = str(e)
+            logger.warning(f"[MANUEL KAPAT] {symbol} Alpaca exception: {e}. Yerel kapatma yapiliyor.")
+
+    # 2. Yerel pozisyonu MUTLAKA kapat (Alpaca basarisiz olsa da)
+    # Once direkt pos_id ile dene, bulamazsa symbol uzerinden tara
+    local_res = live_trade_manager.close_position(pos_id, "MANUAL_CLOSE")
+
+    if not local_res:
+        # pos_id eşleşmedi — sembol üzerinden tara
+        matched_pos_id = None
+        for pid, pos in live_trade_manager.positions.items():
+            if pos.symbol == symbol and pos.status == "OPEN":
+                matched_pos_id = pid
+                break
+        if matched_pos_id:
+            local_res = live_trade_manager.close_position(matched_pos_id, "MANUAL_CLOSE")
+
+    if not local_res:
+        return JSONResponse(status_code=404, content={
+            "error": f"Pozisyon bulunamadi: {pos_id}",
+            "alpaca_status": "success" if alpaca_ok else f"error: {alpaca_msg}",
+            "tip": "Pozisyon zaten kapali olabilir veya ID formati hatali."
+        })
+
+    return {
+        "status": "success",
+        "closed_position": local_res,
+        "alpaca_synced": alpaca_ok,
+        "alpaca_note": alpaca_msg if not alpaca_ok else ""
+    }
+
 
 @router.post("/reset-account")
 async def reset_account_balance():
@@ -274,22 +369,49 @@ async def get_history_summary():
     from services.market_feed.live_stream import live_trade_manager
     history = live_trade_manager.trade_history
     
-    total_trades = len(history)
-    winning_trades = 0
-    total_net_pnl = 0.0
+    total_real = 0
+    total_virtual = 0
+    winning_real = 0
+    winning_virtual = 0
+    pnl_real = 0.0
+    pnl_virtual = 0.0
+    
+    # Kullanıcı Tanımı: 
+    # Gerçek (Manuel) = Kullanıcının kendi eliyle kapattığı (MANUAL_CLOSE, CLOSED_OFFLINE_SYNC)
+    # Sanal (Otonom) = Botun kendi kendine kapattığı (CLOSED_FLASH_CRASH, CLOSED_SL, CLOSED_TP, CLOSED_TRAILING, SHADOW_CLOSED vb.)
+    
+    manual_reasons = {
+        "MANUAL_CLOSE", "CLOSED_OFFLINE_SYNC", "OFFLINE_SYNC", "MANUAL_SYNC"
+    }
     
     # Calculate stats
     for trade in history:
         pnl = float(trade.get("net_pnl", 0.0))
-        total_net_pnl += pnl
-        if pnl > 0:
-            winning_trades += 1
+        reason = trade.get("reason", "")
+        
+        is_manual = reason in manual_reasons
+        
+        if not is_manual:
+            total_virtual += 1
+            pnl_virtual += pnl
+            if pnl > 0: winning_virtual += 1
+        else:
+            total_real += 1
+            pnl_real += pnl
+            if pnl > 0: winning_real += 1
             
-    win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
+    win_rate_real = (winning_real / total_real * 100) if total_real > 0 else 0.0
+    win_rate_virtual = (winning_virtual / total_virtual * 100) if total_virtual > 0 else 0.0
     
+    # "Gerçek (Manuel) / Sanal (Otonom)" şeklinde frontend'e string olarak dön
+    total_trades_str = f"{total_real} / {total_virtual}"
+    win_rate_str = f"%{round(win_rate_real, 1)} / %{round(win_rate_virtual, 1)}"
+    
+    # PnL Renkleri için ham verileri de dönelim, string'i frontend halletsin
     return {
-        "total_trades": total_trades,
-        "win_rate": round(win_rate, 2),
-        "total_net_pnl": round(total_net_pnl, 2),
+        "total_trades": total_trades_str,
+        "win_rate": win_rate_str,
+        "pnl_real": round(pnl_real, 2),
+        "pnl_virtual": round(pnl_virtual, 2),
         "recent_trades": history[:30] # Return up to 30 most recent for the UI table
     }

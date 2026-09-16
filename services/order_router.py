@@ -206,10 +206,12 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         qty_override = None
         if per_share_risk > 0:
             qty_override = risk_amount / per_share_risk
-            # KULLANICI TALEBİ: $500 hard cap kuralı (Lot x Fiyat > $500 ise Lot'u düşür)
-            if qty_override * signal.price > 500.0:
-                qty_override = 500.0 / signal.price
-                logger.info(f"[RISK SIZING] {signal.symbol} Risk lot hesabı, bütçe limitine (${500}) takıldı.")
+            # KULLANICI TALEBİ: Genel bütçe üst sınırı kuralı ($500 KESİN LİMİT)
+            max_allowed_capital = account_equity * (settings.max_capital_per_trade_pct / 100.0)
+            max_allowed_capital = min(max_allowed_capital, 500.0) # KESİN $500 LİMİTİ!
+            if qty_override * signal.price > max_allowed_capital:
+                qty_override = max_allowed_capital / signal.price
+                logger.info(f"[RISK SIZING] {signal.symbol} Risk lot hesabı, kesin bütçe limitine (${max_allowed_capital}) takıldı.")
             else:
                 logger.info(f"[RISK SIZING] {signal.symbol} %{risk_pct} Risk bazlı lot hesaplandı: {qty_override:.4f} (Risk Amount: ${risk_amount:.2f})")
 
@@ -222,7 +224,8 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
             entry_price_override=signal.price,
             atr_value=calculated_atr,
             use_chandelier_exit=True,
-            qty_override=qty_override
+            qty_override=qty_override,
+            status="PENDING_BROKER" if settings.trading_mode in ["LIVE", "PAPER"] else "OPEN"
         )
         if pos:
             exec_message = f"TradingView Canlı Alış Tetiklendi: {pos.symbol} @ ${pos.entry_price} (Hedef: ${pos.target_profit_price}, Stop: ${pos.stop_loss_price})"
@@ -283,20 +286,11 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
                     f"[ALPACA BRACKET] {signal.symbol} BUY {final_qty} | "
                     f"Entry: ${signal.price:.4f} | TP: ${tp_price:.4f} | SL: ${sl_price:.4f}"
                 )
-                res = broker.place_bracket_order(signal.symbol, "BUY", final_qty, tp_price, sl_price)
+                res = broker.place_bracket_order(signal.symbol, "BUY", final_qty, tp_price, sl_price, limit_price=signal.price)
                 if res.get("status") == "error":
                     logger.warning(f"[BROKER FALLBACK] Alpaca API error: {res.get('message')}. Falling back to Simulation Mode.")
-                    pos = live_trade_manager.open_position(
-                        symbol=signal.symbol, 
-                        capital=capital_used, 
-                        side="BUY", 
-                        tp_pct=tp_pct, 
-                        sl_pct=sl_pct, 
-                        entry_price_override=signal.price,
-                        atr_value=signal.price * (signal.indicators.get("volatility", 1.5) / 100.0) if signal.indicators else signal.price * 0.015,
-                        use_chandelier_exit=True
-                    )
                     if pos:
+                        pos.status = "OPEN"
                         res = {"status": "success", "order_id": f"SIM-{pos.id}", "details": "Simulated fallback"}
             elif action_clean in ["SELL", "CLOSE", "FLAT"]:
                 res = broker.close_position(signal.symbol)

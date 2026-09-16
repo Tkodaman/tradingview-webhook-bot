@@ -41,9 +41,12 @@ RİSK YÖNETİMİ PARAMETRELERİ:
   Max Risk Skoru          : 88.0/100 (Üstü = BLOCK)
   Flash Crash Kilidi      : Volatilite > %8.0 = DONDUR
   FOMO Engeli             : Mum +%3.0 & RSI > 75 = GİRME
-  Hacim Minimum Eşiği     : Vol.Ratio < 1.2 = BLOKLA
+  Hacim Minimum Eşiği     : Vol.Ratio < 1.2 = KESİN BLOK (Hard Block)
+  Trend Minimum Eşiği     : ADX < 25 = KESİN BLOK
+  Sahte Kırılım (Fakeout) : CMF <= 0 veya Stoch > 85 = FAKEOUT GUARD (Reddet)
   Yüksek Olasılık Bonusu  : Vol.Ratio >= 1.5 & Chg >= %1.2 = +3 Puan
   2-Strike Block          : 2 Peş Peşe Stop = REJİM DONDUR
+  İlk 5dk Dokunulmazlık   : 5dk dolmadan stop-hunt bölgesinde %3 altı düşüşleri es geç.
 
 STRATEJİ MANTIĞI:
   1. Momentum + Hacim Teyidi: Sadece Vol.Ratio >= 1.5 ve mum >= %1.2 kırılımlarına gir.
