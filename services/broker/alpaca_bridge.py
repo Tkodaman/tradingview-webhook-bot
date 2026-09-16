@@ -101,21 +101,34 @@ class AlpacaBroker(BaseBroker):
             
         try:
             alpaca_sym = self._format_symbol(symbol)
-            order = self.api.submit_order(
-                symbol=alpaca_sym,
-                qty=qty,
-                side=side.lower(),
-                type='market',
-                time_in_force='day',
-                order_class='bracket',
-                take_profit=dict(
-                    limit_price=take_profit_price,
-                ),
-                stop_loss=dict(
-                    stop_price=stop_loss_price
+            is_fractional = qty != int(qty)
+            
+            if is_fractional:
+                logger.info(f"Alpaca: Fractional quantity ({qty}) detected for {alpaca_sym}. Placing simple market order instead of bracket. TP/SL will be tracked locally.")
+                order = self.api.submit_order(
+                    symbol=alpaca_sym,
+                    qty=qty,
+                    side=side.lower(),
+                    type='market',
+                    time_in_force='day'
                 )
-            )
-            logger.info(f"Alpaca Bracket Order Placed: {side} {qty} {alpaca_sym} - OrderID: {order.id}")
+                logger.info(f"Alpaca Market Order Placed (Fallback from Bracket): {side} {qty} {alpaca_sym} - OrderID: {order.id}")
+            else:
+                order = self.api.submit_order(
+                    symbol=alpaca_sym,
+                    qty=qty,
+                    side=side.lower(),
+                    type='market',
+                    time_in_force='day',
+                    order_class='bracket',
+                    take_profit=dict(
+                        limit_price=take_profit_price,
+                    ),
+                    stop_loss=dict(
+                        stop_price=stop_loss_price
+                    )
+                )
+                logger.info(f"Alpaca Bracket Order Placed: {side} {qty} {alpaca_sym} - OrderID: {order.id}")
             return {"status": "success", "order_id": order.id, "details": order._raw}
         except Exception as e:
             logger.error(f"Alpaca Bracket Order Failed for {symbol}: {e}")

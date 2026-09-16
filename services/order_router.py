@@ -3,6 +3,7 @@ from core.config import settings
 from core.logger import logger
 from services.analyzer.agent import analyzer_agent
 from services.market_feed.live_stream import live_trade_manager
+from services.broker.factory import get_broker
 from typing import Dict, Any
 
 def process_order(signal: WebhookSignal) -> Dict[str, Any]:
@@ -35,7 +36,57 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         logger.warning(f"[MARKET CLOSED] {signal.symbol} piyasası şu anda kapalı veya seans dışı. Sinyal reddedildi. Mesaj: {msg}")
         return {"status": "rejected", "reason": "MARKET_CLOSED", "symbol": signal.symbol, "message": msg}
 
+    # NASDAQ İlk 20 dk Gap Riski -> Doğrudan YZ'ye Gizli Talimatla Gönder
+    if market_hours_validator.is_nasdaq_opening_gap_phase(signal.symbol):
+        logger.warning(f"[GAP RISK] {signal.symbol} piyasa açılışının ilk 20 dakikasında (Yüksek Volatilite). Sinyal YZ'ye özel talimatla gönderiliyor.")
+        if signal.macro_tags is None:
+            signal.macro_tags = []
+        if "NASDAQ_OPENING_GAP_RISK" not in signal.macro_tags:
+            signal.macro_tags.append("NASDAQ_OPENING_GAP_RISK")
+
     # Koruma: hard_rules.py > Kural 2.5 — ExperienceMemoryEngine (Zaten aşağıda çalışacak)
+    
+    # 0.7 STRICT INDICATOR LAYERS (KULLANICI TALEBİ: EMA200, RSI, MACD, ADX)
+    if signal.indicators:
+        ind = signal.indicators
+        # Trend Katmanı: EMA200
+        ema200 = ind.get("ema200")
+        if ema200 is not None and signal.price > 0:
+            if action_clean in ["BUY", "LONG"] and signal.price < ema200:
+                logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. Price ({signal.price}) < EMA200 ({ema200}).")
+                return {"status": "rejected", "reason": "STRICT_FILTER_EMA200_DOWNTREND"}
+            elif action_clean in ["SELL", "SHORT"] and signal.price > ema200:
+                logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. Price ({signal.price}) > EMA200 ({ema200}).")
+                return {"status": "rejected", "reason": "STRICT_FILTER_EMA200_UPTREND"}
+
+        # Aşırı Bölge Katmanı: RSI
+        rsi = ind.get("rsi")
+        if rsi is not None:
+            if action_clean in ["BUY", "LONG"] and rsi > 70:
+                logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. RSI ({rsi}) > 70 (Overbought).")
+                return {"status": "rejected", "reason": "STRICT_FILTER_RSI_OVERBOUGHT"}
+            elif action_clean in ["SELL", "SHORT"] and rsi < 30:
+                logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. RSI ({rsi}) < 30 (Oversold).")
+                return {"status": "rejected", "reason": "STRICT_FILTER_RSI_OVERSOLD"}
+                
+        # Trend Gücü Katmanı: ADX
+        adx = ind.get("adx")
+        if adx is not None:
+            if adx < 20:
+                logger.warning(f"[STRICT FILTER] {signal.symbol} {action_clean} rejected. ADX ({adx}) < 20 (Ranging Market).")
+                return {"status": "rejected", "reason": "STRICT_FILTER_ADX_RANGING"}
+
+        # Tetikleyici Katmanı: MACD (MACD hist sıfır kesişimi / Pozitif-Negatif bölge)
+        macd = ind.get("macd")
+        macd_signal = ind.get("macd_signal")
+        if macd is not None and macd_signal is not None:
+            hist = macd - macd_signal
+            if action_clean in ["BUY", "LONG"] and hist < 0:
+                logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. MACD Hist ({hist}) < 0.")
+                return {"status": "rejected", "reason": "STRICT_FILTER_MACD_BEARISH"}
+            elif action_clean in ["SELL", "SHORT"] and hist > 0:
+                logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. MACD Hist ({hist}) > 0.")
+                return {"status": "rejected", "reason": "STRICT_FILTER_MACD_BULLISH"}
 
 
     # 1. Ajan Analizi ve Dereceli Risk Değerlendirmesi
@@ -126,9 +177,41 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         # Güvenlik: SL asla %1.5'in altına inmez
         sl_pct = max(1.5, sl_pct)
 
-        # Get atr for Chandelier Exit
-        atr_pct = signal.indicators.get("volatility", signal.indicators.get("atr_pct", 1.5)) if signal.indicators else 1.5
-        calculated_atr = signal.price * (atr_pct / 100.0)
+        # Get actual ATR value if sent, else calculate from atr_pct
+        actual_atr = signal.indicators.get("atr") if signal.indicators else None
+        if actual_atr and actual_atr > 0:
+            calculated_atr = actual_atr
+        else:
+            atr_pct = signal.indicators.get("volatility", signal.indicators.get("atr_pct", 1.5)) if signal.indicators else 1.5
+            calculated_atr = signal.price * (atr_pct / 100.0)
+
+        # Dynamic Stop Loss via ATR (Hisse: 1.5x, Kripto: 2.0x)
+        atr_multiplier = 2.0 if (signal.symbol.endswith("USDT") or signal.symbol in ["BTC", "ETH", "SOL", "BNB"]) else 1.5
+        if signal.price > 0 and calculated_atr > 0:
+            sl_from_atr = round(((calculated_atr * atr_multiplier) / signal.price) * 100.0, 2)
+            sl_pct = max(sl_from_atr, sl_pct) # Güvenlik: Asla mevcut min SL'den aşağı inme (ATR çok düşükse patlamasın)
+
+        # Risk Based Qty Sizing (%1 Kasa Riski)
+        risk_pct = 1.0
+        # GECE GAP RİSKİ: NASDAQ kapanışına 30 dk kaldıysa riski yarıya indir (Overnight Shield)
+        from services.risk_engine.market_hours import market_hours_validator
+        if market_hours_validator.is_nasdaq_closing_soon(signal.symbol):
+            risk_pct = 0.5
+            logger.info(f"[OVERNIGHT SHIELD] {signal.symbol} piyasa kapanışına yaklaşıldığı için (Overnight Gap Risk) risk katsayısı %{risk_pct}'ye düşürüldü.")
+
+        account_equity = live_trade_manager.total_account_equity
+        risk_amount = account_equity * (risk_pct / 100.0)
+        per_share_risk = signal.price * (sl_pct / 100.0)
+        
+        qty_override = None
+        if per_share_risk > 0:
+            qty_override = risk_amount / per_share_risk
+            # KULLANICI TALEBİ: $500 hard cap kuralı (Lot x Fiyat > $500 ise Lot'u düşür)
+            if qty_override * signal.price > 500.0:
+                qty_override = 500.0 / signal.price
+                logger.info(f"[RISK SIZING] {signal.symbol} Risk lot hesabı, bütçe limitine (${500}) takıldı.")
+            else:
+                logger.info(f"[RISK SIZING] {signal.symbol} %{risk_pct} Risk bazlı lot hesaplandı: {qty_override:.4f} (Risk Amount: ${risk_amount:.2f})")
 
         pos = live_trade_manager.open_position(
             symbol=signal.symbol,
@@ -138,7 +221,8 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
             sl_pct=sl_pct,
             entry_price_override=signal.price,
             atr_value=calculated_atr,
-            use_chandelier_exit=True
+            use_chandelier_exit=True,
+            qty_override=qty_override
         )
         if pos:
             exec_message = f"TradingView Canlı Alış Tetiklendi: {pos.symbol} @ ${pos.entry_price} (Hedef: ${pos.target_profit_price}, Stop: ${pos.stop_loss_price})"

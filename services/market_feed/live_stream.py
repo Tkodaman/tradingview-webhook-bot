@@ -458,7 +458,7 @@ class LiveTradeManager:
         logger.info(f"[SHADOW TRADE] {symbol} sanal olarak işleme alındı. Neden: {reason}")
         return pos
 
-    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None, atr_value: float = 0.0, use_chandelier_exit: bool = True) -> Optional[ActivePosition]:
+    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None, atr_value: float = 0.0, use_chandelier_exit: bool = True, qty_override: Optional[float] = None) -> Optional[ActivePosition]:
         # MAKRO FORESIGHT KORUMASI: Serbest bakiyeyi güvende tut.
         if self.is_macro_standby:
             logger.warning(f"MAKRO KORUMA AKTİF: İşlem reddedildi ({symbol}). {self.macro_standby_reason}")
@@ -492,7 +492,12 @@ class LiveTradeManager:
         raw_entry = curr_price * (1.0 + slip_rate) if side == "BUY" else curr_price * (1.0 - slip_rate)
         decimals = 2 if raw_entry >= 1.0 else 6
         entry_price = round(raw_entry, decimals)
-        qty = round(capital / entry_price, 4)
+        
+        if qty_override and qty_override > 0:
+            qty = round(qty_override, 4)
+            capital = round(qty * entry_price, 2)
+        else:
+            qty = round(capital / entry_price, 4)
 
         if side == "BUY":
             tp_price = round(entry_price * (1.0 + (tp_pct / 100.0)), decimals)

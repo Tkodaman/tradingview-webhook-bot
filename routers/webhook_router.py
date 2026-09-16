@@ -10,8 +10,8 @@ from services.broker.alpaca_client import alpaca_client
 
 router = APIRouter()
 
-# Debounce cache: { "SYMBOL": timestamp_of_last_signal }
-debounce_cache = {}
+# Debounce cache: { "SIGNAL_ID": timestamp_of_insertion }
+processed_signals = {}
 
 @router.get("/health")
 async def health_check():
@@ -61,15 +61,21 @@ async def webhook_receiver(signal: WebhookSignal, request: Request):
                 content={"status": "REJECTED", "reason": f"Stale signal. Latency {latency}ms > 1500ms"}
             )
             
-    # 3. DEBOUNCE (TESTERE) KORUMASI
-    last_time = debounce_cache.get(signal.symbol.upper(), 0)
-    if current_time_ms - last_time < 3000:
-        logger.warning(f"🪚 DEBOUNCE REJECTED: {signal.symbol} - Signals arriving too fast!")
+    # 3. IDEMPOTENCY & DEBOUNCE (TEKRAR KORUMASI)
+    # Temizleme: 5 dakikadan eski sinyalleri önbellekten sil
+    keys_to_delete = [k for k, v in processed_signals.items() if current_time_ms - v > 300000]
+    for k in keys_to_delete:
+        del processed_signals[k]
+        
+    signal_id = f"{signal.symbol.upper()}_{signal.timestamp_ms}_{signal.action}" if signal.timestamp_ms else f"{signal.symbol.upper()}_{signal.action}_{current_time_ms // 3000}"
+    
+    if signal_id in processed_signals:
+        logger.warning(f"🪚 DUPLICATE SIGNAL REJECTED: {signal_id} already processed!")
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            content={"status": "REJECTED", "reason": "Debounce protection active. Signal blocked."}
+            content={"status": "REJECTED", "reason": "Duplicate signal (Idempotency active)."}
         )
-    debounce_cache[signal.symbol.upper()] = current_time_ms
+    processed_signals[signal_id] = current_time_ms
 
     # 4. SPREAD GUARD KONTROLÜ (Bid-Ask Makası)
     spread_pct = alpaca_client.get_bid_ask_spread(signal.symbol)

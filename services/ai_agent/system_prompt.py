@@ -59,6 +59,7 @@ VERİ DOĞRULAMA KURALLARI:
   - Volume Ratio 0 veya null : Hacimsiz kırılım muamelesi, düşük puanlama.
   - ATR null/negatif         : Volatilite hesabını sıfır kabul et.
   - Fiyat > 24h yüksek*1.10 : Anomali tespiti, MACRO SHOCK filtresi devreye.
+  - Sinyalde "NASDAQ_OPENING_GAP_RISK" etiketi varsa: Şu an piyasanın ilk 15-20 dakikalık Gap (boşluk) aşamasındayız. Çok yüksek volatilite var. Yalnızca skoru kusursuz olan işlemlere (R:R mükemmel olanlara) onay ver, en ufak şüphelendiğin an REDDET.
 
 HATA YÖNETİMİ:
   - API Timeout / Bağlantı Hatası : Son bilinen fiyatı koru, emergency HOLD.

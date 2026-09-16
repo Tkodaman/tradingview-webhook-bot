@@ -132,25 +132,36 @@ class TradingViewAutoStrategyRunner:
                 base_tp = 2.0
                 base_sl = 2.0
             
+            # --- ASSET-SPECIFIC SCORING PROFILES ---
+            mkt_type = market_hours_validator.get_market_type(sym)
+            weights = {
+                "rsi_early": 2 if mkt_type != "CRYPTO" else 0, # Kriptoda RSI yanıltıcıdır
+                "rsi_mid": 1 if mkt_type != "CRYPTO" else 0,
+                "vwap": 2 if mkt_type == "NASDAQ" else 1, # VWAP kurumsal hisselerde çok önemlidir
+                "volume_surge": 3 if mkt_type == "CRYPTO" else 1.5, # Kriptoda hacim kırılımı kritiktir
+                "volume_norm": 1 if mkt_type == "CRYPTO" else 0.5,
+                "adx": 2 if mkt_type == "NASDAQ" else 1 # Trend hisselerde daha oturaklıdır
+            }
+
             # 1. Temel İndikatörler (Yükselişini tamamlamamış, ivmelenen varlıklar)
             if 40.0 <= rsi <= 60.0:
-                score += 2 # Erken Trend Onayı
+                score += weights["rsi_early"] # Erken Trend Onayı
             elif 60.0 < rsi <= 72.0:
-                score += 1 
+                score += weights["rsi_mid"] 
             if macd >= 0.0:
                 score += 1
             if ema_golden:
                 score += 2 # Güçlü sinyal
             if vwap_bull:
-                score += 1
+                score += weights["vwap"]
             if vol_ratio >= 1.5:
-                score += 3 # Hacim patlaması (Balina)
+                score += weights["volume_surge"] # Hacim patlaması (Balina)
             elif vol_ratio >= 0.80:
-                score += 1
+                score += weights["volume_norm"]
             if 20.0 <= stoch_k <= 80.0:
                 score += 1
             if adx >= 20.0:
-                score += 1
+                score += weights["adx"]
 
             # ML Katkısı (Otonom Ödül Puanı)
             ml_modifier = mem_check.get("confidence_modifier", 0.0)

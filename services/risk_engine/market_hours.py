@@ -94,6 +94,53 @@ class MarketHoursValidator:
         }
 
     @classmethod
+    def is_nasdaq_opening_gap_phase(cls, symbol: str) -> bool:
+        """
+        NASDAQ açılışındaki ilk 20 dakikalık yüksek volatilite/gap sürecini tespit eder.
+        """
+        if cls.get_market_type(symbol) != "NASDAQ":
+            return False
+            
+        trt = cls.get_turkey_time()
+        if trt.weekday() >= 5:
+            return False
+            
+        current_minute = trt.hour * 60 + trt.minute
+        # US Summer Time: 16:30 - 23:00 TRT
+        # US Winter Time: 17:30 - 00:00 TRT (Basitlik için 16:30 veya 17:30 açılış kabul edilir, datetime ile dinamik)
+        
+        # Dinamik hesaplama: ABD piyasaları genelde TR saati ile 16:30 (Yaz) veya 17:30 (Kış) açılır.
+        # Biz burada güncel saati dikkate alacağız.
+        is_summer_time = (3 <= trt.month <= 10) # Basit yaz saati
+        market_open_minute = 16 * 60 + 30 if is_summer_time else 17 * 60 + 30
+        
+        # İlk 20 dakika
+        if market_open_minute <= current_minute <= (market_open_minute + 20):
+            return True
+        return False
+
+    @classmethod
+    def is_nasdaq_closing_soon(cls, symbol: str) -> bool:
+        """
+        NASDAQ kapanışına 30 dakika kaldığını tespit eder.
+        """
+        if cls.get_market_type(symbol) != "NASDAQ":
+            return False
+            
+        trt = cls.get_turkey_time()
+        if trt.weekday() >= 5:
+            return False
+            
+        current_minute = trt.hour * 60 + trt.minute
+        is_summer_time = (3 <= trt.month <= 10)
+        market_close_minute = 23 * 60 if is_summer_time else 24 * 60
+        
+        # Kapanışa 30 dk kala
+        if (market_close_minute - 30) <= current_minute < market_close_minute:
+            return True
+        return False
+
+    @classmethod
     def is_market_open(cls, symbol: str) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Dönüş:
