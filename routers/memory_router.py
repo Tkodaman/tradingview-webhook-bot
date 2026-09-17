@@ -276,5 +276,7 @@ async def get_learning_curve():
             
     return {
         "status": "success",
+        "data_source": "SYNTHETIC_PREVIEW" if use_dynamic_sim else "REAL_TRADE_HISTORY",
+        "is_synthetic": use_dynamic_sim,
         "learning_curve": curve
     }

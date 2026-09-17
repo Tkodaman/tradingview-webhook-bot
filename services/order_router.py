@@ -5,6 +5,34 @@ from services.analyzer.agent import analyzer_agent
 from services.market_feed.live_stream import live_trade_manager
 from services.broker.factory import get_broker
 from typing import Dict, Any
+from datetime import datetime, timezone
+
+
+def _strict_rejection(signal: WebhookSignal, reason: str) -> Dict[str, Any]:
+    """Return the same decision envelope used by downstream risk rejections."""
+    return {
+        "status": "rejected",
+        "reason": reason,
+        "decision": {
+            "signal": signal.model_dump(),
+            "risk_assessment": {
+                "symbol": signal.symbol,
+                "action": signal.action,
+                "raw_risk_score": 100.0,
+                "risk_level": "CRITICAL",
+                "passed_hard_rules": False,
+                "rejection_reasons": [reason],
+                "adjusted_quantity": 0.0,
+                "confidence_score": -100.0,
+                "technical_score": 100.0,
+                "macro_score": 0.0,
+                "sentiment_score": 0.0,
+                "hard_rule_triggers": [reason],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+            "agent_verdict": "BLOCKED_BY_STRICT_FILTER",
+        },
+    }
 
 def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     """
@@ -14,6 +42,13 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     # Action'ı büyük harfe çevir
     action_clean = str(signal.action).upper()
     signal.action = action_clean
+
+    # Fast orchestration preflight: deterministic and local, no LLM/network call.
+    from services.engine.decision_orchestrator import evaluate_fast_gate
+    orchestration = evaluate_fast_gate(signal)
+    if orchestration["hard_block"]:
+        logger.warning(f"[ORCHESTRATOR BLOCK] {signal.symbol}: {orchestration['reason']}")
+        return _strict_rejection(signal, orchestration["reason"])
 
     # 0. VERİ DOĞRULAMA — Null / Geçersiz Fiyat & Miktar Kontrolü
     if signal.price is None or signal.price <= 0:
@@ -59,20 +94,20 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
                 
             if action_clean in ["BUY", "LONG"] and signal.price < ema200:
                 logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. Price ({signal.price}) < EMA200 ({ema200}).")
-                return {"status": "rejected", "reason": "STRICT_FILTER_EMA200_DOWNTREND"}
+                return _strict_rejection(signal, "STRICT_FILTER_EMA200_DOWNTREND")
             elif action_clean in ["SELL", "SHORT"] and signal.price > ema200:
                 logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. Price ({signal.price}) > EMA200 ({ema200}).")
-                return {"status": "rejected", "reason": "STRICT_FILTER_EMA200_UPTREND"}
+                return _strict_rejection(signal, "STRICT_FILTER_EMA200_UPTREND")
 
         # Aşırı Bölge Katmanı: RSI
         rsi = ind.get("rsi")
         if rsi is not None:
             if action_clean in ["BUY", "LONG"] and rsi > 70:
                 logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. RSI ({rsi}) > 70 (Overbought).")
-                return {"status": "rejected", "reason": "STRICT_FILTER_RSI_OVERBOUGHT"}
+                return _strict_rejection(signal, "STRICT_FILTER_RSI_OVERBOUGHT")
             elif action_clean in ["SELL", "SHORT"] and rsi < 30:
                 logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. RSI ({rsi}) < 30 (Oversold).")
-                return {"status": "rejected", "reason": "STRICT_FILTER_RSI_OVERSOLD"}
+                return _strict_rejection(signal, "STRICT_FILTER_RSI_OVERSOLD")
                 
         # Trend Gücü Katmanı: ADX (Yatay Piyasa Tespiti)
         adx = ind.get("adx")
@@ -80,7 +115,7 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
             if adx < 20:
                 signal.macro_tags.append("REGIME_CHOPPY_RANGING") # gpt-6-astra'ya yatay piyasa olduğunu söyle
                 logger.warning(f"[STRICT FILTER] {signal.symbol} {action_clean} rejected. ADX ({adx}) < 20 (Ranging Market).")
-                return {"status": "rejected", "reason": "STRICT_FILTER_ADX_RANGING"}
+                return _strict_rejection(signal, "STRICT_FILTER_ADX_RANGING")
             elif adx > 40:
                 signal.macro_tags.append("REGIME_HIGH_VOLATILITY")
 
@@ -91,14 +126,15 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
             hist = macd - macd_signal
             if action_clean in ["BUY", "LONG"] and hist < 0:
                 logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. MACD Hist ({hist}) < 0.")
-                return {"status": "rejected", "reason": "STRICT_FILTER_MACD_BEARISH"}
+                return _strict_rejection(signal, "STRICT_FILTER_MACD_BEARISH")
             elif action_clean in ["SELL", "SHORT"] and hist > 0:
                 logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. MACD Hist ({hist}) > 0.")
-                return {"status": "rejected", "reason": "STRICT_FILTER_MACD_BULLISH"}
+                return _strict_rejection(signal, "STRICT_FILTER_MACD_BULLISH")
 
 
     # 1. Ajan Analizi ve Dereceli Risk Değerlendirmesi
     decision = analyzer_agent.analyze_and_evaluate(signal)
+    decision["orchestration"] = orchestration
     risk_assessment = decision["risk_assessment"]
     passed = risk_assessment["passed_hard_rules"]
     final_qty = risk_assessment["adjusted_quantity"]
@@ -133,11 +169,17 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
 
     if action_clean in ["BUY", "LONG", "SELL", "SHORT"]:
         try:
-            from services.risk_engine.missing_agents import spread_guard
-            from services.market_feed.live_stream import live_trade_manager
-            is_spread_ok = spread_guard.check_spread(signal.symbol, live_trade_manager.market_prices)
-        except Exception:
-            pass
+            from services.broker.alpaca_client import alpaca_client
+            spread_pct = alpaca_client.get_bid_ask_spread(signal.symbol)
+            if spread_pct is None:
+                logger.warning(f"[SPREAD BLOCK] {signal.symbol} için quote alınamadı.")
+                return {"status": "rejected", "reason": "SPREAD_QUOTE_UNAVAILABLE", "symbol": signal.symbol}
+            if spread_pct > 0.15:
+                logger.warning(f"[SPREAD BLOCK] {signal.symbol} spread=%{spread_pct:.4f}")
+                return {"status": "rejected", "reason": "SPREAD_TOO_WIDE", "symbol": signal.symbol}
+        except Exception as exc:
+            logger.error(f"[SPREAD ERROR] {signal.symbol}: {exc}")
+            return {"status": "rejected", "reason": "SPREAD_CHECK_FAILED", "symbol": signal.symbol}
     if action_clean in ["BUY", "LONG"]:
         from services.ai_agent.system_prompt import RISK_PARAMS
         
@@ -290,20 +332,17 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         
         if broker:
             if action_clean in ["BUY", "LONG"]:
-                # Sinyal'dan gelen dinamik TP/SL kullan; yoksa varsayılan %3/%1.5
-                tp_price = signal.take_profit if signal.take_profit else round(signal.price * 1.03, 4)
-                sl_price = signal.stop_loss if signal.stop_loss else round(signal.price * 0.985, 4)
-                
-                logger.info(
-                    f"[ALPACA BRACKET] {signal.symbol} BUY {final_qty} | "
-                    f"Entry: ${signal.price:.4f} | TP: ${tp_price:.4f} | SL: ${sl_price:.4f}"
-                )
-                res = broker.place_bracket_order(signal.symbol, "BUY", final_qty, tp_price, sl_price, limit_price=signal.price)
+                if pos and getattr(pos, "broker_order_id", None):
+                    res = {"status": "success", "order_id": pos.broker_order_id, "details": "Already routed by position manager"}
+                    logger.info(f"[BROKER] {signal.symbol} zaten pozisyon yöneticisi tarafından iletildi; ikinci emir atlanıyor.")
+                else:
+                    # Sadece pozisyon yöneticisinin broker'a göndermediği piyasa türleri için yönlendir.
+                    tp_price = signal.take_profit if signal.take_profit else round(signal.price * 1.03, 4)
+                    sl_price = signal.stop_loss if signal.stop_loss else round(signal.price * 0.985, 4)
+                    res = broker.place_bracket_order(signal.symbol, "BUY", final_qty, tp_price, sl_price, limit_price=signal.price)
                 if res.get("status") == "error":
-                    logger.warning(f"[BROKER FALLBACK] Alpaca API error: {res.get('message')}. Falling back to Simulation Mode.")
-                    if pos:
-                        pos.status = "OPEN"
-                        res = {"status": "success", "order_id": f"SIM-{pos.id}", "details": "Simulated fallback"}
+                    logger.error(f"[BROKER REJECTED] Alpaca API error: {res.get('message')}")
+                    return {"status": "rejected", "reason": "BROKER_ORDER_FAILED", "message": res.get("message", "Broker order failed"), "decision": decision}
             elif action_clean in ["SELL", "CLOSE", "FLAT"]:
                 res = broker.close_position(signal.symbol)
             else:

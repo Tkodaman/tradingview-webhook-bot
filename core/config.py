@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     trading_mode: str = "PAPER" # PAPER or LIVE (Alpaca Sandbox vs Real)
     active_broker: str = "ALPACA" # ALPACA, INTERACTIVE_BROKERS, MIDAS
     allowed_ips: str = "127.0.0.1,localhost,testclient,52.89.214.238,34.212.75.30,54.218.53.128,52.32.178.7"
+    trusted_proxy_ips: str = "127.0.0.1,localhost"
+    webhook_security_token: str = ""
     
     # Alpaca API Credentials
     alpaca_api_key: str = ""
@@ -44,15 +46,13 @@ class Settings(BaseSettings):
         if self.current_risk_mode == "SNIPER":
             self.max_risk_score_allowed = 92.0
             self.high_risk_threshold = 82.0
-            # SNIPER: auto_runner'ın kendi balina filtresi devreye girer (vol_ratio>=1.5)
-            # hard_rules'da bu eşiği düşür ki auto_runner'ın seçtikleri geçebilsin
-            self.volume_anomaly_ratio_threshold = 0.3  # Fiili filtreyi auto_runner yapıyor
-            self.max_capital_per_trade_pct = 15.0  # Balina vurunca tam güç
+            self.volume_anomaly_ratio_threshold = 1.5
+            self.max_capital_per_trade_pct = 10.0
         elif self.current_risk_mode == "AGGRESSIVE":
             self.max_risk_score_allowed = 88.0  # Yüksek tolerans
             self.high_risk_threshold = 60.0
-            self.volume_anomaly_ratio_threshold = 0.4
-            self.max_capital_per_trade_pct = 15.0
+            self.volume_anomaly_ratio_threshold = 1.2
+            self.max_capital_per_trade_pct = 10.0
         elif self.current_risk_mode == "TIGHT":
             self.max_risk_score_allowed = 90.0
             self.high_risk_threshold = 75.0
@@ -72,5 +72,9 @@ class Settings(BaseSettings):
     @property
     def get_allowed_ips_list(self) -> List[str]:
         return [ip.strip() for ip in self.allowed_ips.split(",")]
+
+    @property
+    def get_trusted_proxy_ips_list(self) -> List[str]:
+        return [ip.strip() for ip in self.trusted_proxy_ips.split(",") if ip.strip()]
 
 settings = Settings()

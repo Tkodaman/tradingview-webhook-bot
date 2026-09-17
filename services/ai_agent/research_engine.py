@@ -1,6 +1,7 @@
 import math
 import time
 import os
+from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
@@ -25,6 +26,7 @@ from schemas.agent import (
 )
 from services.data_ingestion.news_macro_feed import news_macro_feed
 
+load_dotenv()
 
 SECTOR_PEERS_MAP = {
     "AAPL": ["MSFT", "GOOGL", "NVDA"],
@@ -47,9 +49,13 @@ class FinancialResearchAgent:
     execution_journal_db: List[Dict[str, Any]] = []
 
     def __init__(self):
-        self.api_key = os.getenv("OPENAI_API_KEY")
+        self.model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-astra")
+        self.api_key = (
+            os.getenv("OPENAI_API_KEY_SECONDARY") or os.getenv("OPENAI_API_KEY")
+            if self.model_name == "gpt-6-astra"
+            else os.getenv("OPENAI_API_KEY")
+        )
         self.base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        self.model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-4o")
         
         self.client = None
         if self.api_key:
@@ -61,25 +67,39 @@ class FinancialResearchAgent:
             yield "Sistem Hatası: OpenAI API Key bulunamadı."
             return
             
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "system", "content": system_msg},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1000,
-                stream=True
-            )
-            for chunk in response:
-                if chunk.choices and len(chunk.choices) > 0:
-                    content = chunk.choices[0].delta.content
-                    if content:
-                        yield content
-        except Exception as e:
-            logger.error(f"OpenAI API Hatası (Stream): {str(e)}")
-            yield f"Üzgünüm, analiz motoru yanıt veremedi: {str(e)}"
+        import time
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=1000,
+                    stream=True
+                )
+                for chunk in response:
+                    if chunk.choices and len(chunk.choices) > 0:
+                        content = chunk.choices[0].delta.content
+                        if content:
+                            yield content
+                return  # Basarili olursa cik
+            except Exception as e:
+                err_str = str(e).lower()
+                # 503 veya timeout hatalarinda tekrar dene
+                if "503" in err_str or "temporarily unavailable" in err_str or "overloaded" in err_str:
+                    if attempt < max_retries - 1:
+                        yield f"*(Sunucu yoğun, {attempt+1}. kez tekrar deneniyor...)*\\n"
+                        time.sleep(2)
+                        continue
+                
+                logger.error(f"OpenAI API Hatası (Stream): {str(e)}")
+                yield f"\\nÜzgünüm, analiz motoru yanıt veremedi: {str(e)}"
+                return
 
     def _query_openai(self, prompt: str, system_msg: str = "Sen kıdemli bir Wall Street kantitatif analistisin. Çok net, profesyonel ve teknik Türkçe konuşursun.") -> str:
         if not self.client:

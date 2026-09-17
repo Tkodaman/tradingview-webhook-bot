@@ -32,8 +32,13 @@ async def webhook_info():
 
 @router.post("/webhook", dependencies=[Depends(verify_ip)])
 async def webhook_receiver(signal: WebhookSignal, request: Request):
-    client_ip = request.headers.get("X-Forwarded-For", request.client.host if request.client else "127.0.0.1").split(",")[0].strip()
-    logger.info(f"Received webhook from {client_ip}: {signal.model_dump_json()}")
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    if client_ip in settings.get_trusted_proxy_ips_list:
+        client_ip = request.headers.get("X-Forwarded-For", client_ip).split(",")[0].strip()
+    logger.info(
+        f"Received webhook from {client_ip}: symbol={signal.symbol} "
+        f"action={signal.action} timestamp_ms={signal.timestamp_ms}"
+    )
     
     # 0. SİSTEM KORUMA MODU (STATE RECONCILER)
     from services.market_feed.live_stream import live_trade_manager
@@ -42,7 +47,7 @@ async def webhook_receiver(signal: WebhookSignal, request: Request):
         raise HTTPException(status_code=403, detail=f"Sistem Koruma Modunda (Pause): {getattr(live_trade_manager, 'pause_reason', '')}")
     
     # 1. GÜVENLİK TOKEN KONTROLÜÜ
-    if signal.security_token and hasattr(settings, "webhook_security_token"):
+    if settings.webhook_security_token:
         if signal.security_token != settings.webhook_security_token:
             logger.warning(f"❌ INVALID SECURITY TOKEN from {client_ip}")
             raise HTTPException(status_code=401, detail="Invalid security token")
@@ -79,6 +84,9 @@ async def webhook_receiver(signal: WebhookSignal, request: Request):
 
     # 4. SPREAD GUARD KONTROLÜ (Bid-Ask Makası)
     spread_pct = alpaca_client.get_bid_ask_spread(signal.symbol)
+    if spread_pct is None:
+        logger.warning(f"[SPREAD GUARD ACTIVE] {signal.symbol} için quote alınamadı; işlem bekletildi.")
+        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content={"status": "WAIT", "reason": "Spread quote unavailable"})
     if spread_pct > 0.15:
         logger.warning(f"🛑 SPREAD GUARD ACTIVE: {signal.symbol} spread is {spread_pct:.3f}% > 0.15%. Order deferred to WAIT state.")
         return JSONResponse(

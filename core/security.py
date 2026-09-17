@@ -6,9 +6,9 @@ logger = logging.getLogger("security")
 
 async def verify_ip(request: Request):
     client_ip = request.client.host
-    # If behind proxy (ngrok), use x-forwarded-for
+    # Forwarded headers are trusted only from explicitly configured proxies.
     forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
+    if forwarded_for and client_ip in settings.get_trusted_proxy_ips_list:
         client_ip = forwarded_for.split(",")[0].strip()
         
     if client_ip not in settings.get_allowed_ips_list:

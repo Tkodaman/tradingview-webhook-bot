@@ -49,24 +49,38 @@ async def start_shadow_scanner():
     from services.analyzer.agent import analyzer_agent
     from schemas.webhook import WebhookSignal
     from services.ai_agent.research_engine import financial_agent
+    from services.data_ingestion.tradingview_live_client import tradingview_live_client
     
     WATCHLIST = ["BTCUSD", "ETHUSD", "TSLA", "NVDA", "QQQ"]
     
     while True:
         try:
             logger.info("[SHADOW SCANNER] Pre-Cognitive yapay zeka ön belleği güncelleniyor...")
+            live_data = await asyncio.to_thread(tradingview_live_client.fetch_live_market_data)
             for symbol in WATCHLIST:
-                # Sahte bir sinyal oluştur (AI'ın fikrini almak için)
+                market_item = live_data.get(symbol)
+                if not market_item or float(market_item.get("price", 0.0) or 0.0) <= 0:
+                    logger.info(f"[SHADOW AI] {symbol} için doğrulanmış fiyat yok; cache yazılmadı.")
+                    continue
+
                 mock_signal = WebhookSignal(
                     symbol=symbol,
                     action="BUY", 
-                    price=100.0, 
+                    price=float(market_item["price"]),
                     quantity=1.0,
-                    passphrase=settings.passphrase
+                    passphrase=settings.passphrase,
+                    timeframe="15m",
+                    indicators={
+                        key: value for key, value in market_item.items()
+                        if key in {"rsi", "macd", "atr_pct", "adx", "volume_ratio", "cmf"}
+                        and isinstance(value, (int, float))
+                    }
                 )
                 try:
-                    # AI motoruna zorla (cache atlayarak) analiz yaptır
-                    audit_result = financial_agent.audit_tradingview_signal_concurrently(mock_signal)
+                    audit_result = await asyncio.to_thread(
+                        financial_agent.audit_tradingview_signal_concurrently,
+                        mock_signal
+                    )
                     
                     # Cache'e yaz
                     analyzer_agent.shadow_analysis_cache[symbol] = {
@@ -157,7 +171,6 @@ async def get_dashboard(request: Request):
         name="dashboard.html",
         context={
             "trading_mode": settings.trading_mode,
-            "passphrase": settings.passphrase,
             "settings": settings,
             "trainer_params": bot_trainer.best_params,
             "kodaman_logo_b64": _LOGO_B64,

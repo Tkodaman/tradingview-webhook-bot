@@ -137,13 +137,13 @@ class AlpacaClient:
         return float(getattr(settings, "base_portfolio_size", 5000.0))
 
 
-    def get_bid_ask_spread(self, symbol: str) -> float:
+    def get_bid_ask_spread(self, symbol: str) -> Optional[float]:
         """
         Fetches the latest quote (Bid and Ask) from Alpaca Data API and calculates the spread percentage.
         Returns the spread as a percentage (e.g., 0.15 for 0.15%).
         """
         if not self.api_key or not self.api_secret:
-            return 0.0  # Simulated mode
+            return None
 
         try:
             import requests
@@ -190,10 +190,10 @@ class AlpacaClient:
                         return round(spread_pct, 4)
             
             # Fallback if no quote or error
-            return 0.0
+            return None
         except Exception as e:
             logger.error(f"❌ [ALPACA SPREAD FETCH ERROR] {e}")
-            return 0.0
+            return None
 
     def get_current_price(self, symbol: str) -> float:
         """Fetches the latest trade price from Alpaca Data API"""

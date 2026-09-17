@@ -5,6 +5,8 @@ Tüm ajan davranış kuralları, yetki sınırları ve risk parametreleri burada
 Diğer modüller bu dosyayı import ederek tutarlı konfigürasyon kullanır.
 """
 
+from core.config import settings
+
 # ============================================================
 # TRADING AGENT SYSTEM PROMPT v2.0 — AUTONOMOUS MARKET AGENT
 # ============================================================
@@ -92,8 +94,8 @@ PIYASA BAŞINA MAX POZİSYON LİMİTİ:
 # ============================================================
 RISK_PARAMS = {
     # Kasa
-    "base_portfolio_size_usd": 1000.0,
-    "max_capital_per_trade_pct": 10.0,       # %10 = $100 @ $1,000 kasa
+    "base_portfolio_size_usd": settings.base_portfolio_size,
+    "max_capital_per_trade_pct": settings.max_capital_per_trade_pct,
     "max_concurrent_positions": 15,
 
     # Stop / Take-Profit
@@ -104,13 +106,13 @@ RISK_PARAMS = {
     "partial_close_ratio": 0.50,             # Kısmi çıkış oranı
 
     # Risk Motor
-    "max_risk_score_allowed": 88.0,
-    "high_risk_threshold": 65.0,
-    "moderate_risk_threshold": 45.0,
+    "max_risk_score_allowed": settings.max_risk_score_allowed,
+    "high_risk_threshold": settings.high_risk_threshold,
+    "moderate_risk_threshold": settings.moderate_risk_threshold,
 
     # Devre Kesiciler
-    "flash_crash_volatility_limit": 8.0,    # %8 üstü = DONDUR
-    "volume_anomaly_ratio_threshold": 1.2,  # Vol.Ratio < 1.2 = BLOK
+    "flash_crash_volatility_limit": settings.flash_crash_volatility_limit,
+    "volume_anomaly_ratio_threshold": settings.volume_anomaly_ratio_threshold,
     "fomo_candle_change_pct": 3.0,          # +%3.0 mum = FOMO Engeli
     "fomo_rsi_limit": 75.0,                 # RSI > 75 = GİRME
 

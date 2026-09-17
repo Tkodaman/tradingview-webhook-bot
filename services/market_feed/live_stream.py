@@ -46,6 +46,7 @@ class ActivePosition(BaseModel):
     atr_value: float = 0.0
     use_chandelier_exit: bool = False
     capital_allocated: float = 0.0  # Pozisyon için ayrılan sermaye ($)
+    broker_order_id: Optional[str] = None
 
 class LiveTradeManager:
     def __init__(self):
@@ -62,7 +63,7 @@ class LiveTradeManager:
         self.last_autonomous_check: float = 0.0
         self.is_paused: bool = False
         self.pause_reason: str = ""
-        self.auto_resume_reconciler: bool = True
+        self.auto_resume_reconciler: bool = False
 
         # Canlı Fiyat Havuzu
         self.market_prices: Dict[str, Dict[str, Any]] = {
@@ -547,8 +548,7 @@ class LiveTradeManager:
             status=status
         )
 
-        # ✔ ALPACA BROKER-SIDE BRACKET ORDER (AlpacaBroker — düzeltilmiş köprü)
-        # Hata durumunda pozisyon yine de yerel olarak takip edilir (fiyat aynıyı göstermeye devam eder)
+        # Broker emri başarılı olmadan pozisyonu lokal olarak OPEN kabul etme.
         if market in ["NASDAQ", "CRYPTO"]:
             try:
                 from services.broker.factory import get_broker
@@ -576,11 +576,17 @@ class LiveTradeManager:
                         )
                     
                     if res.get("status") == "success":
+                        pos.broker_order_id = res.get("order_id")
                         logger.info(f"[ALPACA BRACKET] {sym} emir başarıyla iletildi. OrderID: {res.get('order_id')}")
                     else:
-                        logger.warning(f"[ALPACA WARN] {sym} emir yanıtı: {res.get('message', '?')} — Pozisyon yerel olarak kaydediliyor.")
+                        logger.error(f"[ALPACA REJECTED] {sym}: {res.get('message', '?')}")
+                        return None
+                else:
+                    logger.error(f"[ALPACA UNAVAILABLE] {sym}: broker API hazır değil.")
+                    return None
             except Exception as e:
-                logger.warning(f"[ALPACA HATA] {sym} broker iletimi başarısız: {e} — Yerel pozisyon devam ediyor.")
+                logger.error(f"[ALPACA HATA] {sym} broker iletimi başarısız: {e}")
+                return None
 
         self.positions[pos_id] = pos
         self.save_state()

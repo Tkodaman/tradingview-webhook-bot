@@ -3,13 +3,15 @@ from core.logger import logger
 
 class SpreadGuard:
     def check_spread(self, symbol: str, market_prices: dict, max_spread_pct: float = 0.15) -> bool:
-        # Mock logic or using market_prices
         data = market_prices.get(symbol, {})
-        price = data.get("price", 0)
-        # If we had bid/ask, we'd check them. Since we only have 'price', we'll pass or mock.
-        # Just logging for now
-        logger.info(f"[SPREAD GUARD] {symbol} spread denetimi yapıldı.")
-        return True
+        bid = data.get("bid")
+        ask = data.get("ask")
+        if bid is None or ask is None or bid <= 0 or ask < bid:
+            logger.warning(f"[SPREAD GUARD] {symbol} için geçerli bid/ask verisi yok; işlem bloklandı.")
+            return False
+        spread_pct = ((ask - bid) / bid) * 100.0
+        logger.info(f"[SPREAD GUARD] {symbol} spread=%{spread_pct:.4f}")
+        return spread_pct <= max_spread_pct
 
 spread_guard = SpreadGuard()
 

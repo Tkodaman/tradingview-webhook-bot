@@ -34,7 +34,7 @@ class AlpacaBroker(BaseBroker):
         try:
             if tradeapi and api_key and secret_key:
                 self.api = tradeapi.REST(api_key, secret_key, base_url, api_version='v2')
-                logger.info(f"[ALPACA BRIDGE] Connected {'PAPER' if paper else 'LIVE'} | Key: {api_key[:8]}...")
+                logger.info(f"[ALPACA BRIDGE] Connected {'PAPER' if paper else 'LIVE'}")
             else:
                 self.api = None
                 logger.warning("[ALPACA BRIDGE] No API key — running in simulation-only mode.")

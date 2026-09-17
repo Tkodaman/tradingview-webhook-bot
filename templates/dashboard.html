@@ -1,19 +1,5 @@
 <!DOCTYPE html>
 <html lang="tr">
-<head>
-    <script>
-    window.onerror = function(msg, url, lineNo, columnNo, error) {
-        var errStr = 'JS ERROR: ' + msg + ' at ' + lineNo;
-        alert(errStr);
-        document.body.innerHTML += '<div style="position:fixed;top:0;left:0;background:red;color:white;z-index:9999;padding:20px;font-size:20px;">' + errStr + '</div>';
-    window.addEventListener("unhandledrejection", function(event) {
-        alert("Promise ERROR: " + event.reason);
-    });
-    </script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kodaman&amp;Studio | Piyasa Canlı Kokpiti</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -579,6 +565,66 @@
         tr:hover td {
             background-color: rgba(255,255,255,0.02);
         }
+        .execution-log-table {
+            table-layout: fixed;
+            font-size: 11.5px;
+        }
+        .execution-log-table th,
+        .execution-log-table td {
+            padding: 9px 10px;
+            vertical-align: middle;
+        }
+        .execution-time {
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
+        }
+        .execution-asset {
+            color: #fff;
+            white-space: nowrap;
+        }
+        .execution-asset strong {
+            display: block;
+            font-size: 12px;
+        }
+        .execution-asset span,
+        .execution-pnl span,
+        .execution-lesson small {
+            display: block;
+            color: #64748b;
+            font-size: 9px;
+            margin-top: 3px;
+        }
+        .execution-side {
+            font-weight: 800;
+            letter-spacing: 0.3px;
+        }
+        .execution-pnl strong {
+            display: block;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .execution-lesson {
+            max-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .execution-lesson span {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .execution-lesson small {
+            display: none;
+        }
+        .execution-log-table tbody tr:hover .execution-lesson {
+            white-space: normal;
+            overflow: visible;
+        }
+        .execution-log-table tbody tr:hover .execution-lesson small {
+            display: block;
+        }
 
         /* 2-COLUMN GRID (RULES & SUMMARY) */
         .two-col-grid {
@@ -948,7 +994,7 @@ The following code has been modified to include a line number before every line,
             overflow-x: auto;
             max-height: 380px;
             white-space: pre-wrap;
-            word-break: break-all;
+                word-break: break-word;
         }
 
         /* ==========================================
@@ -1025,6 +1071,53 @@ The following code has been modified to include a line number before every line,
         #futureStreamContainer, #futureSuggestContainer {
             max-height: 350px;
             overflow-y: auto;
+            line-height: 1.45;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .dashboard-output-table {
+            table-layout: fixed;
+            font-size: 11.5px;
+        }
+        .dashboard-output-table th,
+        .dashboard-output-table td {
+            padding: 8px 10px;
+            vertical-align: middle;
+        }
+        .dashboard-output-table th {
+            font-size: 10px;
+            letter-spacing: .25px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .dashboard-output-table tbody tr {
+            transition: background .15s ease;
+        }
+        .dashboard-output-table tbody tr:hover td {
+            background: rgba(255,255,255,.045);
+        }
+        .dashboard-output-table .output-primary {
+            display: block;
+            color: #f8fafc;
+            font-weight: 700;
+        }
+        .dashboard-output-table .output-secondary {
+            display: block;
+            margin-top: 3px;
+            color: #64748b;
+            font-size: 9px;
+            line-height: 1.3;
+        }
+        .dashboard-output-empty {
+            padding: 16px !important;
+            color: #64748b !important;
+            text-align: center;
+            font-size: 11px;
+        }
+        .dashboard-output-terminal {
+            min-height: 154px;
+            max-height: 250px;
+        }
             padding-right: 8px;
         }
         #futureStreamContainer::-webkit-scrollbar,
@@ -1175,17 +1268,6 @@ The following code has been modified to include a line number before every line,
             </div>
             
             <div class="action-buttons">
-                  <!-- TOKEN TRACKER WIDGET -->
-                  <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 4px 10px; display: flex; flex-direction: column; align-items: flex-end; margin-right: 15px;">
-                      <div style="font-size: 10px; color: #a78bfa; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">LLM Token Limit</div>
-                      <div style="display: flex; align-items: center; gap: 6px;">
-                          <div style="width: 50px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
-                              <div id="tokenProgressBar" style="width: 100%; height: 100%; background: #10b981; transition: width 0.3s, background 0.3s;"></div>
-                          </div>
-                          <span id="tokenCounter" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #fff;">1,000,000</span>
-                      </div>
-                  </div>
-
                 <button class="btn btn-yellow" id="btnExportCsv" onclick="exportCsvData()">
                     <span>⬇</span> Tarihsel Veri (CSV)
                 </button>
@@ -1390,7 +1472,7 @@ The following code has been modified to include a line number before every line,
             </div>
         </div>
         <div class="table-responsive">
-            <table>
+            <table class="dashboard-output-table">
                 <thead>
                     <tr>
                         <th>ID / Sembol</th>
@@ -1478,7 +1560,7 @@ The following code has been modified to include a line number before every line,
 
         <!-- Recent Trades Table -->
         <div class="table-container" style="max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px;">
-            <table class="positions-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
+            <table class="positions-table dashboard-output-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
                 <thead style="background: rgba(0,0,0,0.4); position: sticky; top: 0; z-index: 1;">
                     <tr>
                         <th style="padding: 8px; text-align:left; color:#9ca3af;">Sembol</th>
@@ -1630,7 +1712,7 @@ The following code has been modified to include a line number before every line,
             </div>
         </div>
         <div class="table-container" style="max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px;">
-          <table class="positions-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
+          <table class="positions-table dashboard-output-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
                 <thead style="background: rgba(0,0,0,0.4); position: sticky; top: 0; z-index: 1;">
                     <tr>
                         <th style="padding: 10px; text-align:left; color:#cbd5e1;">Sembol</th>
@@ -1656,7 +1738,7 @@ The following code has been modified to include a line number before every line,
                     <span style="color:#a855f7;">🪙</span> (a3) BINANCE Kripto Terminali <span style="font-size:11px; color:#d8b4fe;">(Canlı Akış)</span>
                 </div>
             </div>
-            <div id="cryptoTerminal" class="code-block" style="border-color: rgba(168, 85, 247, 0.3);">
+            <div id="cryptoTerminal" class="code-block dashboard-output-terminal" style="border-color: rgba(168, 85, 247, 0.3);">
                 <!-- Crypto live logs -->
             </div>
         </div>
@@ -1666,7 +1748,7 @@ The following code has been modified to include a line number before every line,
                     <span style="color:#10b981;">🇹🇷</span> (a4) TR BIST Terminali <span style="font-size:11px; color:#a7f3d0;">(Canlı Akış)</span>
                 </div>
             </div>
-            <div id="bistTerminal" class="code-block" style="border-color: rgba(16, 185, 129, 0.3);">
+            <div id="bistTerminal" class="code-block dashboard-output-terminal" style="border-color: rgba(16, 185, 129, 0.3);">
                 <!-- BIST live logs -->
             </div>
         </div>
@@ -1676,7 +1758,7 @@ The following code has been modified to include a line number before every line,
                     <span style="color:#3b82f6;">🇺🇸</span> (a5) US NASDAQ Terminali <span style="font-size:11px; color:#bfdbfe;">(Canlı Akış)</span>
                 </div>
             </div>
-            <div id="nasdaqTerminal" class="code-block" style="border-color: rgba(59, 130, 246, 0.3);">
+            <div id="nasdaqTerminal" class="code-block dashboard-output-terminal" style="border-color: rgba(59, 130, 246, 0.3);">
                 <!-- NASDAQ live logs -->
             </div>
         </div>
@@ -1738,9 +1820,11 @@ The following code has been modified to include a line number before every line,
         </div>
         
         <!-- YENİ: AI Performans Yorumu -->
-        <div style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid #8b5cf6; padding: 10px 16px; margin: 16px 0; border-radius: 4px; display: flex; align-items: center; gap: 10px;">
+        <div style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid #8b5cf6; padding: 10px 16px; margin: 16px 0; border-radius: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <span style="font-size: 18px;">🤖</span>
             <span id="aiSummaryText" style="color: #cbd5e1; font-size: 13px; font-style: italic;">Yapay Zeka performans analizi yükleniyor...</span>
+            <span id="mlDataQualityBadge" style="margin-left:auto; font-size:10px; padding:4px 7px; border-radius:4px; color:#facc15; background:rgba(250,204,21,0.1); border:1px solid rgba(250,204,21,0.25);">VERİ KALİTESİ: KONTROL EDİLİYOR</span>
+            <span id="mlSampleSizeBadge" style="font-size:10px; padding:4px 7px; border-radius:4px; color:#cbd5e1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);">N=--</span>
         </div>
         
         <!-- Gelişmiş ML Analitik Grafikleri Grid -->
@@ -1788,7 +1872,7 @@ The following code has been modified to include a line number before every line,
         <div class="ml-dashboard-grid">
             <!-- Mevcut: ML Birikimi -->
             <div class="ml-chart-box" style="cursor: pointer;" onclick="openMLModal()">
-                <div class="ml-chart-title">📈 ML BİRİKİMİ (WIN RATE VS PF)</div>
+                <div class="ml-chart-title">📈 ML BİRİKİMİ (WIN RATE VS PF) <span id="mlLearningSource" style="font-size:10px;color:#facc15;margin-left:6px;"></span></div>
                 <div style="flex:1; width:100%; position: relative; min-height: 0;">
                     <canvas id="mlLearningChart"></canvas>
                 </div>
@@ -1804,7 +1888,7 @@ The following code has been modified to include a line number before every line,
 
             <!-- Yeni: Donut Chart -->
             <div class="ml-chart-box">
-                <div class="ml-chart-title">🍩 İNDİKATÖR AĞIRLIKLARI</div>
+                <div class="ml-chart-title">🍩 İNDİKATÖR KULLANIMI (İŞLEM SAYISI)</div>
                 <div style="flex:1; width:100%; position: relative; min-height: 0;">
                     <canvas id="mlIndicatorDonutChart"></canvas>
                 </div>
@@ -1841,18 +1925,16 @@ The following code has been modified to include a line number before every line,
             </div>
         </div>
         
-        <div class="table-responsive">
-            <table>
+        <div class="table-responsive execution-log-table-wrap">
+            <table class="execution-log-table dashboard-output-table">
                 <thead>
                     <tr>
-                        <th style="width: 90px;">ZAMAN (UTC)</th>
+                        <th style="width: 82px;">ZAMAN</th>
                         <th>VARLIK</th>
                         <th>YÖN</th>
-                        <th>SÜRE (DK)</th>
-                        <th>MAX DD</th>
-                        <th>ÇIKIŞ NEDENİ</th>
-                        <th>PNL (%)</th>
-                        <th style="width: 45%;">ÖĞRENİLEN DERS & ZARAR/KAR OPTİMİZASYONU</th>
+                        <th style="width: 86px;">SONUÇ</th>
+                        <th style="width: 118px;">PNL / DD</th>
+                        <th style="width: 48%;">DERS / AKSİYON</th>
                     </tr>
                 </thead>
                 <tbody id="autotraderExecutionLog">
@@ -3114,18 +3196,22 @@ The following code has been modified to include a line number before every line,
                     const color = isWin ? 'var(--up-color)' : 'var(--down-color)';
                     const badge = isWin ? '<span class="inner-box-badge badge-reward">BAŞARILI</span>' : '<span class="inner-box-badge badge-block">ZARAR</span>';
                     
-                    return `<tr>
-                        <td style="color:var(--text-secondary); font-family:'JetBrains Mono';">${t.timestamp.split(' ')[1]}</td>
-                        <td style="font-weight:700; color:#fff;">${t.symbol}</td>
-                        <td><span style="color:${t.action==='BUY'?'var(--up-color)':'var(--down-color)'}; font-weight:700;">${t.action}</span></td>
-                        <td>${t.duration_minutes}m</td>
-                        <td>${t.max_drawdown_percent}%</td>
-                        <td>${t.exit_reason}</td>
-                        <td style="color:${color}; font-weight:700;">
-                            ${sign}${t.pnl_pct}%<br>
-                            <span style="font-size:9px; color:#64748b; font-weight:normal;">(Alpaca Kom. Düşüldü)</span>
+                    const time = (t.timestamp || '').split(' ')[1] || t.timestamp || '-';
+                    const exitReason = t.exit_reason || 'Bilinmiyor';
+                    const lesson = t.lesson_learned || 'Ders kaydı yok.';
+                    const duration = Number(t.duration_minutes || 0);
+                    const dd = Number(t.max_drawdown_percent || 0);
+                    const action = String(t.action || '-').toUpperCase();
+                    const title = `${exitReason} | ${duration} dk | ${lesson}`;
+                    return `<tr title="${title.replace(/"/g, '&quot;')}">
+                        <td class="execution-time">${time}</td>
+                        <td class="execution-asset"><strong>${t.symbol}</strong><span>${duration} dk · ${exitReason}</span></td>
+                        <td><span class="execution-side" style="color:${action==='BUY'?'var(--up-color)':'var(--down-color)'};">${action}</span></td>
+                        <td>${badge}</td>
+                        <td class="execution-pnl" style="color:${color};">
+                            <strong>${sign}${t.pnl_pct}%</strong><span>DD ${dd}%</span>
                         </td>
-                        <td>${badge} <span style="color:var(--text-primary); font-size:11px;">${t.lesson_learned}</span></td>
+                        <td class="execution-lesson"><span>${lesson}</span><small>Detay için satırın üzerine gel</small></td>
                     </tr>`;
                 }).join('');
             }
@@ -3512,6 +3598,7 @@ The following code has been modified to include a line number before every line,
             fetchAlgorithmicStats();
             fetchHistorySummary();
             fetchAssetConfidenceIndex();
+            fetchLiveMatrix();
             if (isManual) {
                 showToast('Tüm canlı piyasa ve bakiye akışları yenilendi.', 'success');
             }
@@ -3539,7 +3626,8 @@ The following code has been modified to include a line number before every line,
 
         // WEBSOCKET BAĞLANTISI (ANLIK VERİ AKIŞI)
         function connectWebSocket() {
-            const wsUrl = `ws://${window.location.host}/ws/live`;
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws/live`;
             const ws = new WebSocket(wsUrl);
 
             ws.onopen = () => {
@@ -3658,15 +3746,19 @@ The following code has been modified to include a line number before every line,
         connectWebSocket();
         fetchLiveMatrix(); // Varlık matrix verisini ilk girişte çek
 
-        // 6 SANİYEDE BİR SADECE GENEL ÖZET & STATS GÜNCELLEMESİ (Hafif İşlemler)
+        // Veri yenileme sıklığını veri türüne göre ayır: canlı fiyatlar WebSocket'ten gelir.
         setInterval(() => {
             fetchSummary();
+            fetchPositions();
+        }, 15000);
+
+        setInterval(() => {
             fetchAlgorithmicStats();
-            fetchPositions(); // Websocket üzerinden gelse de listeyi API'den senkronize edebiliriz
-            fetchLiveMatrix(); // Artık ısı haritası kayan yazıları resetlemediği için 6 saniyede bir çekebiliriz!
             fetchHistorySummary();
             fetchAssetConfidenceIndex();
-        }, 6000);
+        }, 30000);
+
+        setInterval(fetchLiveMatrix, 30000);
 
         async function fetchAlgorithmicStats() {
             try {
@@ -4042,6 +4134,11 @@ document.addEventListener("DOMContentLoaded", function() {
             const res = await fetch('/api/experience-memory/learning-curve');
             const data = await res.json();
             if (data.status === 'success' && data.learning_curve) {
+                const sourceEl = document.getElementById('mlLearningSource');
+                if (sourceEl) {
+                    sourceEl.innerText = data.is_synthetic ? '[ÖNİZLEME VERİSİ]' : '[GERÇEK TRADE GEÇMİŞİ]';
+                    sourceEl.style.color = data.is_synthetic ? '#facc15' : '#4ade80';
+                }
                 const labels = data.learning_curve.map(c => c.date.substring(5)); // MM-DD
                 const values = data.learning_curve.map(c => c.win_rate);
                 const pfValues = data.learning_curve.map(c => c.profit_factor);
@@ -4161,6 +4258,17 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (summaryEl && metrics.ai_summary_text) {
                     summaryEl.innerText = metrics.ai_summary_text;
                 }
+                const sampleSize = Number(metrics.sample_size || 0);
+                const qualityEl = document.getElementById('mlDataQualityBadge');
+                const sampleEl = document.getElementById('mlSampleSizeBadge');
+                if (qualityEl) {
+                    const hasHistory = sampleSize > 0 && metrics.data_quality === 'REAL_TRADE_HISTORY_ONLY';
+                    qualityEl.innerText = hasHistory ? 'VERİ KALİTESİ: GERÇEK TRADE' : 'VERİ KALİTESİ: ÖRNEKLEM YOK';
+                    qualityEl.style.color = hasHistory ? '#4ade80' : '#facc15';
+                    qualityEl.style.background = hasHistory ? 'rgba(74,222,128,0.1)' : 'rgba(250,204,21,0.1)';
+                    qualityEl.style.borderColor = hasHistory ? 'rgba(74,222,128,0.25)' : 'rgba(250,204,21,0.25)';
+                }
+                if (sampleEl) sampleEl.innerText = `N=${sampleSize}`;
 
                 // 1. Radar Chart (Piyasa Rejimi)
                 const radarCtx = document.getElementById('mlRegimeRadarChart');
@@ -4475,227 +4583,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
 });
 </script>
-
-    <script>
-    // Token Management System
-    let remainingTokens = localStorage.getItem('llm_tokens') ? parseInt(localStorage.getItem('llm_tokens')) : 1000000;
-    
-    function updateTokenDisplay() {
-        const counter = document.getElementById('tokenCounter');
-        const bar = document.getElementById('tokenProgressBar');
-        if(!counter || !bar) return;
-        
-        counter.innerText = remainingTokens.toLocaleString();
-        
-        let pct = (remainingTokens / 1000000) * 100;
-        bar.style.width = pct + '%';
-        if(pct > 50) bar.style.background = '#10b981';
-        else if(pct > 20) bar.style.background = '#f59e0b';
-        else bar.style.background = '#ef4444';
-    }
-    
-    // Call on load
-    document.addEventListener('DOMContentLoaded', updateTokenDisplay);
-    
-    // Simulate consuming tokens when AI actions happen
-    function consumeTokens(amount) {
-        remainingTokens = Math.max(0, remainingTokens - amount);
-        localStorage.setItem('llm_tokens', remainingTokens);
-        updateTokenDisplay();
-    }
-    
-    // Intercept fetch calls to /api/agent or capture token usage from backend
-    // Since backend might not stream tokens to the UI easily without a WS event, 
-    // we can simulate usage based on actions or listen to a specific WS event.
-    </script>
-\n
-<!-- AI ANALYST CHAT WIDGET -->
-<style>
-#aiChatWidget {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    width: 350px;
-    background: #111827;
-    border: 1px solid rgba(139, 92, 246, 0.4);
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(139, 92, 246, 0.2);
-    display: flex;
-    flex-direction: column;
-    z-index: 99999;
-    overflow: hidden;
-    font-family: 'Outfit', sans-serif;
-    transition: transform 0.3s ease, opacity 0.3s ease;
-}
-#aiChatHeader {
-    background: linear-gradient(135deg, #1c1f2e 0%, #0f1117 100%);
-    padding: 12px 16px;
-    border-bottom: 1px solid rgba(139, 92, 246, 0.2);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-}
-#aiChatBody {
-    height: 300px;
-    padding: 15px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    background: rgba(0,0,0,0.2);
-}
-#aiChatInputContainer {
-    padding: 12px;
-    background: #1c1f2e;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    gap: 8px;
-}
-#aiChatInput {
-    flex: 1;
-    background: #0f1117;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: #fff;
-    font-size: 13px;
-    outline: none;
-}
-#aiChatInput:focus {
-    border-color: #8b5cf6;
-}
-#aiChatBtn {
-    background: #8b5cf6;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 0 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-#aiChatBtn:hover {
-    background: #7c3aed;
-}
-.chat-msg {
-    max-width: 85%;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 13px;
-    line-height: 1.5;
-    word-wrap: break-word;
-}
-.chat-user {
-    align-self: flex-end;
-    background: #3b82f6;
-    color: #fff;
-    border-bottom-right-radius: 2px;
-}
-.chat-ai {
-    align-self: flex-start;
-    background: #1f2937;
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #cbd5e1;
-    border-bottom-left-radius: 2px;
-}
-.typing-indicator {
-    align-self: flex-start;
-    color: #a78bfa;
-    font-size: 11px;
-    font-style: italic;
-    display: none;
-}
-</style>
-
-<div id="aiChatWidget">
-    <div id="aiChatHeader" onclick="toggleAiChat()">
-        <div style="display:flex; align-items:center; gap:8px;">
-            <span style="font-size: 18px;">🤖</span>
-            <span style="color: #c4b5fd; font-weight: 600; font-size: 14px; letter-spacing: 0.5px;">Gölge Zeka (LLM)</span>
-        </div>
-        <span id="aiChatToggleIcon" style="color: #94a3b8; font-size: 12px;">▼</span>
-    </div>
-    <div id="aiChatContent">
-        <div id="aiChatBody">
-            <div class="chat-msg chat-ai">Merhaba, ben Gölge Zeka. Astra-6 motoruna bağlıyım. Analiz veya öngörü için bana her şeyi sorabilirsiniz.</div>
-        </div>
-        <div class="typing-indicator" id="aiTypingIndicator">Gölge Zeka düşünüyor...</div>
-        <div id="aiChatInputContainer">
-            <input type="text" id="aiChatInput" placeholder="Mesajınızı yazın..." onkeypress="if(event.key === 'Enter') sendAiMessage()">
-            <button id="aiChatBtn" onclick="sendAiMessage()">Gönder</button>
-        </div>
-    </div>
-</div>
-
-<script>
-let isChatOpen = true;
-function toggleAiChat() {
-    isChatOpen = !isChatOpen;
-    document.getElementById('aiChatContent').style.display = isChatOpen ? 'block' : 'none';
-    document.getElementById('aiChatToggleIcon').innerText = isChatOpen ? '▼' : '▲';
-}
-
-async function sendAiMessage() {
-    const input = document.getElementById('aiChatInput');
-    const msg = input.value.trim();
-    if(!msg) return;
-    
-    input.value = '';
-    
-    // Add user message to UI
-    const body = document.getElementById('aiChatBody');
-    const userDiv = document.createElement('div');
-    userDiv.className = 'chat-msg chat-user';
-    userDiv.innerText = msg;
-    body.appendChild(userDiv);
-    body.scrollTop = body.scrollHeight;
-    
-    document.getElementById('aiTypingIndicator').style.display = 'block';
-    
-    // Add AI message container
-    const aiDiv = document.createElement('div');
-    aiDiv.className = 'chat-msg chat-ai';
-    aiDiv.innerHTML = '';
-    body.appendChild(aiDiv);
-    
-    try {
-        const source = new EventSource(`/api/agent/stream?prompt=${encodeURIComponent(msg)}`);
-        
-        source.onmessage = function(event) {
-            document.getElementById('aiTypingIndicator').style.display = 'none';
-            if (event.data === '[DONE]') {
-                source.close();
-                // Estimate tokens: 1 token per roughly 4 chars as a very basic simulation
-                if(typeof consumeTokens === 'function') {
-                    const estimatedTokens = Math.floor(aiDiv.innerText.length / 4) + Math.floor(msg.length / 4);
-                    if (estimatedTokens > 0) consumeTokens(estimatedTokens);
-                }
-            } else {
-                // Append chunk
-                aiDiv.innerHTML += event.data;
-                body.scrollTop = body.scrollHeight;
-            }
-        };
-        
-        source.onerror = function(err) {
-            document.getElementById('aiTypingIndicator').style.display = 'none';
-            source.close();
-            // Only show error if we got nothing
-            if (aiDiv.innerHTML === '') {
-                aiDiv.style.color = '#ef4444';
-                aiDiv.innerText = 'Bağlantı koptu veya hata oluştu.';
-            }
-        };
-    } catch(e) {
-        document.getElementById('aiTypingIndicator').style.display = 'none';
-        aiDiv.style.color = '#ef4444';
-        aiDiv.innerText = 'Bağlantı hatası: ' + e.message;
-        body.scrollTop = body.scrollHeight;
-    }
-}
-</script>
-<!-- END AI ANALYST CHAT WIDGET -->
 
 </body>
 </html>

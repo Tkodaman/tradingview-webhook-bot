@@ -120,78 +120,20 @@ class ExperienceMemoryEngine:
         # Kullanıcının talebi üzerine, piyasayı yanlış yönlendiren ve kapalı
         # saatlerde işlem yapılmış gibi gösteren sahte "baseline" işlemleri (dummy data) kaldırıldı.
         # Artık ML öğrenimi sadece gerçek piyasa hareketlerinden beslenecek.
-        pass
-
-        self.hourly_snapshots = [
-            {"hour_label": "1. Saat Özeti", "hourly_pnl": "+$14.50", "summary": "NASDAQ Seansı: NVDA kâr alımı sağlandı. TSLA başa baş korumada."},
-            {"hour_label": "2. Saat Özeti", "hourly_pnl": "+$9.80", "summary": "AAPL mikro kırılımında kâr realizasyonu yapıldı."},
-            {"hour_label": "3. Saat Özeti", "hourly_pnl": "+$18.20", "summary": "QQQ ve MSFT pozisyonları 1:2.8 R:R ile kapatıldı."},
-            {"hour_label": "4. Saat Özeti", "hourly_pnl": "+$8.40", "summary": "Düşük hacimli seans; risk motoru gereksiz alımları engelledi."},
-            {"hour_label": "5. Saat Özeti", "hourly_pnl": "+$12.60", "summary": "BIST gündüz seansında THYAO döngüsü başarıyla tamamlandı."},
-            {"hour_label": "6. Saat Özeti", "hourly_pnl": "+$15.10", "summary": "Kripto seansı: BTCUSDT tepe kırılımı teyit edildi."}
-        ]
-
-        self.live_action_logs_crypto = [
-            {"time": "01:05:10", "level": "SCAN", "message": "Binance 7/24 Vadeli & Spot taraması devrede (20 Kripto Çifti)."},
-            {"time": "01:06:22", "level": "INFO", "message": "BTCUSDT volatilite bandı genişliyor: ATR %2.4, RSI 54.8 pozitif."},
-            {"time": "01:07:45", "level": "ORDER", "message": "BTCUSDT BUY @ $64,200.00 (Lot: 0.015) 7/24 Momentum Kırılımı ile icra edildi."},
-            {"time": "01:09:12", "level": "WIN", "message": "BTCUSDT Hedef $65,850.00 seviyesine ulaştı. Net +%2.57 kâr kasaya aktarıldı."},
-            {"time": "01:10:30", "level": "SCAN", "message": "SOLUSDT, ETHUSDT hacim patlaması izleniyor. Sinyal beklemede."}
-        ]
-
-        self.live_action_logs_bist = [
-            {"time": "09:50:00", "level": "INFO", "message": "BIST Seansı Açılış Öncesi Rutini Başlatıldı (10.000 TL Kasa)."},
-            {"time": "09:51:15", "level": "SCAN", "message": "THYAO, TUPRS, KCHOL hacim ve derinlik taraması tamamlandı."},
-            {"time": "09:52:40", "level": "UPDATE", "message": "THYAO %2.1 destek sekmesi teyit edildi, makas 1:3 R:R olarak kilitlendi."},
-            {"time": "10:15:22", "level": "ORDER", "message": "THYAO BUY @ 308.20 TL (Lot: 32) İcra Edildi."},
-            {"time": "11:42:08", "level": "WIN", "message": "THYAO Hedef 314.50 TL seviyesinde kâr realizasyonu sağlandı (+%2.04)."},
-            {"time": "18:05:00", "level": "STATUS", "message": "BIST Seansı Kapandı. Emir defteri yarın saat 10:00'a kadar korumaya alındı."}
-        ]
-
-        self.live_action_logs_nasdaq = [
-            {"time": "12:00:00", "level": "INFO", "message": "NASDAQ Piyasa Öncesi Rutini Başlatıldı ($1,200 Limit)."},
-            {"time": "13:30:10", "level": "SCAN", "message": "NVDA, TSLA, MSFT, AAPL, AMD kurumsal para akışı süzgecinden geçti."},
-            {"time": "14:45:18", "level": "ORDER", "message": "NVDA BUY @ $218.76 (Lot: 0.914) Otonom Algoritma tarafından açıldı."},
-            {"time": "15:10:08", "level": "WIN", "message": "NVDA Hedef $223.50 fiyata ulaştı. Net +%2.17 kâr kasaya eklendi."},
-            {"time": "15:45:00", "level": "UPDATE", "message": "TSLA kırılım takibinde: Başa baş stop koruması devrede."},
-            {"time": "23:00:00", "level": "STATUS", "message": "Wall Street seansı kapandı. Gün sonu kâr faktörü: 6.38 teyit edildi."}
-        ]
+        self.hourly_snapshots = []
+        self.live_action_logs_crypto = []
+        self.live_action_logs_bist = []
+        self.live_action_logs_nasdaq = []
 
     def ensure_active_live_logs(self):
         """Terminallerin sürekli canlı nabız atmasını ve taze log üretmesini sağlar"""
         now = time.time()
-        if now - self._last_heartbeat_time < 4:
+        if now - self._last_heartbeat_time < 15:
             return
         self._last_heartbeat_time = now
-        t_str = datetime.now().strftime("%H:%M:%S")
-
-        # 7/24 Kripto Canlı Log Döngüsü
-        crypto_msgs = [
-            ("SCAN", "Binance 7/24 Tarama: BTCUSDT fonlama oranı %0.010, RSI 53.4, emir defteri dengede."),
-            ("INFO", "ETHUSDT Likidite Havuzu Analizi: 2,580$ üzeri tutunma devam ediyor."),
-            ("SCAN", "SOLUSDT Alım Derinliği: Alıcılar %58 ağırlıkta, VWAP üstü momentum aktif."),
-            ("UPDATE", "DOGEUSDT & XRPUSDT volatilite bandı filtrelendi: Ani iğne koruması aktif."),
-            ("ORDER", "BTCUSDT Mikro Kırılımı Teyit: 1-Tıkla pozisyon tetikleyicisi hazır.")
-        ]
-        import random
-        c_lvl, c_msg = random.choice(crypto_msgs)
-        self.add_live_log("CRYPTO", c_lvl, c_msg)
-
-        # BIST Kapalı Durum Logu
-        bist_msgs = [
-            ("STATUS", "BIST Seansı KAPALI (10:00 - 18:05 TSİ). Dünkü THYAO & ASELS kapanış seviyeleri sabit."),
-            ("SCAN", "BIST 100 Gece Değerlemesi: Risk limiti korumada, otomatik emirler seans açılışını bekliyor.")
-        ]
-        b_lvl, b_msg = random.choice(bist_msgs)
-        self.add_live_log("BIST", b_lvl, b_msg)
-
-        # NASDAQ Kapalı Durum Logu
-        nasdaq_msgs = [
-            ("STATUS", "NASDAQ Seansı KAPALI (16:30 - 23:00 TSİ). Mega-Cap çip sektörü konsolidasyon verisi hazır."),
-            ("SCAN", "Wall Street Vadeli Endeksleri: S&P 500 ve QQQ seans dışı makasları izleniyor.")
-        ]
-        n_lvl, n_msg = random.choice(nasdaq_msgs)
-        self.add_live_log("NASDAQ", n_lvl, n_msg)
+        heartbeat = "Sistem nabzı: doğrulanmış işlem veya piyasa sonucu yok; canlı veri akışı izleniyor."
+        for market in ("CRYPTO", "BIST", "NASDAQ"):
+            self.add_live_log(market, "SYSTEM", heartbeat)
 
     def add_live_log(self, market: str, level: str, message: str):
         log_entry = {
@@ -649,20 +591,22 @@ class ExperienceMemoryEngine:
 
     def get_summary(self) -> ExperienceLearningSummary:
         self.ensure_active_live_logs()
+        from core.config import settings
         
         # Sadece gerçek işlemlerden öğrenim yapılacak (Sahte simülasyon kaldırıldı)
 
         wins = [t for t in self.trade_history if t.is_win]
         losses = [t for t in self.trade_history if not t.is_win]
         total_trades = len(self.trade_history)
-        win_rate = (len(wins) / total_trades * 100.0) if total_trades else 75.0
+        win_rate = (len(wins) / total_trades * 100.0) if total_trades else 0.0
         total_pnl = sum(t.pnl_amount for t in self.trade_history)
         gross_loss = abs(sum(t.pnl_amount for t in losses))
         gross_win = sum(t.pnl_amount for t in wins)
-        profit_factor = round(gross_win / gross_loss, 2) if gross_loss > 0 else (4.25 if wins else 0.0)
+        profit_factor = round(gross_win / gross_loss, 2) if gross_loss > 0 else 0.0
         
-        cum_pnl = [{"time": "Başlangıç", "value": 1000.0}]
-        running = 1000.0
+        starting_balance = float(settings.base_portfolio_size)
+        cum_pnl = [{"time": "Başlangıç", "value": starting_balance}]
+        running = starting_balance
         for t in self.trade_history:
             running += t.pnl_amount
             time_str = t.timestamp.split(" ")[1] if " " in t.timestamp else t.timestamp
@@ -694,9 +638,13 @@ class ExperienceMemoryEngine:
             
         # Piyasaların durumuna göre özet cümlesi
         active_markets = [m for m, d in market_status.items() if d["is_open"]]
-        if active_markets:
+        if total_trades == 0:
+            takeaway = "Doğrulanmış işlem geçmişi yok. Performans ve öğrenme grafikleri karar üretmek için kullanılamaz."
+        elif active_markets:
             mkt_str = ", ".join(active_markets)
-            takeaway = f"Aktif piyasalar ({mkt_str}) derin analizi: {recent_wins}/5 son işlem başarı oranı. Güncel konjonktürde risk sınırlarına uyum sağlanarak net +${total_pnl:.2f} kâr yazıldı."
+            recent_count = len(recent)
+            recent_rate = (recent_wins / recent_count * 100.0) if recent_count else 0.0
+            takeaway = f"Aktif piyasalar ({mkt_str}) derin analizi: son {recent_count} doğrulanmış işlemde başarı %{recent_rate:.1f}. Net PnL: ${total_pnl:.2f}."
         else:
             takeaway = f"Tüm piyasalar kapalı/beklemede. Algoritma off-market (seans dışı) veri sentezini tamamladı. Tarihsel model net +${total_pnl:.2f} performansla stabil."
 
@@ -706,24 +654,18 @@ class ExperienceMemoryEngine:
             profit_factor_historical=round(profit_factor, 2),
             net_pnl_historical=round(total_pnl, 2),
             dynamic_experience_multiplier=dyn_mult,
-            learned_rules_and_insights=self.learned_rules if self.learned_rules else [
-                {
-                    "rule_id": "DYN-RULE-01",
-                    "cluster_key": "GÜÇLÜ BOĞA",
-                    "type": "REWARD",
-                    "category": "Lot Artırımı",
-                    "insight": "Peş peşe kazançlı işlemler tespit edildi. Algoritma lot büyüklüğünü %20 artırdı.",
-                    "action_taken": "Pozisyon büyüklüğü x1.20 çarpanı ile çalışıyor.",
-                    "impact_status": "🟢 +%20 LOT ÖDÜLÜ DEVREDE"
-                }
-            ],
+            learned_rules_and_insights=self.learned_rules,
             hourly_experience_snapshots=self.hourly_snapshots,
             daily_post_market_synthesis={
                 "session_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 "executive_takeaway": takeaway,
                 "tomorrow_strategy_bias": bias
             },
-            weight_adjustments={"technical": 0.45, "macro": 0.35, "sentiment": 0.20},
+            weight_adjustments={
+                "technical": settings.weight_technical,
+                "macro": settings.weight_macro,
+                "sentiment": settings.weight_sentiment,
+            },
             cumulative_pnl_history=cum_pnl,
             recent_trades=[t.model_dump() for t in self.trade_history[-10:]],
             live_action_logs_crypto=self.live_action_logs_crypto,
@@ -793,8 +735,8 @@ class ExperienceMemoryEngine:
                 donut_labels.append(k.upper())
                 donut_data_vals.append(v)
             if not donut_labels:
-                donut_labels = ["RSI MOMENTUM", "MACD KESİŞİMİ", "BOLLINGER SIKIŞMASI", "VOLUME SPIKE", "VWAP SAPMASI"]
-                donut_data_vals = [random.randint(45, 60), random.randint(30, 40), random.randint(25, 35), random.randint(20, 28), random.randint(15, 22)]
+                donut_labels = ["DOĞRULANMIŞ VERİ YOK"]
+                donut_data_vals = [0]
         donut_data = {"labels": donut_labels, "data": donut_data_vals}
 
         # 3. Scatter Chart: AI Güven Skoru vs PnL
@@ -810,12 +752,14 @@ class ExperienceMemoryEngine:
                 scatter_data.append({"x": conf, "y": pnl, "symbol": sym, "tooltip": f"Sembol: {sym} | Skor: %{conf} | PnL: %{pnl}"})
         else:
             for t in self.trade_history[-50:]:
-                conf = getattr(t, 'ai_confidence', None) or 50.0
+                conf = getattr(t, 'ai_confidence', None)
+                if conf is None:
+                    continue
                 pnl = round(getattr(t, 'pnl_pct', 0), 2)
                 sym = getattr(t, 'symbol', 'UNKNOWN')
                 scatter_data.append({"x": conf, "y": pnl, "symbol": sym, "tooltip": f"Sembol: {sym} | Skor: %{conf} | PnL: %{pnl}"})
 
-                # 4. Bar Chart: Hata Türleri / Zarar Nedenleri
+                        # 4. Bar Chart: Hata Türleri / Zarar Nedenleri
         if use_dynamic_sim:
             bar_labels = ["Hacim Çekilmesi", "Direnç Reddi", "Ani Volatilite", "Zaman Aşımı", "Stop-Loss"]
             bar_values = [random.randint(12, 18), random.randint(8, 14), random.randint(5, 9), random.randint(3, 7), random.randint(1, 4)]
@@ -835,7 +779,7 @@ class ExperienceMemoryEngine:
                 pct = (c / total_errors * 100) if total_errors > 0 else 0
                 bar_labels.append(r); bar_values.append(c); bar_tooltips.append(f"Neden: {r} | {c} Kez (Ağırlık: %{pct:.1f})")
             if not bar_labels:
-                bar_labels, bar_values, bar_tooltips = ["Kusursuz İlerleyiş"], [0], ["Hata Bulunmuyor"]
+                bar_labels, bar_values, bar_tooltips = ["DOĞRULANMIŞ VERİ YOK"], [0], ["Henüz yeterli gerçek işlem kaydı yok"]
 
         # 5. Area Chart: Risk ve Drawdown (Kronolojik Son 15 İşlem)
         if use_dynamic_sim:
@@ -853,22 +797,28 @@ class ExperienceMemoryEngine:
                 area_tooltips.append(f"Sembol: {sym} | Max DD: %{-round(dd,2)}")
                 
             if not area_labels:
-                area_labels, area_data, area_tooltips = ["Risk Yok"], [0], ["Sıfır Drawdown"]
+                area_labels, area_data, area_tooltips = ["DOĞRULANMIŞ VERİ YOK"], [0], ["Henüz drawdown ölçülecek gerçek işlem yok"]
 
         ai_summary = "Motor Aktif Pusu Modunda. Canlı veriler üzerinden derin öğrenme simülasyonu devam ediyor..."
         if not use_dynamic_sim:
-            recent_pnl = sum([getattr(t, 'pnl_pct', 0) for t in self.trade_history[-5:]])
-            if recent_pnl > 2: ai_summary = f"Son işlemlerde oldukça kârlıyız (+%{round(recent_pnl, 2)}). Strateji mükemmel uyumlu."
-            elif recent_pnl < -2: ai_summary = f"Zarar birikimi var (%{round(recent_pnl, 2)}). Risk limitlerini daraltıyorum."
-            else: ai_summary = f"Piyasa yatay. Stabil (%{round(recent_pnl, 2)}) bir performans sergiliyoruz."
+            if not self.trade_history:
+                ai_summary = "Doğrulanmış işlem yok. Performans yorumu üretmek için gerçek trade geçmişi gerekiyor."
+            else:
+                recent_pnl = sum([getattr(t, 'pnl_pct', 0) for t in self.trade_history[-5:]])
+                if recent_pnl > 2: ai_summary = f"Son işlemlerde oldukça kârlıyız (+%{round(recent_pnl, 2)}). Strateji mükemmel uyumlu."
+                elif recent_pnl < -2: ai_summary = f"Zarar birikimi var (%{round(recent_pnl, 2)}). Risk limitlerini daraltıyorum."
+                else: ai_summary = f"Son 5 doğrulanmış işlemde net performans: %{round(recent_pnl, 2)}. Kesin avantaj için daha fazla örnek gerekiyor."
 
         return {
+            "sample_size": len(self.trade_history),
+            "data_quality": "REAL_TRADE_HISTORY_ONLY",
             "radar": {"labels": radar_labels, "data": radar_data, "tooltips": radar_tooltips},
             "donut": donut_data,
             "scatter": scatter_data,
             "bar": {"labels": bar_labels, "data": bar_values, "tooltips": bar_tooltips},
             "area": {"labels": area_labels, "data": area_data, "tooltips": area_tooltips},
-            "ai_summary": ai_summary
+            "ai_summary": ai_summary,
+            "ai_summary_text": ai_summary
         }
 
 

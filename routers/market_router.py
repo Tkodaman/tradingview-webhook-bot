@@ -12,6 +12,13 @@ rsi_history = {}
 _matrix_cache = {"data": None, "ts": 0}
 _CACHE_TTL = 30  # saniye
 
+
+def _number(value, default: float) -> float:
+    try:
+        return float(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
+
 @router.get("/live-matrix")
 async def get_live_buy_sell_wait_matrix():
     """
@@ -36,10 +43,17 @@ async def get_live_buy_sell_wait_matrix():
             continue
             
         base_price = float(data.get("price", 0.0))
-        rsi = data.get("rsi", 50.0)
-        macd = data.get("macd", 0.0)
-        vol_ratio = data.get("volume_ratio", 1.0)
-        chg = data.get("change_pct", 0.0)
+        quality_fields = ("rsi", "macd", "volume_ratio", "atr_pct", "adx", "cmf")
+        available_quality_fields = [
+            field for field in quality_fields
+            if data.get(field) is not None
+        ]
+        indicator_coverage = round(len(available_quality_fields) / len(quality_fields), 2)
+        data_quality = "FULL" if indicator_coverage >= 0.83 else ("PARTIAL" if indicator_coverage >= 0.5 else "INSUFFICIENT")
+        rsi = _number(data.get("rsi"), 50.0)
+        macd = _number(data.get("macd"), 0.0)
+        vol_ratio = _number(data.get("volume_ratio"), 0.0)
+        chg = _number(data.get("change_pct"), 0.0)
         
         # Piyasa türünü ve durumunu belirle
         market = data.get("market") or market_hours_validator.get_market_type(sym)
@@ -80,9 +94,12 @@ async def get_live_buy_sell_wait_matrix():
         if vol_ratio >= 1.5: score += 3 # Hacim patlaması (Balina)
         elif vol_ratio >= 0.80: score += 1
         
-        if 20.0 <= data.get("stoch_k", 50.0) <= 80.0: score += 1
-        if data.get("adx", 25.0) >= 20.0: score += 1 # Trend yeni başlıyor/güçleniyor
-        if data.get("cmf", 0.0) > 0.10: score += 2 # Yüksek Kurumsal Giriş
+        stoch_k_value = _number(data.get("stoch_k"), 50.0)
+        adx_value = _number(data.get("adx"), 25.0)
+        cmf_value = _number(data.get("cmf"), 0.0)
+        if 20.0 <= stoch_k_value <= 80.0: score += 1
+        if adx_value >= 20.0: score += 1 # Trend yeni başlıyor/güçleniyor
+        if cmf_value > 0.10: score += 2 # Yüksek Kurumsal Giriş
         if chg >= 0.5 and vol_ratio >= 1.2: score += 2 # Momentum Impulse
         
         momentum_phase = "NEUTRAL"
@@ -107,12 +124,12 @@ async def get_live_buy_sell_wait_matrix():
         open_pos = next((p for p in live_trade_manager.positions.values() if p.symbol.upper() == sym.upper() and p.status == "OPEN"), None)
         
         # === KAZAN-KAZAN: RİSK KALKANI ENTEGRASYONU (DASHBOARD SKORU İÇİN) ===
-        stoch_k = data.get("stoch_k", 50.0)
-        cmf = data.get("cmf", 0.0)
-        atr_pct = data.get("atr_pct", 1.5)
-        adx = data.get("adx", 25.0)
+        stoch_k = _number(data.get("stoch_k"), 50.0)
+        cmf = _number(data.get("cmf"), 0.0)
+        atr_pct = _number(data.get("atr_pct"), 1.5)
+        adx = _number(data.get("adx"), 25.0)
         ema_golden = data.get("ema_golden_cross", False)
-        supertrend_bullish = data.get("supertrend_bullish", True)
+        supertrend_bullish = bool(data.get("supertrend_bullish", False))
         
         fakeout_res = fakeout_guard.check(
             symbol=sym, price=price, change_pct=chg, vol_ratio=vol_ratio,
@@ -164,7 +181,7 @@ async def get_live_buy_sell_wait_matrix():
             decision = "BUY"
             badge = "🟢 BUY_SIGNAL"
             
-            adx_val = data.get("adx", 0)
+            adx_val = _number(data.get("adx"), 0.0)
             if data.get("vwap_bullish", False) and vol_ratio >= 1.0:
                 reason = "Fiyat VWAP üstünde - kurumsal destek aktif"
             elif data.get("ema_golden_cross", False):
@@ -180,8 +197,8 @@ async def get_live_buy_sell_wait_matrix():
                 if macd > 0: factors.append("MACD Alışta")
                 if vol_ratio > 1.2: factors.append(f"Hacim Sıçraması({vol_ratio:.1f}x)")
                 if chg > 1.0: factors.append("Fiyat İvmeli")
-                if 20.0 <= data.get("stoch_k", 50.0) <= 85.0: factors.append("Stoch Teyitli")
-                if data.get("cmf", 0.0) > 0.05: factors.append("Kurumsal Toplama (CMF)")
+                if 20.0 <= stoch_k <= 85.0: factors.append("Stoch Teyitli")
+                if cmf > 0.05: factors.append("Kurumsal Toplama (CMF)")
                 
                 if len(factors) >= 2:
                     reason = " | ".join(factors[:2]) + f" ({score}/9)"
@@ -212,6 +229,8 @@ async def get_live_buy_sell_wait_matrix():
             "low": low,
             "rsi": rsi,
             "volume_ratio": vol_ratio,
+            "indicator_coverage": indicator_coverage,
+            "data_quality": data_quality,
             "score": score,
             "momentum_phase": momentum_phase,
             "decision": decision,
@@ -236,14 +255,16 @@ async def get_live_buy_sell_wait_matrix():
         m["expertise_level"] = ai_data.get("expertise_level", "🟡 NÖTR / DENGELİ")
         m["ai_action"] = ai_data.get("action_recommendation", "🟡 Standart İnceleme")
         
-        # Taban skor: Her varlık 40 puandan başlıyor (sıfırdan yarışmaz)
-        final_dynamic_score = 40.0 + base_ind_score
+        # Teknik yarış skoru. Sabit 40 taban puanı yok; eksik veri avantaj üretmez.
+        final_dynamic_score = 35.0 + base_ind_score
         
         # AI Geçmişi BONUS olarak ekleniyor (katsayı değil düz bonus)
+        historical_sample = int(ai_data.get("total_trades", 0) or 0) if ai_data else 0
         if ai_data and "confidence_score" in ai_data:
             raw_conf = float(ai_data["confidence_score"])
-            # Geçmişteki başarı oranını 0-10 aralığında bonus olarak ekle
-            ai_bonus = min(10.0, max(-5.0, (raw_conf - 50.0) * 0.20))
+            # Küçük örneklem geçmişi teknik skoru domine edemez.
+            sample_factor = min(1.0, historical_sample / 20.0)
+            ai_bonus = min(5.0, max(-3.0, (raw_conf - 50.0) * 0.12 * sample_factor))
             final_dynamic_score += ai_bonus
             
         # Aksiyon Boost (Al sinyali güçlü, Sat sinyali düşür)
@@ -287,8 +308,18 @@ async def get_live_buy_sell_wait_matrix():
             final_dynamic_score -= 8.0  # Eskisi -20, artık hafif -8
             m["reason"] += " (Yatay Bölge/Düşük Hacim)"
         
-        # Skoru 1.0 ile 99.9 arasına sınırla
-        m["confidence_score"] = min(99.9, max(1.0, round(final_dynamic_score, 1)))
+        # Veri kapsamı düşükse skorun kesinlik iddiasını yumuşat, fırsatı silme.
+        quality_factor = 0.65 + (0.35 * float(m.get("indicator_coverage", 0.0)))
+        ranking_score = min(99.9, max(1.0, round(final_dynamic_score, 1)))
+        confidence_score = 50.0 + ((ranking_score - 50.0) * quality_factor)
+        m["ranking_score"] = ranking_score
+        m["confidence_score"] = min(99.9, max(1.0, round(confidence_score, 1)))
+        m["confidence_label"] = (
+            "HIGH_EVIDENCE" if m["indicator_coverage"] >= 0.83 and historical_sample >= 20
+            else "LIVE_TECHNICAL" if m["indicator_coverage"] >= 0.83
+            else "PARTIAL_DATA"
+        )
+        m["historical_sample"] = historical_sample
 
     grouped_matrix = {
         "CRYPTO": sorted([m for m in matrix_results if m["market"] == "CRYPTO"], key=lambda x: x["confidence_score"], reverse=True)[:15],

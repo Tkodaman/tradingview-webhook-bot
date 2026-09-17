@@ -53,21 +53,15 @@ class AutonomousMarketAgent:
                 "macro_risk_score": 30.0,  # nötr - ne çok yüksek ne çok düşük
                 "high_risk_alerts": [],
                 "recent_news_count": 0,
-                "macro_state": "NEUTRAL"
+                "macro_state": "DATA_UNAVAILABLE",
+                "data_available": False
             }
 
     def analyze_and_evaluate(self, signal: WebhookSignal) -> Dict[str, Any]:
         logger.info(f"[AGENT TRIGGERED] Analyzing incoming signal for {signal.symbol} ({signal.action})")
 
-        # 0. GÖLGE ZEKÂ KONTROLÜ (Pre-Cognitive Cache Check)
-        now = time.time()
-        cached_decision = self.shadow_analysis_cache.get(signal.symbol)
-        if cached_decision and (now - cached_decision.get("_timestamp", 0) < 600):
-            # 10 dakikadan taze ise anında (0.01 sn) yanıt dön!
-            logger.info(f"⚡ [SHADOW CACHE HIT] {signal.symbol} için önceden hesaplanmış AI kararı bulundu! İnfaz 10 ms içinde başlıyor.")
-            # Güvenlik için sinyali taze sinyal ile değiştir
-            cached_decision["signal"] = signal.model_dump()
-            return cached_decision
+        # Shadow analizleri yalnızca ön-izleme içindir; taze sinyal her zaman yeniden değerlendirilir.
+        # Eski bir kararın yeni fiyat/hacim/volatilite koşullarına taşınması güvenli değildir.
 
         # 1. Teknik & Piyasa Verisi Analizi (hızlı - yerel hesaplama)
         market_analysis = market_feed.analyze_market_conditions(

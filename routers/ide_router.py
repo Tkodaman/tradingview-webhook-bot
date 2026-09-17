@@ -1,9 +1,12 @@
 import os
+from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import google.generativeai as genai
 from core.logger import logger
 from services.market_feed.live_stream import live_trade_manager
+
+load_dotenv()
 
 router = APIRouter(prefix="/api/ide", tags=["ide"])
 

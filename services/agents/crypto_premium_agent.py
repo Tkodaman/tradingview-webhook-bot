@@ -1,5 +1,6 @@
 import os
 import json
+from dotenv import load_dotenv
 import google.generativeai as genai
 from openai import OpenAI
 from typing import Dict, Any, Tuple
@@ -7,6 +8,7 @@ import logging
 import time
 
 logger = logging.getLogger("CryptoPremiumAgent")
+load_dotenv()
 
 class CryptoPremiumAgent:
     def __init__(self):
@@ -15,13 +17,14 @@ class CryptoPremiumAgent:
         self.gemini_model = None
 
         if self.llm_provider == "openai":
-            openai_model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-astra")
-            if openai_model_name == "gpt-6-astra":
+            self.openai_model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-astra")
+            self.openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+            if self.openai_model_name == "gpt-6-astra":
                 self.api_key = os.getenv("OPENAI_API_KEY_SECONDARY") or os.getenv("OPENAI_API_KEY")
             else:
                 self.api_key = os.getenv("OPENAI_API_KEY")
             if self.api_key:
-                self.openai_client = OpenAI(api_key=self.api_key)
+                self.openai_client = OpenAI(api_key=self.api_key, base_url=self.openai_base_url)
         else:
             self.api_key = os.getenv("GEMINI_API_KEY")
             if self.api_key:
@@ -71,11 +74,9 @@ Lütfen sadece aşağıdaki formatta, geçerli bir JSON objesi döndür (kod blo
 """
         try:
             if self.llm_provider == "openai" and self.openai_client:
-                import os
-                openai_model_name = os.getenv("OPENAI_MODEL_NAME", "astra-6")
                 try:
                     response = self.openai_client.chat.completions.create(
-                        model=openai_model_name,
+                        model=self.openai_model_name,
                         messages=[{"role": "user", "content": prompt}],
                         temperature=0.5
                     )

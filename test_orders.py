@@ -1,6 +1,13 @@
 import alpaca_trade_api as tradeapi
+import os
 
-api = tradeapi.REST('PKIKFGYOOUV5TTHG4SF35BV2AC', 'G3G2kWbmo3d6EwLs3McVuY5i2oPMe6Htt9eQHNcoa6Rk', 'https://paper-api.alpaca.markets')
+from dotenv import load_dotenv
+load_dotenv()
+api = tradeapi.REST(
+    os.environ["ALPACA_API_KEY"],
+    os.environ["ALPACA_SECRET_KEY"],
+    "https://paper-api.alpaca.markets"
+)
 
 try:
     orders = api.list_orders(status="open")
