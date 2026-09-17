@@ -67,12 +67,22 @@ Lütfen sadece aşağıdaki formatta, geçerli bir JSON objesi döndür (kod blo
 """
         try:
             if self.llm_provider == "openai" and self.openai_client:
-                response = self.openai_client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.5
-                )
-                raw_text = response.choices[0].message.content.replace("```json", "").replace("```", "").strip()
+                import os
+                openai_model_name = os.getenv("OPENAI_MODEL_NAME", "astra-6")
+                try:
+                    response = self.openai_client.chat.completions.create(
+                        model=openai_model_name,
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.5
+                    )
+                    raw_text = response.choices[0].message.content.replace("```json", "").replace("```", "").strip()
+                except Exception as e:
+                    logger.warning(f"[FALLBACK] OpenAI/Codex hatası veya limit aşımı ({e}). Anında Gemini motoruna geçiliyor...")
+                    if self.gemini_model:
+                        response = self.gemini_model.generate_content(prompt)
+                        raw_text = response.text.replace("```json", "").replace("```", "").strip()
+                    else:
+                        raise Exception("OpenAI API başarısız oldu ve yedek (Gemini) modeli bulunamadı.")
             elif self.gemini_model:
                 response = self.gemini_model.generate_content(prompt)
                 raw_text = response.text.replace("```json", "").replace("```", "").strip()

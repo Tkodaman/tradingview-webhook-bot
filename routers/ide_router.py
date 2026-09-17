@@ -74,15 +74,14 @@ async def trigger_ide_model(req: IDETriggerRequest):
         
         gemini_model = None
         openai_client = None
-        openai_model_name = "gpt-4o-mini"
+        openai_model_name = os.getenv("OPENAI_MODEL_NAME", "astra-6")
         
         if llm_provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise Exception("OPENAI_API_KEY eksik.")
-            openai_client = AsyncOpenAI(api_key=api_key)
-            if "pro" in req.model_id.lower() or "ultra" in req.model_id.lower() or "omni" in req.model_id.lower():
-                openai_model_name = "gpt-4o"
+            base_url = os.getenv("OPENAI_BASE_URL")
+            openai_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         else:
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
@@ -154,7 +153,6 @@ Verileri kendi içinde sentezle ve Çıktını SADECE aşağıdaki JSON formatı
   "anlik_ozet": "Maliyet={cost} Anlık varlık takibi sağ panelde aktif."
 }}
 """
-"""
         if llm_provider == "openai":
             ai_text = await _call_openai_with_retry(openai_client, openai_model_name, prompt)
             ai_text = ai_text.strip()
@@ -191,12 +189,14 @@ Verileri kendi içinde sentezle ve Çıktını SADECE aşağıdaki JSON formatı
                         except Exception as trade_err:
                             sistem_bildirimi = f"\n\n**❌ SİSTEM BİLDİRİMİ:** Alpaca emri iletilemedi! Hata: {str(trade_err)}"
                             
-                final_text = f"""[🤖 REJİM]: {parsed_data.get('rejim')}
-[⚡ VADE TERCİHİ]: {parsed_data.get('vade_tercihi')}
-[📈 STRATEJİK DEĞERLENDİRME]: {parsed_data.get('stratejik_degerlendirme')}
-[🎯 HIZLI EYLEM KARARI]: {parsed_data.get('hizli_eylem_karari')}
-[🚀 İŞLEM TETİKLEME]: {action} {islem.get('symbol', '')} {islem.get('budget_usd', '')}
-[🚨 ANLIK ÖZET]: {parsed_data.get('anlik_ozet')}{sistem_bildirimi}"""
+                final_text = (
+                    f"[REJİM]: {parsed_data.get('rejim')}\n"
+                    f"[VADE TERCİHİ]: {parsed_data.get('vade_tercihi')}\n"
+                    f"[STRATEJİK DEĞERLENDİRME]: {parsed_data.get('stratejik_degerlendirme')}\n"
+                    f"[HIZLI EYLEM KARARI]: {parsed_data.get('hizli_eylem_karari')}\n"
+                    f"[İŞLEM TETİKLEME]: {action} {islem.get('symbol', '')} {islem.get('budget_usd', '')}\n"
+                    f"[ANLIK ÖZET]: {parsed_data.get('anlik_ozet')}{sistem_bildirimi}"
+                )
 
         except Exception as parse_err:
             logger.error(f"[IDE JSON ERROR] {parse_err}. Raw text: {ai_text}")
@@ -230,15 +230,28 @@ class CustomPromptRequest(BaseModel):
 
 @router.post("/analyst/custom")
 async def trigger_analyst_custom(req: CustomPromptRequest):
-        final_prompt = req.prompt + ml_context
-
+    try:
+        final_prompt = req.prompt
+        
         llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
         if llm_provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise Exception("OPENAI_API_KEY eksik.")
-            openai_client = AsyncOpenAI(api_key=api_key)
-            ai_text = await _call_openai_with_retry(openai_client, "gpt-4o-mini", final_prompt)
+            base_url = os.getenv("OPENAI_BASE_URL")
+            openai_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+            openai_model_name = os.getenv("OPENAI_MODEL_NAME", "astra-6")
+            try:
+                ai_text = await _call_openai_with_retry(openai_client, openai_model_name, final_prompt)
+            except Exception as e:
+                logger.warning(f"[FALLBACK] OpenAI/Codex hatası ({e}). Gemini modeline geçiliyor...")
+                gemini_api_key = os.getenv("GEMINI_API_KEY")
+                if not gemini_api_key:
+                    raise Exception("OpenAI başarısız oldu ve GEMINI_API_KEY bulunamadı.")
+                genai.configure(api_key=gemini_api_key)
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                response = await _call_gemini_with_retry(model, final_prompt)
+                ai_text = response.text
         else:
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:

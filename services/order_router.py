@@ -49,9 +49,14 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     # 0.7 STRICT INDICATOR LAYERS (KULLANICI TALEBİ: EMA200, RSI, MACD, ADX)
     if signal.indicators:
         ind = signal.indicators
-        # Trend Katmanı: EMA200
+        # Trend Katmanı: EMA200 ve Rejim Belirleme (Kazan-Kazan)
         ema200 = ind.get("ema200")
         if ema200 is not None and signal.price > 0:
+            if signal.price > ema200:
+                signal.macro_tags.append("REGIME_BULL_TREND")
+            else:
+                signal.macro_tags.append("REGIME_BEAR_TREND")
+                
             if action_clean in ["BUY", "LONG"] and signal.price < ema200:
                 logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. Price ({signal.price}) < EMA200 ({ema200}).")
                 return {"status": "rejected", "reason": "STRICT_FILTER_EMA200_DOWNTREND"}
@@ -69,12 +74,15 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
                 logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. RSI ({rsi}) < 30 (Oversold).")
                 return {"status": "rejected", "reason": "STRICT_FILTER_RSI_OVERSOLD"}
                 
-        # Trend Gücü Katmanı: ADX
+        # Trend Gücü Katmanı: ADX (Yatay Piyasa Tespiti)
         adx = ind.get("adx")
         if adx is not None:
             if adx < 20:
+                signal.macro_tags.append("REGIME_CHOPPY_RANGING") # Astra-6'ya yatay piyasa olduğunu söyle
                 logger.warning(f"[STRICT FILTER] {signal.symbol} {action_clean} rejected. ADX ({adx}) < 20 (Ranging Market).")
                 return {"status": "rejected", "reason": "STRICT_FILTER_ADX_RANGING"}
+            elif adx > 40:
+                signal.macro_tags.append("REGIME_HIGH_VOLATILITY")
 
         # Tetikleyici Katmanı: MACD (MACD hist sıfır kesişimi / Pozitif-Negatif bölge)
         macd = ind.get("macd")
@@ -108,11 +116,15 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         }
 
     # 3. Canlı Pozisyon Yöneticisi Entegrasyonu (TradingView Sermayesi / Kontratı ile)
-    # K3 DÜZELTİLDİ: signal.account_equity'yi doğrudan kullan; 0 veya None ise dinamik hesapla
     if signal.account_equity and signal.account_equity > 0:
         capital_used = signal.account_equity
     else:
-        capital_used = live_trade_manager.get_dynamic_position_capital(signal.symbol)
+        # Astra-6/AI Güven skoruna göre dinamik Kelly kriteri bütçe hesabı
+        confidence_score = 0.5
+        if "skills_audit" in decision and "overall_skill_score" in decision["skills_audit"]:
+            confidence_score = float(decision["skills_audit"]["overall_skill_score"]) / 100.0
+        
+        capital_used = live_trade_manager.get_dynamic_position_capital(signal.symbol, confidence_score)
         
     # KULLANICI TALEBİ: "otonom asla 500$ üstünde alım yapamasın sınırlı olmalı kesinlikle"
     if capital_used > 500.0:

@@ -303,12 +303,15 @@ class LiveTradeManager:
             "total_commission": total_comm
         }
 
-    def get_dynamic_position_capital(self, symbol: str) -> float:
+    def get_dynamic_position_capital(self, symbol: str, confidence_score: float = 0.5) -> float:
         """
-        Kasa Bakiyesine Göre Dinamik Pozisyon Bütçesi + Süpervizör Risk Çarpanı
+        Kasa Bakiyesine Göre Dinamik Pozisyon Bütçesi + Süpervizör Risk Çarpanı + Kelly Kriteri
         """
         from core.config import settings
-        alloc_pct = getattr(settings, "dynamic_capital_allocation_pct", 10.0) / 100.0
+        # Temel tahsis yerine confidence_score ile dinamik Kelly ölçeklemesi
+        # Confidence %50 ise %2 tahsis, %100 ise %8 tahsis
+        alloc_pct = 0.02 + (confidence_score - 0.5) * 0.12 if confidence_score >= 0.5 else 0.02
+        alloc_pct = max(0.01, min(0.08, alloc_pct)) # %1 ile %8 arası sınırlandır
         
         try:
             from services.engine.supervisor_agent import supervisor_agent
@@ -846,9 +849,18 @@ class LiveTradeManager:
                 # Eğer pozisyon %1.5'tan fazla kârdaysa ve momentum zayıflıyorsa (RSI aşırı şişmiş vs. veya hacim düştüyse)
                 # Otonom Tarayıcı RSI verisine doğrudan erişemediğimizden fiyatın tepeden %1 düşüşüne de bakabiliriz.
                 
-                # İZLEYEN STOP (Sürekli Trailing Stop)
+                # İZLEYEN STOP (Dinamik Step-Up Trailing Stop)
+                # Kâr arttıkça trailing mesafesi daralır.
                 is_sniper = settings.current_risk_mode.upper() == "SNIPER"
-                trailing_dist = 0.985 if is_sniper else 0.975
+                
+                # Dinamik mesafe hesaplama (Win-Win stratejisi)
+                if pct > 5.0:
+                    trailing_dist = 0.99  # %1 izleme (çok kârda, sıkı takip)
+                elif pct > 2.5:
+                    trailing_dist = 0.985 # %1.5 izleme
+                else:
+                    # Kâr azken veya başa baştayken gürültüden patlamamak için daha geniş
+                    trailing_dist = 0.98 if is_sniper else 0.97
                 
                 # İşleme girildiği andan itibaren her yükselişte anında iz sürer
                 pos.trailing_stop_activated = True
@@ -856,7 +868,7 @@ class LiveTradeManager:
                 if new_sl > pos.stop_loss_price:
                     old_sl = pos.stop_loss_price
                     pos.stop_loss_price = new_sl
-                    logger.info(f"🤖 [AI-TRAILING] {pos.symbol} için İzleyen Stop makası daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
+                    logger.info(f"🤖 [AI-TRAILING] {pos.symbol} için Kademeli İzleyen Stop makası (Mesafe: %{round((1-trailing_dist)*100, 1)}) daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
                     try:
                         from services.broker.alpaca_client import alpaca_client
                         alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
@@ -907,21 +919,25 @@ class LiveTradeManager:
                 pct = ((pos.entry_price - curr_price) / pos.entry_price) * 100.0
 
                 is_sniper = settings.current_risk_mode.upper() == "SNIPER"
-                trailing_trigger = 1.5 if is_sniper else 3.0
-                trailing_dist = 1.015 if is_sniper else 1.025
+                
+                if pct > 5.0:
+                    trailing_dist = 1.01  # %1 izleme
+                elif pct > 2.5:
+                    trailing_dist = 1.015 # %1.5 izleme
+                else:
+                    trailing_dist = 1.02 if is_sniper else 1.03
 
-                if pct > trailing_trigger:
-                    pos.trailing_stop_activated = True
-                    new_sl = round(pos.highest_price_seen * trailing_dist, 5)
-                    if new_sl < pos.stop_loss_price:
-                        old_sl = pos.stop_loss_price
-                        pos.stop_loss_price = new_sl
-                        logger.info(f"🤖 [AI-TRAILING SHORT] {pos.symbol} için İzleyen Stop makası yapay zeka tarafından daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
-                        try:
-                            from services.broker.alpaca_client import alpaca_client
-                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
-                        except Exception:
-                            pass
+                pos.trailing_stop_activated = True
+                new_sl = round(pos.highest_price_seen * trailing_dist, 5)
+                if new_sl < pos.stop_loss_price:
+                    old_sl = pos.stop_loss_price
+                    pos.stop_loss_price = new_sl
+                    logger.info(f"🤖 [AI-TRAILING SHORT] {pos.symbol} için İzleyen Stop daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
+                    try:
+                        from services.broker.alpaca_client import alpaca_client
+                        alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
+                    except Exception:
+                        pass
 
                 if not pos.break_even_activated and curr_price <= pos.break_even_trigger_price:
                     pos.break_even_activated = True
