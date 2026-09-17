@@ -220,21 +220,7 @@ async def open_live_position(req: OpenPositionRequest):
         )
         
         if not pos:
-            return {"status": "error", "message": "Yetersiz bütçe veya maksimum açık işlem limitine ulaşıldı."}
-
-        # 3. Canlı Broker'a Gönder (BIST hariç)
-        if settings.trading_mode in ["LIVE", "PAPER"] and pos.market in ["NASDAQ", "CRYPTO"]:
-            from services.broker.factory import get_broker
-            is_paper = (settings.trading_mode == "PAPER")
-            broker = get_broker(settings.active_broker, paper=is_paper)
-            if broker:
-                res = broker.place_bracket_order(req_sym, req.side, pos.quantity, pos.target_profit_price, pos.stop_loss_price, limit_price=curr_price)
-                if res.get("status") == "error":
-                    # Fallback: Alpaca hatası verirse, yerel pozisyonu geri al (Senkronu korumak için)
-                    live_trade_manager.positions.pop(pos.id, None)
-                    refund = getattr(pos, 'capital_allocated', 0.0) or getattr(pos, 'nominal_value', 0.0)
-                    logger.warning(f"[ROLLBACK] {req_sym} Alpaca hatasi. Iade: ${refund:.2f}")
-                    return {"status": "error", "message": f"Alpaca API Reddi: {res.get('message')}"}
+            return {"status": "error", "message": "Yetersiz bütçe, makro koruma aktif veya maksimum açık işlem limitine ulaşıldı."}
 
         return {"status": "success", "position": pos.dict()}
     except Exception as e:
