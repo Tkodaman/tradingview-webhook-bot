@@ -802,11 +802,10 @@ class LiveTradeManager:
             # Alpaca kapalı piyasada emri beklemeye alır, ancak yerel motor pozisyonu
             # kapatıp ML'e "ZARAR REJİM" kaydeder. Sonra sync_with_broker çalışıp
             # kapanmamış Alpaca pozisyonunu geri getirir ve bu döngü ML veritabanını çöplüğe çevirir.
+            is_open = True
             try:
                 from services.risk_engine.market_hours import market_hours_validator
                 is_open, _, _ = market_hours_validator.is_market_open(pos.symbol)
-                if not is_open:
-                    continue
             except Exception:
                 pass
 
@@ -841,9 +840,10 @@ class LiveTradeManager:
 
                 # === KAZAN-KAZAN: FLASH CRASH (HABER ETKİSİ) KORUMASI ===
                 if pct <= -3.0 and not pos.trailing_stop_activated:
-                    logger.warning(f"🚨 [FLASH CRASH DETECTED] {pos.symbol} %{pct:.2f} düştü! Acil stop tetikleniyor.")
-                    self.close_position(pos_id, "CLOSED_FLASH_CRASH")
-                    continue
+                    if is_open:
+                        logger.warning(f"🚨 [FLASH CRASH DETECTED] {pos.symbol} %{pct:.2f} düştü! Acil stop tetikleniyor.")
+                        self.close_position(pos_id, "CLOSED_FLASH_CRASH")
+                        continue
 
                 # AKILLI ÇIKIŞ (Erken Kâr Alma)
                 # Eğer pozisyon %1.5'tan fazla kârdaysa ve momentum zayıflıyorsa (RSI aşırı şişmiş vs. veya hacim düştüyse)
@@ -853,14 +853,21 @@ class LiveTradeManager:
                 # Kâr arttıkça trailing mesafesi daralır.
                 is_sniper = settings.current_risk_mode.upper() == "SNIPER"
                 
+                # Orijinal SL yüzdesini hesapla (eğer çok dar bir SL girilmişse, trailing de o kadar dar olmalı)
+                orig_sl_pct = (pos.entry_price - pos.stop_loss_price) / pos.entry_price if pos.stop_loss_price < pos.entry_price else 0.03
+                base_dist = 1.0 - min(orig_sl_pct, 0.02 if is_sniper else 0.03)
+
                 # Dinamik mesafe hesaplama (Win-Win stratejisi)
-                if pct > 5.0:
-                    trailing_dist = 0.99  # %1 izleme (çok kârda, sıkı takip)
-                elif pct > 2.5:
-                    trailing_dist = 0.985 # %1.5 izleme
+                if pct > 4.0:
+                    trailing_dist = 0.995 # %0.5 makas!
+                elif pct > 2.0:
+                    trailing_dist = 0.992 # %0.8 makas!
+                elif pct > 1.0:
+                    trailing_dist = 0.988 # %1.2 makas!
+                elif pct > 0.5:
+                    trailing_dist = 0.985 # %1.5 makas
                 else:
-                    # Kâr azken veya başa baştayken gürültüden patlamamak için daha geniş
-                    trailing_dist = 0.98 if is_sniper else 0.97
+                    trailing_dist = base_dist
                 
                 # İşleme girildiği andan itibaren her yükselişte anında iz sürer
                 pos.trailing_stop_activated = True
@@ -890,8 +897,9 @@ class LiveTradeManager:
 
                 # 2. TP Kontrolü (+%3.0)
                 if curr_price >= pos.target_profit_price:
-                    self.close_position(pos_id, "CLOSED_TP")
-                    continue
+                    if is_open:
+                        self.close_position(pos_id, "CLOSED_TP")
+                        continue
 
                 # 3. SL / Trailing Stop Kontrolü
                 if curr_price <= pos.stop_loss_price:
@@ -907,9 +915,10 @@ class LiveTradeManager:
                             logger.info(f"🛡️ [EARLY STOP SHIELD] {pos.symbol} açılalı {int(time_alive_secs)}s oldu. Geçici stop-hunt iptal (Kayıp: %{pct:.2f}).")
                             continue
                     
-                    reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
-                    self.close_position(pos_id, reason)
-                    continue
+                    if is_open:
+                        reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
+                        self.close_position(pos_id, reason)
+                        continue
             else:
                 # SHORT (Açığa Satış) için Trailing Stop
                 if pos.highest_price_seen == 0.0 or curr_price < pos.highest_price_seen:
@@ -920,12 +929,19 @@ class LiveTradeManager:
 
                 is_sniper = settings.current_risk_mode.upper() == "SNIPER"
                 
-                if pct > 5.0:
-                    trailing_dist = 1.01  # %1 izleme
-                elif pct > 2.5:
-                    trailing_dist = 1.015 # %1.5 izleme
+                orig_sl_pct = (pos.stop_loss_price - pos.entry_price) / pos.entry_price if pos.stop_loss_price > pos.entry_price else 0.03
+                base_dist = 1.0 + min(orig_sl_pct, 0.02 if is_sniper else 0.03)
+
+                if pct > 4.0:
+                    trailing_dist = 1.005 # %0.5 makas!
+                elif pct > 2.0:
+                    trailing_dist = 1.008 # %0.8 makas!
+                elif pct > 1.0:
+                    trailing_dist = 1.012 # %1.2 makas!
+                elif pct > 0.5:
+                    trailing_dist = 1.015 # %1.5 makas
                 else:
-                    trailing_dist = 1.02 if is_sniper else 1.03
+                    trailing_dist = base_dist
 
                 pos.trailing_stop_activated = True
                 new_sl = round(pos.highest_price_seen * trailing_dist, 5)
@@ -952,13 +968,15 @@ class LiveTradeManager:
                             pass
 
                 if curr_price <= pos.target_profit_price:
-                    self.close_position(pos_id, "CLOSED_TP")
-                    continue
+                    if is_open:
+                        self.close_position(pos_id, "CLOSED_TP")
+                        continue
 
                 if curr_price >= pos.stop_loss_price:
-                    reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
-                    self.close_position(pos_id, reason)
-                    continue
+                    if is_open:
+                        reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
+                        self.close_position(pos_id, reason)
+                        continue
 
             # CANLI KOKPİT GERÇEK ZAMANLI PNL HESABI (Tüm Modlar İçin)
             # Kullanıcı talebi: Gerçek al-sat için komisyon totalden çıkarılsın, simülasyon hesaplanmasın.

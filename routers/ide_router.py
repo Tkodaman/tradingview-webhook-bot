@@ -33,6 +33,8 @@ async def _call_openai_with_retry(client, model_name, prompt, max_retries=3):
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7
             )
+            print(f"AI Model Executed: {response.model}")
+            print(f"Token Usage: {response.usage}")
             return response.choices[0].message.content
         except Exception as e:
             if "429" in str(e):
@@ -74,10 +76,13 @@ async def trigger_ide_model(req: IDETriggerRequest):
         
         gemini_model = None
         openai_client = None
-        openai_model_name = os.getenv("OPENAI_MODEL_NAME", "astra-6")
+        openai_model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-astra")
         
         if llm_provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
+            if openai_model_name == "gpt-6-astra":
+                api_key = os.getenv("OPENAI_API_KEY_SECONDARY") or os.getenv("OPENAI_API_KEY")
+            else:
+                api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise Exception("OPENAI_API_KEY eksik.")
             base_url = os.getenv("OPENAI_BASE_URL")
@@ -235,12 +240,16 @@ async def trigger_analyst_custom(req: CustomPromptRequest):
         
         llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
         if llm_provider == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
+            openai_model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-astra")
+            if openai_model_name == "gpt-6-astra":
+                api_key = os.getenv("OPENAI_API_KEY_SECONDARY") or os.getenv("OPENAI_API_KEY")
+            else:
+                api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
                 raise Exception("OPENAI_API_KEY eksik.")
             base_url = os.getenv("OPENAI_BASE_URL")
             openai_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
-            openai_model_name = os.getenv("OPENAI_MODEL_NAME", "astra-6")
+            openai_model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-astra")
             try:
                 ai_text = await _call_openai_with_retry(openai_client, openai_model_name, final_prompt)
             except Exception as e:

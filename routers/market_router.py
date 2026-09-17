@@ -30,6 +30,11 @@ async def get_live_buy_sell_wait_matrix():
     t_sec = int(time.time() * 1.5)
     
     for sym, data in live_data.items():
+        # === TOXIC ASSET GUARD ===
+        toxic_keywords = ["PAXG", "USDTUSD", "USDC", "TUSD", "BUSD", "DAI", "FDUSD", "XAUT", "EURUSD", "GBPUSD"]
+        if any(toxic in sym.upper() for toxic in toxic_keywords):
+            continue
+            
         base_price = float(data.get("price", 0.0))
         rsi = data.get("rsi", 50.0)
         macd = data.get("macd", 0.0)
@@ -119,14 +124,14 @@ async def get_live_buy_sell_wait_matrix():
             score -= 10
             momentum_phase = "FAKEOUT_RISK"
             risk_block_reason = f"Sahte Kırılım (Fakeout) Tespit Edildi: {fakeout_res.reason}"
-        elif vol_ratio < 1.2:
-            score -= 5
+        elif vol_ratio < 0.75:
+            score -= 3
             momentum_phase = "VOLUME_RISK"
-            risk_block_reason = "Hacimsiz Yükseliş Riski (Vol < 1.2)"
-        elif adx < 25.0 and chg > 0.5:
-            score -= 5
+            risk_block_reason = "Aşırı Hacimsizlik (Vol < 0.75)"
+        elif adx < 20.0 and chg > 0.5 and not ema_golden and vol_ratio < 1.2:
+            score -= 2
             momentum_phase = "TREND_RISK"
-            risk_block_reason = "Yatay Piyasada Sahte Yükseliş (ADX < 25)"
+            risk_block_reason = "Yatay Piyasada Sahte Yükseliş (ADX < 20)"
         elif ema_golden and not supertrend_bullish:
             score -= 5
             momentum_phase = "TREND_RISK"
@@ -144,11 +149,11 @@ async def get_live_buy_sell_wait_matrix():
             decision = "WAIT"
             badge = "💤 SEANS_DISI"
             reason = f"Piyasa Kapalı: {market_status.get('session_text', 'Seans saatleri dışında')}"
-        elif rsi > 72.0 or macd < -1.5:
+        elif rsi > 85.0 or macd < -1.5:
             decision = "SELL"
             badge = "🔴 SELL_SIGNAL"
-            if rsi > 72.0:
-                reason = f"Aşırı Şişkin/Risk Sınırı Aşıldı (RSI={rsi:.1f})"
+            if rsi > 85.0:
+                reason = f"Kritik Aşırı Şişkinlik (RSI={rsi:.1f})"
             else:
                 reason = "Negatif MACD kesişimi ve satıcı baskısı"
         elif rsi_climbed_from_40:
@@ -225,8 +230,8 @@ async def get_live_buy_sell_wait_matrix():
         ai_data = confidence_map.get(sym, {})
         
         # Temel indikatör ve ivme bazlı puan — her indikatör adil yarışır
-        # score: max ~18 (standart) + bonuslar. *6 ile normalize edilir → ~108 max
-        base_ind_score = min(70.0, (m.get("score", 0) * 6.0) + (m.get("change_pct", 0.0) * 1.5))
+        # Skor şişmesini engellemek için katsayı 3.0'a çekildi (max ~50)
+        base_ind_score = min(50.0, (m.get("score", 0) * 3.0) + (m.get("change_pct", 0.0) * 1.0))
         
         m["expertise_level"] = ai_data.get("expertise_level", "🟡 NÖTR / DENGELİ")
         m["ai_action"] = ai_data.get("action_recommendation", "🟡 Standart İnceleme")
@@ -237,20 +242,20 @@ async def get_live_buy_sell_wait_matrix():
         # AI Geçmişi BONUS olarak ekleniyor (katsayı değil düz bonus)
         if ai_data and "confidence_score" in ai_data:
             raw_conf = float(ai_data["confidence_score"])
-            # Geçmişteki başarı oranını 0-15 aralığında bonus olarak ekle
-            ai_bonus = min(15.0, max(-5.0, (raw_conf - 50.0) * 0.30))
+            # Geçmişteki başarı oranını 0-10 aralığında bonus olarak ekle
+            ai_bonus = min(10.0, max(-5.0, (raw_conf - 50.0) * 0.20))
             final_dynamic_score += ai_bonus
             
         # Aksiyon Boost (Al sinyali güçlü, Sat sinyali düşür)
         action_boost = 0.0
         if "BUY" in m["decision"] or "AL" in m["ai_action"].upper():
-            action_boost = 8.0
+            action_boost = 5.0
         elif "SELL" in m["decision"] or "SAT" in m["ai_action"].upper():
-            action_boost = -8.0
+            action_boost = -5.0
             
-        # Hacim Boost: 1.0x'ten sapma kadar ek puan (max +12, min -3)
+        # Hacim Boost: 1.0x'ten sapma kadar ek puan (max +8, min -3)
         vol_ratio_val = m.get("volume_ratio", 1.0) or 1.0
-        volume_boost = min(12.0, max(-3.0, (vol_ratio_val - 1.0) * 6.0))
+        volume_boost = min(8.0, max(-3.0, (vol_ratio_val - 1.0) * 4.0))
         
         # Adil Değer (Fair Value) Hesaplaması — orta banda ceza YOK
         fair_value_boost = 0.0
@@ -262,12 +267,12 @@ async def get_live_buy_sell_wait_matrix():
             
             if position_in_range <= 0.30:
                 # Güne dipte işlem görüyor → Fırsat (Eşiği 0.25'ten 0.30'a çektim biraz daha esnek olsun)
-                fair_value_boost = 10.0
+                fair_value_boost = 6.0
                 dist_from_low = max(0, ((price - session_low) / session_low) * 100)
                 m["reason"] += f" | 📉 Adil Değer Altı (Dibe %{dist_from_low:.1f} Yakın)"
             elif position_in_range >= 0.75:
                 # Güne zirvede işlem görüyor → Risk (0.80'den 0.75'e çektim)
-                fair_value_boost = -8.0
+                fair_value_boost = -5.0
                 dist_from_high = max(0, ((session_high - price) / price) * 100)
                 m["reason"] += f" | 📈 Zirve Fiyatlama (Zirveye %{dist_from_high:.1f} Yakın)"
             # Orta bant: nötr, ceza yok

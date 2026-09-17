@@ -23,6 +23,10 @@ class AutonomousMarketAgent:
         self._cached_macro: Dict[str, Any] = {}
         self._macro_cache_time: float = 0.0
         self._macro_cache_ttl: float = 600.0  # 10 dakika - makro şok anlık değil
+        
+        # PRE-COGNITIVE SHADOW AI CACHE
+        # Sembol başına taze (son 10 dk) AI kararını tutar
+        self.shadow_analysis_cache: Dict[str, Dict[str, Any]] = {}
 
     def _get_cached_macro(self, symbol: str, macro_tags) -> Dict[str, Any]:
         """
@@ -55,6 +59,16 @@ class AutonomousMarketAgent:
     def analyze_and_evaluate(self, signal: WebhookSignal) -> Dict[str, Any]:
         logger.info(f"[AGENT TRIGGERED] Analyzing incoming signal for {signal.symbol} ({signal.action})")
 
+        # 0. GÖLGE ZEKÂ KONTROLÜ (Pre-Cognitive Cache Check)
+        now = time.time()
+        cached_decision = self.shadow_analysis_cache.get(signal.symbol)
+        if cached_decision and (now - cached_decision.get("_timestamp", 0) < 600):
+            # 10 dakikadan taze ise anında (0.01 sn) yanıt dön!
+            logger.info(f"⚡ [SHADOW CACHE HIT] {signal.symbol} için önceden hesaplanmış AI kararı bulundu! İnfaz 10 ms içinde başlıyor.")
+            # Güvenlik için sinyali taze sinyal ile değiştir
+            cached_decision["signal"] = signal.model_dump()
+            return cached_decision
+
         # 1. Teknik & Piyasa Verisi Analizi (hızlı - yerel hesaplama)
         market_analysis = market_feed.analyze_market_conditions(
             symbol=signal.symbol,
@@ -81,7 +95,8 @@ class AutonomousMarketAgent:
             "macro_analysis": macro_analysis,
             "risk_assessment": risk_result.model_dump(),
             "skills_audit": skills_audit,
-            "agent_verdict": "EXECUTE" if risk_result.passed_hard_rules else "BLOCKED_BY_RISK_ENGINE"
+            "agent_verdict": "EXECUTE" if risk_result.passed_hard_rules else "BLOCKED_BY_RISK_ENGINE",
+            "_timestamp": time.time()
         }
 
         # Eğitim ve geçmiş analizi için kararı kaydet

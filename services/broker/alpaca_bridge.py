@@ -77,17 +77,20 @@ class AlpacaBroker(BaseBroker):
         
         try:
             alpaca_sym = self._format_symbol(symbol)
+            is_crypto = "USD" in alpaca_sym or "/" in alpaca_sym
+            tif = "gtc" if is_crypto else "day"
+            
             kwargs = {
                 "symbol": alpaca_sym,
                 "qty": qty,
                 "side": side.lower(),
                 "type": 'market' if limit_price is None else 'limit',
-                "time_in_force": 'day'  # Alpaca: fractional/market emirler 'day' olmalı
+                "time_in_force": tif
             }
             if limit_price is not None:
                 kwargs["limit_price"] = limit_price
                 from core.config import settings
-                if getattr(settings, "alpaca_extended_hours", True):
+                if getattr(settings, "alpaca_extended_hours", True) and not is_crypto:
                     kwargs["extended_hours"] = True
                     kwargs["time_in_force"] = "day"
                 
@@ -105,6 +108,9 @@ class AlpacaBroker(BaseBroker):
             
         try:
             alpaca_sym = self._format_symbol(symbol)
+            is_crypto = "USD" in alpaca_sym or "/" in alpaca_sym
+            tif = "gtc" if is_crypto else "day"
+            
             is_fractional = (qty != int(qty)) or (qty < 1.0)
 
             if is_fractional:
@@ -117,7 +123,7 @@ class AlpacaBroker(BaseBroker):
                     qty=qty,
                     side=side.lower(),
                     type='market',
-                    time_in_force='day'  # Alpaca: fractional emirler için zorunlu
+                    time_in_force=tif
                 )
                 logger.info(f"Alpaca Market Order (Fractional): {side} {qty} {alpaca_sym} - OrderID: {order.id}")
 
@@ -129,7 +135,7 @@ class AlpacaBroker(BaseBroker):
                         qty=qty,
                         side=sl_side,
                         type='stop',
-                        time_in_force='day',  # Alpaca zorunlu: 'day'
+                        time_in_force=tif,
                         stop_price=round(stop_loss_price, 4)
                     )
                     logger.info(f"[SL ORDER] {alpaca_sym} SL emri Alpaca'ya gönderildi: ${stop_loss_price:.4f} - OrderID: {sl_order.id}")
@@ -143,7 +149,7 @@ class AlpacaBroker(BaseBroker):
                         qty=qty,
                         side=sl_side,
                         type='limit',
-                        time_in_force='day',  # Alpaca zorunlu: 'day'
+                        time_in_force=tif,
                         limit_price=round(take_profit_price, 4)
                     )
                     logger.info(f"[TP ORDER] {alpaca_sym} TP emri Alpaca'ya gönderildi: ${take_profit_price:.4f} - OrderID: {tp_order.id}")
@@ -158,8 +164,8 @@ class AlpacaBroker(BaseBroker):
                     "symbol": alpaca_sym,
                     "qty": qty,
                     "side": side.lower(),
-                    "type": 'limit' if (limit_price is not None and ext_hours) else 'market',
-                    "time_in_force": 'day' if ext_hours else 'day',
+                    "type": 'limit' if (limit_price is not None and ext_hours and not is_crypto) else 'market',
+                    "time_in_force": tif,
                     "order_class": 'bracket',
                     "take_profit": dict(
                         limit_price=take_profit_price,
@@ -169,7 +175,7 @@ class AlpacaBroker(BaseBroker):
                     )
                 }
                 
-                if limit_price is not None and ext_hours:
+                if limit_price is not None and ext_hours and not is_crypto:
                     kwargs["limit_price"] = limit_price
                     kwargs["extended_hours"] = True
 

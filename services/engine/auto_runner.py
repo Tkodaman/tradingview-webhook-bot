@@ -111,6 +111,13 @@ class TradingViewAutoStrategyRunner:
                 if elapsed < self.SYMBOL_COOLDOWN_SECONDS:
                     logger.debug(f"[DUPLICATE GUARD] {sym} cooldown aktif ({int(self.SYMBOL_COOLDOWN_SECONDS - elapsed)}s kaldi). Atlanıyor.")
                     continue
+            # === TOXIC ASSET GUARD (Stablecoins & Pegged Assets) ===
+            # PAXG (Gold peg), stablecoins (USDC, USDT, TUSD), and fiat pegs are highly illiquid/low-volatility 
+            # and suffer massive spread slippage. Auto-runner MUST ignore them.
+            toxic_keywords = ["PAXG", "USDTUSD", "USDC", "TUSD", "BUSD", "DAI", "FDUSD", "XAUT", "EURUSD", "GBPUSD"]
+            if any(toxic in sym.upper() for toxic in toxic_keywords):
+                logger.debug(f"[TOXIC ASSET GUARD] {sym} is blacklisted (stablecoin/fiat/gold peg). Atlanıyor.")
+                continue
 
             # Piyasa calisma saati kontrolu: BIST veya NASDAQ kapali ise kesinlikle alim yapma
             is_open, mkt_msg, _ = market_hours_validator.is_market_open(sym)

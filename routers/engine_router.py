@@ -140,3 +140,39 @@ async def run_backtest_endpoint(req: BacktestRequest):
 def get_shadow_trades():
     from services.engine.trade_journal_learning import trade_journal_engine
     return {"status": "success", "shadow_trades": trade_journal_engine.shadow_journal_entries}
+
+@router.get("/shadow-cache")
+def get_shadow_cache():
+    from services.analyzer.agent import analyzer_agent
+    return {"status": "success", "shadow_cache": analyzer_agent.shadow_analysis_cache}
+
+class AiModelRequest(BaseModel):
+    provider: str = Field(..., description="LLM Provider: 'openai' veya 'gemini'")
+    model_name: str = Field("gpt-6-astra", description="Model ismi (örn: gpt-6-astra, gemini-1.5-flash)")
+
+@router.post("/engine/ai-model")
+async def set_ai_model(req: AiModelRequest):
+    import os
+    import dotenv
+    from pathlib import Path
+    try:
+        # Bellekte güncelle
+        os.environ["LLM_PROVIDER"] = req.provider
+        os.environ["OPENAI_MODEL_NAME"] = req.model_name
+        
+        # Kalıcı olması için .env dosyasına yaz
+        env_path = Path(".env")
+        if not env_path.exists():
+            env_path.touch()
+            
+        dotenv.set_key(str(env_path), "LLM_PROVIDER", req.provider)
+        dotenv.set_key(str(env_path), "OPENAI_MODEL_NAME", req.model_name)
+        
+        return {
+            "status": "success",
+            "message": f"Yapay Zeka Motoru başarıyla güncellendi: {req.provider.upper()} ({req.model_name})",
+            "provider": req.provider,
+            "model_name": req.model_name
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

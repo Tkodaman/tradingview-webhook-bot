@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 from schemas.agent import (
     FundamentalRequest,
     EarningsRequest,
@@ -141,3 +142,25 @@ async def get_agent_templates():
         "skill_9_backtest_expert": SKILL_BACKTESTING_EXPERT_TEMPLATE,
         "skill_10_premarket": SKILL_PREMARKET_ROUTINE_TEMPLATE
     }
+
+
+@router.get("/stream")
+async def agent_custom_stream(prompt: str):
+    """
+    Sohbet penceresi için Streaming (Akış) endpoint'i.
+    """
+    def event_generator():
+        try:
+            # Sadece LLM kısmını stream et.
+            for chunk in financial_agent._query_openai_stream(prompt=prompt):
+                # SSE format: data: {text}
+
+
+                # Encode newlines so they don't break SSE protocol
+                safe_chunk = chunk.replace('\n', '<br>')
+                yield f"data: {safe_chunk}\n\n"
+        except Exception as e:
+            yield f"data: Hata: {str(e)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

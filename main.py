@@ -41,6 +41,52 @@ from routers.profit_advisor_router import router as profit_advisor_router
 from routers.ide_router import router as ide_router
 from services.market_feed.live_stream import LiveTradeManager
 
+async def start_shadow_scanner():
+    """
+    Kullanıcının belirlediği Watchlist'i her 6 dakikada bir tarayıp 
+    Pre-Cognitive Shadow AI Cache'ini yeniler.
+    """
+    from services.analyzer.agent import analyzer_agent
+    from schemas.webhook import WebhookSignal
+    from services.ai_agent.research_engine import financial_agent
+    
+    WATCHLIST = ["BTCUSD", "ETHUSD", "TSLA", "NVDA", "QQQ"]
+    
+    while True:
+        try:
+            logger.info("[SHADOW SCANNER] Pre-Cognitive yapay zeka ön belleği güncelleniyor...")
+            for symbol in WATCHLIST:
+                # Sahte bir sinyal oluştur (AI'ın fikrini almak için)
+                mock_signal = WebhookSignal(
+                    symbol=symbol,
+                    action="BUY", 
+                    price=100.0, 
+                    quantity=1.0,
+                    passphrase=settings.passphrase
+                )
+                try:
+                    # AI motoruna zorla (cache atlayarak) analiz yaptır
+                    audit_result = financial_agent.audit_tradingview_signal_concurrently(mock_signal)
+                    
+                    # Cache'e yaz
+                    analyzer_agent.shadow_analysis_cache[symbol] = {
+                        "skills_audit": audit_result,
+                        "agent_verdict": "PRE_COGNITIVE_READY",
+                        "_timestamp": time.time()
+                    }
+                    logger.info(f"🔮 [SHADOW AI] {symbol} gölge analizi tamamlandı (Skor: {audit_result.get('overall_skill_score', 0)}).")
+                except Exception as e:
+                    logger.warning(f"⚠️ [SHADOW AI] {symbol} güncellenirken hata: {e}")
+                
+                # API limitlerini zorlamamak için semboller arası 10 sn bekle
+                await asyncio.sleep(10)
+                
+        except Exception as e:
+            logger.error(f"[SHADOW SCANNER] Döngü hatası: {e}")
+            
+        # 6 dakika (360 saniye) bekle
+        await asyncio.sleep(360)
+
 app = FastAPI(title="TradingView AI Webhook Gateway, Risk Engine & 10-Skill Financial AI Analyst")
 
 from services.market_feed.live_stream import live_trade_manager
@@ -48,6 +94,9 @@ from services.market_feed.live_stream import live_trade_manager
 async def startup_event():
     logger.info("[STARTUP] Başlatılıyor: 7/24 Kesintisiz Otonom Strateji Motoru Arka Planda Aktif Edildi.")
     asyncio.create_task(tv_auto_runner.start_continuous_background_loop())
+    
+    # Shadow AI (Gölge Zeka) Cache Tarayıcısını Başlat
+    asyncio.create_task(start_shadow_scanner())
     
     # Start WebSocket Broadcaster
     asyncio.create_task(live_data_broadcaster(live_trade_manager))
@@ -112,7 +161,9 @@ async def get_dashboard(request: Request):
             "settings": settings,
             "trainer_params": bot_trainer.best_params,
             "kodaman_logo_b64": _LOGO_B64,
-            "kodaman_logo2_b64": _LOGO2_B64
+            "kodaman_logo2_b64": _LOGO2_B64,
+            "llm_provider": os.getenv("LLM_PROVIDER", "openai").lower(),
+            "openai_model_name": os.getenv("OPENAI_MODEL_NAME", "gpt-6-astra").lower()
         }
     )
 

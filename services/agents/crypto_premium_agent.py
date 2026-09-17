@@ -15,7 +15,11 @@ class CryptoPremiumAgent:
         self.gemini_model = None
 
         if self.llm_provider == "openai":
-            self.api_key = os.getenv("OPENAI_API_KEY")
+            openai_model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-astra")
+            if openai_model_name == "gpt-6-astra":
+                self.api_key = os.getenv("OPENAI_API_KEY_SECONDARY") or os.getenv("OPENAI_API_KEY")
+            else:
+                self.api_key = os.getenv("OPENAI_API_KEY")
             if self.api_key:
                 self.openai_client = OpenAI(api_key=self.api_key)
         else:

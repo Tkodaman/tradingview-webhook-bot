@@ -78,7 +78,7 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         adx = ind.get("adx")
         if adx is not None:
             if adx < 20:
-                signal.macro_tags.append("REGIME_CHOPPY_RANGING") # Astra-6'ya yatay piyasa olduğunu söyle
+                signal.macro_tags.append("REGIME_CHOPPY_RANGING") # gpt-6-astra'ya yatay piyasa olduğunu söyle
                 logger.warning(f"[STRICT FILTER] {signal.symbol} {action_clean} rejected. ADX ({adx}) < 20 (Ranging Market).")
                 return {"status": "rejected", "reason": "STRICT_FILTER_ADX_RANGING"}
             elif adx > 40:
@@ -119,7 +119,7 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     if signal.account_equity and signal.account_equity > 0:
         capital_used = signal.account_equity
     else:
-        # Astra-6/AI Güven skoruna göre dinamik Kelly kriteri bütçe hesabı
+        # gpt-6-astra/AI Güven skoruna göre dinamik Kelly kriteri bütçe hesabı
         confidence_score = 0.5
         if "skills_audit" in decision and "overall_skill_score" in decision["skills_audit"]:
             confidence_score = float(decision["skills_audit"]["overall_skill_score"]) / 100.0
