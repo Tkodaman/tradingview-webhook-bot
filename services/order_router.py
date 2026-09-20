@@ -152,14 +152,14 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         }
 
     # 3. Canlı Pozisyon Yöneticisi Entegrasyonu (TradingView Sermayesi / Kontratı ile)
+    confidence_score = 0.5
+    if "skills_audit" in decision and "overall_skill_score" in decision["skills_audit"]:
+        confidence_score = float(decision["skills_audit"]["overall_skill_score"]) / 100.0
+
     if signal.account_equity and signal.account_equity > 0:
         capital_used = signal.account_equity
     else:
         # gpt-6-astra/AI Güven skoruna göre dinamik Kelly kriteri bütçe hesabı
-        confidence_score = 0.5
-        if "skills_audit" in decision and "overall_skill_score" in decision["skills_audit"]:
-            confidence_score = float(decision["skills_audit"]["overall_skill_score"]) / 100.0
-        
         capital_used = live_trade_manager.get_dynamic_position_capital(signal.symbol, confidence_score)
         
     # KULLANICI TALEBİ: "otonom asla 500$ üstünde alım yapamasın sınırlı olmalı kesinlikle"
@@ -279,7 +279,9 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
             atr_value=calculated_atr,
             use_chandelier_exit=True,
             qty_override=qty_override,
-            status="PENDING_BROKER" if settings.trading_mode in ["LIVE", "PAPER"] else "OPEN"
+            status="PENDING_BROKER" if settings.trading_mode in ["LIVE", "PAPER"] else "OPEN",
+            confidence_score=round(confidence_score * 100.0, 2),
+            entry_indicators=signal.indicators or {}
         )
         if pos:
             exec_message = f"TradingView Canlı Alış Tetiklendi: {pos.symbol} @ ${pos.entry_price} (Hedef: ${pos.target_profit_price}, Stop: ${pos.stop_loss_price})"

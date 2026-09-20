@@ -251,50 +251,51 @@
             gap: 20px;
             margin-bottom: 24px;
         }
-
-        /* MARKET WINDOW CONTAINER */
-        .market-window {
+        .unified-market-panel {
+            padding: 16px;
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 12px;
-            padding: 16px 18px;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+            background: linear-gradient(145deg, rgba(19,23,34,0.98), rgba(12,15,23,0.98));
+            box-shadow: 0 8px 30px rgba(0,0,0,0.18);
         }
-
-        /* 1. CRYPTO WINDOW (Mor/Violet Neon) */
-        .market-window-crypto {
-            background: linear-gradient(145deg, rgba(168, 85, 247, 0.10) 0%, rgba(88, 28, 135, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);
-            border: 1px solid var(--crypto-border);
-            box-shadow: 0 8px 30px rgba(168, 85, 247, 0.08);
+        .unified-market-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 0 2px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
         }
-        .market-window-crypto .window-tag {
-            background: rgba(168, 85, 247, 0.2);
-            border: 1px solid rgba(168, 85, 247, 0.4);
-            color: #e9d5ff;
+        .unified-market-groups {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            padding-top: 12px;
         }
-
-        /* 2. BIST WINDOW (Zümrüt Yeşili) */
-        .market-window-bist {
-            background: linear-gradient(145deg, rgba(8, 153, 129, 0.10) 0%, rgba(6, 78, 59, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);
-            border: 1px solid var(--bist-border);
-            box-shadow: 0 8px 30px rgba(8, 153, 129, 0.08);
+        .market-group {
+            min-width: 0;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.14);
         }
-        .market-window-bist .window-tag {
-            background: rgba(8, 153, 129, 0.2);
-            border: 1px solid rgba(8, 153, 129, 0.4);
-            color: #a7f3d0;
+        .market-group-header {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 28px;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+            font-size: 11px;
+            font-weight: 700;
         }
-
-        /* 3. NASDAQ WINDOW (Safir Mavi) */
-        .market-window-nasdaq {
-            background: linear-gradient(145deg, rgba(59, 130, 246, 0.10) 0%, rgba(30, 58, 138, 0.05) 50%, rgba(19, 23, 34, 0.96) 100%);
-            border: 1px solid var(--nasdaq-border);
-            box-shadow: 0 8px 30px rgba(59, 130, 246, 0.08);
+        .market-group-header .window-status-badge {
+            margin-left: auto;
+            font-size: 9px;
+            padding: 3px 6px;
         }
-        .market-window-nasdaq .window-tag {
-            background: rgba(59, 130, 246, 0.2);
-            border: 1px solid rgba(59, 130, 246, 0.4);
-            color: #bfdbfe;
+        @media (max-width: 1050px) {
+            .unified-market-groups { grid-template-columns: 1fr; }
         }
 
         /* WINDOW HEADER */
@@ -315,7 +316,7 @@
             flex-wrap: wrap;
         }
         .window-title {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
             color: #fff;
             display: flex;
@@ -374,8 +375,8 @@
         /* TICKER GRID */
         .ticker-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
         }
 
         /* TICKER CARD BASE */
@@ -383,13 +384,13 @@
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 10px;
+            padding: 12px;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 6px;
         }
         .ticker-card:hover {
             transform: translateY(-2px);
@@ -416,38 +417,24 @@
             border-color: rgba(255, 255, 255, 0.3) !important;
         }
 
-        /* SPECIFIC CARD BACKGROUNDS BY GROUP */
-        .market-window-crypto .ticker-card {
-            background: rgba(168, 85, 247, 0.05);
-            border-color: rgba(168, 85, 247, 0.22);
-        }
-        .market-window-bist .ticker-card {
-            background: rgba(8, 153, 129, 0.05);
-            border-color: rgba(8, 153, 129, 0.22);
-        }
-        .market-window-nasdaq .ticker-card {
-            background: rgba(59, 130, 246, 0.05);
-            border-color: rgba(59, 130, 246, 0.22);
-        }
-
         .ticker-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .ticker-symbol {
-            font-size: 13px;
+            font-size: 15px;
             font-weight: 700;
             color: #fff;
             font-family: 'JetBrains Mono', monospace;
         }
         .ticker-change {
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 700;
             font-family: 'JetBrains Mono', monospace;
         }
         .ticker-price {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: 700;
             font-family: 'JetBrains Mono', monospace;
             color: #fff;
@@ -457,17 +444,32 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 10px;
+            font-size: 11px;
             color: var(--text-muted);
             font-family: 'JetBrains Mono', monospace;
         }
         .badge-closed-tag {
-            font-size: 9.5px;
-            padding: 1px 4px;
+            font-size: 10px;
+            padding: 2px 5px;
             border-radius: 3px;
             background: rgba(242, 54, 69, 0.2);
             color: #fca5a5;
             font-weight: 600;
+        }
+
+        @media (max-width: 700px) {
+            .ticker-grid {
+                grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+                gap: 9px;
+            }
+            .ticker-card {
+                padding: 10px;
+                gap: 5px;
+            }
+            .ticker-symbol { font-size: 13px; }
+            .ticker-change { font-size: 11px; }
+            .ticker-price { font-size: 15px; }
+            .ticker-bottom { font-size: 10px; }
         }
 
         /* PRICE TICK FLASH ANIMATIONS */
@@ -1222,6 +1224,18 @@ The following code has been modified to include a line number before every line,
         100% { box-shadow: 0 0 5px rgba(34,197,94,0.2); }
     }
     .ready-to-buy-box { animation: boxBlinkGreen 1.5s infinite; border: 1px solid rgba(34,197,94,0.3); }
+    .missile-badge {
+        display: inline-block;
+        margin-right: 3px;
+        padding: 1px 3px;
+        border: 1px solid rgba(250, 204, 21, 0.7);
+        border-radius: 3px;
+        background: rgba(250, 204, 21, 0.18);
+        color: #fde047;
+        font-size: 7px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
     
 </style>
 
@@ -1394,17 +1408,31 @@ The following code has been modified to include a line number before every line,
             100% { transform: translateX(-100%); }
         }
         .scrolling-ticker-wrapper {
-            display: inline-block; 
-            animation: customMarquee 15s linear infinite; 
-            color: #4ade80; 
-            font-weight: 600; 
-            font-size: 15px; 
-            letter-spacing: 0.5px; 
+            display: inline-block;
+            animation: customMarquee 15s linear infinite;
+            color: #4ade80;
+            font-weight: 600;
+            font-size: 16px;
+            line-height: 1.45;
+            letter-spacing: 0.5px;
             width: 100%;
         }
         .scrolling-ticker-wrapper:hover {
             animation-play-state: paused;
         }
+        #tickerCrypto, #tickerNasdaq, #tickerBist {
+            display: block;
+            min-height: 22px;
+            line-height: 1.45;
+            font-size: 11px !important;
+        }
+        .market-data-badge {
+            font-size: 9px;
+            color: #94a3b8;
+            font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap;
+        }
+        .market-data-badge.blocked { color: #fbbf24; }
     </style>
     <div id="vergeOfBuyTicker" style="display: block; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 8px; margin-bottom: 12px; padding: 10px; overflow: hidden; white-space: nowrap; box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);">
         <div class="scrolling-ticker-wrapper">
@@ -1580,95 +1608,30 @@ The following code has been modified to include a line number before every line,
         </div>
     </div>
 
-<!-- ========================================================================= -->
-    <!-- 3-MARKET SEPARATED WINDOWS (KRİPTO, BIST, NASDAQ AYRI PENCERELER)        -->
-    <!-- ========================================================================= -->
-    <div class="markets-container">
-
-        <!-- 3. PENCERE: NASDAQ & WALL STREET (ABD MEGA-CAP) -->
-        <div class="market-window market-window-nasdaq" id="windowNasdaq">
-            <div class="window-header">
-                <div class="window-title-group">
-                    <div class="window-title">
-                        <span>🇺🇸</span> NASDAQ & MEGA-CAP <span style="font-size:12px; color:var(--text-secondary);">(WALL STREET / ABD)</span>
-                    </div>
-                    <span class="window-tag">ABD TEKNOLOJİ</span>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <span class="window-status-badge status-closed" id="badgeNasdaqStatus">
-                        🔴 PİYASA KAPALI
-                    </span>
-                    <span style="font-size: 11px; color: #bfdbfe; font-family:'JetBrains Mono';" id="nasdaqStatsCount">60 Hisse (Dinamik Hedef)</span>
-                </div>
+    <!-- BİRLEŞİK CANLI PİYASA PANELİ -->
+    <div class="markets-container unified-market-panel">
+        <div class="unified-market-header">
+            <div class="window-title"><span>📡</span> BİRLEŞİK CANLI PİYASA AKIŞI</div>
+            <span class="market-data-badge">Tek görünüm · gerçek zamanlı karar matrisi</span>
+        </div>
+        <div class="unified-market-groups">
+            <div class="market-group" id="windowCrypto">
+                <div class="market-group-header"><span>🪙 KRİPTO</span><span id="badgeCryptoStatus" class="window-status-badge status-open"><span class="live-dot"></span> 7/24 AÇIK</span><span id="cryptoStatsCount" class="market-data-badge">-- Varlık</span></div>
+                <div class="ticker-grid" id="gridCrypto"></div>
             </div>
-            <div class="market-notice-banner banner-closed" id="bannerNasdaqNotice">
-                <span>ℹ️</span> <span id="textNasdaqNotice"><b>Seans Dışı:</b> NASDAQ düzenli seansı Hafta İçi 16:30 - 23:00 TSİ (09:30 - 16:00 ET) arasındadır. Piyasa kapalıyken kartlar soluk renktedir.</span>
+            <div class="market-group" id="windowBist">
+                <div class="market-group-header"><span>🇹🇷 BIST 100/30</span><span id="badgeBistStatus" class="window-status-badge status-closed">🔴 KAPALI</span><span id="bistStatsCount" class="market-data-badge">-- Hisse</span></div>
+                <div class="ticker-grid" id="gridBist"></div>
             </div>
-            <div class="ticker-grid" id="gridNasdaq">
-                <!-- Kripto Ticker Kartları Dinamik Basılır -->
+            <div class="market-group" id="windowNasdaq">
+                <div class="market-group-header"><span>🇺🇸 NASDAQ MEGA-CAP</span><span id="badgeNasdaqStatus" class="window-status-badge status-closed">🔴 KAPALI</span><span id="nasdaqStatsCount" class="market-data-badge">-- Hisse</span></div>
+                <div class="ticker-grid" id="gridNasdaq"></div>
             </div>
         </div>
-
-        <!-- 1. PENCERE: KRİPTO VARLIKLARI (BINANCE - 7/24 CANLI) -->
-        <div class="market-window market-window-crypto" id="windowCrypto">
-            <div class="window-header">
-                <div class="window-title-group">
-                    <div class="window-title">
-                        <span>🪙</span> KRİPTO VARLIKLARI <span style="font-size:12px; color:var(--text-secondary);">(BINANCE KÜRESEL)</span>
-                    </div>
-                    <span class="window-tag">7/24 AKTİF</span>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <span class="window-status-badge status-open" id="badgeCryptoStatus">
-                        <span class="live-dot"></span> 🟢 7/24 PİYASA AÇIK
-                    </span>
-                    <span style="font-size: 11px; color: #d8b4fe; font-family:'JetBrains Mono';" id="cryptoStatsCount">40 Varlık (Dinamik Hedef)</span>
-                </div>
-            </div>
-            <div class="market-notice-banner banner-open">
-                <span>⚡</span> <b>7/24 Kesintisiz Canlı Seans:</b> Kripto piyasasında hafta sonu ve seans kısıtlaması yoktur, anlık emirler ve fiyat dalgalanması sürekli aktiftir.
-            </div>
-            <div class="ticker-grid" id="gridCrypto">
-                <!-- BIST Ticker Kartları Dinamik Basılır -->
-            </div>
-        </div>
-
-        <!-- 2. PENCERE: BORSA İSTANBUL (BIST 100 / 30) -->
-        <div class="market-window market-window-bist" id="windowBist">
-            <div class="window-header">
-                <div class="window-title-group">
-                    <div class="window-title">
-                        <span>🇹🇷</span> BORSA İSTANBUL <span style="font-size:12px; color:var(--text-secondary);">(BIST 100 / 30)</span>
-                    </div>
-                    <span class="window-tag">BORSA İSTANBUL</span>
-                </div>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <span class="window-status-badge status-closed" id="badgeBistStatus">
-                        🔴 PİYASA KAPALI
-                    </span>
-                    <span style="font-size: 11px; color: #a7f3d0; font-family:'JetBrains Mono';" id="bistStatsCount">20 Hisse (Dinamik Hedef)</span>
-                </div>
-            </div>
-            <div class="market-notice-banner banner-closed" id="bannerBistNotice">
-                <span>ℹ️</span> <span id="textBistNotice"><b>Seans Dışı:</b> BIST işlem saatleri Hafta İçi 10:00 - 18:05 TSİ arasındadır. Piyasa kapalıyken varlıklar soluk renkte son kapanış fiyatıyla sergilenir.</span>
-            </div>
-            <div class="ticker-grid" id="gridBist">
-                <!-- NASDAQ Ticker Kartları Dinamik Basılır -->
-            </div>
-        </div>
-
     </div>
 
     <!-- YENİ: İSTATİSTİKSEL HATA PAYI VE EYLEM PLANI (KAZAN-KAZAN) -->
     
-
-    <!-- LIVE TERMINAL STREAMS -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-        
-    </div>
-
-        
-    </div>
 
     <!-- ====================================================================== -->
     <!-- ====================================================================== -->
@@ -1728,39 +1691,6 @@ The following code has been modified to include a line number before every line,
                     <tr><td colspan="7" style="text-align:center; padding: 16px; color:#6b7280;">Geçmiş işlem verisi yükleniyor...</td></tr>
                 </tbody>
             </table>
-        </div>
-    </div>
-
-<!-- ACTIVE POSITIONS TABLE -->
-    <div class="panel">
-            <div class="panel-header">
-                <div class="panel-header-title">
-                    <span style="color:#a855f7;">🪙</span> (a3) BINANCE Kripto Terminali <span style="font-size:11px; color:#d8b4fe;">(Canlı Akış)</span>
-                </div>
-            </div>
-            <div id="cryptoTerminal" class="code-block dashboard-output-terminal" style="border-color: rgba(168, 85, 247, 0.3);">
-                <!-- Crypto live logs -->
-            </div>
-        </div>
-        <div class="panel">
-            <div class="panel-header">
-                <div class="panel-header-title">
-                    <span style="color:#10b981;">🇹🇷</span> (a4) TR BIST Terminali <span style="font-size:11px; color:#a7f3d0;">(Canlı Akış)</span>
-                </div>
-            </div>
-            <div id="bistTerminal" class="code-block dashboard-output-terminal" style="border-color: rgba(16, 185, 129, 0.3);">
-                <!-- BIST live logs -->
-            </div>
-        </div>
-        <div class="panel">
-            <div class="panel-header">
-                <div class="panel-header-title">
-                    <span style="color:#3b82f6;">🇺🇸</span> (a5) US NASDAQ Terminali <span style="font-size:11px; color:#bfdbfe;">(Canlı Akış)</span>
-                </div>
-            </div>
-            <div id="nasdaqTerminal" class="code-block dashboard-output-terminal" style="border-color: rgba(59, 130, 246, 0.3);">
-                <!-- NASDAQ live logs -->
-            </div>
         </div>
     </div>
 
@@ -1866,6 +1796,50 @@ The following code has been modified to include a line number before every line,
                 margin-bottom: 8px; 
                 font-weight: bold;
             }
+            .chart-empty-state {
+                position: absolute;
+                inset: 0;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                text-align: center;
+                color: #94a3b8;
+                font-size: 12px;
+                line-height: 1.5;
+                z-index: 2;
+                pointer-events: none;
+            }
+            .chart-empty-content {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 7px;
+                max-width: 210px;
+                padding: 16px 18px;
+                border: 1px dashed rgba(148, 163, 184, 0.25);
+                border-radius: 8px;
+                background: rgba(15, 23, 42, 0.35);
+            }
+            .chart-empty-icon {
+                width: 30px;
+                height: 30px;
+                display: grid;
+                place-items: center;
+                border-radius: 50%;
+                color: #93c5fd;
+                background: rgba(59, 130, 246, 0.12);
+                font-size: 15px;
+            }
+            .chart-empty-title {
+                color: #cbd5e1;
+                font-size: 11px;
+                font-weight: 700;
+            }
+            .chart-empty-detail {
+                color: #64748b;
+                font-size: 10px;
+            }
         </style>
         
         <!-- ÜST SATIR: 3 Grafik -->
@@ -1891,6 +1865,13 @@ The following code has been modified to include a line number before every line,
                 <div class="ml-chart-title">🍩 İNDİKATÖR KULLANIMI (İŞLEM SAYISI)</div>
                 <div style="flex:1; width:100%; position: relative; min-height: 0;">
                     <canvas id="mlIndicatorDonutChart"></canvas>
+                    <div id="mlIndicatorDonutEmpty" class="chart-empty-state">
+                        <div class="chart-empty-content">
+                            <div class="chart-empty-icon">◌</div>
+                            <div class="chart-empty-title">İndikatör verisi bekleniyor</div>
+                            <div class="chart-empty-detail">Yeni kapanan işlemlerden RSI, MACD ve hacim kaydı oluştuğunda grafik dolacak.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1902,6 +1883,7 @@ The following code has been modified to include a line number before every line,
                 <div class="ml-chart-title">🌌 AI GÜVEN SKORU VS KÂR (CONFIDENCE VS PNL)</div>
                 <div style="flex:1; width:100%; position: relative; min-height: 0;">
                     <canvas id="mlPnlScatterChart"></canvas>
+                    <div id="mlPnlScatterEmpty" class="chart-empty-state">Gerçek AI güven skoru kaydı bekleniyor</div>
                 </div>
             </div>
             
@@ -2672,9 +2654,9 @@ The following code has been modified to include a line number before every line,
                 // RAMAK KALA (VERGE OF BUY) HESAPLAMASI (HER PİYASA İÇİN DİNAMİK TOP N)
                 function getTopNForMarket(marketData, n) {
                     if (!marketData || marketData.length === 0) return [];
-                    // marketData is already sorted by confidence_score from the backend
-                    // Just pick the best items (Top N)
-                    return marketData.slice(0, n);
+                    return [...marketData]
+                        .sort((a, b) => Number(isMissileOpportunity(b)) - Number(isMissileOpportunity(a)))
+                        .slice(0, n);
                 }
 
                 const topCrypto = getTopNForMarket(data.grouped.CRYPTO, 3);
@@ -2748,6 +2730,48 @@ The following code has been modified to include a line number before every line,
             return estimatedTime;
         }
 
+        function formatTickerChange(item) {
+            const change = Number(item?.change_pct);
+            if (!Number.isFinite(change) || Math.abs(change) < 0.005) return '';
+            return `${change > 0 ? '+' : ''}${change.toFixed(2)}%`;
+        }
+
+        function getTickerAnalysisText(item) {
+            const parts = [];
+            const reason = String(item?.reason || '').trim();
+            const phaseLabels = {
+                EARLY_EXPLOSION: 'Erken patlama',
+                FRESH_BREAKOUT: 'Taze kırılım',
+                WHALE_WAVE: 'Balina dalgası',
+                PEAK_RISK: 'Zirve riski'
+            };
+            const phase = phaseLabels[item?.momentum_phase];
+            const rsi = Number(item?.rsi);
+            const volume = Number(item?.volume_ratio);
+
+            if (reason && reason !== 'İzleniyor...') parts.push(reason);
+            else if (phase) parts.push(phase);
+            if (Number.isFinite(rsi) && rsi > 0) parts.push(`RSI ${rsi.toFixed(1)}`);
+            if (Number.isFinite(volume) && volume > 0) parts.push(`Hacim ${volume.toFixed(2)}x`);
+            return parts.join(' | ');
+        }
+
+        function isMissileOpportunity(item) {
+            if (!item) return false;
+            const confidence = Number(item.confidence_score || 0);
+            const volume = Number(item.volume_ratio || 0);
+            const rsi = Number(item.rsi || 0);
+            const adx = Number(item.adx || 0);
+            const trendConfirmed = adx >= 20 || ['EARLY_EXPLOSION', 'FRESH_BREAKOUT', 'WHALE_WAVE'].includes(item.momentum_phase);
+            return item.decision === 'BUY'
+                && Number(item.change_pct || 0) > 0
+                && volume >= 1.5
+                && rsi >= 55
+                && rsi <= 72
+                && confidence >= 65
+                && trendConfirmed;
+        }
+
         let lastVergeSymbols = "";
 
         async function updateVergeTicker(topCrypto, topBist, topNasdaq) {
@@ -2779,16 +2803,21 @@ The following code has been modified to include a line number before every line,
                     const confScore = item.confidence_score ? parseFloat(item.confidence_score).toFixed(1) : (item.score || 0);
                     const rsi = parseFloat(item.rsi || 0);
                     const vol = parseFloat(item.volume_ratio || 1.0);
+                    const missileReady = isMissileOpportunity(item);
+                    const changeLabel = formatTickerChange(item);
+                    const analysisText = getTickerAnalysisText(item);
                     
                     let statusLabel = "👀 İZLEMEDE";
-                    if (vol >= 1.25) {
+                    if (missileReady) {
+                        statusLabel = "🚀 FÜZE HAZIR";
+                    } else if (vol >= 1.25) {
                         if (rsi >= 60) statusLabel = "🚀 UÇUŞTA (Momentum)";
                         else statusLabel = "🦅 PUSUDA (Kırılım Yakın)";
                     } else if (rsi >= 70) {
                         statusLabel = "⚠️ AŞIRI ALIM (Tepe Riski)";
                     }
                     
-                    return `[${label}] ${statusLabel} <strong>${item.symbol}</strong> ($${formatDyn(item.price)}) | RSI: ${rsi.toFixed(1)} | YZ Güven: %${confScore}`;
+                    return `[${label}] ${statusLabel} <strong>${item.symbol}</strong> ($${formatDyn(item.price)})${changeLabel ? ` | Değişim: ${changeLabel}` : ''}${analysisText ? ` | ${analysisText}` : ''} | YZ Güven: %${confScore}`;
                 }
                 
                 if (topNasdaq && Array.isArray(topNasdaq)) topNasdaq.forEach(item => segments.push(buildSegment(item, "🇺🇸 NASDAQ")));
@@ -2843,6 +2872,7 @@ The following code has been modified to include a line number before every line,
                 window.heatmapPrevPrices[item.symbol] = item.price;
                 
                 const isUp = item.change_pct >= 0;
+                const missileReady = isOpen && isMissileOpportunity(item);
                 const chgColor = flashColor ? flashColor : (isUp ? '#4ade80' : '#f43f5e');
                 const closedStyle = isOpen ? "" : "opacity: 0.4; filter: grayscale(80%);";
                 const formattedPrice = formatDyn(item.price);
@@ -2872,10 +2902,11 @@ The following code has been modified to include a line number before every line,
                 
                 // Add to ticker
                 if (index < 5 && isOpen) {
-                    const tArrow = isUp ? "🟢" : "🔴";
-                    const chgStr = isUp ? "+" + item.change_pct + "%" : item.change_pct + "%";
+                    const changeLabel = formatTickerChange(item);
+                    const tArrow = Number(item.change_pct || 0) > 0.005 ? "🟢" : (Number(item.change_pct || 0) < -0.005 ? "🔴" : "⚪");
                     const tickerConfStr = hasConf ? "%" + confScore.toFixed(0) + " Güven" : "Hesaplanıyor...";
-                    tickerText += "[" + item.symbol + ": $" + formattedPrice + " (" + chgStr + ") " + tArrow + " YZ: " + tickerConfStr + " | 🎯 " + aiRec + "] &nbsp;&nbsp;&nbsp;&nbsp;";
+                    const tickerAnalysis = getTickerAnalysisText(item);
+                    tickerText += "[" + item.symbol + ": $" + formattedPrice + (changeLabel ? " | Değişim: " + changeLabel : "") + " " + tArrow + " YZ: " + tickerConfStr + (tickerAnalysis ? " | 🎯 " + tickerAnalysis : "") + "] &nbsp;&nbsp;&nbsp;&nbsp;";
                 }
                 
                 const boxConfStr = hasConf ? "%" + confScore.toFixed(1) : "-";
@@ -2938,7 +2969,13 @@ The following code has been modified to include a line number before every line,
                     chgEl.style.color = chgVal >= 0 ? '#4ade80' : '#f43f5e';
                 }
                 
-                box.querySelector('.conf-badge').innerHTML = (phaseLabel ? phaseLabel + ' ' : '') + 'Güven: ' + boxConfStr;
+                const missileLabel = missileReady ? "<span class='missile-badge'>🚀 FÜZE</span>" : '';
+                box.querySelector('.conf-badge').innerHTML = missileLabel + (phaseLabel ? phaseLabel + ' ' : '') + 'Güven: ' + boxConfStr;
+                if (missileReady) {
+                    box.style.borderColor = 'rgba(250, 204, 21, 0.85)';
+                    box.style.boxShadow = '0 0 10px rgba(250, 204, 21, 0.35), 0 2px 4px rgba(0,0,0,0.15)';
+                    box.title = item.symbol + ' 🚀 FÜZE HAZIR | Hacim ' + volStr + 'x | RSI ' + rsiStr + ' | ' + aiRec;
+                }
                 
                 const currPriceEl = box.querySelector('.curr-price');
                 currPriceEl.innerText = '$' + formattedPrice + ' ' + dirArrow;
@@ -3010,6 +3047,12 @@ The following code has been modified to include a line number before every line,
                 const formattedPrice = formatDyn(item.price);
                 const formattedLow = formatDyn(item.low);
                 const formattedHigh = formatDyn(item.high);
+                const changeLabel = formatTickerChange(item);
+                const dataAge = Number(item.data_age_seconds);
+                const dataBadge = item.decision_gate === 'DATA_BLOCKED'
+                    ? 'VERİ BEKLENİYOR'
+                    : (Number.isFinite(dataAge) ? `CANLI ${dataAge.toFixed(0)}s` : 'ZAMAN YOK');
+                const dataBadgeClass = item.decision_gate === 'DATA_BLOCKED' ? 'blocked' : '';
 
                 if (!card) {
                     card = document.createElement('div');
@@ -3042,7 +3085,7 @@ The following code has been modified to include a line number before every line,
                         <span class="ticker-symbol">${item.symbol}</span>
                         <div style="display:flex; gap:4px; align-items:center;">
                             ${closedBadgeHtml}
-                            <span class="ticker-change ${chgClass}">${sign}%${Math.abs(chg).toFixed(2)}</span>
+                            ${changeLabel ? `<span class="ticker-change ${chgClass}">${changeLabel}</span>` : ''}
                         </div>
                     </div>
                     <div class="ticker-price ${tickClass}" id="price_${item.symbol}">$${formattedPrice}</div>
@@ -3050,6 +3093,7 @@ The following code has been modified to include a line number before every line,
                         <span>D: ${formattedLow}</span>
                         <span>Y: ${formattedHigh}</span>
                     </div>
+                    <span class="market-data-badge ${dataBadgeClass}">${dataBadge}</span>
                 `;
             });
         }
@@ -3157,37 +3201,7 @@ The following code has been modified to include a line number before every line,
             `;
         }
 
-        function renderLogsToTerminal(containerId, logs) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            if (!logs || logs.length === 0) {
-                container.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding:10px;">Bekleniyor...</div>';
-                return;
-            }
-            
-            container.innerHTML = [...logs].reverse().map(log => {
-                let lvlColor = '#fff';
-                if (log.level === 'ORDER') lvlColor = 'var(--up-color)';
-                else if (log.level === 'WIN') lvlColor = '#22d3ee';
-                else if (log.level === 'SCAN') lvlColor = '#c084fc';
-                else if (log.level === 'STATUS' || log.level === 'WARN') lvlColor = 'var(--accent-yellow)';
-                else if (log.level === 'UPDATE' || log.level === 'INFO') lvlColor = '#94a3b8';
-                
-                return `<div style="margin-bottom: 4px; line-height: 1.4;">
-                    <span style="color: #64748b;">[${log.time}]</span> 
-                    <span style="color: ${lvlColor}; font-weight: 700; min-width: 65px; display: inline-block;">[${log.level}]</span> 
-                    <span style="color: #cbd5e1;">${log.message}</span>
-                </div>`;
-            }).join('');
-            
-            container.scrollTop = container.scrollHeight;
-        }
-
         function renderTerminals(cryptoLogs, bistLogs, nasdaqLogs, recentTrades) {
-            renderLogsToTerminal('cryptoTerminal', cryptoLogs);
-            renderLogsToTerminal('bistTerminal', bistLogs);
-            renderLogsToTerminal('nasdaqTerminal', nasdaqLogs);
-            
             const tbody = document.getElementById('autotraderExecutionLog');
             if (tbody && recentTrades) {
                 tbody.innerHTML = [...recentTrades].reverse().map(t => {
@@ -4247,6 +4261,35 @@ document.addEventListener("DOMContentLoaded", function() {
     let mlErrorBarChart = null;
     let mlDrawdownAreaChart = null;
 
+    function updateAdvancedChartTooltips(metrics) {
+        if (mlRegimeRadarChart) {
+            mlRegimeRadarChart.options.plugins.tooltip.callbacks.label = (ctx) =>
+                metrics.radar.tooltips?.[ctx.dataIndex] || `Başarı Oranı: %${Number(ctx.raw || 0).toFixed(1)}`;
+        }
+        if (mlIndicatorDonutChart) {
+            mlIndicatorDonutChart.options.plugins.tooltip.callbacks.label = (ctx) => {
+                const total = (metrics.donut.data || []).reduce((sum, value) => sum + Number(value || 0), 0);
+                const value = Number(ctx.raw || 0);
+                const share = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                return `${ctx.label}: ${value} işlem (%${share})`;
+            };
+        }
+        if (mlPnlScatterChart) {
+            mlPnlScatterChart.options.plugins.tooltip.callbacks.label = (ctx) => {
+                const point = ctx.raw || {};
+                return point.tooltip || `PnL: %${Number(point.y || 0).toFixed(2)} | Güven: %${Number(point.x || 0).toFixed(1)}`;
+            };
+        }
+        if (mlErrorBarChart) {
+            mlErrorBarChart.options.plugins.tooltip.callbacks.label = (ctx) =>
+                metrics.bar.tooltips?.[ctx.dataIndex] || `Hata Frekansı: ${ctx.raw}`;
+        }
+        if (mlDrawdownAreaChart) {
+            mlDrawdownAreaChart.options.plugins.tooltip.callbacks.label = (ctx) =>
+                metrics.area.tooltips?.[ctx.dataIndex] || `Drawdown: %${Number(ctx.raw || 0).toFixed(2)}`;
+        }
+    }
+
     async function fetchAdvancedMetrics() {
         try {
             const res = await fetch('/api/experience-memory/advanced-metrics');
@@ -4254,6 +4297,13 @@ document.addEventListener("DOMContentLoaded", function() {
             
             if (data.status === 'success' && data.data) {
                 const metrics = data.data;
+                const scatterEmptyEl = document.getElementById('mlPnlScatterEmpty');
+                if (scatterEmptyEl) scatterEmptyEl.style.display = metrics.scatter?.length ? 'none' : 'flex';
+                const donutEmptyEl = document.getElementById('mlIndicatorDonutEmpty');
+                const hasIndicatorData = (metrics.donut?.data || []).some(value => Number(value || 0) > 0);
+                if (donutEmptyEl) donutEmptyEl.style.display = hasIndicatorData ? 'none' : 'flex';
+                const donutCanvas = document.getElementById('mlIndicatorDonutChart');
+                if (donutCanvas) donutCanvas.style.opacity = hasIndicatorData ? '1' : '0';
                 const summaryEl = document.getElementById('aiSummaryText');
                 if (summaryEl && metrics.ai_summary_text) {
                     summaryEl.innerText = metrics.ai_summary_text;
@@ -4276,6 +4326,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     if (mlRegimeRadarChart) {
                         mlRegimeRadarChart.data.labels = metrics.radar.labels;
                         mlRegimeRadarChart.data.datasets[0].data = metrics.radar.data;
+                        updateAdvancedChartTooltips(metrics);
                         mlRegimeRadarChart.update();
                     } else {
                         mlRegimeRadarChart = new Chart(radarCtx.getContext('2d'), {
@@ -4318,6 +4369,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     if (mlIndicatorDonutChart) {
                         mlIndicatorDonutChart.data.labels = metrics.donut.labels;
                         mlIndicatorDonutChart.data.datasets[0].data = metrics.donut.data;
+                        updateAdvancedChartTooltips(metrics);
                         mlIndicatorDonutChart.update();
                     } else {
                         mlIndicatorDonutChart = new Chart(donutCtx.getContext('2d'), {
@@ -4333,7 +4385,19 @@ document.addEventListener("DOMContentLoaded", function() {
                             options: {
                                 responsive: true, maintainAspectRatio: false,
                                 cutout: '70%',
-                                plugins: { legend: { position: 'right', labels: { color: '#cbd5e1', font: { size: 9 }, boxWidth: 10 } } }
+                                plugins: {
+                                    legend: { position: 'right', labels: { color: '#cbd5e1', font: { size: 9 }, boxWidth: 10 } },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: (ctx) => {
+                                                const total = (metrics.donut.data || []).reduce((sum, value) => sum + Number(value || 0), 0);
+                                                const value = Number(ctx.raw || 0);
+                                                const share = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                                return `${ctx.label}: ${value} işlem (%${share})`;
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         });
                     }
@@ -4344,6 +4408,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (scatterCtx) {
                     if (mlPnlScatterChart) {
                         mlPnlScatterChart.data.datasets[0].data = metrics.scatter;
+                        updateAdvancedChartTooltips(metrics);
                         mlPnlScatterChart.update();
                     } else {
                         mlPnlScatterChart = new Chart(scatterCtx.getContext('2d'), {
@@ -4372,7 +4437,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                     legend: { display: false },
                                     tooltip: { 
                                         callbacks: { 
-                                            label: (ctx) => ctx.raw.tooltip ? ctx.raw.tooltip : `PnL: %${ctx.raw.y} (Süre: ${ctx.raw.x}dk)` 
+                                            label: (ctx) => ctx.raw.tooltip ? ctx.raw.tooltip : `PnL: %${Number(ctx.raw.y || 0).toFixed(2)} | Güven: %${Number(ctx.raw.x || 0).toFixed(1)}`
                                         } 
                                     }
                                 }
@@ -4387,6 +4452,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     if (mlErrorBarChart) {
                         mlErrorBarChart.data.labels = metrics.bar.labels;
                         mlErrorBarChart.data.datasets[0].data = metrics.bar.data;
+                        updateAdvancedChartTooltips(metrics);
                         mlErrorBarChart.update();
                     } else {
                         mlErrorBarChart = new Chart(barCtx.getContext('2d'), {
@@ -4432,6 +4498,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     if (mlDrawdownAreaChart) {
                         mlDrawdownAreaChart.data.labels = metrics.area.labels;
                         mlDrawdownAreaChart.data.datasets[0].data = metrics.area.data;
+                        updateAdvancedChartTooltips(metrics);
                         mlDrawdownAreaChart.update();
                     } else {
                         mlDrawdownAreaChart = new Chart(areaCtx.getContext('2d'), {

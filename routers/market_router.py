@@ -8,9 +8,9 @@ from services.risk_engine.fakeout_guard import fakeout_guard
 router = APIRouter()
 rsi_history = {}
 
-# 30 saniyelik cache — her cagri TradingView'e gitmez
+# Kisa cache — karar matrix'i dashboard'da stale görünmesin.
 _matrix_cache = {"data": None, "ts": 0}
-_CACHE_TTL = 30  # saniye
+_CACHE_TTL = 5  # saniye
 
 
 def _number(value, default: float) -> float:
@@ -23,7 +23,7 @@ def _number(value, default: float) -> float:
 async def get_live_buy_sell_wait_matrix():
     """
     Anlik Gercek Zamanli BUY / SELL / WAIT Canli Sinyal Kokpiti
-    30 saniye önbellekle TradingView yükünü azaltır.
+    5 saniye önbellekle TradingView yükünü azaltır; snapshot yaş kapısı ayrıca uygulanır.
     """
     global _matrix_cache
     now = time.time()
@@ -44,12 +44,18 @@ async def get_live_buy_sell_wait_matrix():
             
         base_price = float(data.get("price", 0.0))
         quality_fields = ("rsi", "macd", "volume_ratio", "atr_pct", "adx", "cmf")
-        available_quality_fields = [
-            field for field in quality_fields
-            if data.get(field) is not None
-        ]
+        missing_fields = list(data.get("missing_fields") or [])
+        available_quality_fields = [field for field in quality_fields if field not in missing_fields and data.get(field) is not None]
         indicator_coverage = round(len(available_quality_fields) / len(quality_fields), 2)
-        data_quality = "FULL" if indicator_coverage >= 0.83 else ("PARTIAL" if indicator_coverage >= 0.5 else "INSUFFICIENT")
+        source_ts = float(data.get("source_timestamp") or data.get("last_updated_ts") or 0.0)
+        data_age_seconds = round(max(0.0, time.time() - source_ts), 1) if source_ts > 0 else None
+        stale_snapshot = data_age_seconds is None or data_age_seconds > 45.0
+        critical_missing = [field for field in ("rsi", "macd", "volume_ratio", "adx", "cmf") if field in missing_fields or data.get(field) is None]
+        if "atr" in missing_fields or data.get("atr_pct") is None:
+            critical_missing.append("atr")
+        data_gate_blocked = stale_snapshot or bool(critical_missing)
+        data_quality = "STALE" if stale_snapshot else ("INSUFFICIENT" if critical_missing else "FULL")
+        decision_gate = "DATA_BLOCKED" if data_gate_blocked else "ALLOW_ENTRY"
         rsi = _number(data.get("rsi"), 50.0)
         macd = _number(data.get("macd"), 0.0)
         vol_ratio = _number(data.get("volume_ratio"), 0.0)
@@ -162,6 +168,12 @@ async def get_live_buy_sell_wait_matrix():
             decision = "WAIT"
             badge = "🚧 RISK_BLOCK"
             reason = risk_block_reason
+        elif data_gate_blocked:
+            decision = "WAIT"
+            badge = "⏳ DATA_BLOCKED"
+            missing_text = ", ".join(critical_missing) if critical_missing else "snapshot_timestamp"
+            age_text = f"{data_age_seconds:.1f}s" if data_age_seconds is not None else "bilinmiyor"
+            reason = f"Yeni işlem bekletildi: veri yaşı {age_text}, eksik/geçersiz alanlar: {missing_text}"
         elif not is_open:
             decision = "WAIT"
             badge = "💤 SEANS_DISI"
@@ -229,8 +241,12 @@ async def get_live_buy_sell_wait_matrix():
             "low": low,
             "rsi": rsi,
             "volume_ratio": vol_ratio,
+            "adx": adx_value,
             "indicator_coverage": indicator_coverage,
             "data_quality": data_quality,
+            "data_age_seconds": data_age_seconds,
+            "missing_fields": critical_missing,
+            "decision_gate": decision_gate,
             "score": score,
             "momentum_phase": momentum_phase,
             "decision": decision,
@@ -295,7 +311,10 @@ async def get_live_buy_sell_wait_matrix():
                 # Güne zirvede işlem görüyor → Risk (0.80'den 0.75'e çektim)
                 fair_value_boost = -5.0
                 dist_from_high = max(0, ((session_high - price) / price) * 100)
-                m["reason"] += f" | 📈 Zirve Fiyatlama (Zirveye %{dist_from_high:.1f} Yakın)"
+                if dist_from_high < 0.05:
+                    m["reason"] += f" | 📈 Zirve Testi (Gün içi yüksek: ${session_high:.2f}, fiyat zirve seviyesinde)"
+                else:
+                    m["reason"] += f" | 📈 Zirve Fiyatlama (Gün içi yüksek: ${session_high:.2f}, zirveye %{dist_from_high:.2f} uzak)"
             # Orta bant: nötr, ceza yok
                 
         final_dynamic_score += (action_boost + volume_boost + fair_value_boost)
@@ -312,9 +331,14 @@ async def get_live_buy_sell_wait_matrix():
         quality_factor = 0.65 + (0.35 * float(m.get("indicator_coverage", 0.0)))
         ranking_score = min(99.9, max(1.0, round(final_dynamic_score, 1)))
         confidence_score = 50.0 + ((ranking_score - 50.0) * quality_factor)
+        if m.get("decision_gate") != "ALLOW_ENTRY":
+            ranking_score = 0.0
+            confidence_score = 0.0
         m["ranking_score"] = ranking_score
         m["confidence_score"] = min(99.9, max(1.0, round(confidence_score, 1)))
+        m["confidence_score"] = 0.0 if m.get("decision_gate") != "ALLOW_ENTRY" else m["confidence_score"]
         m["confidence_label"] = (
+            "DATA_BLOCKED" if m.get("decision_gate") != "ALLOW_ENTRY" else
             "HIGH_EVIDENCE" if m["indicator_coverage"] >= 0.83 and historical_sample >= 20
             else "LIVE_TECHNICAL" if m["indicator_coverage"] >= 0.83
             else "PARTIAL_DATA"

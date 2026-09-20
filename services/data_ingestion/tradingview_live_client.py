@@ -20,6 +20,20 @@ class TradingViewLiveClient:
         # === YENİ: Higher-High proxy için onceki tick high'lari sakla ===
         self._prev_highs: Dict[str, float] = {}  # sym -> onceki high
 
+    @staticmethod
+    def _missing_indicator_fields(values: List[Any]) -> List[str]:
+        field_indexes = {
+            "rsi": 6,
+            "macd": 7,
+            "atr": 12,
+            "vwap": 13,
+            "stoch_k": 14,
+            "adx": 15,
+            "volume_average": 17,
+            "cmf": 18,
+        }
+        return [name for name, index in field_indexes.items() if len(values) <= index or values[index] is None]
+
     def fetch_live_market_data(self) -> Dict[str, Any]:
         """
         TradingView scanner API'sinden anlık gerçek NASDAQ, BIST ve KRİPTO borsa fiyatlarını ve indikatörlerini çeker.
@@ -130,7 +144,10 @@ class TradingViewLiveClient:
                                 "prev_high_1": prev_high,
                                 "bid_ask_ratio": bid_ask_proxy,
                                 "source": "TRADINGVIEW_LIVE_SCANNER",
-                                "last_update": time.strftime("%H:%M:%S")
+                                "last_update": time.strftime("%H:%M:%S"),
+                                "last_updated_ts": now,
+                                "source_timestamp": now,
+                                "missing_fields": self._missing_indicator_fields(vals)
                             }
 
                     # =======================================================
@@ -252,7 +269,10 @@ class TradingViewLiveClient:
                                 "prev_high_1": prev_high,
                                 "bid_ask_ratio": bid_ask_proxy,
                                 "source": "TRADINGVIEW_LIVE_SCANNER",
-                                "last_update": time.strftime("%H:%M:%S")
+                                "last_update": time.strftime("%H:%M:%S"),
+                                "last_updated_ts": now,
+                                "source_timestamp": now,
+                                "missing_fields": self._missing_indicator_fields(vals)
                             }
                     self.cached_tr_data = {k: v for k, v in results.items() if v["market"] == "BIST"}
         except Exception as e:
@@ -341,7 +361,10 @@ class TradingViewLiveClient:
                                 "prev_high_1": prev_high,
                                 "bid_ask_ratio": bid_ask_proxy,
                                 "source": "TRADINGVIEW_LIVE_SCANNER",
-                                "last_update": time.strftime("%H:%M:%S")
+                                "last_update": time.strftime("%H:%M:%S"),
+                                "last_updated_ts": now,
+                                "source_timestamp": now,
+                                "missing_fields": self._missing_indicator_fields(vals)
                             }
                     self.cached_crypto_data = {k: v for k, v in results.items() if v["market"] == "CRYPTO"}
         except Exception as e:

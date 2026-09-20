@@ -47,6 +47,8 @@ class ActivePosition(BaseModel):
     use_chandelier_exit: bool = False
     capital_allocated: float = 0.0  # Pozisyon için ayrılan sermaye ($)
     broker_order_id: Optional[str] = None
+    confidence_score: Optional[float] = None
+    entry_indicators: Dict[str, Any] = Field(default_factory=dict)
 
 class LiveTradeManager:
     def __init__(self):
@@ -345,7 +347,8 @@ class LiveTradeManager:
                     "high": tv_data.get("high", 0.0),
                     "low": tv_data.get("low", 0.0),
                     "market": tv_data.get("market", "UNKNOWN"),
-                    "last_updated_ts": time.time()
+                    "last_updated_ts": tv_data.get("last_updated_ts", time.time()),
+                    "source": tv_data.get("source", "UNKNOWN")
                 }
             else:
                 self.market_prices[sym]["price"] = tv_data["price"]
@@ -353,7 +356,8 @@ class LiveTradeManager:
                 self.market_prices[sym]["high"] = tv_data["high"]
                 self.market_prices[sym]["low"] = tv_data["low"]
                 self.market_prices[sym]["market"] = tv_data.get("market", self.market_prices[sym].get("market", "UNKNOWN"))
-                self.market_prices[sym]["last_updated_ts"] = time.time()
+                self.market_prices[sym]["last_updated_ts"] = tv_data.get("last_updated_ts", time.time())
+                self.market_prices[sym]["source"] = tv_data.get("source", self.market_prices[sym].get("source", "UNKNOWN"))
 
         # Makro Foresight Kontrolü
         macro_eval = advanced_analytics_engine.check_macro_correction_risk(self.market_prices)
@@ -421,8 +425,10 @@ class LiveTradeManager:
                 "market": market_type,
                 "is_open": is_open,
                 "has_active_position": has_active_pos,
-                "source": "TRADINGVIEW_REALTIME_FEED",
-                "last_update": datetime.now(TRT).strftime("%H:%M:%S")
+                "source": data.get("source", "TRADINGVIEW_REALTIME_FEED"),
+                "last_update": datetime.now(TRT).strftime("%H:%M:%S"),
+                "last_updated_ts": data.get("last_updated_ts"),
+                "data_age_seconds": round(max(0.0, time.time() - data["last_updated_ts"]), 1) if data.get("last_updated_ts") else None
             }
 
         # Açık pozisyonların PnL ve Başa Baş (Break-Even) kontrolü
@@ -478,7 +484,7 @@ class LiveTradeManager:
         logger.info(f"[SHADOW TRADE] {symbol} sanal olarak işleme alındı. Neden: {reason}")
         return pos
 
-    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None, atr_value: float = 0.0, use_chandelier_exit: bool = True, qty_override: Optional[float] = None, status: str = "OPEN") -> Optional[ActivePosition]:
+    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None, atr_value: float = 0.0, use_chandelier_exit: bool = True, qty_override: Optional[float] = None, status: str = "OPEN", confidence_score: Optional[float] = None, entry_indicators: Optional[Dict[str, Any]] = None) -> Optional[ActivePosition]:
         # MAKRO FORESIGHT KORUMASI: Serbest bakiyeyi güvende tut.
         if self.is_macro_standby:
             logger.warning(f"MAKRO KORUMA AKTİF: İşlem reddedildi ({symbol}). {self.macro_standby_reason}")
@@ -545,7 +551,9 @@ class LiveTradeManager:
             opened_at=datetime.now(timezone.utc).isoformat(),
             atr_value=atr_value,
             use_chandelier_exit=use_chandelier_exit,
-            status=status
+            status=status,
+            confidence_score=confidence_score,
+            entry_indicators=entry_indicators or {}
         )
 
         # Broker emri başarılı olmadan pozisyonu lokal olarak OPEN kabul etme.
@@ -690,7 +698,8 @@ class LiveTradeManager:
                 exit_price=curr_price,
                 pnl_pct=round((net_pnl / pos.nominal_value) * 100.0, 2),
                 market_regime=market_regime,
-                indicators={"market": pos.market, "reason": reason}
+                indicators={**(pos.entry_indicators or {}), "market": pos.market, "reason": reason},
+                ai_confidence=pos.confidence_score
             )
         except Exception as me:
             from core.logger import logger
@@ -822,10 +831,13 @@ class LiveTradeManager:
             curr_price = self.market_prices.get(search_sym, {}).get("price", pos.current_price)
             last_ts = self.market_prices.get(search_sym, {}).get("last_updated_ts", None)
 
-            # STALENESS KORUMASI: last_updated_ts varsa ve 90 saniyeden eskiyse bekle.
-            # last_updated_ts yoksa (statik fiyat) doğrudan devam et.
-            if last_ts is not None and (time.time() - last_ts) > 90:
-                logger.debug(f"[STALE PRICE] {pos.symbol} fiyat verisi eskidi ({int(time.time()-last_ts)}s) — değlendirme atlandı.")
+            # Fail-closed: timestamp yoksa veya fiyat 90 saniyeyi geçtiyse
+            # statik veriye dayanarak yerel stop/TP kapatması yapma.
+            if last_ts is None:
+                logger.debug(f"[NO TIMESTAMP] {pos.symbol} için taze fiyat zamanı yok — değerlendirme atlandı.")
+                continue
+            if (time.time() - last_ts) > 90:
+                logger.debug(f"[STALE PRICE] {pos.symbol} fiyat verisi eskidi ({int(time.time()-last_ts)}s) — değerlendirme atlandı.")
                 continue
 
             # API Hatalarına Karşı Güvenlik Kalkanı: Fiyat 0 veya negatifse işlem yapma!

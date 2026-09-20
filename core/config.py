@@ -59,7 +59,7 @@ class Settings(BaseSettings):
             self.volume_anomaly_ratio_threshold = 1.5
             self.max_capital_per_trade_pct = 8.0
         elif self.current_risk_mode == "CONSERVATIVE":
-            self.max_risk_score_allowed = 95.0
+            self.max_risk_score_allowed = 80.0
             self.high_risk_threshold = 85.0
             self.volume_anomaly_ratio_threshold = 2.0
             self.max_capital_per_trade_pct = 5.0

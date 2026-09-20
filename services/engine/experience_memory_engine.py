@@ -29,6 +29,7 @@ class TradePostMortem(BaseModel):
     exit_reason: str = ""
     error_margin_pct: float = 0.0
     algorithmic_action_plan: str = ""
+    ai_confidence: Optional[float] = None
     
 class ExperienceLearningSummary(BaseModel):
     total_trades_analyzed: int
@@ -158,7 +159,7 @@ class ExperienceMemoryEngine:
             self.live_action_logs_crypto.append(log_entry)
         self.save_memory()
 
-    def record_completed_trade(self, symbol: str, action: str, entry_price: float, exit_price: float, pnl_pct: float, market_regime: str, indicators: Dict[str, Any], duration_minutes: int = None, exit_reason: str = None) -> TradePostMortem:
+    def record_completed_trade(self, symbol: str, action: str, entry_price: float, exit_price: float, pnl_pct: float, market_regime: str, indicators: Dict[str, Any], duration_minutes: int = None, exit_reason: str = None, ai_confidence: Optional[float] = None) -> TradePostMortem:
         # Alpaca Webhook Simülasyonu: Alım-Satım çift yönlü tahmini komisyon ve kayma (slippage) maliyeti %0.30
         alpaca_fee_pct = 0.30
         net_pnl_pct = round(pnl_pct - alpaca_fee_pct, 2)
@@ -209,7 +210,8 @@ class ExperienceMemoryEngine:
             max_drawdown_percent=0.0 if is_win else round(abs(net_pnl_pct) * 0.45, 2),
             exit_reason=exit_reason if exit_reason is not None else ("TAKE_PROFIT" if is_win else "STOP_LOSS"),
             error_margin_pct=round(error_margin, 2),
-            algorithmic_action_plan=action_plan
+            algorithmic_action_plan=action_plan,
+            ai_confidence=ai_confidence
         )
         self.trade_history.append(trade)
         
@@ -716,6 +718,10 @@ class ExperienceMemoryEngine:
                 win_rate = (stats["wins"] / stats["total"]) * 100 if stats["total"] > 0 else 0
                 radar_data.append(round(win_rate, 1))
                 radar_tooltips.append(f"Rejim: {short} | İşlem: {stats['total']} | Başarı: %{round(win_rate,1)}")
+            if not radar_labels:
+                radar_labels = ["DOĞRULANMIŞ VERİ YOK"]
+                radar_data = [0]
+                radar_tooltips = ["Henüz gerçek işlem rejimi kaydı yok"]
 
         # 2. Donut Chart: İndikatör Ağırlıkları
         if use_dynamic_sim:

@@ -267,7 +267,12 @@ class BotTrainer:
         settings.weight_technical = best_weights["weight_technical"]
         settings.weight_macro = best_weights["weight_macro"]
         settings.weight_sentiment = best_weights["weight_sentiment"]
-        settings.max_risk_score_allowed = best_weights["max_risk_score_allowed"]
+        # Training must never weaken the active risk mode's hard ceiling.
+        trained_risk_limit = best_weights["max_risk_score_allowed"]
+        if settings.current_risk_mode == "CONSERVATIVE":
+            trained_risk_limit = min(trained_risk_limit, 80.0)
+        settings.max_risk_score_allowed = trained_risk_limit
+        best_weights["max_risk_score_allowed"] = trained_risk_limit
 
         training_summary = {
             "status": "TRAINING_COMPLETED_SUCCESSFULLY",
