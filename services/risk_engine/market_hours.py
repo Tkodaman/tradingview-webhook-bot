@@ -199,18 +199,30 @@ class MarketHoursValidator:
             us_open_minute = 16 * 60 + 30    # 16:30 TRT
             us_close_minute = 23 * 60        # 23:00 TRT
             current_minute = trt.hour * 60 + trt.minute
+            
+            from core.config import settings
+            ext_enabled = getattr(settings, "alpaca_extended_hours", True)
 
             if us_open_minute <= current_minute <= us_close_minute:
                 return True, f"🟢 NASDAQ / ABD Seansı Açık ({current_time_str} TRT)", {
                     "market": "NASDAQ", "is_open": True, "trt_time": current_time_str, "hours": "16:30 - 23:00 TRT"
                 }
             elif (11 * 60) <= current_minute < us_open_minute:
-                return False, f"🟡 NASDAQ Pre-Market Açık Ancak Otonom İşlemlere Kapalı ({current_time_str} TRT)", {
-                    "market": "NASDAQ", "is_open": False, "session": "PRE_MARKET", "trt_time": current_time_str
-                }
+                if ext_enabled:
+                    return True, f"🟡 NASDAQ Pre-Market (Otonom İşlemlere Açık) ({current_time_str} TRT)", {
+                        "market": "NASDAQ", "is_open": True, "session": "PRE_MARKET", "trt_time": current_time_str
+                    }
+                else:
+                    return False, f"🟡 NASDAQ Pre-Market Açık Ancak Otonom İşlemlere Kapalı ({current_time_str} TRT)", {
+                        "market": "NASDAQ", "is_open": False, "session": "PRE_MARKET", "trt_time": current_time_str
+                    }
             else:
-                return False, f"🔴 NASDAQ KAPALI: Seans saatleri dışındadır (İşlem Saatleri: 16:30 - 23:00 TRT). Şu an: {current_time_str} TRT", {
-                    "market": "NASDAQ", "is_open": False, "reason": "OUTSIDE_HOURS", "trt_time": current_time_str
+                if ext_enabled and (current_minute > us_close_minute or current_minute < 3 * 60):
+                    return True, f"🟣 NASDAQ Post-Market (Otonom İşlemlere Açık) ({current_time_str} TRT)", {
+                        "market": "NASDAQ", "is_open": True, "session": "POST_MARKET", "trt_time": current_time_str
+                    }
+                return False, f"🔴 NASDAQ KAPALI: Seans saatleri dışındadır. Şu an: {current_time_str} TRT", {
+                    "market": "NASDAQ", "is_open": False, "reason": "OUTSIDE_HOURS", "trt_time": current_time_str, "hours": "16:30 - 23:00 TRT"
                 }
 
         return True, "🟢 Piyasa Açık", {"market": market, "is_open": True}

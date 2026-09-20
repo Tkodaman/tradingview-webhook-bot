@@ -10,9 +10,9 @@ from core.security import verify_ip
 
 router = APIRouter(dependencies=[Depends(verify_ip)])
 
-# 15 saniyelik pozisyon cache — Alpaca API her cagride sorgulanmaz
+# 3 saniyelik pozisyon cache — Trailing stop güncellemelerini hızlı yansıtmak için kısaltıldı
 _pos_cache = {"data": None, "ts": 0}
-_POS_CACHE_TTL = 15
+_POS_CACHE_TTL = 3
 
 
 class OpenPositionRequest(BaseModel):
@@ -120,9 +120,17 @@ async def get_active_positions():
                     tp_price = 0.0
                     sl_price = 0.0
                     
+                    # Trailing stop ve break-even durumu — yerel pozisyondan al
+                    trailing_active = False
+                    break_even_active = False
+                    highest_seen = 0.0
+                    
                     if local_pos:
                         tp_price = local_pos.target_profit_price
                         sl_price = local_pos.stop_loss_price
+                        trailing_active = bool(local_pos.trailing_stop_activated)
+                        break_even_active = bool(local_pos.break_even_activated)
+                        highest_seen = float(local_pos.highest_price_seen or 0.0)
                         # Alpaca'dan gelen güncel fiyatı yerel pozisyona da yansıt (Senkronize kalsın)
                         local_pos.current_price = final_current_price
                     elif entry_price > 0:
@@ -155,7 +163,11 @@ async def get_active_positions():
                         "unrealized_pnl": float(real_pnl if tv_price > 0 else (p.get("unrealized_pl") or 0.0)),
                         "unrealized_pnl_pct": float(real_pnl_pct if tv_price > 0 else float(p.get("unrealized_plpc") or 0.0) * 100),
                         "opened_at": opened_at_val,
-                        "status": "OPEN"
+                        "status": "OPEN",
+                        # Trailing / Break-Even durumu (dashboard göstergesi için)
+                        "trailing_stop_activated": trailing_active,
+                        "break_even_activated": break_even_active,
+                        "highest_price_seen": round(highest_seen, 5)
                     })
                 
                 # real_available_cash already fetched from broker above
@@ -193,6 +205,7 @@ async def open_live_position(req: OpenPositionRequest):
     """
     1-Tıkla Canlı Pozisyon Açılışı (Alpaca Broker Destekli)
     """
+    import asyncio
     try:
         from services.broker.alpaca_client import alpaca_client
 
@@ -204,20 +217,24 @@ async def open_live_position(req: OpenPositionRequest):
 
         curr_price = live_trade_manager.market_prices.get(req_sym, {}).get("price", 0)
         if curr_price == 0:
-            curr_price = alpaca_client.get_current_price(req_sym)
+            # Blocking API çağrısını thread'e taşı - event loop bloklanmasın
+            curr_price = await asyncio.to_thread(alpaca_client.get_current_price, req_sym)
             
         if curr_price == 0:
             return {"status": "error", "message": f"{req.symbol} için canlı fiyat alınamadı."}
 
-        # 2. Her zaman lokal canlı yönetim motoruna (Dashboard için) pozisyon açtır
-        pos = live_trade_manager.open_position(
+        import functools
+        open_func = functools.partial(
+            live_trade_manager.open_position,
             symbol=req_sym,
             capital=req.capital,
             side=req.side,
             tp_pct=req.tp_pct,
             sl_pct=req.sl_pct,
-            entry_price_override=curr_price
+            entry_price_override=curr_price,
+            is_manual=True
         )
+        pos = await asyncio.to_thread(open_func)
         
         if not pos:
             return {"status": "error", "message": "Yetersiz bütçe, makro koruma aktif veya maksimum açık işlem limitine ulaşıldı."}

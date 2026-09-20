@@ -327,16 +327,30 @@ async def get_live_buy_sell_wait_matrix():
             final_dynamic_score -= 8.0  # Eskisi -20, artık hafif -8
             m["reason"] += " (Yatay Bölge/Düşük Hacim)"
         
-        # Veri kapsamı düşükse skorun kesinlik iddiasını yumuşat, fırsatı silme.
-        quality_factor = 0.65 + (0.35 * float(m.get("indicator_coverage", 0.0)))
+        # ─── GÜVEN SKORU: Geniş Marjlı Doğal Dağılım ───────────────────────────
+        # Formül: 50 + (ranking - 50) * quality_factor
+        # Bu formül 50 etrafında simetrik, doğal bir dağılım üretir:
+        #   WAIT sinyal  (final~45)  → ~45%
+        #   Zayıf BUY   (final~58)  → ~58%
+        #   Orta BUY    (final~67)  → ~67%
+        #   Güçlü BUY   (final~85)  → ~84%  (otonom eşiğe yakın)
+        #   Çok Güçlü   (final~98)  → ~97%  (otonom tetikler!)
+        #
+        # Eski sorun: quality_factor min=0.65 → final=85 iken conf=72.75 (daralma)
+        # Düzeltme:   quality_factor min=0.92 → final=85 iken conf=84.5  (doğru!)
+        
+        quality_factor = 0.92 + (0.08 * float(m.get("indicator_coverage", 0.0)))
+        # quality_factor: min 0.92 (eksik veri), max 1.00 (tam veri)
+        
         ranking_score = min(99.9, max(1.0, round(final_dynamic_score, 1)))
-        confidence_score = 50.0 + ((ranking_score - 50.0) * quality_factor)
+        confidence_score = round(50.0 + (ranking_score - 50.0) * quality_factor, 1)
+        confidence_score = min(99.9, max(0.0, confidence_score))
+        
         if m.get("decision_gate") != "ALLOW_ENTRY":
             ranking_score = 0.0
             confidence_score = 0.0
         m["ranking_score"] = ranking_score
-        m["confidence_score"] = min(99.9, max(1.0, round(confidence_score, 1)))
-        m["confidence_score"] = 0.0 if m.get("decision_gate") != "ALLOW_ENTRY" else m["confidence_score"]
+        m["confidence_score"] = confidence_score
         m["confidence_label"] = (
             "DATA_BLOCKED" if m.get("decision_gate") != "ALLOW_ENTRY" else
             "HIGH_EVIDENCE" if m["indicator_coverage"] >= 0.83 and historical_sample >= 20

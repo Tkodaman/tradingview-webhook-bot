@@ -25,6 +25,7 @@ from services.intelligence.market_regime_detector import market_regime_detector
 from services.risk_engine.dynamic_sl_tp import calculate_atr_based_tp_sl
 from services.trainer.ml_signal_predictor import ml_predictor
 from services.risk_engine.fakeout_guard import fakeout_guard
+from services.engine.market_regime_engine import regime_engine
 
 # Global instances
 llm_intelligence = LLMMarketIntelligenceEngine()
@@ -47,6 +48,10 @@ class TradingViewAutoStrategyRunner:
         while True:
             try:
                 if self.is_running:
+                    # Central tick clock: Evaluate open positions and update trailing stops autonomously
+                    await asyncio.to_thread(live_trade_manager.get_live_prices)
+                    
+                    # Evaluate new signals
                     await asyncio.to_thread(self.evaluate_live_market_and_trigger)
             except Exception as e:
                 logger.error(f"[AUTO-RUNNER ERROR] {e}")
@@ -259,18 +264,26 @@ class TradingViewAutoStrategyRunner:
             # ============================================================
             score = 0
 
-            # === ATR BAZLI DİNAMİK TP/SL (Sabit yüzde yerine piyasaya göre esnek) ===
+            # === ATR BAZLI DINAMIK TP/SL + REJIM MATRISI ===
             is_crypto = sym.endswith("USDT") or sym in ["BTC", "ETH", "SOL", "BNB"]
             is_mean_reversion_buy = False
             is_arbitrage_buy = False
             atr_absolute = price * (atr_pct / 100.0)
-            base_tp, base_sl = calculate_atr_based_tp_sl(
-                entry_price=price,
-                atr_value=atr_absolute,
-                side="BUY",
-                is_crypto=is_crypto,
-            )
-            logger.debug(f"[ATR TP/SL] {sym}: TP=%{base_tp} SL=%{base_sl} (ATR={atr_pct:.2f}%)")
+
+            # Rejim Motorunu guncelle (sadece her 60s'de bir tam hesapla)
+            import time as _rtime
+            if _rtime.time() - regime_engine._last_update > 60:
+                try:
+                    regime_engine.compute_regime(live_trade_manager.market_prices)
+                except Exception as _re:
+                    logger.warning(f"[REGIME ENGINE] Hesaplama hatasi: {_re}")
+
+            # Piyasa tipini al, rejim profilini cek
+            _mtype_for_regime = market_hours_validator.get_market_type(sym)
+            _regime_profile = regime_engine.get_trade_profile(settings.current_risk_mode, _mtype_for_regime)
+            base_tp = _regime_profile["tp_pct"]
+            base_sl = _regime_profile["sl_pct"]
+            logger.debug(f"[REGIME PROFILE] {sym} {_mtype_for_regime}/{settings.current_risk_mode}/{_regime_profile['regime']} -> TP={base_tp}% SL={base_sl}%")
 
             # --- Varlık tipine göre ağırlık profili ---
             mkt_type = market_hours_validator.get_market_type(sym)
@@ -486,60 +499,42 @@ class TradingViewAutoStrategyRunner:
                 f"Bid/Ask={bid_ask_ratio:.2f} | CMF={cmf:.3f} | RS={rs_score:.2f}"
             )
 
-            # Kripto için Çok Katı (Sıkı) Onay Eşiği ve Premium Agent Hibrit Kararı
-            # Piyasa türünü hacim kurallarında kullanmak için önceden alalım
-            market_type = market_hours_validator.get_market_type(sym)
+            # ──────────────────────────────────────────────────────────────────
+            # REJIM MATRISI: Giris esigi, hacim filtresi, pozisyon limiti
+            # Tum degerleri DECISION_MATRIX'ten al (Risk Modu x Canli Rejim)
+            # ──────────────────────────────────────────────────────────────────
             current_mode = settings.current_risk_mode.upper()
-            
-            # Varsayılan (NORMAL)
-            required_score = 4 
-            min_vol = 1.0
-            global_max_pos = 10 # En fazla 5 pozisyon olabilir
-            market_pos_multiplier = 1.0
-            
-            if current_mode == "SNIPER":
-                required_score = 3  # Balina dalgası için az sayıda sinyal yeterli
-                # Kriptoda 0.4x, NASDAQ'da 0.7x hacim (BIST için 1.0)
-                min_vol = 0.4 if market_type == "CRYPTO" else (0.7 if market_type == "NASDAQ" else 1.0)
-                global_max_pos = 15
-                market_pos_multiplier = 2.0
-            elif current_mode == "AGGRESSIVE":
-                required_score = 3  # Puan şartı 3
-                # Kriptoda 0.6x, NASDAQ'da 0.8x hacim (BIST için 0.7)
-                min_vol = 0.6 if market_type == "CRYPTO" else (0.8 if market_type == "NASDAQ" else 0.7)
-                global_max_pos = 15
-                market_pos_multiplier = 2.0 # Kripto limitini 4'ten 8'e çıkarır
-            elif current_mode == "NORMAL":
-                required_score = 5
-                min_vol = 0.7
-                global_max_pos = 10
-            elif current_mode == "TIGHT":
-                required_score = 7
-                min_vol = 1.0
-                global_max_pos = 5
-            elif current_mode == "CONSERVATIVE":
-                required_score = 8
-                min_vol = 1.2
-                global_max_pos = 3
+            _mtype_local = market_hours_validator.get_market_type(sym)
+            _rp = regime_engine.get_trade_profile(current_mode, _mtype_local)
+
+            # Giris izni kontrolu
+            if not _rp["entry_allowed"]:
+                logger.info(f"[REGIME BLOCK] {sym} ({_mtype_local}) {_rp['regime']} rejiminde giris yasak. Mod: {current_mode}")
+                continue
+
+            required_score    = _rp["min_score"]
+            min_vol           = _rp["min_vol"]
+            global_max_pos    = _rp["max_global_pos"]
+            max_pos_for_market_regime = _rp["max_market_pos"]
 
             is_buy_signal = score >= required_score
 
-            # Hacim filtresi (Tüm piyasalar için Risk moduna göre)
+            # Hacim filtresi (Rejim matrisinden)
             if vol_ratio < min_vol:
-                logger.info(f"[RISK SHIELD] {sym} Hacim yetersiz (Ratio: {vol_ratio:.2f} < {min_vol}). Mod: {current_mode}")
+                logger.info(f"[RISK SHIELD] {sym} Hacim yetersiz (Ratio: {vol_ratio:.2f} < {min_vol}). Mod: {current_mode} | Rejim: {_rp['regime']}")
                 continue
 
             if not is_buy_signal:
-                logger.info(f"[SCORE SHIELD] {sym} Sinyal zayıf ({score}/{required_score}). Mod: {current_mode}")
+                logger.info(f"[SCORE SHIELD] {sym} Sinyal zayıf ({score}/{required_score}). Mod: {current_mode} | Rejim: {_rp['regime']}")
                 continue
-            # O2 DÜZELTİLDİ: Piyasa başı açık pozisyon limiti kontrolü
-            max_pos_for_market = int(RISK_PARAMS.get("max_positions_per_market", {}).get(market_type, 3) * market_pos_multiplier)
+            # O2 DÜZELTİLDİ: Piyasa başı açık pozisyon limiti kontrolü (rejim matrisinden)
             open_pos_in_market = sum(
                 1 for p in live_trade_manager.positions.values()
-                if p.status == "OPEN" and p.market == market_type
+                if p.status == "OPEN" and p.market == _mtype_local
             )
+            max_pos_for_market = max_pos_for_market_regime
             if open_pos_in_market >= max_pos_for_market:
-                logger.info(f"[MARKET LIMIT BLOCK] {sym} ({market_type}) piyasasında max pozisyon sayısına ulaşıldı ({open_pos_in_market}/{max_pos_for_market}).")
+                logger.info(f"[MARKET LIMIT BLOCK] {sym} ({_mtype_local}) piyasasinda max pozisyon sayisina ulasildi ({open_pos_in_market}/{max_pos_for_market}).")
                 try:
                     live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Market Limit")
                 except Exception:
@@ -552,7 +547,7 @@ class TradingViewAutoStrategyRunner:
                 msg = f"[GLOBAL LIMIT BLOCK] {sym} reddedildi. Sistem genelinde maksimum ({total_open_pos}/{global_max_pos}) açık pozisyon limitine ulaşıldı."
                 logger.info(msg)
                 try:
-                    experience_memory_engine.add_live_log(market_type, "BLOCK", msg)
+                    experience_memory_engine.add_live_log(_mtype_local, "BLOCK", msg)
                     live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Global Limit")
                 except Exception:
                     pass
@@ -564,7 +559,7 @@ class TradingViewAutoStrategyRunner:
                 msg = f"[BUDGET LIMIT BLOCK] {sym} reddedildi. {settings.base_portfolio_size}$ bütçe limitine ulaşıldı (Mevcut Yatırım: ${total_invested:.2f})."
                 logger.info(msg)
                 try:
-                    experience_memory_engine.add_live_log(market_type, "BLOCK", msg)
+                    experience_memory_engine.add_live_log(_mtype_local, "BLOCK", msg)
                     live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Budget Limit")
                 except Exception:
                     pass
@@ -656,20 +651,25 @@ class TradingViewAutoStrategyRunner:
                     logger.info(f"[ALGO LEARNING] Lot carpani {qty_mult:.2f}x uygulandi. Yeni butce: ${dyn_cap}")
 
                 # Özel Strateji Tag'leri ve İnce Ayar
-                strategy_tag = "MOMENTUM_BREAKOUT"
+                # Strateji TP/SL ince ayari (Ortalamaya donus / Arbitraj ovride)
                 if is_mean_reversion_buy:
                     strategy_tag = "MEAN_REVERSION"
-                    base_tp = 2.5
-                    base_sl = 1.2
+                    # Ortalamaya donus icin daha dar TP (kisa sure icin)
+                    base_tp = min(base_tp, 2.5)
+                    base_sl = min(base_sl, 1.2)
                 elif is_arbitrage_buy:
                     strategy_tag = "STATISTICAL_ARBITRAGE"
-                    base_tp = 1.5
-                    base_sl = 0.8
+                    base_tp = min(base_tp, 1.5)
+                    base_sl = min(base_sl, 0.8)
                 
-                # Yapay Zeka (LLM) Bonusuna Göre TP Esnetme
+                # Yapay Zeka (LLM) Bonusuna Gore TP Esnetme (max %50 orijinal TP uzatmasi)
                 if llm_sentiment_bonus > 0:
-                    base_tp += 1.5  # Güçlü duygu varsa kâr makasını %1.5 genişlet
-                    logger.info(f"[DYNAMIC TP STRETCH] {sym} için LLM Duygusu güçlü. TP hedefi %{base_tp} seviyesine esnetildi.")
+                    stretch = min(base_tp * 0.5, 1.5)  # Mevcut TP'nin %50si veya en fazla %1.5
+                    base_tp += stretch
+                    logger.info(f"[DYNAMIC TP STRETCH] {sym} icin LLM Duygusu guclu. TP hedefi %{base_tp:.1f} seviyesine esnetildi.")
+
+                # Rejim Sermaye Carpani uygula (Mega Boga -> x1.5, Bear -> x0.5)
+                _regime_cap_mult = _rp.get("capital_mult", 1.0)
 
                 # Mutlak Fiyat Hedefleri (Absolute Prices)
                 target_tp_price = round(price * (1 + (base_tp / 100)), 4)

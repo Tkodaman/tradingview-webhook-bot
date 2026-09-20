@@ -112,9 +112,22 @@ class AlpacaBroker(BaseBroker):
             tif = "gtc" if is_crypto else "day"
             
             is_fractional = (qty != int(qty)) or (qty < 1.0)
+            
+            from core.config import settings
+            ext_hours = getattr(settings, "alpaca_extended_hours", True)
+
+            # Piyasa öncesi/sonrası kesirli lot kullanılamaz!
+            if is_fractional and not is_crypto and ext_hours:
+                logger.warning(f"Alpaca: Fractional shares are not allowed in extended hours. Rounding {qty} to {int(qty)} for {alpaca_sym}")
+                qty = float(int(qty))
+                is_fractional = (qty < 1.0)
+                
+                if is_fractional:
+                    logger.error(f"Alpaca: Quantity for {alpaca_sym} is less than 1 after rounding for extended hours. Order cancelled.")
+                    return {"status": "error", "message": "Quantity too small for extended hours trading (requires integer >= 1)."}
 
             if is_fractional:
-                # === KESİRLİ LOT: Önce market order, sonra ayrı SL/TP emirleri ===
+                # === KESİRLİ LOT: Sadece standart saatlerde çalışır, Market Order zorunludur ===
                 # Alpaca bracket order kesirli lot desteklemez.
                 # Çözüm: Market order + ayrı stop order + ayrı limit order
                 logger.info(f"Alpaca: Fractional qty ({qty}) - market + separate SL/TP orders for {alpaca_sym}")
@@ -184,17 +197,26 @@ class AlpacaBroker(BaseBroker):
             return {"status": "success", "order_id": order.id, "details": order._raw}
         except Exception as e:
             err_str = str(e).lower()
-            if "wash trade" in err_str or "complex orders" in err_str:
+            if "wash trade" in err_str or "complex orders" in err_str or "extended hours" in err_str:
                 logger.warning(f"Alpaca rejected bracket order for {symbol} ({err_str}). Falling back to simple entry order.")
                 try:
-                    order = self.api.submit_order(
-                        symbol=self._format_symbol(symbol),
-                        qty=qty,
-                        side=side.lower(),
-                        type='market',
-                        time_in_force='day'
-                    )
-                    logger.info(f"Alpaca Simple Order Fallback Placed: {side} {qty} {symbol} - OrderID: {order.id}")
+                    # Genişletilmiş saatlerde market yerine limit emri gönderilmesi şarttır
+                    fallback_type = 'limit' if (limit_price is not None and ext_hours and not is_crypto) else 'market'
+                    
+                    fallback_kwargs = {
+                        "symbol": self._format_symbol(symbol),
+                        "qty": qty,
+                        "side": side.lower(),
+                        "type": fallback_type,
+                        "time_in_force": 'day' if not is_crypto else 'gtc'
+                    }
+                    
+                    if fallback_type == 'limit':
+                        fallback_kwargs["limit_price"] = limit_price
+                        fallback_kwargs["extended_hours"] = True
+
+                    order = self.api.submit_order(**fallback_kwargs)
+                    logger.info(f"Alpaca Simple Order Fallback Placed: {side} {qty} {symbol} ({fallback_type}) - OrderID: {order.id}")
                     return {"status": "success", "order_id": order.id, "details": order._raw}
                 except Exception as fb_err:
                     logger.error(f"Alpaca Fallback Order also failed: {fb_err}")

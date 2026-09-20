@@ -1,1 +1,1 @@
-{"consecutive_losses": 0, "daily_losses": 37, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {"AVAXUSDT": 6, "MRNA": 1, "ILMN": 7, "MSFT": 1, "DIS": 5, "GILD": 1, "RACE": 0, "PAXGUSDT": 1, "FTNT": 7, "SUSHIUSDT": 0}, "symbol_blocks": {}, "last_reset_date": "2026-09-17"}
+{"consecutive_losses": 0, "daily_losses": 0, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {}, "symbol_blocks": {}, "last_reset_date": "2026-09-20"}

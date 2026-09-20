@@ -178,6 +178,17 @@ class AlpacaTradeStream:
                                     if diff_seconds < 120:
                                         # Emir henüz 2 dakikadan yeni, PENDING olabilir, hemen kapatma!
                                         continue
+                                        
+                                    # Fallback: Maybe order is still 'new'/'accepted' but >120s? Check open orders.
+                                    try:
+                                        open_orders = broker.api.list_orders(status='open')
+                                        open_order_symbols = [broker._format_symbol(o.symbol) for o in open_orders] if open_orders else []
+                                        if formatted_sym in open_order_symbols:
+                                            logger.info(f"⏳ [PENDING ORDER] {pos.symbol} emri {diff_seconds} saniyedir Alpaca'da acik (beklemede). Kapatilmiyor.")
+                                            continue
+                                    except Exception as ex:
+                                        logger.debug(f"Open orders fetch error: {ex}")
+                                        pass
                                 except Exception as e:
                                     logger.debug(f"Grace period time parsing error: {e}")
                                     pass

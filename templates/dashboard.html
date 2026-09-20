@@ -267,9 +267,9 @@
             border-bottom: 1px solid rgba(255,255,255,0.07);
         }
         .unified-market-groups {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
             padding-top: 12px;
         }
         .market-group {
@@ -295,7 +295,7 @@
             padding: 3px 6px;
         }
         @media (max-width: 1050px) {
-            .unified-market-groups { grid-template-columns: 1fr; }
+            /* .unified-market-groups is now flex column by default */
         }
 
         /* WINDOW HEADER */
@@ -1379,21 +1379,34 @@ The following code has been modified to include a line number before every line,
             <!-- PİYASA REJİMİ GÖSTERGELERİ -->
             <div style="flex: 1; min-width: 0;">
                 <div class="panel" style="padding: 16px; margin: 0; background: #0f121a; border: 1px solid #334155; border-radius: 8px; height: 100%;">
-                    <div class="panel-header-title" style="margin-bottom: 12px; font-size: 14px; font-weight: bold;">
+                    <div class="panel-header-title" style="margin-bottom: 12px; font-size: 14px; font-weight: bold; display:flex; align-items:center; gap:8px;">
                         ⏱️ Piyasa Rejimi (Canlı)
+                        <span id="regimeLastUpdate" style="font-size:10px; color:#64748b; font-weight:normal; margin-left:auto;"></span>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <div style="display:flex; justify-content:space-between; padding: 8px; background: rgba(34,197,94,0.1); border-radius: 6px; border: 1px solid rgba(34,197,94,0.2);">
+                    <div style="display: flex; flex-direction: column; gap: 10px;" id="regimeBoxesContainer">
+                        <!-- CRYPTO -->
+                        <div id="regimeBox_CRYPTO" style="display:flex; justify-content:space-between; align-items:center; padding: 8px 12px; background: rgba(34,197,94,0.1); border-radius: 6px; border: 1px solid rgba(34,197,94,0.2); transition: all 0.4s ease;">
                             <span style="color:#4ade80; font-weight:bold; font-size: 13px;">🪙 KRİPTO</span>
-                            <span style="color:#4ade80; font-size: 13px;">MEGA BOĞA 🐂</span>
+                            <div style="text-align:right;">
+                                <span id="regimeLabel_CRYPTO" style="color:#4ade80; font-size: 13px;">Yükleniyor...</span>
+                                <div id="regimeProfile_CRYPTO" style="font-size:9px; color:#64748b; margin-top:2px;"></div>
+                            </div>
                         </div>
-                        <div style="display:flex; justify-content:space-between; padding: 8px; background: rgba(234,179,8,0.1); border-radius: 6px; border: 1px solid rgba(234,179,8,0.2);">
+                        <!-- NASDAQ -->
+                        <div id="regimeBox_NASDAQ" style="display:flex; justify-content:space-between; align-items:center; padding: 8px 12px; background: rgba(234,179,8,0.1); border-radius: 6px; border: 1px solid rgba(234,179,8,0.2); transition: all 0.4s ease;">
                             <span style="color:#facc15; font-weight:bold; font-size: 13px;">🇺🇸 NASDAQ</span>
-                            <span style="color:#facc15; font-size: 13px;">YATAY / TESTERE ✂️</span>
+                            <div style="text-align:right;">
+                                <span id="regimeLabel_NASDAQ" style="color:#facc15; font-size: 13px;">Yükleniyor...</span>
+                                <div id="regimeProfile_NASDAQ" style="font-size:9px; color:#64748b; margin-top:2px;"></div>
+                            </div>
                         </div>
-                        <div style="display:flex; justify-content:space-between; padding: 8px; background: rgba(244,63,94,0.1); border-radius: 6px; border: 1px solid rgba(244,63,94,0.2);">
+                        <!-- BIST -->
+                        <div id="regimeBox_BIST" style="display:flex; justify-content:space-between; align-items:center; padding: 8px 12px; background: rgba(244,63,94,0.1); border-radius: 6px; border: 1px solid rgba(244,63,94,0.2); transition: all 0.4s ease;">
                             <span style="color:#fb7185; font-weight:bold; font-size: 13px;">🇹🇷 BIST 100</span>
-                            <span style="color:#fb7185; font-size: 13px;">AYI / DÜZELTME 🐻</span>
+                            <div style="text-align:right;">
+                                <span id="regimeLabel_BIST" style="color:#fb7185; font-size: 13px;">Yükleniyor...</span>
+                                <div id="regimeProfile_BIST" style="font-size:9px; color:#64748b; margin-top:2px;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1404,18 +1417,19 @@ The following code has been modified to include a line number before every line,
     <!-- KAZAN KAZAN RAMAK KALA (SCROLLING TICKER) -->
     <style>
         @keyframes customMarquee {
-            0% { transform: translateX(100%); }
-            100% { transform: translateX(-100%); }
+            from { transform: translateX(100vw); }
+            to { transform: translateX(-100%); }
         }
         .scrolling-ticker-wrapper {
             display: inline-block;
-            animation: customMarquee 15s linear infinite;
+            white-space: nowrap;
+            width: max-content;
+            animation: customMarquee 40s linear infinite;
             color: #4ade80;
             font-weight: 600;
             font-size: 16px;
             line-height: 1.45;
             letter-spacing: 0.5px;
-            width: 100%;
         }
         .scrolling-ticker-wrapper:hover {
             animation-play-state: paused;
@@ -1531,6 +1545,16 @@ The following code has been modified to include a line number before every line,
             <span style="font-size:14px;font-weight:700;color:#facc15;">🔥 [A2] Top 15 Alım Isı Haritası & Momentum (Canlı Fiyatlar)</span>
         </div>
         <div style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+            <!-- Bist -->
+            <div style="flex:1; min-width:280px; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
+                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#38bdf8; text-align:center;">🇹🇷 BIST 100/30</div>
+                <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
+                    <marquee id="tickerBist" scrollamount="4" style="font-size:10px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
+                </div>
+                <div id="top15BistBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
+                    <!-- Data here -->
+                </div>
+            </div>
             <!-- Kripto -->
             <div style="flex:1; min-width:280px; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
                 <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#4ade80; text-align:center;">🪙 Kripto Piyasası</div>
@@ -1548,16 +1572,6 @@ The following code has been modified to include a line number before every line,
                     <marquee id="tickerNasdaq" scrollamount="4" style="font-size:10px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
                 </div>
                 <div id="top15NasdaqBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
-                    <!-- Data here -->
-                </div>
-            </div>
-            <!-- Bist -->
-            <div style="flex:1; min-width:280px; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
-                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#38bdf8; text-align:center;">🇹🇷 BIST 100/30</div>
-                <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
-                    <marquee id="tickerBist" scrollamount="4" style="font-size:10px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
-                </div>
-                <div id="top15BistBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
                     <!-- Data here -->
                 </div>
             </div>
@@ -1615,16 +1629,16 @@ The following code has been modified to include a line number before every line,
             <span class="market-data-badge">Tek görünüm · gerçek zamanlı karar matrisi</span>
         </div>
         <div class="unified-market-groups">
+            <div class="market-group" id="windowBist">
+                <div class="market-group-header"><span>🇹🇷 BIST 100/30</span><span id="badgeBistStatus" class="window-status-badge status-closed">🛑 KAPALI</span><span id="bistStatsCount" class="market-data-badge">-- Hisse</span></div>
+                <div class="ticker-grid" id="gridBist"></div>
+            </div>
             <div class="market-group" id="windowCrypto">
                 <div class="market-group-header"><span>🪙 KRİPTO</span><span id="badgeCryptoStatus" class="window-status-badge status-open"><span class="live-dot"></span> 7/24 AÇIK</span><span id="cryptoStatsCount" class="market-data-badge">-- Varlık</span></div>
                 <div class="ticker-grid" id="gridCrypto"></div>
             </div>
-            <div class="market-group" id="windowBist">
-                <div class="market-group-header"><span>🇹🇷 BIST 100/30</span><span id="badgeBistStatus" class="window-status-badge status-closed">🔴 KAPALI</span><span id="bistStatsCount" class="market-data-badge">-- Hisse</span></div>
-                <div class="ticker-grid" id="gridBist"></div>
-            </div>
             <div class="market-group" id="windowNasdaq">
-                <div class="market-group-header"><span>🇺🇸 NASDAQ MEGA-CAP</span><span id="badgeNasdaqStatus" class="window-status-badge status-closed">🔴 KAPALI</span><span id="nasdaqStatsCount" class="market-data-badge">-- Hisse</span></div>
+                <div class="market-group-header"><span>🇺🇸 NASDAQ MEGA-CAP</span><span id="badgeNasdaqStatus" class="window-status-badge status-closed">🛑 KAPALI</span><span id="nasdaqStatsCount" class="market-data-badge">-- Hisse</span></div>
                 <div class="ticker-grid" id="gridNasdaq"></div>
             </div>
         </div>
@@ -2512,8 +2526,14 @@ The following code has been modified to include a line number before every line,
                         <td>$${formatDyn(p.entry_price)}</td>
                         <td>$${formatDyn(p.current_price)}</td>
                         <td>${parseFloat(p.quantity).toFixed(4)} ($${parseFloat(p.nominal_value).toFixed(2)})</td>
-                        <td style="color:var(--up-color);">$${formatDyn(p.target_profit_price)}</td>
-                        <td style="color:var(--down-color);">$${formatDyn(p.stop_loss_price)}</td>
+                        <td style="color:${p.break_even_activated ? '#4ade80' : 'var(--up-color)'}; vertical-align:middle;">
+                            ${p.break_even_activated ? '<span style="font-size:8px; background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3); border-radius:3px; padding:1px 4px; display:block; margin-bottom:2px;">&#x1F6E1; BE</span>' : ''}
+                            $${formatDyn(p.target_profit_price)}
+                        </td>
+                        <td style="color:${p.trailing_stop_activated ? '#f59e0b' : 'var(--down-color)'}; vertical-align:middle;">
+                            ${p.trailing_stop_activated ? '<span style="font-size:8px; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3); border-radius:3px; padding:1px 4px; display:block; margin-bottom:2px;">&#x1F504; TRL</span>' : '<span style="font-size:8px; color:#64748b; display:block; margin-bottom:2px;">SL</span>'}
+                            $${formatDyn(p.stop_loss_price)}
+                        </td>
                         <td class="${pnlClass}" style="font-weight:700;">
                             ${sign}$${pnl.toFixed(2)} (${sign}%${pnlPct.toFixed(2)})<br>
                             <span style="font-size:9px; color:#64748b; font-weight:normal;">(Kom. Düşüldü)</span>
@@ -3764,7 +3784,7 @@ The following code has been modified to include a line number before every line,
         setInterval(() => {
             fetchSummary();
             fetchPositions();
-        }, 15000);
+        }, 5000); // Trailing stop güncellemelerini hızlı yansıtmak için 5 saniyeye düşürüldü
 
         setInterval(() => {
             fetchAlgorithmicStats();
@@ -3773,6 +3793,57 @@ The following code has been modified to include a line number before every line,
         }, 30000);
 
         setInterval(fetchLiveMatrix, 30000);
+
+        // Piyasa Rejimi guncelleme (her 30s)
+        fetchMarketRegime();
+        setInterval(fetchMarketRegime, 30000);
+
+        async function fetchMarketRegime() {
+            try {
+                const res = await fetch('/api/market/regime');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.status !== 'success') return;
+
+                const regimes = data.regimes || {};
+                const profiles = data.trade_profiles || {};
+                const riskMode = data.current_risk_mode || 'NORMAL';
+
+                // Guncelleme zamani
+                const updEl = document.getElementById('regimeLastUpdate');
+                if (updEl) {
+                    const now = new Date();
+                    updEl.textContent = now.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'}) + ' güncellendi';
+                }
+
+                const marketMap = { 'CRYPTO': 'CRYPTO', 'NASDAQ': 'NASDAQ', 'BIST': 'BIST' };
+                for (const [market, key] of Object.entries(marketMap)) {
+                    const info = regimes[market];
+                    const profile = profiles[market];
+                    if (!info) continue;
+
+                    const box = document.getElementById(`regimeBox_${key}`);
+                    const lbl = document.getElementById(`regimeLabel_${key}`);
+                    const prf = document.getElementById(`regimeProfile_${key}`);
+
+                    if (box) {
+                        box.style.background = info.bg;
+                        box.style.border = `1px solid ${info.color}55`;
+                    }
+                    if (lbl) {
+                        lbl.style.color = info.color;
+                        lbl.textContent = `${info.label} ${info.emoji}`;
+                    }
+                    if (prf && profile) {
+                        const entryStr = profile.entry_allowed ? '✅ Giriş AÇIK' : '🚫 Giriş KAPALI';
+                        prf.textContent = `${entryStr} | TP:%${profile.tp_pct} SL:%${profile.sl_pct} | Max:${profile.max_global_pos} pos`;
+                        prf.style.color = profile.entry_allowed ? '#22c55e' : '#ef4444';
+                    }
+                }
+            } catch(e) {
+                console.warn('[REGIME] Guncelleme hatasi:', e);
+            }
+        }
 
         async function fetchAlgorithmicStats() {
             try {

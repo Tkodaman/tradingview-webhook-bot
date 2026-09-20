@@ -16,8 +16,14 @@ mem['learned_rules'] = []
 for r in rows:
     t = dict(zip(col_names, r))
     # Fake values for missing fields required by memory engine
-    is_win = float(t['net_pnl']) > 0
-    pnl_pct = (float(t['net_pnl']) / float(t['entry_price'])) * 100 if t['entry_price'] > 0 else 0
+    is_win = float(t.get('net_pnl', 0)) > 0
+    
+    entry_pr = float(t.get('entry_price', 0))
+    qty = float(t.get('quantity', 1.0))
+    if qty <= 0: qty = 1.0
+    nominal_value = entry_pr * qty
+    
+    pnl_pct = (float(t.get('net_pnl', 0)) / nominal_value) * 100 if nominal_value > 0 else 0
     win_str = "WIN" if is_win else "LOSS"
     # Add to memory
     mem['trade_history'].append({

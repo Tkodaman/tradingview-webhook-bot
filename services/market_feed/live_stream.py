@@ -119,8 +119,19 @@ class LiveTradeManager:
                     side = "BUY" if float(bp.get("qty", 0)) > 0 else "SELL"
                     
                     # Estimate limits since broker might not return bracket details easily via /positions
-                    tp_price = entry_price * 1.05 if side == "BUY" else entry_price * 0.95
-                    sl_price = entry_price * 0.98 if side == "BUY" else entry_price * 1.02
+                    # Genişletilmiş Makas (Spread) Koruması: Manuel alınan varlıkların anında kapanmaması için tolerans artırıldı.
+                    if market == "CRYPTO":
+                        tp_margin = 0.15  # %15 TP
+                        sl_margin = 0.10  # %10 SL
+                        be_margin = 0.05  # %5 Break-Even
+                    else:
+                        tp_margin = 0.10  # %10 TP
+                        sl_margin = 0.05  # %5 SL
+                        be_margin = 0.03  # %3 Break-Even
+                        
+                    tp_price = entry_price * (1 + tp_margin) if side == "BUY" else entry_price * (1 - tp_margin)
+                    sl_price = entry_price * (1 - sl_margin) if side == "BUY" else entry_price * (1 + sl_margin)
+                    be_price = entry_price * (1 + be_margin) if side == "BUY" else entry_price * (1 - be_margin)
                     
                     pos = ActivePosition(
                         id=f"sync_{int(time.time())}_{sym}",
@@ -133,7 +144,7 @@ class LiveTradeManager:
                         nominal_value=entry_price * qty,
                         target_profit_price=tp_price,
                         stop_loss_price=sl_price,
-                        break_even_trigger_price=entry_price * 1.02 if side == "BUY" else entry_price * 0.98,
+                        break_even_trigger_price=be_price,
                         opened_at=datetime.now(timezone.utc).isoformat(),
                         unrealized_pnl=float(bp.get("unrealized_pl", 0)),
                         unrealized_pnl_pct=float(bp.get("unrealized_plpc", 0)) * 100
@@ -484,9 +495,9 @@ class LiveTradeManager:
         logger.info(f"[SHADOW TRADE] {symbol} sanal olarak işleme alındı. Neden: {reason}")
         return pos
 
-    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None, atr_value: float = 0.0, use_chandelier_exit: bool = True, qty_override: Optional[float] = None, status: str = "OPEN", confidence_score: Optional[float] = None, entry_indicators: Optional[Dict[str, Any]] = None) -> Optional[ActivePosition]:
+    def open_position(self, symbol: str, capital: Optional[float] = None, side: str = "BUY", tp_pct: float = 3.0, sl_pct: float = 1.5, entry_price_override: Optional[float] = None, atr_value: float = 0.0, use_chandelier_exit: bool = True, qty_override: Optional[float] = None, status: str = "OPEN", confidence_score: Optional[float] = None, entry_indicators: Optional[Dict[str, Any]] = None, is_manual: bool = False) -> Optional[ActivePosition]:
         # MAKRO FORESIGHT KORUMASI: Serbest bakiyeyi güvende tut.
-        if self.is_macro_standby:
+        if self.is_macro_standby and not is_manual:
             logger.warning(f"MAKRO KORUMA AKTİF: İşlem reddedildi ({symbol}). {self.macro_standby_reason}")
             return None
 
@@ -507,6 +518,13 @@ class LiveTradeManager:
 
         if capital is None or capital <= 0 or capital > self.available_cash:
             capital = self.get_dynamic_position_capital(sym)
+
+        # OTONOM KORUMA (ML Stop-Hunt Evader)
+        try:
+            from services.risk_engine.stop_hunt_evader import stop_hunt_evader
+            capital, sl_pct = stop_hunt_evader.get_evasion_parameters(sym, capital, sl_pct)
+        except Exception as e:
+            logger.warning(f"[EVADER ERROR] {e}")
 
         open_count = len([p for p in self.positions.values() if p.status == "OPEN"])
         if open_count >= 15 or self.available_cash < 10.0 or capital > self.available_cash:
@@ -556,7 +574,8 @@ class LiveTradeManager:
             entry_indicators=entry_indicators or {}
         )
 
-        # Broker emri başarılı olmadan pozisyonu lokal olarak OPEN kabul etme.
+        # Broker emri: Alpaca basarisiz olsa bile PAPER modda lokal pozisyon her zaman acilir.
+        # LIVE modda Alpaca reddi = pozisyon acilmaz (gercek para riski).
         if market in ["NASDAQ", "CRYPTO"]:
             try:
                 from services.broker.factory import get_broker
@@ -564,16 +583,7 @@ class LiveTradeManager:
                 is_paper = settings.trading_mode.upper() != "LIVE"
                 broker = get_broker("ALPACA", paper=is_paper)
                 if broker and broker.api:
-                    if market == "CRYPTO":
-                        # Kriptoda makas (spread) kaybını önlemek için 0.5% (binde 5) kayma toleransıyla limit order at
-                        limit_prc = round(entry_price * 1.005, 4 if entry_price < 1.0 else 2) if side == "BUY" else round(entry_price * 0.995, 4 if entry_price < 1.0 else 2)
-                        res = broker.place_market_order(
-                            symbol=sym,
-                            side=side,
-                            qty=qty,
-                            limit_price=limit_prc
-                        )
-                    else:
+                    if market in ["NASDAQ", "CRYPTO"]:
                         res = broker.place_bracket_order(
                             symbol=sym,
                             side=side,
@@ -585,16 +595,26 @@ class LiveTradeManager:
                     
                     if res.get("status") == "success":
                         pos.broker_order_id = res.get("order_id")
-                        logger.info(f"[ALPACA BRACKET] {sym} emir başarıyla iletildi. OrderID: {res.get('order_id')}")
+                        logger.info(f"[ALPACA BRACKET] {sym} emir basariyla iletildi. OrderID: {res.get('order_id')}")
                     else:
-                        logger.error(f"[ALPACA REJECTED] {sym}: {res.get('message', '?')}")
-                        return None
+                        err_msg = res.get("message", "?")
+                        if not is_paper:
+                            # LIVE modda Alpaca reddederse pozisyon acma
+                            logger.error(f"[ALPACA REJECTED - LIVE] {sym}: {err_msg}. Pozisyon acilmadi.")
+                            return None
+                        else:
+                            # PAPER / simulasyon modda lokal olarak ac (manuel islemler icin)
+                            logger.warning(f"[ALPACA REJECTED - PAPER] {sym}: {err_msg}. Lokal (sanal) pozisyon aciliyor.")
                 else:
-                    logger.error(f"[ALPACA UNAVAILABLE] {sym}: broker API hazır değil.")
-                    return None
+                    logger.warning(f"[SIMULATION] {sym}: Alpaca API yok. Lokal (sanal) pozisyon aciliyor.")
             except Exception as e:
-                logger.error(f"[ALPACA HATA] {sym} broker iletimi başarısız: {e}")
-                return None
+                from core.config import settings
+                is_paper = settings.trading_mode.upper() != "LIVE"
+                if not is_paper:
+                    logger.error(f"[ALPACA HATA - LIVE] {sym} broker iletimi basarisiz: {e}. Pozisyon acilmadi.")
+                    return None
+                else:
+                    logger.warning(f"[ALPACA HATA - PAPER] {sym} broker baglantisi basarisiz: {e}. Lokal pozisyon aciliyor.")
 
         self.positions[pos_id] = pos
         self.save_state()
@@ -655,6 +675,19 @@ class LiveTradeManager:
         pos.unrealized_pnl = net_pnl
         pos.commission_fees = total_comm
         
+        # 🔔 SESLİ UYARI ALARMI (10 saniye) 🔔
+        if reason in ["CLOSED_TP", "CLOSED_SL", "CLOSED_TRAILING"]:
+            def _play_alarm():
+                try:
+                    import winsound, time
+                    for _ in range(10):
+                        winsound.Beep(1500 if "TP" in reason else 500, 500)
+                        time.sleep(0.5)
+                except Exception:
+                    pass
+            import threading
+            threading.Thread(target=_play_alarm, daemon=True).start()
+            
         # Kesinleşmiş Gerçekleşen Net PnL Güncellemesi
         self.realized_pnl = round(self.realized_pnl + net_pnl, 2)
         self.total_commissions_paid = round(self.total_commissions_paid + total_comm, 2)
@@ -696,10 +729,11 @@ class LiveTradeManager:
                 action=pos.side,
                 entry_price=pos.entry_price,
                 exit_price=curr_price,
-                pnl_pct=round((net_pnl / pos.nominal_value) * 100.0, 2),
+                pnl_pct=round((net_pnl / pos.nominal_value) * 100.0, 2) if pos.nominal_value > 0 else 0.0,
                 market_regime=market_regime,
                 indicators={**(pos.entry_indicators or {}), "market": pos.market, "reason": reason},
-                ai_confidence=pos.confidence_score
+                ai_confidence=pos.confidence_score,
+                pnl_amount=net_pnl
             )
         except Exception as me:
             from core.logger import logger
@@ -867,27 +901,25 @@ class LiveTradeManager:
                 # Eğer pozisyon %1.5'tan fazla kârdaysa ve momentum zayıflıyorsa (RSI aşırı şişmiş vs. veya hacim düştüyse)
                 # Otonom Tarayıcı RSI verisine doğrudan erişemediğimizden fiyatın tepeden %1 düşüşüne de bakabiliriz.
                 
-                # İZLEYEN STOP (Dinamik Step-Up Trailing Stop)
-                # Kâr arttıkça trailing mesafesi daralır.
-                is_sniper = settings.current_risk_mode.upper() == "SNIPER"
-                
-                # Orijinal SL yüzdesini hesapla (eğer çok dar bir SL girilmişse, trailing de o kadar dar olmalı)
-                orig_sl_pct = (pos.entry_price - pos.stop_loss_price) / pos.entry_price if pos.stop_loss_price < pos.entry_price else 0.03
-                base_dist = 1.0 - min(orig_sl_pct, 0.02 if is_sniper else 0.03)
+                # İZLEYEN STOP (Rejim Matrisi - Dinamik Step-Up Trailing Stop)
+                # Risk Modu x Piyasa Rejimi kombinasyonundan makas mesafesi alınır.
+                try:
+                    from services.engine.market_regime_engine import regime_engine as _re_engine
+                    trailing_dist_raw = _re_engine.get_trailing_dist(
+                        risk_mode=settings.current_risk_mode,
+                        market=pos.market,
+                        pct_gain=pct
+                    )
+                except Exception:
+                    trailing_dist_raw = None
 
-                # Dinamik mesafe hesaplama (Win-Win stratejisi)
-                if pct > 4.0:
-                    trailing_dist = 0.995 # %0.5 makas!
-                elif pct > 2.0:
-                    trailing_dist = 0.992 # %0.8 makas!
-                elif pct > 1.0:
-                    trailing_dist = 0.988 # %1.2 makas!
-                elif pct > 0.5:
-                    trailing_dist = 0.985 # %1.5 makas
-                else:
-                    trailing_dist = base_dist
-                
-                # İşleme girildiği andan itibaren her yükselişte anında iz sürer
+                if trailing_dist_raw is None:
+                    # Rejim matrisine göre trailing henüz aktif olmamalı
+                    continue
+
+                trailing_dist = 1.0 - trailing_dist_raw  # dist=0.05 -> 1.0-0.05=0.95
+
+                # İşleme girildiğinden itibaren her yükselişte anında iz sürer
                 pos.trailing_stop_activated = True
                 new_sl = round(pos.highest_price_seen * trailing_dist, 5)
                 if new_sl > pos.stop_loss_price:

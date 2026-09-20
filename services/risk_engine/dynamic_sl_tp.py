@@ -73,7 +73,14 @@ class DynamicRiskManager:
 
         entry_price  = matched_pos.entry_price
         current_sl   = matched_pos.stop_loss_price
-        trail_pct    = self.trailing_distance_pct / 100.0
+        
+        # Otonom Makas (Dinamik Evrim - Stop-Hunt Kaçınma)
+        try:
+            from services.risk_engine.stop_hunt_evader import stop_hunt_evader
+            profile = stop_hunt_evader.analyze_asset(symbol)
+            trail_pct = (self.trailing_distance_pct * profile["sl_multiplier"]) / 100.0
+        except Exception:
+            trail_pct = self.trailing_distance_pct / 100.0
 
         if matched_pos.side == "BUY":
             # === Chandelier Exit (ATR bazlı) ===

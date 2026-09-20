@@ -43,11 +43,25 @@ class RiskEvaluator:
         else:
             risk_level = "LOW"
 
-        # Güven Skoru (-100 Çok Güvensiz / Karşıt, +100 Yüksek Güven)
+        # ─── GÜVEN SKORU: Eşik Tabanlı Risk Cezası ─────────────────────────────
+        # Eski: confidence = alignment*0.6 + sentiment*0.4 - risk_score*0.3
+        #   Risk skoru 50 iken → otomatik -15 → ortalama sinyaller sistematik bastırılıyordu
+        #
+        # Yeni mantık:
+        #   - Risk cezası yalnızca yüksek risk bölgesinde (>40) devreye girer
+        #   - Normal/düşük risk (<40) güven skorunu etkilemez
+        #   - Ağırlıklar: teknik yön %65, sentiment %35
+        
         tech_dir = market_analysis.get("technical_direction_score", 0.0)
         action_factor = 1.0 if signal.action == "BUY" else -1.0
-        signal_alignment = (tech_dir * action_factor) # + if aligned with trade
-        confidence_score = round(max(-100.0, min(100.0, signal_alignment * 0.6 + avg_sentiment * 0.4 - (raw_risk_score * 0.3))), 2)
+        signal_alignment = tech_dir * action_factor  # + ise işlem yönüyle uyumlu
+        
+        risk_penalty = max(0.0, (raw_risk_score - 40.0) * 0.25)  # 0-15 arası maks
+        confidence_score = round(
+            max(-100.0, min(100.0,
+                signal_alignment * 0.65 + avg_sentiment * 0.35 - risk_penalty
+            )), 2
+        )
 
         # Yeni Eklenen (Komut 10 ve Komut 11) İndikatörlerin Güven Skoruna Etkisi
         if signal.indicators:

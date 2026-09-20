@@ -176,3 +176,43 @@ async def set_ai_model(req: AiModelRequest):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+@router.get("/market/regime")
+async def get_market_regime():
+    """
+    Canli Piyasa Rejimi (MEGA_BULL / BULL / SIDEWAYS / BEAR / CRASH)
+    Risk Modu x Rejim kombinasyonuyla olusan ticaret profili ve trailing parametrelerini dondurur.
+    Dashboard icin her 30s'de cagirilir.
+    """
+    try:
+        from services.engine.market_regime_engine import regime_engine
+        from services.market_feed.live_stream import live_trade_manager
+        from core.config import settings
+        import time
+
+        # 60 saniyeden eskiyse yeniden hesapla
+        if time.time() - regime_engine._last_update > 60:
+            regime_engine.compute_regime(live_trade_manager.market_prices)
+
+        display = regime_engine.get_regime_display()
+        current_mode = settings.current_risk_mode
+
+        # Her piyasa icin aktif ticaret profilini de ekle
+        profiles = {}
+        for market in ["CRYPTO", "NASDAQ", "BIST"]:
+            try:
+                profiles[market] = regime_engine.get_trade_profile(current_mode, market)
+            except Exception:
+                pass
+
+        return {
+            "status": "success",
+            "current_risk_mode": current_mode,
+            "regimes": display,
+            "trade_profiles": profiles,
+            "last_updated": regime_engine._last_update
+        }
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "trace": traceback.format_exc()}
