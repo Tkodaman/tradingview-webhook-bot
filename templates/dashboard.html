@@ -2736,7 +2736,7 @@ The following code has been modified to include a line number before every line,
         function estimateTimeToTarget(item) {
             let estimatedTime = "2-4 Gün"; // Varsayılan Swing
             const vRatio = item.volume_ratio || 1.0;
-            const rsi = item.rsi || 50.0;
+            const rsi = (item.rsi !== null && item.rsi !== undefined) ? Number(item.rsi) : null;
             
             if (item.market === "CRYPTO") {
                 if (vRatio >= 1.5 || item.cmf > 0.1) estimatedTime = "Gün İçi (1-12 Saat)";
@@ -2766,7 +2766,7 @@ The following code has been modified to include a line number before every line,
                 PEAK_RISK: 'Zirve riski'
             };
             const phase = phaseLabels[item?.momentum_phase];
-            const rsi = Number(item?.rsi);
+            const rsi = (item?.rsi !== null && item?.rsi !== undefined) ? Number(item.rsi) : null;
             const volume = Number(item?.volume_ratio);
 
             if (reason && reason !== 'İzleniyor...') parts.push(reason);
@@ -2780,7 +2780,7 @@ The following code has been modified to include a line number before every line,
             if (!item) return false;
             const confidence = Number(item.confidence_score || 0);
             const volume = Number(item.volume_ratio || 0);
-            const rsi = Number(item.rsi || 0);
+            const rsi = (item.rsi !== null && item.rsi !== undefined) ? Number(item.rsi) : null;
             const adx = Number(item.adx || 0);
             const trendConfirmed = adx >= 20 || ['EARLY_EXPLOSION', 'FRESH_BREAKOUT', 'WHALE_WAVE'].includes(item.momentum_phase);
             return item.decision === 'BUY'
@@ -2821,7 +2821,7 @@ The following code has been modified to include a line number before every line,
                 function buildSegment(item, label) {
                     if (!item) return "";
                     const confScore = item.confidence_score ? parseFloat(item.confidence_score).toFixed(1) : (item.score || 0);
-                    const rsi = parseFloat(item.rsi || 0);
+                    const rsi = (item.rsi !== null && item.rsi !== undefined) ? Number(item.rsi) : null;
                     const vol = parseFloat(item.volume_ratio || 1.0);
                     const missileReady = isMissileOpportunity(item);
                     const changeLabel = formatTickerChange(item);
@@ -2896,7 +2896,7 @@ The following code has been modified to include a line number before every line,
                 const chgColor = flashColor ? flashColor : (isUp ? '#4ade80' : '#f43f5e');
                 const closedStyle = isOpen ? "" : "opacity: 0.4; filter: grayscale(80%);";
                 const formattedPrice = formatDyn(item.price);
-                const rsiStr = item.rsi ? parseFloat(item.rsi).toFixed(1) : '-';
+                const rsiStr = (item.rsi !== null && item.rsi !== undefined) ? parseFloat(item.rsi).toFixed(1) : '-';
                 const volStr = (item.volume_ratio !== undefined && item.volume_ratio !== null) ? parseFloat(item.volume_ratio).toFixed(2) : '-';
                 
                 // If it doesn't have an arrow yet, default based on change_pct
@@ -3485,8 +3485,8 @@ The following code has been modified to include a line number before every line,
             }
             const side = document.getElementById('qoSide').value;
             const capital = parseFloat(document.getElementById('qoCapital').value);
-            const tp_pct = parseFloat(document.getElementById('qoTpPct').value);
-            const sl_pct = parseFloat(document.getElementById('qoSlPct').value);
+            const tp_pct = parseFloat(document.getElementById('qoTpPct').value) || 0;
+            const sl_pct = parseFloat(document.getElementById('qoSlPct').value) || 0;
 
             try {
                 const res = await fetch('/api/positions/open', {

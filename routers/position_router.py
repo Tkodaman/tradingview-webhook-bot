@@ -66,9 +66,19 @@ async def get_active_positions():
                 
                 active_list = []
                 for p in raw_positions:
-                    sym = p.get("symbol")
-                    local_pos = next((lp for lp in live_trade_manager.positions.values() if lp.symbol == sym and lp.status == "OPEN"), None)
-                    opened_at_val = local_pos.opened_at if local_pos else "Senkronize"
+                    sym = p.get("symbol") or ""
+                    # Sembol uyumluluğu kontrolü (PAXGUSD → PAXGUSDT gibi)
+                    tv_sym = sym
+                    if tv_sym.endswith("USD") and tv_sym != "USD":
+                        tv_sym = tv_sym.replace("USD", "USDT")
+                        
+                    local_pos = next((lp for lp in live_trade_manager.positions.values() if lp.symbol in [sym, tv_sym] and lp.status == "OPEN"), None)
+                    
+                    if local_pos and local_pos.opened_at:
+                        opened_at_val = local_pos.opened_at
+                    else:
+                        from datetime import datetime, timezone
+                        opened_at_val = datetime.now(timezone.utc).isoformat()
 
                     entry_price = float(p.get("avg_entry_price") or 0.0)
                     side = "BUY" if p.get("side") == "long" else "SELL"
@@ -221,7 +231,18 @@ async def open_live_position(req: OpenPositionRequest):
             curr_price = await asyncio.to_thread(alpaca_client.get_current_price, req_sym)
             
         if curr_price == 0:
-            return {"status": "error", "message": f"{req.symbol} için canlı fiyat alınamadı."}
+            # Fallback to Binance API for Crypto
+            try:
+                import requests
+                binance_sym = req_sym if req_sym.endswith("USDT") else f"{req_sym}USDT"
+                res = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={binance_sym}", timeout=3)
+                if res.status_code == 200:
+                    curr_price = float(res.json()["price"])
+            except Exception:
+                pass
+                
+        if curr_price == 0:
+            return {"status": "error", "message": f"{req.symbol} için canlı fiyat alınamadı (Sembolü USDT ile biten şekilde yazın, örn: NEARUSDT)."}
 
         import functools
         open_func = functools.partial(

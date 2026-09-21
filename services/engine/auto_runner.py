@@ -39,6 +39,8 @@ class TradingViewAutoStrategyRunner:
         self.last_evaluated_signals: Dict[str, float] = {}  # sym -> Unix timestamp of last trade
         self._loop_task: Any = None
         self.SYMBOL_COOLDOWN_SECONDS: float = 300.0  # Aynı sembolde 5 dk bekleme
+        self._closed_trades_since_last_advisor: int = 0  # Profit Advisor otomatik tetikleyici sayaci
+        self._profit_advisor_interval: int = 10  # Her 10 islemde bir Profit Advisor calistir
 
     async def start_continuous_background_loop(self):
         """
@@ -171,16 +173,30 @@ class TradingViewAutoStrategyRunner:
             # DERS ÇIKARIMLI KATI FİLTRELER (ÖĞRENİLEN TELER & TUZAK ENGELLERİ)
             # ==========================================
 
-            # DERS KURALI 1: FOMO Tepe Sıçraması Engeli (Y3 DÜZELTİLDİ: settings'den oku)
+            # === GELISmIs FOMO ENGELI: RSI + Degisim + Hacimsiz Yukselis kombinasyonu ===
             fomo_chg = RISK_PARAMS.get("fomo_candle_change_pct", 3.0)
             fomo_rsi  = RISK_PARAMS.get("fomo_rsi_limit", 75.0)
-            if chg_pct >= fomo_chg and rsi > fomo_rsi:
-                logger.info(f"[SELF-LEARNING BLOCK] {sym} %{fomo_chg}+ sıçradı (RSI: {rsi:.1f}). FOMO tepe tuzagını önlemek için pullback bekleniyor.")
+            fomo_score = 0
+            if rsi is not None and rsi > fomo_rsi: fomo_score += 2
+            elif rsi is not None and rsi > 70: fomo_score += 1
+            if chg_pct >= fomo_chg: fomo_score += 2
+            elif chg_pct >= 2.0: fomo_score += 1
+            if vol_ratio is not None and vol_ratio < 1.3 and chg_pct > 1.5: fomo_score += 1  # Hacimsiz yukselis
+            if fomo_score >= 4:
+                logger.info(f"[GELISMIS FOMO BLOCK] {sym} FOMO skoru={fomo_score}/6 (RSI:{rsi}, CHG:{chg_pct:.1f}%, VOL:{vol_ratio:.2f}). Pullback bekleniyor.")
                 continue
 
             # DERS KURALI 2: Düşük Volatiliteli RSI Tepe Tuzağı (RSI > 68 & ATR < 1.0)
-            if rsi > 68.0 and atr_pct < 1.0:
+            if rsi is not None and atr_pct is not None and rsi > 68.0 and atr_pct < 1.0:
                 logger.info(f"[SELF-LEARNING BLOCK] {sym} Düşük volatilitede RSI aşırı alım tuzağında (RSI: {rsi:.1f}, ATR: %{atr_pct}). Reddedildi.")
+                continue
+
+            # === RSI / ADX None Korumasi: Gercek veri yoksa kararı atlat ===
+            if rsi is None:
+                logger.debug(f"[DATA GUARD] {sym} RSI verisi yok (buffer dolmadi). Atlanıyor.")
+                continue
+            if adx is None:
+                logger.debug(f"[DATA GUARD] {sym} ADX verisi yok (buffer dolmadi). Atlanıyor.")
                 continue
 
             # Dinamik Piyasa Rejimi (Market Regime) Hesaplama
@@ -500,8 +516,7 @@ class TradingViewAutoStrategyRunner:
             )
 
             # ──────────────────────────────────────────────────────────────────
-            # REJIM MATRISI: Giris esigi, hacim filtresi, pozisyon limiti
-            # Tum degerleri DECISION_MATRIX'ten al (Risk Modu x Canli Rejim)
+            # REJIM MATRISI & YENİ KATMANLARIN (2, 4, 5) ENTEGRASYONU
             # ──────────────────────────────────────────────────────────────────
             current_mode = settings.current_risk_mode.upper()
             _mtype_local = market_hours_validator.get_market_type(sym)
@@ -516,6 +531,33 @@ class TradingViewAutoStrategyRunner:
             min_vol           = _rp["min_vol"]
             global_max_pos    = _rp["max_global_pos"]
             max_pos_for_market_regime = _rp["max_market_pos"]
+
+            # YENİ KATMANLAR: Sadece potansiyeli olan sinyaller için OHLCV çek ve ağır analiz yap
+            if score >= (required_score - 2):
+                from services.broker.market_data_fetcher import data_fetcher
+                from services.engine.pattern_recognition_engine import pattern_engine
+                from services.indicators_engine.quantitative_indicator_matrix import quantitative_matrix
+                from services.engine.support_resistance_mapper import sr_mapper
+                
+                df = data_fetcher.get_ohlcv(sym, _mtype_local, "15m", 100)
+                if df is not None and not df.empty:
+                    # Katman 2: Pattern Recognition
+                    p_res = pattern_engine.analyze_patterns(df, sym)
+                    score += p_res["pattern_score"]
+                    
+                    # Katman 4: Quantitative Matrix
+                    q_res = quantitative_matrix.evaluate_matrix(df, sym)
+                    score += q_res["quant_score"]
+                    
+                    # Katman 5: S/R Mapping
+                    sr_res = sr_mapper.map_levels(df, sym)
+                    score += sr_res["sr_score"]
+                    
+                    if sr_res.get("trap_risk"):
+                        logger.warning(f"[TRAP GUARD] {sym} Bull Trap riski tespit edildi. Sinyal red.")
+                        continue
+                        
+                    logger.debug(f"[DEEP ANALYSIS] {sym} Yeni Skor: {score:.1f} (P:{p_res['pattern_score']}, Q:{q_res['quant_score']:.1f}, SR:{sr_res['sr_score']})")
 
             is_buy_signal = score >= required_score
 
@@ -711,6 +753,23 @@ class TradingViewAutoStrategyRunner:
                 })
                 # === FIX-2: Timestamp kaydet (string değil) — Cooldown için ===
                 self.last_evaluated_signals[sym] = time.time()
+                # === PROFIT ADVISOR OTOMATIK TETIKLEYiCi ===
+                self._closed_trades_since_last_advisor += 1
+                if self._closed_trades_since_last_advisor >= self._profit_advisor_interval:
+                    self._closed_trades_since_last_advisor = 0
+                    try:
+                        from services.agents.profit_advisor_agent import profit_advisor_agent
+                        report = profit_advisor_agent.generate_full_report()
+                        sizing = report.get("position_sizing", {})
+                        rotation = report.get("strategy_rotation", {})
+                        logger.info(
+                            f"[PROFIT ADVISOR AUTO] {self._profit_advisor_interval} islem sonrasi analiz:\n"
+                            f"  Pozisyon Boyutu: {sizing.get('action','?')} ({sizing.get('recommendation','?')})\n"
+                            f"  Strateji: {rotation.get('recommended_strategy','?')} "
+                            f"(Win={rotation.get('win_rate_by_strategy',{}).get(rotation.get('recommended_strategy',''),0):.0%})"
+                        )
+                    except Exception as pa_err:
+                        logger.warning(f"[PROFIT ADVISOR AUTO ERROR] {pa_err}")
 
         return executed_triggers
 

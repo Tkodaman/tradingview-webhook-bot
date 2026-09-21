@@ -1,1 +1,1 @@
-{"consecutive_losses": 0, "daily_losses": 0, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {}, "symbol_blocks": {}, "last_reset_date": "2026-09-20"}
+{"consecutive_losses": 2, "daily_losses": 2, "pause_until": 1789939774.9863145, "pause_reason": "2 ARKA ARKAYA ZARAR — 30 DK HIZLI DURAKLAMA", "symbol_losses": {"SUIUSDT": 2}, "symbol_blocks": {"SUIUSDT": 1789941574.9863145}, "last_reset_date": "2026-09-20"}

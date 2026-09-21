@@ -93,15 +93,16 @@ class TradingViewLiveClient:
                             high = round(float(vals[3] or price), 2)
                             low = round(float(vals[4] or price), 2)
                             vol = float(vals[5] or 0)
-                            rsi = round(float(vals[6] or 50.0), 2)
+                            rsi_v = vals[6]; rsi = round(float(rsi_v), 2) if rsi_v is not None else None
                             macd = round(float(vals[7] or 0.0), 2)
                             ema20 = float(vals[9] or price)
                             ema50 = float(vals[10] or price)
                             ema200 = float(vals[11] or price)
-                            atr = float(vals[12] or 1.0)
+                            atr = float(vals[12] or 0.0)
                             vwap = float(vals[13] or price)
-                            stoch_k = round(float(vals[14] or 50.0), 2)
-                            adx = round(float(vals[15] or 25.0), 2)
+                            stoch_v = vals[14]; stoch_k = round(float(stoch_v), 2) if stoch_v is not None else None
+                            adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
+                            
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
                             vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else None
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
@@ -219,15 +220,15 @@ class TradingViewLiveClient:
                             high = round(float(vals[3] or price), 2)
                             low = round(float(vals[4] or price), 2)
                             vol = float(vals[5] or 0)
-                            rsi = round(float(vals[6] or 50.0), 2)
+                            rsi_v = vals[6]; rsi = round(float(rsi_v), 2) if rsi_v is not None else None
                             macd = round(float(vals[7] or 0.0), 2)
                             ema20 = float(vals[9] or price)
                             ema50 = float(vals[10] or price)
                             ema200 = float(vals[11] or price)
-                            atr = float(vals[12] or 1.0)
+                            atr = float(vals[12] or 0.0)
                             vwap = float(vals[13] or price)
-                            stoch_k = round(float(vals[14] or 50.0), 2)
-                            adx = round(float(vals[15] or 25.0), 2)
+                            stoch_v = vals[14]; stoch_k = round(float(stoch_v), 2) if stoch_v is not None else None
+                            adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
                             vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else None
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
@@ -311,15 +312,16 @@ class TradingViewLiveClient:
                             high = round(float(vals[3] or price), 4 if price < 1.0 else 2)
                             low = round(float(vals[4] or price), 4 if price < 1.0 else 2)
                             vol = float(vals[5] or 0)
-                            rsi = round(float(vals[6] or 50.0), 2)
+                            rsi_v = vals[6]; rsi = round(float(rsi_v), 2) if rsi_v is not None else None
                             macd = round(float(vals[7] or 0.0), 2)
                             ema20 = float(vals[9] or price)
                             ema50 = float(vals[10] or price)
                             ema200 = float(vals[11] or price)
-                            atr = float(vals[12] or 1.0)
+                            atr = float(vals[12] or 0.0)
                             vwap = float(vals[13] or price)
-                            stoch_k = round(float(vals[14] or 50.0), 2)
-                            adx = round(float(vals[15] or 25.0), 2)
+                            stoch_v = vals[14]; stoch_k = round(float(stoch_v), 2) if stoch_v is not None else None
+                            adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
+                            adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
                             vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else None
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)

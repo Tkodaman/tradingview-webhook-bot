@@ -633,8 +633,7 @@ class LiveTradeManager:
         else:
             gross_pnl = round(pos.quantity * (pos.entry_price - curr_price), 2)
 
-        # 🚨 ALPACA BROKER-SIDE LIQUIDATION 🚨
-        # Eğer yerel olarak pozisyon kapatılıyorsa (TP/SL, Trailing Stop, Manual), Alpaca'da da kapat!
+        # 🚨 BROKER-SIDE LIQUIDATION 🚨
         if pos.market in ["NASDAQ", "CRYPTO"]:
             try:
                 from services.broker.factory import get_broker
