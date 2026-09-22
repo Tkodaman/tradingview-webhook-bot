@@ -206,8 +206,22 @@ class AlpacaTradeStream:
                             "message": f"{pos.symbol} emri baglanti kopukken veya manuel (Fallback) kapandi."
                         })
 
-                    # 2. Alpaca'da açık olup Local'de olmayanları ekle
+                    # 2. Alpaca'da açık olup Local'de olmayanları ekle ve Frontend'e yansıt (Anlık Senkronizasyon)
+                    old_pos_ids = set(live_trade_manager.positions.keys())
                     live_trade_manager.sync_with_broker()
+                    new_pos_ids = set(live_trade_manager.positions.keys())
+                    
+                    added_ids = new_pos_ids - old_pos_ids
+                    for pid in added_ids:
+                        pos = live_trade_manager.positions[pid]
+                        logger.info(f"🔄 [SYNC] Alpaca'da bulunan manuel {pos.symbol} pozisyonu sisteme dahil edildi.")
+                        await manager.broadcast({
+                            "type": "TRADE_UPDATE",
+                            "symbol": pos.symbol,
+                            "action": "OPENED",
+                            "price": pos.entry_price,
+                            "message": f"Alpaca'da algılanan {pos.symbol} işlemi eşlendi."
+                        })
                     
             except Exception as e:
                 logger.error(f"[FALLBACK POLLING ERROR] {e}")

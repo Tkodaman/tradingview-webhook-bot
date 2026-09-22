@@ -174,15 +174,15 @@ class TradingViewAutoStrategyRunner:
             # ==========================================
 
             # === GELISmIs FOMO ENGELI: RSI + Degisim + Hacimsiz Yukselis kombinasyonu ===
-            fomo_chg = RISK_PARAMS.get("fomo_candle_change_pct", 3.0)
-            fomo_rsi  = RISK_PARAMS.get("fomo_rsi_limit", 75.0)
+            fomo_chg = RISK_PARAMS.get("fomo_candle_change_pct", 5.0)
+            fomo_rsi  = RISK_PARAMS.get("fomo_rsi_limit", 85.0)
             fomo_score = 0
             if rsi is not None and rsi > fomo_rsi: fomo_score += 2
-            elif rsi is not None and rsi > 70: fomo_score += 1
+            elif rsi is not None and rsi > 80: fomo_score += 1
             if chg_pct >= fomo_chg: fomo_score += 2
-            elif chg_pct >= 2.0: fomo_score += 1
-            if vol_ratio is not None and vol_ratio < 1.3 and chg_pct > 1.5: fomo_score += 1  # Hacimsiz yukselis
-            if fomo_score >= 4:
+            elif chg_pct >= 3.0: fomo_score += 1
+            if vol_ratio is not None and vol_ratio < 1.3 and chg_pct > 2.0: fomo_score += 1  # Hacimsiz yukselis
+            if fomo_score >= 6:
                 logger.info(f"[GELISMIS FOMO BLOCK] {sym} FOMO skoru={fomo_score}/6 (RSI:{rsi}, CHG:{chg_pct:.1f}%, VOL:{vol_ratio:.2f}). Pullback bekleniyor.")
                 continue
 

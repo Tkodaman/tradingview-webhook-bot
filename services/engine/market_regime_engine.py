@@ -13,6 +13,7 @@ Risk Modu x Piyasa Rejimi -> 2D Karar Matrisi:
 """
 
 from core.logger import logger
+from services.engine.risk_engine import RiskEngine
 
 # ─────────────────────────────────────────────
 # REJIM SABITLERI
@@ -172,22 +173,23 @@ class MarketRegimeEngine:
         avg_cmf = sum(d.get("cmf", 0.0) for d in items) / len(items)
         avg_chg = sum(d.get("change_pct", 0.0) for d in items) / len(items)
 
-        # CRASH — Panik satisi
+        # Eger RSI vb. disaridan gelmemisse (50.0 varsayilan ise), sadece change_pct uzerinden dinamik rejim hesapla
+        if avg_rsi == 50.0 and avg_cmf == 0.0:
+            if avg_chg > 2.0: return REGIME_MEGA_BULL
+            if avg_chg > 0.3: return REGIME_BULL
+            if avg_chg < -2.0: return REGIME_CRASH
+            if avg_chg < -0.3: return REGIME_BEAR
+            return REGIME_SIDEWAYS
+
+        # Normal Otonom Kurallar
         if avg_rsi < 33 and avg_vol > 1.5 and avg_cmf < -0.10:
             return REGIME_CRASH
-
-        # MEGA_BULL — Guclu yukari ivme
         if avg_rsi > 60 and avg_vol > 1.15 and avg_cmf > 0.05 and avg_chg > 0.8:
             return REGIME_MEGA_BULL
-
-        # BULL — Genel yukselis
         if avg_rsi > 52 and avg_cmf >= 0 and avg_chg > 0:
             return REGIME_BULL
-
-        # BEAR — Genel dusus
         if avg_rsi < 48 and avg_cmf < -0.05 and avg_chg < 0:
             return REGIME_BEAR
-
         if avg_rsi < 38 and avg_cmf < -0.08:
             return REGIME_BEAR
 
@@ -222,6 +224,30 @@ class MarketRegimeEngine:
             f"TP={profile['tp_pct']}% SL={profile['sl_pct']}% "
             f"MinScore={profile['min_score']} Entry={profile['entry_allowed']}"
         )
+        return profile
+
+    # ─────────────────────────────────────────────
+    # DINAMIK RISK VE KELLY CRITERION ENTEGRASYONU
+    # ─────────────────────────────────────────────
+    def get_dynamic_risk_profile(self, risk_mode: str, market: str, current_price: float, atr: float, win_rate: float, win_loss_ratio: float) -> dict:
+        """
+        SOTA yapay zeka yükseltmesi. Mevcut statik profilin üzerine,
+        ATR tabanlı Trailing Stop mesafesi ve Kelly Criterion bazlı
+        dinamik pozisyon büyüklüğünü (Sizing) hesaplar.
+        """
+        profile = self.get_trade_profile(risk_mode, market)
+        
+        # Calculate dynamic position sizing via RiskEngine (Phase 3 SOTA upgrade)
+        kelly_sizing = RiskEngine.calculate_kelly_fraction(win_rate, win_loss_ratio, fraction_multiplier=0.5)
+        
+        # Calculate ATR-based trailing distance
+        # Standard deviation multiplier is usually 2.0 or 3.0. We use 2.0 for tighter SOTA stops.
+        atr_stop_price = RiskEngine.calculate_atr_trailing_stop(current_price, atr, direction="LONG", multiplier=2.0)
+        
+        profile["dynamic_sizing_pct"] = round(kelly_sizing * 100, 2)
+        profile["atr_trailing_stop_price"] = round(atr_stop_price, 2)
+        
+        logger.info(f"[SOTA RISK] {market} -> Kelly Sizing: %{profile['dynamic_sizing_pct']}, ATR Stop Price: {profile['atr_trailing_stop_price']}")
         return profile
 
     # ─────────────────────────────────────────────

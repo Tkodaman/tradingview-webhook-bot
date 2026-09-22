@@ -648,9 +648,21 @@ class LiveTradeManager:
                         logger.info(f"[ALPACA SYNC] {pos.symbol} pozisyonu başarıyla kapatıldı (Neden: {reason}).")
                     else:
                         logger.warning(f"[ALPACA SYNC WARN] {pos.symbol} kapatılamadı (Zaten kapanmış olabilir): {close_res.get('message')}")
+                    
+                    # Eğer pozisyon Alpaca'ya yansımamışsa (PENDING LIMIT durumundaysa), o askıda kalan emri bulup iptal et:
+                    try:
+                        open_orders = broker.api.list_orders(status='open')
+                        formatted_sym = broker._format_symbol(pos.symbol)
+                        for o in open_orders:
+                            if broker._format_symbol(o.symbol) == formatted_sym:
+                                broker.api.cancel_order(o.id)
+                                logger.info(f"🗑️ [ALPACA CLEANUP] {pos.symbol} için askıda kalan açık emir ({o.id}) iptal edildi.")
+                    except Exception as cancel_err:
+                        logger.warning(f"[ALPACA CLEANUP WARN] {pos.symbol} açık emirleri iptal edilemedi: {cancel_err}")
+                        
             except Exception as e:
                 from core.logger import logger
-                logger.warning(f"[ALPACA SYNC HATA] {pos.symbol} Alpaca kapatma hatası: {e}")
+                logger.warning(f"[ALPACA SYNC HATA] {pos.symbol} Alpaca kapatma/iptal hatası: {e}")
 
         # Alpaca Doğrusal Komisyon
         # KURAL: CLOSED_OFFLINE_SYNC, SHADOW veya SIMULATION kaynakli kapanislarda

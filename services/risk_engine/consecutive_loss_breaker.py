@@ -110,21 +110,21 @@ class ConsecutiveLossBreaker:
 
             logger.warning(f"[LOSS BREAKER] {symbol} zarar kapandi. Arka arkaya zarar: {self.consecutive_losses}, Gunluk toplam: {self.daily_losses}")
 
-            if self.daily_losses >= 5:
+            if self.daily_losses >= 20:
                 duration_seconds = 2 * 3600  # 2 saat
                 self.pause_until = now + duration_seconds
-                self.pause_reason = f"GUNLUK ZARAR BUTCESI DOLDU (5 ZARAR) — 2 SAAT DURAKLAMA"
+                self.pause_reason = f"GUNLUK ZARAR BUTCESI DOLDU (20 ZARAR) — 2 SAAT DURAKLAMA"
                 try:
                     settings.set_risk_mode("SNIPER")
-                    logger.warning(f"[LOSS BREAKER] Gunluk maksimum zarar butcesine (5) ulasildi! SNIPER moduna gecildi ve 2 saat duraklatildi.")
+                    logger.warning(f"[LOSS BREAKER] Gunluk maksimum zarar butcesine (20) ulasildi! SNIPER moduna gecildi ve 2 saat duraklatildi.")
                 except Exception:
-                    logger.warning(f"[LOSS BREAKER] Gunluk maksimum zarar butcesine (5) ulasildi! 2 saat duraklatildi.")
+                    logger.warning(f"[LOSS BREAKER] Gunluk maksimum zarar butcesine (20) ulasildi! 2 saat duraklatildi.")
 
-            elif self.consecutive_losses >= 2:
-                duration_seconds = 30 * 60  # 30 dakika (Hizli iyilesme)
+            elif self.consecutive_losses >= 10:
+                duration_seconds = 15 * 60  # 15 dakika
                 self.pause_until = now + duration_seconds
-                self.pause_reason = f"2 ARKA ARKAYA ZARAR — 30 DK HIZLI DURAKLAMA"
-                logger.warning(f"[LOSS BREAKER] 2 arka arkaya zarar! Tum alimlar 30 dakika duraklandi.")
+                self.pause_reason = f"10 ARKA ARKAYA ZARAR — 15 DK HIZLI DURAKLAMA"
+                logger.warning(f"[LOSS BREAKER] 10 arka arkaya zarar! Tum alimlar 15 dakika duraklandi.")
 
             if self.symbol_losses.get(symbol, 0) >= 2:
                 block_duration = 3600  # 1 saat

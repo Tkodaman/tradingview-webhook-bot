@@ -57,10 +57,10 @@ class FakeoutGuard:
             logger.warning(f"[FAKEOUT GUARD HR1] {symbol} {reason}")
             return FakeoutResult(is_fakeout=True, reason=reason, confidence=1.0)
 
-        # HR2: FOMO Pump Hızı — tek tickte %5+ spike
+        # HR2: FOMO Pump Hızı — tek tickte %15+ spike (Kural esnetildi - Agresif mod)
         # Manipülatif spike: haber/bot/wash trading — geri dönüş kaçınılmaz
-        if change_pct >= 5.0 and vol_ratio < 3.0:
-            reason = f"[HR2] FOMO PUMP SPIKE: Chg={change_pct:.1f}%>=5% hacim desteği yok"
+        if change_pct >= 15.0 and vol_ratio < 1.5:
+            reason = f"[HR2] FOMO PUMP SPIKE: Chg={change_pct:.1f}%>=15% hacim desteği yok"
             logger.warning(f"[FAKEOUT GUARD HR2] {symbol} {reason}")
             return FakeoutResult(is_fakeout=True, reason=reason, confidence=1.0)
 

@@ -64,6 +64,36 @@ async def get_active_positions():
                     real_available_cash = live_trade_manager.available_cash
                     raw_positions = []
                 
+                # Alpaca'daki pozisyon sembollerini takip et
+                alpaca_symbols = set()
+                for p in raw_positions:
+                    p_sym = (p.get("symbol") or "").upper()
+                    alpaca_symbols.add(p_sym)
+                    if p_sym.endswith("USD") and p_sym != "USD":
+                        alpaca_symbols.add(p_sym.replace("USD", "USDT"))
+                    
+                # Eğer yerel (PAPER) açık pozisyonlar varsa ve Alpaca'da yoksa, onları raw_positions'a ekle
+                # live_trade_manager.positions dictionary'sinde key pos_id'dir.
+                added_mock_symbols = set()
+                for pos_id, lp in live_trade_manager.positions.items():
+                    local_sym = (lp.symbol or "").upper()
+                    if lp.status == "OPEN" and local_sym not in alpaca_symbols and local_sym not in added_mock_symbols:
+                        added_mock_symbols.add(local_sym)
+                        # Yerel pozisyonu Alpaca formatında mock'la
+                        mock_p = {
+                            "id": lp.id,
+                            "symbol": lp.symbol,
+                            "asset_class": lp.market,
+                            "side": "long" if lp.side == "BUY" else "short",
+                            "avg_entry_price": str(lp.entry_price),
+                            "qty": str(lp.quantity),
+                            "current_price": str(lp.current_price or lp.entry_price),
+                            "market_value": str(lp.nominal_value),
+                            "unrealized_pl": str(lp.unrealized_pnl),
+                            "unrealized_plpc": str(lp.unrealized_pnl_pct / 100.0)
+                        }
+                        raw_positions.append(mock_p)
+                
                 active_list = []
                 for p in raw_positions:
                     sym = p.get("symbol") or ""
@@ -159,8 +189,10 @@ async def get_active_positions():
                             tp_price = entry_price * (1.0 - (dyn_tp_pct / 100.0))
                             sl_price = entry_price * (1.0 + (dyn_sl_pct / 100.0))
                             
+                            
+                    pos_id_to_send = local_pos.id if local_pos else f"POS-{sym}"
                     active_list.append({
-                        "id": str(p.get("id", f"POS-{sym}")),
+                        "id": pos_id_to_send,
                         "symbol": sym,
                         "market": str(p.get("asset_class", "STOCK")).upper(),
                         "side": side,
@@ -291,10 +323,13 @@ async def close_live_position(pos_id: str):
             from services.broker.factory import get_broker
             broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
             if broker and broker.api:
-                res = broker.close_position(symbol)
+                alpaca_sym = symbol
+                if alpaca_sym.endswith("USDT"):
+                    alpaca_sym = alpaca_sym.replace("USDT", "USD")
+                res = broker.close_position(alpaca_sym)
                 if res.get("status") == "success":
                     alpaca_ok = True
-                    logger.info(f"[MANUEL KAPAT] {symbol} Alpaca'da kapatildi.")
+                    logger.info(f"[MANUEL KAPAT] {symbol} ({alpaca_sym}) Alpaca'da kapatildi.")
                 else:
                     alpaca_msg = res.get("message", "Alpaca hatasi")
                     logger.warning(f"[MANUEL KAPAT] {symbol} Alpaca hatasi: {alpaca_msg}. Yerel kapatma yapiliyor.")
