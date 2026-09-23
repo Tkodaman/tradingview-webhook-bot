@@ -2880,6 +2880,14 @@ The following code has been modified to include a line number before every line,
             const container = document.getElementById(containerId);
             const ticker = document.getElementById(tickerId);
             if (!container) return;
+
+            // === DİNAMİK HEDEF LİSTESİ YARIŞ MANTIĞI: önceki sıralama + FLIP animasyonu için hazırlık ===
+            window.heatmapPrevRank = window.heatmapPrevRank || {};
+            const prevRankMap = window.heatmapPrevRank[containerId] || {};
+            const firstRects = {};
+            Array.from(container.children).forEach(box => {
+                if (box.dataset && box.dataset.symbol) firstRects[box.dataset.symbol] = box.getBoundingClientRect();
+            });
             
             const isOpen = marketInfo && marketInfo.is_open;
             let tickerText = "";
@@ -2964,7 +2972,9 @@ The following code has been modified to include a line number before every line,
                     box.innerHTML = 
                         '<div style="display:flex; justify-content:space-between; align-items:center;">' +
                             '<div style="display:flex; align-items:center; gap:3px;">' +
+                                '<span class="rank-badge" style="font-size:9px; font-weight:800; min-width:16px; display:inline-block;"></span>' +
                                 '<span class="sym-name" style="font-weight:700; font-size:10px; color:#fbbf24; letter-spacing: -0.3px;"></span>' +
+                                '<span class="rank-change" style="font-size:8px; font-weight:700;"></span>' +
                                 '<span class="sym-change" style="font-size:8px; font-weight:600;"></span>' +
                                 '<span class="conf-badge" style="font-size:8px; color:#fbbf24; background: rgba(251,191,36,0.15); padding: 1px 2px; border-radius:2px; font-weight:600;"></span>' +
                             '</div>' +
@@ -3004,6 +3014,29 @@ The following code has been modified to include a line number before every line,
                 }
                 
                 box.querySelector('.sym-name').innerText = item.symbol;
+
+                // === YARIŞ SIRALAMA ROZETİ (#1/#2/#3 madalya, diğerleri #N) ===
+                const rank = index + 1;
+                const rankEl = box.querySelector('.rank-badge');
+                if (rankEl) {
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : ('#' + rank);
+                    rankEl.innerText = medal;
+                    rankEl.style.color = rank <= 3 ? '#fbbf24' : '#64748b';
+                }
+                // Önceki sıraya göre yükseliş/düşüş göstergesi
+                const rankChangeEl = box.querySelector('.rank-change');
+                if (rankChangeEl) {
+                    const prevRank = prevRankMap[item.symbol];
+                    if (prevRank === undefined) {
+                        rankChangeEl.innerHTML = '<span style="color:#60a5fa;">YENİ</span>';
+                    } else if (prevRank > rank) {
+                        rankChangeEl.innerHTML = '<span style="color:#4ade80;">▲' + (prevRank - rank) + '</span>';
+                    } else if (prevRank < rank) {
+                        rankChangeEl.innerHTML = '<span style="color:#f43f5e;">▼' + (rank - prevRank) + '</span>';
+                    } else {
+                        rankChangeEl.innerHTML = '<span style="color:#64748b;">–</span>';
+                    }
+                }
                 
                 const chgEl = box.querySelector('.sym-change');
                 if (chgEl) {
@@ -3044,6 +3077,29 @@ The following code has been modified to include a line number before every line,
                 // Append to container (moves it to the end, ensuring correct order)
                 container.appendChild(box);
             });
+
+            // === FLIP ANİMASYONU: sıralama değiştiğinde kutular yumuşak kayarak yeni konumuna gider ===
+            items.forEach(item => {
+                const box = document.getElementById('heatmap-box-' + item.symbol);
+                const first = firstRects[item.symbol];
+                if (!box || !first) return;
+                const last = box.getBoundingClientRect();
+                const dx = first.left - last.left;
+                const dy = first.top - last.top;
+                if (dx !== 0 || dy !== 0) {
+                    box.style.transition = 'none';
+                    box.style.transform = `translate(${dx}px, ${dy}px)`;
+                    requestAnimationFrame(() => {
+                        box.style.transition = 'transform 0.45s cubic-bezier(0.22, 0.9, 0.28, 1)';
+                        box.style.transform = '';
+                    });
+                }
+            });
+
+            // Bir sonraki karşılaştırma için güncel sıralamayı sakla
+            const newRankMap = {};
+            items.forEach((item, index) => { newRankMap[item.symbol] = index + 1; });
+            window.heatmapPrevRank[containerId] = newRankMap;
             
             if (ticker) {
                 if (!isOpen) tickerText += "Son kapanış değerleri baz alınmaktadır.";
