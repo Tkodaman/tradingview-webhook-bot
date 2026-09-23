@@ -1,6 +1,11 @@
 import numpy as np
 import datetime
 import pytz
+from services.engine.ml_wick_detector import MLWickDetector
+
+# Initialize global ML Wick Detector
+_ml_detector = MLWickDetector()
+_ml_detector_trained_for = None
 
 class RiskEngine:
     """
@@ -28,17 +33,39 @@ class RiskEngine:
         return False
     
     @staticmethod
-    def calculate_atr_trailing_stop(current_price: float, atr: float, direction: str = "LONG", asset_type: str = "CRYPTO") -> float:
+    def calculate_atr_trailing_stop(current_price: float, atr: float, direction: str = "LONG", asset_type: str = "CRYPTO", ticker: str = None, current_pct_change: float = 0.0, current_volatility: float = 0.0, current_volume_change: float = 0.0) -> float:
         """
         Calculates a dynamic trailing stop based on Average True Range (ATR).
         Direction: "LONG" or "SHORT"
         Asset Type: "CRYPTO" uses wider multiplier (3.5) to avoid Stop Hunting. "STOCK" uses standard (2.0).
         """
+        global _ml_detector, _ml_detector_trained_for
+        
         # Anti-Stop-Hunt Logic: Widen the spread for Crypto to survive liquidity sweeps
         multiplier = 3.5 if asset_type.upper() == "CRYPTO" else 2.0
         
-        # Extreme Volatility Override: Widen stop immensely during market open panic
-        if RiskEngine.is_market_open_volatility_window():
+        # ML Wick Detection Override
+        is_wick = False
+        if ticker:
+            # Train model if not trained for this ticker
+            if _ml_detector_trained_for != ticker:
+                print(f"[ML] Training Wick Detector for {ticker}...")
+                success = _ml_detector.train(ticker)
+                if success:
+                    _ml_detector_trained_for = ticker
+            
+            # Predict if current movement is a fake wick
+            if _ml_detector.is_trained:
+                is_wick = _ml_detector.is_fake_wick(current_pct_change, current_volatility, current_volume_change)
+                if is_wick:
+                    print(f"[ML-ZIRH] {ticker} icin sahte igne (Stop-Hunt) tespit edildi! Zirh genisletiliyor.")
+                    multiplier += 2.0 # Widen stop IMMENSELY for fake wicks
+                else:
+                    # ML says it's a real trend, tighten the armor to GTFO quickly
+                    multiplier = max(1.5, multiplier - 0.5)
+
+        # Fallback to extreme Volatility Override if ML didn't flag it but it's market open
+        if not is_wick and RiskEngine.is_market_open_volatility_window():
             multiplier += 1.5
             
         if direction.upper() == "LONG":

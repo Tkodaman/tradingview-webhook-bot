@@ -1,1 +1,1 @@
-{"consecutive_losses": 0, "daily_losses": 2, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {"AAVEUSDT": 2}, "symbol_blocks": {}, "last_reset_date": "2026-09-22"}
+{"consecutive_losses": 1, "daily_losses": 3, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {"AAVEUSDT": 2, "WIFUSDT": 1}, "symbol_blocks": {}, "last_reset_date": "2026-09-22"}
