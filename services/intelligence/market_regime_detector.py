@@ -25,6 +25,10 @@ class MarketRegimeDetector:
     auto_runner.py her dongu basinda bu motoru calistirmali.
     """
 
+    def __init__(self):
+        # Sembol bazli son rejim sonucu — analytics_router / dashboard strateji panelinden okunur
+        self.last_results: dict[str, MarketRegimeResult] = {}
+
     def detect(
         self,
         adx: float,

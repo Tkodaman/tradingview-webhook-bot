@@ -1969,6 +1969,29 @@ The following code has been modified to include a line number before every line,
         </div>
     </div>
 
+    <!-- UZMAN ANALİTİK PANELİ: Expectancy/Kelly + Korelasyon Isi Haritasi + Strateji Router -->
+    <div class="panel" style="margin-top: 24px;">
+        <div class="panel-header">
+            <div class="panel-header-title">
+                <span style="color: var(--accent-yellow);">🎯</span> (a9) Uzman Analitik Paneli — Expectancy, Korelasyon & Strateji Router
+            </div>
+        </div>
+        <div class="two-col-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+            <div class="inner-box" id="expectancyBox">
+                <div class="inner-box-title"><span>📐 Expectancy & Kelly Fraction</span></div>
+                <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+            </div>
+            <div class="inner-box" id="correlationBox">
+                <div class="inner-box-title"><span>🔗 Korelasyon Isi Haritası</span></div>
+                <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+            </div>
+            <div class="inner-box" id="strategyMapBox">
+                <div class="inner-box-title"><span>🧭 Strateji Router (Rejim → Strateji)</span></div>
+                <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+            </div>
+        </div>
+    </div>
+
         </div>
         <!-- END RIGHT MAIN CONTENT -->
     </div>
@@ -4619,6 +4642,90 @@ document.addEventListener("DOMContentLoaded", function() {
     // İlk yüklemede ve periyodik olarak çağır
     fetchAdvancedMetrics();
     setInterval(fetchAdvancedMetrics, 120000); // 2 dakikada bir
+
+    // ================================================================
+    // 🎯 UZMAN ANALİTİK PANELİ: Expectancy/Kelly + Korelasyon + Strateji Router
+    // ================================================================
+    async function fetchExpectancy() {
+        const box = document.getElementById('expectancyBox');
+        if (!box) return;
+        try {
+            const res = await fetch('/api/analytics/expectancy');
+            const d = await res.json();
+            if (!d.sample_size) {
+                box.innerHTML = '<div class="inner-box-title"><span>📐 Expectancy & Kelly Fraction</span></div><div style="padding:8px; color: var(--text-secondary); font-size:12px;">Henüz kapanmış işlem yok.</div>';
+                return;
+            }
+            const verdictColor = d.verdict === 'SAGLIKLI_EDGE' ? 'var(--up-color)' : 'var(--accent-yellow)';
+            box.innerHTML = `
+                <div class="inner-box-title">
+                    <span>📐 Expectancy & Kelly Fraction</span>
+                    <span class="inner-box-badge" style="background:${verdictColor}22; color:${verdictColor};">${d.verdict}</span>
+                </div>
+                <div class="inner-box-item"><span>🎯</span><div>Kazanma Oranı: <b>%${d.win_rate}</b> (n=${d.sample_size})</div></div>
+                <div class="inner-box-item"><span>💚</span><div>Ort. Kazanç: <b>${d.avg_win}</b> / Ort. Kayıp: <b>${d.avg_loss}</b></div></div>
+                <div class="inner-box-item"><span>📊</span><div>Expectancy (işlem başı): <b style="color:${d.expectancy >= 0 ? 'var(--up-color)' : 'var(--down-color)'};">${d.expectancy}</b></div></div>
+                <div class="inner-box-item"><span>🧮</span><div>Kelly: <b>%${d.kelly_fraction}</b> — Önerilen Yarım-Kelly: <b>%${d.half_kelly_suggestion_pct}</b></div></div>
+            `;
+        } catch (e) { console.error("fetchExpectancy error:", e); }
+    }
+
+    async function fetchCorrelation() {
+        const box = document.getElementById('correlationBox');
+        if (!box) return;
+        try {
+            const res = await fetch('/api/analytics/correlation');
+            const d = await res.json();
+            let inner = '<div class="inner-box-title"><span>🔗 Korelasyon Isi Haritası</span></div>';
+            if (d.status === 'YETERSIZ_POZISYON') {
+                inner += '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Korelasyon için en az 2 açık pozisyon gerekli.</div>';
+            } else if (d.status === 'VERI_TOPLANIYOR') {
+                inner += `<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Veri toplanıyor: ${d.collected_samples}/${d.needed_samples} örnek.</div>`;
+            } else {
+                let table = '<table style="width:100%; font-size:11px; border-collapse:collapse;">';
+                table += '<tr><td></td>' + d.symbols.map(s => `<td style="padding:2px; text-align:center; color:var(--text-secondary);">${s}</td>`).join('') + '</tr>';
+                d.symbols.forEach(a => {
+                    table += `<tr><td style="color:var(--text-secondary);">${a}</td>` + d.symbols.map(b => {
+                        const v = d.matrix[a][b];
+                        const color = a === b ? '#334155' : (Math.abs(v) >= 0.75 ? '#ef444488' : (Math.abs(v) >= 0.4 ? '#facc1533' : 'transparent'));
+                        return `<td style="padding:2px; text-align:center; background:${color};">${v}</td>`;
+                    }).join('') + '</tr>';
+                });
+                table += '</table>';
+                inner += table;
+                if (d.warnings && d.warnings.length) {
+                    inner += `<div class="inner-box-item" style="margin-top:6px;"><span>⚠️</span><div style="color:var(--accent-yellow); font-size:11px;">${d.warnings.join('<br>')}</div></div>`;
+                }
+            }
+            box.innerHTML = inner;
+        } catch (e) { console.error("fetchCorrelation error:", e); }
+    }
+
+    async function fetchStrategyMap() {
+        const box = document.getElementById('strategyMapBox');
+        if (!box) return;
+        try {
+            const res = await fetch('/api/analytics/strategy-map');
+            const d = await res.json();
+            let inner = '<div class="inner-box-title"><span>🧭 Strateji Router (Rejim → Strateji)</span></div>';
+            if (!d.strategies || d.strategies.length === 0) {
+                inner += '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Henüz rejim verisi hesaplanmadı.</div>';
+            } else {
+                d.strategies.forEach(s => {
+                    inner += `<div class="inner-box-item"><span>📍</span><div><b>${s.symbol}</b>: ${s.regime} → <span style="color:var(--accent-blue);">${s.strategy_hint}</span> (lot x${s.lot_multiplier})</div></div>`;
+                });
+            }
+            box.innerHTML = inner;
+        } catch (e) { console.error("fetchStrategyMap error:", e); }
+    }
+
+    fetchExpectancy();
+    fetchCorrelation();
+    fetchStrategyMap();
+    setInterval(fetchExpectancy, 60000);
+    setInterval(fetchCorrelation, 20000); // korelasyon zaman serisini biriktirmek icin daha sik
+    setInterval(fetchStrategyMap, 30000);
+
 
     let mlFullChart = null;
     window.openMLModal = function() {

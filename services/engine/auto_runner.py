@@ -238,6 +238,8 @@ class TradingViewAutoStrategyRunner:
                 keltner_squeeze=keltner_sq, rsi=rsi
             )
             regime_lot_multiplier = regime_result.lot_multiplier
+            # Strateji router / dashboard analitik paneli icin son rejim sonucu sakla
+            market_regime_detector.last_results[sym] = regime_result
 
             # RANGING modda ADX cok dusukse momentum sinyallerini atla
             if regime_result.should_skip_momentum:
