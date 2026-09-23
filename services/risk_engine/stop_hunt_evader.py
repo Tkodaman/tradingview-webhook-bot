@@ -59,6 +59,16 @@ class StopHuntEvader:
             new_sl = round(base_sl_pct * profile["sl_multiplier"], 2)
             logger.info(f"[STOP-HUNT EVADER] {symbol} under attack (Stops: {profile.get('stop_count')}). "
                         f"Evading: Cap ${base_capital}->${new_cap}, SL %{base_sl_pct}->%{new_sl}")
+            try:
+                from services.engine.bot_thought_stream import bot_thought_stream
+                bot_thought_stream.add(
+                    "🎯 Stop-Hunt Kaçınma",
+                    symbol,
+                    f"Koruyorum: son işlemlerde {profile.get('stop_count')} kez avlandı, sermaye ${base_capital}->${new_cap}, SL %{base_sl_pct}->%{new_sl} olarak sıkılaştırıldı.",
+                    "WARN",
+                )
+            except Exception:
+                pass
             return new_cap, new_sl
             
         return base_capital, base_sl_pct

@@ -26,6 +26,7 @@ from services.risk_engine.dynamic_sl_tp import calculate_atr_based_tp_sl
 from services.trainer.ml_signal_predictor import ml_predictor
 from services.risk_engine.fakeout_guard import fakeout_guard
 from services.engine.market_regime_engine import regime_engine
+from services.engine.bot_thought_stream import bot_thought_stream
 
 # Global instances
 llm_intelligence = LLMMarketIntelligenceEngine()
@@ -228,6 +229,7 @@ class TradingViewAutoStrategyRunner:
             corr_ok, corr_reason = correlation_filter.check(sym, open_positions_list)
             if not corr_ok:
                 logger.info(f"[CORRELATION BLOCK] {sym}: {corr_reason}")
+                bot_thought_stream.add("🔗 Korelasyon Filtresi", sym, f"Bekliyorum: {corr_reason}", "WARN")
                 continue
 
             # === PIYASA REJIMI TESPITI ===
@@ -262,6 +264,7 @@ class TradingViewAutoStrategyRunner:
             )
             if fakeout_res.is_fakeout:
                 logger.warning(f"[FAKEOUT BLOCK v2] {sym} reddedildi: {fakeout_res.reason}")
+                bot_thought_stream.add("🎭 Sahte Kırılım Kalkanı", sym, f"Bekliyorum: {fakeout_res.reason}", "WARN")
                 continue
 
 

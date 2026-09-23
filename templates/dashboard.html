@@ -2004,6 +2004,18 @@ The following code has been modified to include a line number before every line,
         </div>
     </div>
 
+    <!-- (a10) BOT DÜŞÜNCE AKIŞI: Fakeout Guard / Stop-Hunt Evader / Korelasyon Filtresi'nin canlı "neden bekliyorum" gerekçeleri -->
+    <div class="panel" style="margin-top: 24px;">
+        <div class="panel-header">
+            <div class="panel-header-title">
+                <span style="color: var(--accent-blue);">🧠</span> (a10) Bot Düşünce Akışı (Canlı)
+            </div>
+        </div>
+        <div id="thoughtStreamBox" style="max-height: 220px; overflow-y: auto;">
+            <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+        </div>
+    </div>
+
         </div>
         <!-- END RIGHT MAIN CONTENT -->
     </div>
@@ -4860,6 +4872,34 @@ document.addEventListener("DOMContentLoaded", function() {
     setInterval(fetchExpectancy, 60000);
     setInterval(fetchCorrelation, 20000); // korelasyon zaman serisini biriktirmek icin daha sik
     setInterval(fetchStrategyMap, 30000);
+
+    // ================================================================
+    // 🧠 BOT DÜŞÜNCE AKIŞI: Fakeout Guard / Stop-Hunt Evader / Korelasyon Filtresi canlı gerekçeleri
+    // ================================================================
+    async function fetchThoughtStream() {
+        const box = document.getElementById('thoughtStreamBox');
+        if (!box) return;
+        try {
+            const res = await fetch('/api/analytics/thought-stream');
+            const d = await res.json();
+            if (!d.thoughts || d.thoughts.length === 0) {
+                box.innerHTML = '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Henüz bir koruma/bekleme kararı üretilmedi.</div>';
+                return;
+            }
+            box.innerHTML = d.thoughts.map(t => {
+                const levelColor = t.level === 'WARN' ? 'var(--accent-yellow)' : 'var(--text-secondary)';
+                return `<div class="inner-box-item">
+                    <span>${t.category}</span>
+                    <div>
+                        <b>${t.symbol}</b>: <span style="color:${levelColor};">${t.message}</span>
+                        <span style="font-size:10px; color:#64748b; font-family:'JetBrains Mono'; margin-left:6px;">🕒 ${t.timestamp}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (e) { console.error("fetchThoughtStream error:", e); }
+    }
+    fetchThoughtStream();
+    setInterval(fetchThoughtStream, 5000); // canli karar akisi, hizli yenilenir
 
 
 

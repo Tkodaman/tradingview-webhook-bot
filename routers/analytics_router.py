@@ -7,6 +7,7 @@ from core.security import verify_ip
 from services.market_feed.live_stream import live_trade_manager
 from services.intelligence.market_regime_detector import market_regime_detector
 from services.risk_engine.expert_analytics import expert_analytics_engine
+from services.engine.bot_thought_stream import bot_thought_stream
 
 router = APIRouter(dependencies=[Depends(verify_ip)])
 
@@ -38,3 +39,11 @@ async def get_strategy_map():
         "current_risk_mode": settings.current_risk_mode,
         "strategies": expert_analytics_engine.get_strategy_map(market_regime_detector.last_results),
     }
+
+
+@router.get("/thought-stream")
+async def get_thought_stream():
+    """
+    Fakeout Guard, Stop-Hunt Evader ve Korelasyon Filtresi'nin canlı "neden bekliyorum/koruyorum" akışı.
+    """
+    return {"thoughts": bot_thought_stream.get_recent(30)}
