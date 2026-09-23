@@ -1969,25 +1969,31 @@ The following code has been modified to include a line number before every line,
         </div>
     </div>
 
-    <!-- UZMAN ANALİTİK PANELİ: Expectancy/Kelly + Korelasyon Isi Haritasi + Strateji Router -->
+    <!-- UZMAN ANALİTİK PANELİ: Expectancy/Kelly + Korelasyon Isi Haritasi + Strateji Router (Kayan Pencere) -->
     <div class="panel" style="margin-top: 24px;">
         <div class="panel-header">
             <div class="panel-header-title">
-                <span style="color: var(--accent-yellow);">🎯</span> (a9) Uzman Analitik Paneli — Expectancy, Korelasyon & Strateji Router
+                <span style="color: var(--accent-yellow);">🎯</span> (a9) Uzman Analitik Paneli
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span id="analyticsRiskModeBadge" style="font-size:11px; font-weight:700; color:#fbbf24; background:rgba(251,191,36,0.12); padding:3px 8px; border-radius:4px;">Mod: —</span>
+                <div id="analyticsDots" style="display:flex; gap:5px;"></div>
             </div>
         </div>
-        <div class="two-col-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
-            <div class="inner-box" id="expectancyBox">
-                <div class="inner-box-title"><span>📐 Expectancy & Kelly Fraction</span></div>
-                <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
-            </div>
-            <div class="inner-box" id="correlationBox">
-                <div class="inner-box-title"><span>🔗 Korelasyon Isi Haritası</span></div>
-                <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
-            </div>
-            <div class="inner-box" id="strategyMapBox">
-                <div class="inner-box-title"><span>🧭 Strateji Router (Rejim → Strateji)</span></div>
-                <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+        <div id="analyticsCarouselViewport" style="overflow:hidden; height: 170px; position:relative; border-radius:6px;">
+            <div id="analyticsCarouselTrack" style="display:flex; height:100%; transition: transform 0.5s ease;">
+                <div class="inner-box" id="expectancyBox" style="flex:0 0 100%; height:100%; overflow-y:auto; box-sizing:border-box;">
+                    <div class="inner-box-title"><span>📐 Expectancy & Kelly Oranı</span></div>
+                    <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+                </div>
+                <div class="inner-box" id="correlationBox" style="flex:0 0 100%; height:100%; overflow-y:auto; box-sizing:border-box;">
+                    <div class="inner-box-title"><span>🔗 Korelasyon Isı Haritası</span></div>
+                    <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+                </div>
+                <div class="inner-box" id="strategyMapBox" style="flex:0 0 100%; height:100%; overflow-y:auto; box-sizing:border-box;">
+                    <div class="inner-box-title"><span>🧭 Strateji Router (Rejim → Otonom TP/SL)</span></div>
+                    <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -4700,8 +4706,21 @@ document.addEventListener("DOMContentLoaded", function() {
     setInterval(fetchAdvancedMetrics, 120000); // 2 dakikada bir
 
     // ================================================================
-    // 🎯 UZMAN ANALİTİK PANELİ: Expectancy/Kelly + Korelasyon + Strateji Router
+    // 🎯 UZMAN ANALİTİK PANELİ: Expectancy/Kelly + Korelasyon + Strateji Router (Kayan Pencere)
     // ================================================================
+    const RISK_MODE_LABELS_TR = {
+        SNIPER: "🎯 Keskin Nişancı",
+        AGGRESSIVE: "🔴 Agresif",
+        NORMAL: "🟡 Normal",
+        TIGHT: "🔵 Dar Stop",
+        CONSERVATIVE: "🟢 Konservatif",
+    };
+    const EXPECTANCY_VERDICT_TR = {
+        SAGLIKLI_EDGE: "✅ Sağlıklı Edge — Kâr Avantajı Doğrulandı",
+        EDGE_ZAYIF_DIKKAT: "⚠️ Zayıf Edge — Dikkatli Ol",
+        VERI_YOK: "Henüz Veri Yok",
+    };
+
     async function fetchExpectancy() {
         const box = document.getElementById('expectancyBox');
         if (!box) return;
@@ -4709,19 +4728,20 @@ document.addEventListener("DOMContentLoaded", function() {
             const res = await fetch('/api/analytics/expectancy');
             const d = await res.json();
             if (!d.sample_size) {
-                box.innerHTML = '<div class="inner-box-title"><span>📐 Expectancy & Kelly Fraction</span></div><div style="padding:8px; color: var(--text-secondary); font-size:12px;">Henüz kapanmış işlem yok.</div>';
+                box.innerHTML = '<div class="inner-box-title"><span>📐 Expectancy & Kelly Oranı</span></div><div style="padding:8px; color: var(--text-secondary); font-size:12px;">Henüz kapanmış işlem yok — otonom motor ilk işlemden sonra hesaplayacak.</div>';
                 return;
             }
             const verdictColor = d.verdict === 'SAGLIKLI_EDGE' ? 'var(--up-color)' : 'var(--accent-yellow)';
+            const verdictText = EXPECTANCY_VERDICT_TR[d.verdict] || d.verdict;
             box.innerHTML = `
                 <div class="inner-box-title">
-                    <span>📐 Expectancy & Kelly Fraction</span>
-                    <span class="inner-box-badge" style="background:${verdictColor}22; color:${verdictColor};">${d.verdict}</span>
+                    <span>📐 Expectancy & Kelly Oranı</span>
+                    <span class="inner-box-badge" style="background:${verdictColor}22; color:${verdictColor}; font-size:10px;">${verdictText}</span>
                 </div>
-                <div class="inner-box-item"><span>🎯</span><div>Kazanma Oranı: <b>%${d.win_rate}</b> (n=${d.sample_size})</div></div>
+                <div class="inner-box-item"><span>🎯</span><div>Kazanma Oranı: <b>%${d.win_rate}</b> (n=${d.sample_size} işlem)</div></div>
                 <div class="inner-box-item"><span>💚</span><div>Ort. Kazanç: <b>${d.avg_win}</b> / Ort. Kayıp: <b>${d.avg_loss}</b></div></div>
-                <div class="inner-box-item"><span>📊</span><div>Expectancy (işlem başı): <b style="color:${d.expectancy >= 0 ? 'var(--up-color)' : 'var(--down-color)'};">${d.expectancy}</b></div></div>
-                <div class="inner-box-item"><span>🧮</span><div>Kelly: <b>%${d.kelly_fraction}</b> — Önerilen Yarım-Kelly: <b>%${d.half_kelly_suggestion_pct}</b></div></div>
+                <div class="inner-box-item"><span>📊</span><div>İşlem Başı Beklenen Değer: <b style="color:${d.expectancy >= 0 ? 'var(--up-color)' : 'var(--down-color)'};">${d.expectancy}</b></div></div>
+                <div class="inner-box-item"><span>🧮</span><div>Kelly Oranı: <b>%${d.kelly_fraction}</b> — Otonom Motor Önerisi (Yarım-Kelly): <b>%${d.half_kelly_suggestion_pct}</b> sermaye kullanımı</div></div>
             `;
         } catch (e) { console.error("fetchExpectancy error:", e); }
     }
@@ -4732,13 +4752,13 @@ document.addEventListener("DOMContentLoaded", function() {
         try {
             const res = await fetch('/api/analytics/correlation');
             const d = await res.json();
-            let inner = '<div class="inner-box-title"><span>🔗 Korelasyon Isi Haritası</span></div>';
+            let inner = '<div class="inner-box-title"><span>🔗 Korelasyon Isı Haritası</span></div>';
             if (d.status === 'YETERSIZ_POZISYON') {
-                inner += '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Korelasyon için en az 2 açık pozisyon gerekli.</div>';
+                inner += '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Korelasyon hesaplamak için en az 2 açık pozisyon gerekli.</div>';
             } else if (d.status === 'VERI_TOPLANIYOR') {
-                inner += `<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Veri toplanıyor: ${d.collected_samples}/${d.needed_samples} örnek.</div>`;
+                inner += `<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Canlı veri toplanıyor: ${d.collected_samples}/${d.needed_samples} örnek.</div>`;
             } else {
-                let table = '<table style="width:100%; font-size:11px; border-collapse:collapse;">';
+                let table = '<table style="width:100%; font-size:10.5px; border-collapse:collapse;">';
                 table += '<tr><td></td>' + d.symbols.map(s => `<td style="padding:2px; text-align:center; color:var(--text-secondary);">${s}</td>`).join('') + '</tr>';
                 d.symbols.forEach(a => {
                     table += `<tr><td style="color:var(--text-secondary);">${a}</td>` + d.symbols.map(b => {
@@ -4750,7 +4770,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 table += '</table>';
                 inner += table;
                 if (d.warnings && d.warnings.length) {
-                    inner += `<div class="inner-box-item" style="margin-top:6px;"><span>⚠️</span><div style="color:var(--accent-yellow); font-size:11px;">${d.warnings.join('<br>')}</div></div>`;
+                    inner += `<div class="inner-box-item" style="margin-top:6px;"><span>⚠️</span><div style="color:var(--accent-yellow); font-size:11px;">Risk Yoğunlaşması: ${d.warnings.join('<br>')}</div></div>`;
                 }
             }
             box.innerHTML = inner;
@@ -4759,16 +4779,24 @@ document.addEventListener("DOMContentLoaded", function() {
 
     async function fetchStrategyMap() {
         const box = document.getElementById('strategyMapBox');
+        const modeBadge = document.getElementById('analyticsRiskModeBadge');
         if (!box) return;
         try {
             const res = await fetch('/api/analytics/strategy-map');
             const d = await res.json();
-            let inner = '<div class="inner-box-title"><span>🧭 Strateji Router (Rejim → Strateji)</span></div>';
+            if (modeBadge) {
+                modeBadge.innerText = 'Mod: ' + (RISK_MODE_LABELS_TR[d.current_risk_mode] || d.current_risk_mode || '—');
+            }
+            let inner = '<div class="inner-box-title"><span>🧭 Strateji Router (Rejim → Otonom TP/SL)</span></div>';
             if (!d.strategies || d.strategies.length === 0) {
                 inner += '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Henüz rejim verisi hesaplanmadı.</div>';
             } else {
                 d.strategies.forEach(s => {
-                    inner += `<div class="inner-box-item"><span>📍</span><div><b>${s.symbol}</b>: ${s.regime} → <span style="color:var(--accent-blue);">${s.strategy_hint}</span> (lot x${s.lot_multiplier})</div></div>`;
+                    const entryText = s.entry_allowed === false ? '<span style="color:var(--down-color); font-weight:700;">⏸ BEKLE (WAIT)</span>' : '<span style="color:var(--up-color); font-weight:700;">▶ GİRİŞE AÇIK</span>';
+                    const tpSlText = (s.live_tp_pct != null && s.live_sl_pct != null)
+                        ? `Otonom TP: <b style="color:var(--up-color);">%${s.live_tp_pct}</b> / SL: <b style="color:var(--down-color);">%${s.live_sl_pct}</b>`
+                        : 'TP/SL hesaplanıyor...';
+                    inner += `<div class="inner-box-item"><span>📍</span><div><b>${s.symbol}</b>: ${s.regime} → <span style="color:var(--accent-blue);">${s.strategy_hint}</span> (lot x${s.lot_multiplier}) | ${tpSlText} | ${entryText}</div></div>`;
                 });
             }
             box.innerHTML = inner;
@@ -4781,6 +4809,34 @@ document.addEventListener("DOMContentLoaded", function() {
     setInterval(fetchExpectancy, 60000);
     setInterval(fetchCorrelation, 20000); // korelasyon zaman serisini biriktirmek icin daha sik
     setInterval(fetchStrategyMap, 30000);
+
+    // === KAYAN PENCERE (CAROUSEL): 3 kartı otomatik döngüyle gösterir, panel boyunu sabit tutar ===
+    (function initAnalyticsCarousel() {
+        const track = document.getElementById('analyticsCarouselTrack');
+        const dotsContainer = document.getElementById('analyticsDots');
+        if (!track || !dotsContainer) return;
+        const slideCount = track.children.length;
+        let activeIndex = 0;
+
+        for (let i = 0; i < slideCount; i++) {
+            const dot = document.createElement('span');
+            dot.style.cssText = 'width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.2); cursor:pointer; transition: background 0.3s;';
+            dot.onclick = () => goToSlide(i);
+            dotsContainer.appendChild(dot);
+        }
+
+        function goToSlide(index) {
+            activeIndex = index;
+            track.style.transform = `translateX(-${index * 100}%)`;
+            Array.from(dotsContainer.children).forEach((dot, i) => {
+                dot.style.background = i === index ? '#fbbf24' : 'rgba(255,255,255,0.2)';
+            });
+        }
+
+        goToSlide(0);
+        setInterval(() => goToSlide((activeIndex + 1) % slideCount), 6000); // 6sn'de bir otomatik kayar
+    })();
+
 
 
     let mlFullChart = null;

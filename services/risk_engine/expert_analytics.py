@@ -135,14 +135,30 @@ class ExpertAnalyticsEngine:
     # 3) STRATEJI ROUTER (rejim -> strateji haritasi)
     # ------------------------------------------------------------------
     def get_strategy_map(self, last_regime_results: Dict[str, Any]) -> List[Dict[str, Any]]:
+        from core.config import settings
+        from services.risk_engine.market_hours import market_hours_validator
+        from services.engine.market_regime_engine import regime_engine
+
+        risk_mode = settings.current_risk_mode
         out = []
         for symbol, result in last_regime_results.items():
+            market_type = market_hours_validator.get_market_type(symbol)
+            try:
+                live_profile = regime_engine.get_trade_profile(risk_mode, market_type)
+            except Exception:
+                live_profile = {}
+
             out.append({
                 "symbol": symbol,
                 "regime": getattr(result, "regime", "BILINMIYOR"),
                 "strategy_hint": getattr(result, "strategy_hint", "-"),
                 "lot_multiplier": getattr(result, "lot_multiplier", 1.0),
                 "description": getattr(result, "description", ""),
+                # Aktif Risk & Frekans Modu'nun bu sembole otonom olarak uyguladigi canli TP/SL
+                "risk_mode": risk_mode,
+                "live_tp_pct": live_profile.get("tp_pct"),
+                "live_sl_pct": live_profile.get("sl_pct"),
+                "entry_allowed": live_profile.get("entry_allowed", True),
             })
         return sorted(out, key=lambda r: r["symbol"])
 

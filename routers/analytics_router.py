@@ -31,5 +31,10 @@ async def get_correlation():
 async def get_strategy_map():
     """
     Piyasa Rejimi Tespit Motoru'nun son ürettiği sonuçlardan sembol -> strateji haritası.
+    Aktif Risk & Frekans Modu'nun her sembole otonom uyguladığı canlı TP/SL dahildir.
     """
-    return {"strategies": expert_analytics_engine.get_strategy_map(market_regime_detector.last_results)}
+    from core.config import settings
+    return {
+        "current_risk_mode": settings.current_risk_mode,
+        "strategies": expert_analytics_engine.get_strategy_map(market_regime_detector.last_results),
+    }
