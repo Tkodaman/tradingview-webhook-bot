@@ -1978,7 +1978,7 @@ The following code has been modified to include a line number before every line,
         </div>
     </div>
 
-    <!-- UZMAN ANALİTİK PANELİ: Expectancy/Kelly + Korelasyon Isi Haritasi + Strateji Router (Kayan Pencere) -->
+    <!-- UZMAN ANALİTİK PANELİ: Expectancy/Kelly + Korelasyon Isi Haritasi + Strateji Router (3'lü Yanyana, Taşarsa Kayan) -->
     <div class="panel" style="margin-top: 24px;">
         <div class="panel-header">
             <div class="panel-header-title">
@@ -1986,23 +1986,20 @@ The following code has been modified to include a line number before every line,
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
                 <span id="analyticsRiskModeBadge" style="font-size:11px; font-weight:700; color:#fbbf24; background:rgba(251,191,36,0.12); padding:3px 8px; border-radius:4px;">Mod: —</span>
-                <div id="analyticsDots" style="display:flex; gap:5px;"></div>
             </div>
         </div>
-        <div id="analyticsCarouselViewport" style="overflow:hidden; height: 170px; position:relative; border-radius:6px;">
-            <div id="analyticsCarouselTrack" style="display:flex; height:100%; transition: transform 0.5s ease;">
-                <div class="inner-box" id="expectancyBox" style="flex:0 0 100%; height:100%; overflow-y:auto; box-sizing:border-box;">
-                    <div class="inner-box-title"><span>📐 Expectancy & Kelly Oranı</span></div>
-                    <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
-                </div>
-                <div class="inner-box" id="correlationBox" style="flex:0 0 100%; height:100%; overflow-y:auto; box-sizing:border-box;">
-                    <div class="inner-box-title"><span>🔗 Korelasyon Isı Haritası</span></div>
-                    <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
-                </div>
-                <div class="inner-box" id="strategyMapBox" style="flex:0 0 100%; height:100%; overflow-y:auto; box-sizing:border-box;">
-                    <div class="inner-box-title"><span>🧭 Strateji Router (Rejim → Otonom TP/SL)</span></div>
-                    <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
-                </div>
+        <div class="two-col-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+            <div class="inner-box" id="expectancyBox" style="height:220px; overflow-y:auto; box-sizing:border-box;">
+                <div class="inner-box-title"><span>📐 Expectancy & Kelly Oranı</span></div>
+                <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+            </div>
+            <div class="inner-box" id="correlationBox" style="height:220px; overflow-y:auto; box-sizing:border-box;">
+                <div class="inner-box-title"><span>🔗 Korelasyon Isı Haritası</span></div>
+                <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+            </div>
+            <div class="inner-box" id="strategyMapBox" style="height:220px; overflow-y:auto; box-sizing:border-box;">
+                <div class="inner-box-title"><span>🧭 Strateji Router (Rejim → Otonom TP/SL)</span></div>
+                <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
             </div>
         </div>
     </div>
@@ -4863,33 +4860,6 @@ document.addEventListener("DOMContentLoaded", function() {
     setInterval(fetchExpectancy, 60000);
     setInterval(fetchCorrelation, 20000); // korelasyon zaman serisini biriktirmek icin daha sik
     setInterval(fetchStrategyMap, 30000);
-
-    // === KAYAN PENCERE (CAROUSEL): 3 kartı otomatik döngüyle gösterir, panel boyunu sabit tutar ===
-    (function initAnalyticsCarousel() {
-        const track = document.getElementById('analyticsCarouselTrack');
-        const dotsContainer = document.getElementById('analyticsDots');
-        if (!track || !dotsContainer) return;
-        const slideCount = track.children.length;
-        let activeIndex = 0;
-
-        for (let i = 0; i < slideCount; i++) {
-            const dot = document.createElement('span');
-            dot.style.cssText = 'width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.2); cursor:pointer; transition: background 0.3s;';
-            dot.onclick = () => goToSlide(i);
-            dotsContainer.appendChild(dot);
-        }
-
-        function goToSlide(index) {
-            activeIndex = index;
-            track.style.transform = `translateX(-${index * 100}%)`;
-            Array.from(dotsContainer.children).forEach((dot, i) => {
-                dot.style.background = i === index ? '#fbbf24' : 'rgba(255,255,255,0.2)';
-            });
-        }
-
-        goToSlide(0);
-        setInterval(() => goToSlide((activeIndex + 1) % slideCount), 6000); // 6sn'de bir otomatik kayar
-    })();
 
 
 
