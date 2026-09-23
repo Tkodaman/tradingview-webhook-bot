@@ -206,7 +206,7 @@ class LiveTradeManager:
                 "realized_pnl": self.realized_pnl,
                 "total_commissions_paid": self.total_commissions_paid,
                 "daily_stats": self.daily_stats,
-                "positions": {pid: p.dict() for pid, p in self.positions.items()}
+                "positions": {pid: p.model_dump() for pid, p in self.positions.items()}
             })
         except Exception as e:
             from core.logger import logger

@@ -292,7 +292,7 @@ async def open_live_position(req: OpenPositionRequest):
         if not pos:
             return {"status": "error", "message": "Yetersiz bütçe, makro koruma aktif veya maksimum açık işlem limitine ulaşıldı."}
 
-        return {"status": "success", "position": pos.dict()}
+        return {"status": "success", "position": pos.model_dump()}
     except Exception as e:
         import traceback
         traceback.print_exc()

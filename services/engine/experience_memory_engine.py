@@ -90,7 +90,7 @@ class ExperienceMemoryEngine:
         try:
             with open("experience_memory.json", "w", encoding="utf-8") as f:
                 json.dump({
-                    "trade_history": [h.dict() for h in self.trade_history],
+                    "trade_history": [h.model_dump() for h in self.trade_history],
                     "learned_rules": self.learned_rules,
                     "hourly_snapshots": self.hourly_snapshots,
                     "live_action_logs_crypto": self.live_action_logs_crypto,

@@ -136,7 +136,7 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                     positions_for_dashboard = alpaca_positions_for_ui
                 else:
                     positions_for_dashboard = [
-                        p.dict() for p in live_trade_manager.positions.values() if p.status == "OPEN"
+                        p.model_dump() for p in live_trade_manager.positions.values() if p.status == "OPEN"
                     ]
 
                 # Bot uptime hesapla
