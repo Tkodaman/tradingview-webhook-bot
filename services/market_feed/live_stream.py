@@ -725,7 +725,7 @@ class LiveTradeManager:
             "net_pnl": net_pnl,
             "reason": reason,
             "opened_at": pos.opened_at,
-            "closed_at": datetime.now(TRT).strftime("%H:%M:%S")
+            "closed_at": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S")
         }
         self.trade_history.insert(0, trade_log)
         db_manager.insert_trade_history(trade_log)

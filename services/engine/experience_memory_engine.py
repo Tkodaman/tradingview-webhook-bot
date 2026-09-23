@@ -7,6 +7,7 @@ Kullanıcı Ayarları:
 """
 import time
 import random
+import math
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
@@ -373,10 +374,28 @@ class ExperienceMemoryEngine:
         return memory_result
 
 
+    @staticmethod
+    def _wilson_score_interval(win_count: int, total: int, z: float = 1.96) -> tuple:
+        """
+        Wilson skor araligi: orneklem buyudukce olasilik araligini daraltarak
+        gercek kazanma oranini istatistiksel olarak daha guvenilir hedefler.
+        Dondurur: (alt_sinir_yuzde, ust_sinir_yuzde)
+        """
+        if total <= 0:
+            return 0.0, 0.0
+        phat = win_count / total
+        denom = 1.0 + (z ** 2) / total
+        center = phat + (z ** 2) / (2 * total)
+        margin = z * math.sqrt((phat * (1 - phat) + (z ** 2) / (4 * total)) / total)
+        lower = max(0.0, (center - margin) / denom)
+        upper = min(1.0, (center + margin) / denom)
+        return round(lower * 100.0, 1), round(upper * 100.0, 1)
+
     def get_asset_confidence_index(self) -> List[Dict[str, Any]]:
         """
         Gecmis arsiv verilerine uzanarak her hisse/varlik icin otonom guven endeksi ve uzmanlik siraslamasi hesaplar.
         DUZELTME: Kazanma orani esas, toplam islem sayisi skoru sismirmez, zarar eden varlik asla odul alamaz.
+        ML NOT: Wilson skor araligi ile orneklem buyudukce olasilik belirsizligi daraltilir (istatistiksel hedef daraltma).
         """
         symbols_map: Dict[str, List[TradePostMortem]] = {}
         for t in self.trade_history:
@@ -386,12 +405,38 @@ class ExperienceMemoryEngine:
 
         results = []
         for sym, trades in symbols_map.items():
+            trades = sorted(trades, key=lambda t: t.timestamp)
             total = len(trades)
             wins = [t for t in trades if t.is_win]
             losses = [t for t in trades if not t.is_win]
             win_count = len(wins)
             loss_count = len(losses)
             win_rate = round((win_count / total) * 100.0, 1) if total > 0 else 0.0
+
+            # Son/ilk islem tarih-saati — dogru zaman damgasi gosterimi icin
+            last_closed_at = trades[-1].timestamp if trades else None
+            first_trade_at = trades[0].timestamp if trades else None
+
+            # Yakin gecmise agirlik veren kazanma orani (ML adaptasyonu: son islemler daha degerli)
+            if total > 0:
+                weighted_sum = 0.0
+                weight_total = 0.0
+                for idx, t in enumerate(trades):
+                    w = 1.0 + (idx / total) * 1.5  # en eski islem agirlik 1.0, en yeni ~2.5
+                    weighted_sum += w * (1.0 if t.is_win else 0.0)
+                    weight_total += w
+                recency_weighted_win_rate = round((weighted_sum / weight_total) * 100.0, 1)
+            else:
+                recency_weighted_win_rate = 0.0
+
+            # Wilson skor araligi: orneklem buyudukce olasilik belirsizligi daralir (istatistiksel hedef daraltma)
+            wilson_lower, wilson_upper = self._wilson_score_interval(win_count, total)
+            if total < 5:
+                statistical_confidence_label = "🔬 Düşük Örneklem – Geniş Belirsizlik"
+            elif total < 20:
+                statistical_confidence_label = "📈 Orta Örneklem – Daralan Belirsizlik"
+            else:
+                statistical_confidence_label = "🎯 Yüksek Örneklem – Dar Hedef Aralığı"
 
             gross_win = sum(t.pnl_amount for t in wins)
             gross_loss = abs(sum(t.pnl_amount for t in losses))
@@ -439,6 +484,11 @@ class ExperienceMemoryEngine:
             if total_pnl < 0 and win_rate >= 50.0:
                 score = min(score, 72.0)
 
+            # Kural 5 (Wilson Alt Siniri): Gozlenen win-rate yuksek olsa bile istatistiksel
+            # olarak kanitlanmamissa (dar orneklem, genis belirsizlik) skor iyimser olamaz.
+            if wilson_lower < 15.0:
+                score = min(score, 40.0)
+
             # Final: 0-99 araligina kilitle
             score = round(min(99.0, max(0.0, score)), 1)
 
@@ -477,7 +527,13 @@ class ExperienceMemoryEngine:
                 "losses_count": loss_count,
                 "net_pnl_usd": total_pnl,
                 "expertise_level": expertise,
-                "action_recommendation": action
+                "action_recommendation": action,
+                "last_closed_at": last_closed_at,
+                "first_trade_at": first_trade_at,
+                "recency_weighted_win_rate_pct": recency_weighted_win_rate,
+                "wilson_lower_pct": wilson_lower,
+                "wilson_upper_pct": wilson_upper,
+                "statistical_confidence_label": statistical_confidence_label,
             })
 
         results.sort(key=lambda x: x["confidence_score"], reverse=True)

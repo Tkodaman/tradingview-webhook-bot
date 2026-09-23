@@ -1698,11 +1698,13 @@ The following code has been modified to include a line number before every line,
                         <th style="padding: 10px; text-align:center; color:#cbd5e1;">Kâr Çarpanı (PF)</th>
                         <th style="padding: 10px; text-align:center; color:#cbd5e1;">İşlem Sayısı (W/L)</th>
                         <th style="padding: 10px; text-align:right; color:#cbd5e1;">Net PnL</th>
+                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Son İşlem (Tarih/Saat)</th>
+                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">İstatistiksel Güven Aralığı</th>
                         <th style="padding: 10px; text-align:left; color:#cbd5e1;">Uzmanlık / Karar</th>
                     </tr>
                 </thead>
                 <tbody id="assetSummaryTableBody">
-                    <tr><td colspan="7" style="text-align:center; padding: 16px; color:#6b7280;">Geçmiş işlem verisi yükleniyor...</td></tr>
+                    <tr><td colspan="9" style="text-align:center; padding: 16px; color:#6b7280;">Geçmiş işlem verisi yükleniyor...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -3643,6 +3645,18 @@ The following code has been modified to include a line number before every line,
                     const pnlVal = parseFloat(trade.net_pnl) || 0;
                     const pnlColor = pnlVal >= 0 ? "#4ade80" : "#ef4444";
                     const sideColor = trade.side.toUpperCase() === 'BUY' ? '#4ade80' : '#ef4444';
+
+                    // Kapanış tarih/saatini doğru göster; eski kayıtlarda sadece saat varsa dürüstçe belirt
+                    let closedAtStr = '-';
+                    if (trade.closed_at) {
+                        if (trade.closed_at.includes('-')) {
+                            const [datePart, timePart] = trade.closed_at.split(' ');
+                            const [y, m, d] = datePart.split('-');
+                            closedAtStr = `${d}.${m}.${y} ${timePart || ''}`;
+                        } else {
+                            closedAtStr = `${trade.closed_at} (Eski Kayıt)`;
+                        }
+                    }
                     
                     const tr = document.createElement('tr');
                     tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
@@ -3653,7 +3667,7 @@ The following code has been modified to include a line number before every line,
                         <td style="padding: 8px; text-align:right;">${trade.exit_price ? parseFloat(trade.exit_price).toFixed(2) : '-'}</td>
                         <td style="padding: 8px; text-align:right;">${parseFloat(trade.quantity).toFixed(4)}</td>
                         <td style="padding: 8px; text-align:right; font-weight:bold; color:${pnlColor};">${pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)}</td>
-                        <td style="padding: 8px; text-align:center; color:#9ca3af; font-size:11px;">${trade.closed_at || '-'}</td>
+                        <td style="padding: 8px; text-align:center; color:#9ca3af; font-size:11px;">${closedAtStr}</td>
                         <td style="padding: 8px; text-align:left; color:#9ca3af; font-size:10px;">${trade.reason || 'Bilinmiyor'}</td>
                     `;
                     tbody.appendChild(tr);
@@ -3675,7 +3689,7 @@ The following code has been modified to include a line number before every line,
                 tbody.innerHTML = "";
                 
                 if (data.rankings.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 16px; color:#6b7280;">Henüz işlem yapılan varlık yok.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color:#6b7280;">Henüz işlem yapılan varlık yok.</td></tr>';
                     return;
                 }
                 
@@ -3693,6 +3707,23 @@ The following code has been modified to include a line number before every line,
                     const pnlColor = pnl >= 0 ? "#4ade80" : "#ef4444";
                     
                     const wlStr = `${asset.wins_count} W / ${asset.losses_count} L`;
+
+                    // Son işlem tarih/saatini TR formatına çevir (YYYY-MM-DD HH:MM:SS -> GG.AA.YYYY SS:dd)
+                    let lastClosedStr = '—';
+                    if (asset.last_closed_at) {
+                        const parts = asset.last_closed_at.split(' ');
+                        if (parts.length === 2 && parts[0].includes('-')) {
+                            const [y, m, d] = parts[0].split('-');
+                            lastClosedStr = `${d}.${m}.${y} ${parts[1]}`;
+                        } else {
+                            lastClosedStr = `${asset.last_closed_at} (Eski Kayıt)`;
+                        }
+                    }
+
+                    const wilsonStr = (asset.wilson_lower_pct != null && asset.wilson_upper_pct != null)
+                        ? `%${asset.wilson_lower_pct} - %${asset.wilson_upper_pct}`
+                        : '—';
+                    const statLabel = asset.statistical_confidence_label || '';
                     
                     tr.innerHTML = `
                         <td style="padding: 10px; font-weight:bold; color:#f8fafc;">${asset.symbol} <span style="font-size:9px; color:#64748b; margin-left:4px;">${asset.market}</span></td>
@@ -3701,6 +3732,8 @@ The following code has been modified to include a line number before every line,
                         <td style="padding: 10px; text-align:center;">${parseFloat(asset.profit_factor).toFixed(2)}x</td>
                         <td style="padding: 10px; text-align:center; color:#cbd5e1;">${wlStr}</td>
                         <td style="padding: 10px; text-align:right; font-weight:bold; color:${pnlColor};">${pnl >= 0 ? '+' : ''}$${pnl}</td>
+                        <td style="padding: 10px; text-align:center; color:#94a3b8; font-family:'JetBrains Mono'; font-size:11px;">${lastClosedStr}</td>
+                        <td style="padding: 10px; text-align:center; color:#cbd5e1;"><div>${wilsonStr}</div><div style="font-size:9px; color:#64748b;">${statLabel}</div></td>
                         <td style="padding: 10px; text-align:left; color:#9ca3af;"><span style="font-size:10px; padding:2px 4px; border-radius:3px; background:rgba(255,255,255,0.1); margin-right:4px;">${asset.expertise_level}</span> <span style="color:#e2e8f0;">${asset.action_recommendation}</span></td>
                     `;
                     tbody.appendChild(tr);
