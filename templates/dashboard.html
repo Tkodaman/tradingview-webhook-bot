@@ -1485,6 +1485,13 @@ The following code has been modified to include a line number before every line,
         </div>
     </div>
 
+    <!-- ===== 🛡️ MAKRO DÜZELTME ÖN SEZİSİ (CANLI, WEBSOCKET İLE ANLIK) ===== -->
+    <div id="macroStandbyBar" style="display:none; align-items:center; gap:10px; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.4); border-radius:8px; padding:8px 16px; margin-bottom:10px; font-family:'JetBrains Mono',monospace; font-size:12px;">
+        <span style="font-size:16px;">🛡️</span>
+        <span style="color:#fca5a5; font-weight:700;">MAKRO RİSK ÖN SEZİSİ:</span>
+        <span id="macroStandbyReason" style="color:#fecaca;">—</span>
+    </div>
+
     <!-- WALLET & QUICK ACTION TOOLBAR -->
     <div class="wallet-bar">
         <div class="wallet-info">
@@ -3825,6 +3832,18 @@ The following code has been modified to include a line number before every line,
                             lastScanEl.innerText = summary.last_scan + ' UTC';
                         }
 
+                        // Makro Duzeltme On Sezisi (gercek zamanli, ek istek gerektirmez)
+                        const macroBar = document.getElementById('macroStandbyBar');
+                        const macroReasonEl = document.getElementById('macroStandbyReason');
+                        if (macroBar) {
+                            if (summary.is_macro_standby) {
+                                macroBar.style.display = 'flex';
+                                if (macroReasonEl) macroReasonEl.innerText = summary.macro_standby_reason || 'Yeni pozisyon girişleri geçici olarak durduruldu.';
+                            } else {
+                                macroBar.style.display = 'none';
+                            }
+                        }
+
                         // Chart Guncellemesi
 
                         const chartEquity = document.getElementById('chartLatestEquity');
@@ -3910,7 +3929,9 @@ The following code has been modified to include a line number before every line,
             fetchAssetConfidenceIndex();
         }, 30000);
 
-        setInterval(fetchLiveMatrix, 30000);
+        // Not: Backend 5sn cache kullaniyor (_CACHE_TTL); 8sn'de bir cekmek
+        // Top15 yaris siralamasini WebSocket grid'leriyle uyumlu, gercekten canli tutar.
+        setInterval(fetchLiveMatrix, 8000);
 
         // Piyasa Rejimi guncelleme (her 30s)
         fetchMarketRegime();
