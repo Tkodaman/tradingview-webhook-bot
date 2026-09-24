@@ -180,9 +180,21 @@ class LiveTradeManager:
             
             # Trade history is managed in DB separately but cached for API usage (last 100)
             self.trade_history = db_manager.get_all_trade_history()
+
+            # Otonom al-sat anahtari da kalicidir; sunucu yeniden baslasa bile korunur.
+            auto_trade_data = db_manager.get_store("auto_trade_flag")
+            if auto_trade_data:
+                self.auto_trade_enabled = bool(auto_trade_data.get("auto_trade_enabled", False))
         except Exception as e:
             from core.logger import logger
             logger.error(f"State load error: {e}")
+
+    def save_auto_trade_flag(self):
+        try:
+            db_manager.set_store("auto_trade_flag", {"auto_trade_enabled": self.auto_trade_enabled})
+        except Exception as e:
+            from core.logger import logger
+            logger.error(f"Auto-trade flag save error: {e}")
 
     def save_state(self):
         try:

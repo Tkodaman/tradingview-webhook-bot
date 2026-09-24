@@ -29,6 +29,7 @@ class AutoTradeToggleRequest(BaseModel):
 async def toggle_auto_trade(req: AutoTradeToggleRequest):
     from services.market_feed.live_stream import live_trade_manager
     live_trade_manager.auto_trade_enabled = req.enabled
+    live_trade_manager.save_auto_trade_flag()
     status_str = "AÇIK" if req.enabled else "KAPALI"
     return {"status": "success", "message": f"Tam Otonom Mod {status_str} konuma getirildi."}
 

@@ -78,16 +78,27 @@ def get_risk_mode():
 @router.post("/engine/risk-mode")
 async def set_risk_mode(req: RiskModeRequest):
     from core.config import settings
+    from services.market_feed.live_stream import live_trade_manager
     try:
         settings.apply_risk_mode(req.mode)
+
+        # Bir Risk & Frekans Modu secmek, kullanicinin acikca "otonom devral" niyetidir.
+        # Her iki otonom yurutme kapisini da acip ani bir degerlendirme dongusu tetikliyoruz.
+        tv_auto_runner.is_running = True
+        live_trade_manager.auto_trade_enabled = True
+        live_trade_manager.save_auto_trade_flag()
+        immediate_triggers = tv_auto_runner.evaluate_live_market_and_trigger()
+
         return {
             "status": "success",
-            "message": f"Risk Modu '{settings.current_risk_mode}' olarak güncellendi.",
+            "message": f"Risk Modu '{settings.current_risk_mode}' olarak güncellendi. Otonom motor AKTİF, anlık tarama yapıldı.",
             "current_mode": settings.current_risk_mode,
             "max_risk_allowed": settings.max_risk_score_allowed,
             "high_risk_threshold": settings.high_risk_threshold,
             "volume_anomaly_ratio_threshold": settings.volume_anomaly_ratio_threshold,
-            "max_capital_per_trade_pct": settings.max_capital_per_trade_pct
+            "max_capital_per_trade_pct": settings.max_capital_per_trade_pct,
+            "auto_trade_enabled": live_trade_manager.auto_trade_enabled,
+            "immediate_triggers": immediate_triggers,
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}

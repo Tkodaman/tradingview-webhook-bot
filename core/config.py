@@ -1,6 +1,10 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from typing import List
+import json
+import os
+
+RISK_MODE_STATE_FILE = "risk_mode_state.json"
 
 class Settings(BaseSettings):
     passphrase: str
@@ -68,6 +72,28 @@ class Settings(BaseSettings):
             self.high_risk_threshold = 65.0
             self.volume_anomaly_ratio_threshold = 1.2
             self.max_capital_per_trade_pct = 10.0
+        self._persist_risk_mode()
+
+    def _persist_risk_mode(self):
+        # Sunucu yeniden baslasa (reload=True) veya sayfa yenilense bile secili
+        # Risk & Frekans Modu kaybolmasin diye diske yazilir.
+        try:
+            with open(RISK_MODE_STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump({"current_risk_mode": self.current_risk_mode}, f)
+        except Exception:
+            pass
+
+    def load_persisted_risk_mode(self):
+        if not os.path.exists(RISK_MODE_STATE_FILE):
+            return
+        try:
+            with open(RISK_MODE_STATE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            saved_mode = data.get("current_risk_mode")
+            if saved_mode:
+                self.apply_risk_mode(saved_mode)
+        except Exception:
+            pass
 
     @property
     def get_allowed_ips_list(self) -> List[str]:
@@ -78,3 +104,4 @@ class Settings(BaseSettings):
         return [ip.strip() for ip in self.trusted_proxy_ips.split(",") if ip.strip()]
 
 settings = Settings()
+settings.load_persisted_risk_mode()

@@ -4076,8 +4076,19 @@ The following code has been modified to include a line number before every line,
                     document.querySelectorAll('.risk-btn').forEach(btn => btn.classList.remove('active'));
                     const activeBtn = document.getElementById('risk-btn-' + mode);
                     if(activeBtn) activeBtn.classList.add('active');
-                    
-                    showToast(data.message, 'success');
+
+                    // Risk modu secimi = otonom devralma niyeti; OTONOM AL-SAT butonunu da senkron goster
+                    if (data.auto_trade_enabled) {
+                        isAutoTradeEnabled = true;
+                        const autoBtn = document.getElementById('btnAutoTrade');
+                        if (autoBtn) {
+                            autoBtn.innerHTML = '🤖 OTONOM AL-SAT: AÇIK';
+                            autoBtn.style.background = '#22c55e';
+                        }
+                    }
+                    const triggerCount = (data.immediate_triggers || []).length;
+                    const extraMsg = triggerCount > 0 ? ` — Anlık taramada ${triggerCount} fırsat değerlendirildi.` : '';
+                    showToast(data.message + extraMsg, 'success');
                 } else {
                     showToast(data.message, 'error');
                 }
