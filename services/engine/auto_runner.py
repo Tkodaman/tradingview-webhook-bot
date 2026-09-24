@@ -572,6 +572,14 @@ class TradingViewAutoStrategyRunner:
                 continue
 
             if not is_buy_signal:
+                if score >= (required_score - 2):
+                    bot_thought_stream.add_throttled(
+                        "👀 İzleniyor / Yaklaşıyor",
+                        sym,
+                        f"Alım bölgesine yaklaşıyor: Skor {score:.1f}/{required_score} (Rejim: {_rp['regime']}, Mod: {current_mode}). Eşiği geçerse otomatik giriş denenecek.",
+                        "INFO",
+                        cooldown_sec=180,
+                    )
                 logger.info(f"[SCORE SHIELD] {sym} Sinyal zayıf ({score}/{required_score}). Mod: {current_mode} | Rejim: {_rp['regime']}")
                 continue
             # O2 DÜZELTİLDİ: Piyasa başı açık pozisyon limiti kontrolü (rejim matrisinden)
