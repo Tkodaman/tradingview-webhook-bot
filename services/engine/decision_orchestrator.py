@@ -3,6 +3,7 @@
 This module deliberately avoids LLM/network calls. It annotates every signal and
 only blocks explicit hard data failures that cannot be made safe downstream.
 """
+import time
 from typing import Any, Dict
 
 from core.config import settings
@@ -23,6 +24,21 @@ def evaluate_fast_gate(signal: Any) -> Dict[str, Any]:
             "missing_fields": ["price"],
             "warnings": [],
         }
+
+    # Veri Tazeliği Kapısı (Data Quality Gate): sinyalin dayandığı piyasa
+    # anlık görüntüsü (webhook veya otonom auto-runner) yeterince taze değilse
+    # fail-closed davran — eski veriyle işlem tetiklenmez.
+    if signal.timestamp_ms:
+        age_seconds = max(0.0, (time.time() * 1000 - signal.timestamp_ms) / 1000.0)
+        max_age = getattr(settings, "max_internal_signal_age_seconds", 20.0)
+        if age_seconds > max_age:
+            return {
+                "decision_gate": "BLOCK",
+                "hard_block": True,
+                "reason": "STALE_MARKET_DATA",
+                "missing_fields": missing_fields,
+                "warnings": [f"data_age_seconds={age_seconds:.1f} > max_age={max_age:.1f}"],
+            }
 
     if "volume_ratio" in indicators and indicators["volume_ratio"] is None:
         missing_fields.append("volume_ratio")

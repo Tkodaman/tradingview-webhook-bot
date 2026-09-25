@@ -136,6 +136,18 @@ class TradingViewAutoStrategyRunner:
             if price <= 0:
                 continue
 
+            # === VERİ TAZELİĞİ KAPISI (Data Quality Gate) ===
+            # TradingView çekimi başarısız olup eski cache dönebilir; damgasız veya
+            # aşırı eski (>max_internal_signal_age_seconds) anlık görüntüyle asla giriş yapma.
+            snapshot_ts = data.get("last_updated_ts") or data.get("source_timestamp")
+            if not snapshot_ts:
+                logger.debug(f"[DATA GUARD] {sym} veri zaman damgası yok. Atlanıyor.")
+                continue
+            snapshot_age = now_ts - snapshot_ts
+            if snapshot_age > settings.max_internal_signal_age_seconds:
+                logger.warning(f"[STALE DATA GUARD] {sym} veri yaşı {snapshot_age:.1f}s (limit {settings.max_internal_signal_age_seconds}s). Atlanıyor.")
+                continue
+
             rsi = data.get("rsi", 50.0)
             macd = data.get("macd", 0.0)
             ema_golden = data.get("ema_golden_cross", False)
@@ -740,6 +752,7 @@ class TradingViewAutoStrategyRunner:
                     stop_loss=target_sl_price,
                     account_equity=dyn_cap,
                     market_position="long",
+                    timestamp_ms=int(snapshot_ts * 1000),
                     indicators={
                         "rsi": rsi,
                         "volatility": atr_pct,

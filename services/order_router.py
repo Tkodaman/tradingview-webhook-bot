@@ -49,6 +49,16 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     if orchestration["hard_block"]:
         logger.warning(f"[ORCHESTRATOR BLOCK] {signal.symbol}: {orchestration['reason']}")
         return _strict_rejection(signal, orchestration["reason"])
+    # Fail-closed: eksik kritik indikatör (volume_ratio/atr_pct) teyit gerektirir.
+    # Daha önce bu WAIT durumu hiçbir yerde uygulanmıyordu; sinyal sessizce işleme devam ediyordu.
+    if orchestration["decision_gate"] == "WAIT" and action_clean in ["BUY", "LONG", "SELL", "SHORT"]:
+        logger.info(f"[ORCHESTRATOR WAIT] {signal.symbol}: eksik veri teyidi gerekiyor - {orchestration['missing_fields']}")
+        return {
+            "status": "wait",
+            "reason": "DATA_QUALITY_INCOMPLETE",
+            "missing_fields": orchestration["missing_fields"],
+            "decision": {"orchestration": orchestration, "signal": signal.model_dump()},
+        }
 
     # 0. VERİ DOĞRULAMA — Null / Geçersiz Fiyat & Miktar Kontrolü
     if signal.price is None or signal.price <= 0:

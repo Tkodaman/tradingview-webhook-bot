@@ -36,6 +36,7 @@ class ActivePosition(BaseModel):
     stop_loss_price: float
     break_even_trigger_price: float
     break_even_activated: bool = False
+    partial_profit_taken: bool = False
     highest_price_seen: float = 0.0
     trailing_stop_activated: bool = False
     unrealized_pnl: float = 0.0
@@ -632,6 +633,104 @@ class LiveTradeManager:
         self.save_state()
         return pos
 
+    def _take_partial_profit(self, pos_id: str, ratio: float = 0.50):
+        """
+        KÂR KİLİDİ: TP mesafesinin %33'üne ulaşan pozisyonlarda %50 kısmi kâr alır,
+        kalan pozisyonu Başa Baş (Break-Even) noktasına kilitleyerek cüretkar şekilde
+        kalan kârı büyütmeye devam eder (sermaye asla tekrar zarara dönmez).
+        """
+        pos = self.positions.get(pos_id)
+        if not pos or pos.status != "OPEN" or pos.partial_profit_taken:
+            return
+
+        curr_price = self.market_prices.get(pos.symbol, {}).get("price", pos.current_price)
+        if curr_price <= 0 or pos.quantity <= 0:
+            return
+
+        close_qty = round(pos.quantity * ratio, 4)
+        if close_qty <= 0:
+            return
+
+        if pos.side == "BUY":
+            gross_pnl = round(close_qty * (curr_price - pos.entry_price), 2)
+        else:
+            gross_pnl = round(close_qty * (pos.entry_price - curr_price), 2)
+
+        is_sim = settings.trading_mode == "SIMULATION" or pos.status == "SHADOW_OPEN"
+        if is_sim:
+            total_comm = 0.0
+        else:
+            comm_details = self.calculate_alpaca_commission(pos.symbol, pos.market, pos.entry_price, curr_price, close_qty, round(close_qty * pos.entry_price, 2))
+            total_comm = comm_details["total_commission"]
+        net_pnl = round(gross_pnl - total_comm, 2)
+
+        # Broker: gerçek kısmi satış emri (best-effort; hata olursa sadece lokal muhasebe güncellenir)
+        if pos.market in ["NASDAQ", "CRYPTO"]:
+            try:
+                from services.broker.factory import get_broker
+                is_paper = settings.trading_mode.upper() != "LIVE"
+                broker = get_broker("ALPACA", paper=is_paper)
+                if broker and broker.api:
+                    broker.api.submit_order(
+                        symbol=broker._format_symbol(pos.symbol),
+                        qty=str(close_qty),
+                        side="sell" if pos.side == "BUY" else "buy",
+                        type="market",
+                        time_in_force="day",
+                    )
+            except Exception as e:
+                logger.warning(f"[KÂR KİLİDİ BROKER WARN] {pos.symbol} kısmi kâr emri iletilemedi: {e}")
+
+        self.realized_pnl = round(self.realized_pnl + net_pnl, 2)
+        self.total_commissions_paid = round(self.total_commissions_paid + total_comm, 2)
+        pos.quantity = round(pos.quantity - close_qty, 4)
+        pos.nominal_value = round(pos.nominal_value * (1 - ratio), 2)
+        pos.partial_profit_taken = True
+
+        # Kalan pozisyonu Başa Baş noktasına kilitle (sermaye bir daha zarara dönmesin)
+        pos.break_even_activated = True
+        be_price = round(pos.entry_price * 1.002, 5) if pos.side == "BUY" else round(pos.entry_price * 0.998, 5)
+        moved = False
+        if pos.side == "BUY" and be_price > pos.stop_loss_price:
+            pos.stop_loss_price = be_price
+            moved = True
+        elif pos.side == "SELL" and be_price < pos.stop_loss_price:
+            pos.stop_loss_price = be_price
+            moved = True
+        if moved:
+            try:
+                from services.broker.alpaca_client import alpaca_client
+                alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=pos.stop_loss_price)
+            except Exception:
+                pass
+
+        today = datetime.now(TRT).strftime("%Y-%m-%d")
+        if today not in self.daily_stats:
+            self.daily_stats[today] = {"net_pnl": 0.0, "commissions": 0.0, "trades": 0}
+        self.daily_stats[today]["net_pnl"] = round(self.daily_stats[today]["net_pnl"] + net_pnl, 2)
+        self.daily_stats[today]["commissions"] = round(self.daily_stats[today]["commissions"] + total_comm, 2)
+
+        trade_log = {
+            "pos_id": pos.id,
+            "symbol": pos.symbol,
+            "market": pos.market,
+            "side": pos.side,
+            "entry_price": pos.entry_price,
+            "exit_price": curr_price,
+            "quantity": close_qty,
+            "gross_pnl": gross_pnl,
+            "alpaca_commission": total_comm,
+            "net_pnl": net_pnl,
+            "reason": "PARTIAL_TP_LOCK",
+            "opened_at": pos.opened_at,
+            "closed_at": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S")
+        }
+        self.trade_history.insert(0, trade_log)
+        db_manager.insert_trade_history(trade_log)
+        self.save_state()
+
+        logger.info(f"💰 [KÂR KİLİDİ] {pos.symbol} TP mesafesinin %33'üne ulaştı. %{int(ratio*100)} kısmi kâr alındı (Net: ${net_pnl}). Kalan {pos.quantity} adet Başa Baş'a kilitlendi.")
+
     def close_position(self, pos_id: str, reason: str = "MANUAL_CLOSE") -> Optional[Dict[str, Any]]:
         if pos_id not in self.positions:
             return None
@@ -968,6 +1067,12 @@ class LiveTradeManager:
                         except Exception:
                             pass
 
+                # 1.5 KÂR KİLİDİ (Cüretkar Kısmi Kâr Alımı): TP mesafesinin %33'üne ulaşılınca %50 kısmi kâr al, kalanı BE'ye kilitle
+                if is_open and not pos.partial_profit_taken:
+                    tp_dist_pct = ((pos.target_profit_price - pos.entry_price) / pos.entry_price) * 100.0
+                    if tp_dist_pct > 0 and (pct / tp_dist_pct) >= 0.33:
+                        self._take_partial_profit(pos_id, ratio=0.50)
+
                 # 2. TP Kontrolü (+%3.0)
                 if curr_price >= pos.target_profit_price:
                     if is_open:
@@ -1039,6 +1144,12 @@ class LiveTradeManager:
                             alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=pos.stop_loss_price)
                         except Exception:
                             pass
+
+                # 1.5 KÂR KİLİDİ (Cüretkar Kısmi Kâr Alımı): TP mesafesinin %33'üne ulaşılınca %50 kısmi kâr al, kalanı BE'ye kilitle
+                if is_open and not pos.partial_profit_taken:
+                    tp_dist_pct = ((pos.entry_price - pos.target_profit_price) / pos.entry_price) * 100.0
+                    if tp_dist_pct > 0 and (pct / tp_dist_pct) >= 0.33:
+                        self._take_partial_profit(pos_id, ratio=0.50)
 
                 if curr_price <= pos.target_profit_price:
                     if is_open:

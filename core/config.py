@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     volume_anomalies_filter: bool = True  # Hacimsiz sahte kırılım (false breakout) filtresi AKTİF
     volume_anomaly_ratio_threshold: float = 1.2 # Vol.Ratio < 1.2 = BLOK (eski: 0.5)
     macro_event_pause_minutes: int = 5
+    max_internal_signal_age_seconds: float = 20.0  # Otonom (webhook-dışı) sinyallerde izin verilen maksimum veri yaşı
     
     # Analyzer Agent Weights
     weight_technical: float = 0.40
