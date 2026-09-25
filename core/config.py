@@ -25,9 +25,9 @@ class Settings(BaseSettings):
     moderate_risk_threshold: float = 45.0
     
     # Position Sizing
-    max_capital_per_trade_pct: float = 10.0 # Max 10% of portfolio per trade ($300 @ $3,000 kasa)
+    max_capital_per_trade_pct: float = 25.0 # Max 25% of portfolio per trade for aggressive attacks
     base_portfolio_size: float = 5000.0 # Başlangıç Kasa: $5,000.00 (Kesin Taban)
-    dynamic_capital_allocation_pct: float = 10.0  # YENİ: Arayüzden değiştirilebilir işlem büyüklüğü (%)
+    dynamic_capital_allocation_pct: float = 25.0  # YENİ: Arayüzden değiştirilebilir işlem büyüklüğü (%)
     
     # Circuit Breakers & Hard Rules
     flash_crash_volatility_limit: float = 8.0 # Volatilite kilidi %8.0
@@ -53,10 +53,10 @@ class Settings(BaseSettings):
             self.volume_anomaly_ratio_threshold = 1.5
             self.max_capital_per_trade_pct = 10.0
         elif self.current_risk_mode == "AGGRESSIVE":
-            self.max_risk_score_allowed = 88.0  # Yüksek tolerans
-            self.high_risk_threshold = 60.0
-            self.volume_anomaly_ratio_threshold = 1.2
-            self.max_capital_per_trade_pct = 10.0
+            self.max_risk_score_allowed = 100.0  # Çok yüksek tolerans (cüretkar saldırı)
+            self.high_risk_threshold = 50.0
+            self.volume_anomaly_ratio_threshold = 1.2 # Hacim kilidi (Volume Anomaly Guard) eski haline 1.2 olarak ayarlandı
+            self.max_capital_per_trade_pct = 30.0 # Bütçenin 1/3'ünü tek işleme basabilir
         elif self.current_risk_mode == "TIGHT":
             self.max_risk_score_allowed = 90.0
             self.high_risk_threshold = 75.0

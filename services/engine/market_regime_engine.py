@@ -38,11 +38,11 @@ DECISION_MATRIX = {
         REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=2.0,  sl_pct=0.8,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
     },
     "AGGRESSIVE": {
-        REGIME_MEGA_BULL: dict(min_score=3, min_vol=0.5, tp_pct=6.0,  sl_pct=2.5,  capital_mult=1.5, max_global_pos=15, max_market_pos=6,  entry_allowed=True),
-        REGIME_BULL:      dict(min_score=3, min_vol=0.6, tp_pct=5.0,  sl_pct=2.0,  capital_mult=1.2, max_global_pos=12, max_market_pos=5,  entry_allowed=True),
-        REGIME_SIDEWAYS:  dict(min_score=4, min_vol=0.8, tp_pct=3.0,  sl_pct=1.5,  capital_mult=0.9, max_global_pos=8,  max_market_pos=3,  entry_allowed=True),
-        REGIME_BEAR:      dict(min_score=6, min_vol=1.0, tp_pct=2.0,  sl_pct=1.0,  capital_mult=0.5, max_global_pos=3,  max_market_pos=1,  entry_allowed=True),
-        REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=1.5,  sl_pct=0.8,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
+        REGIME_MEGA_BULL: dict(min_score=2, min_vol=0.5, tp_pct=7.0,  sl_pct=3.0,  capital_mult=1.5, max_global_pos=20, max_market_pos=8,  entry_allowed=True),
+        REGIME_BULL:      dict(min_score=2, min_vol=0.6, tp_pct=6.0,  sl_pct=2.5,  capital_mult=1.3, max_global_pos=15, max_market_pos=6,  entry_allowed=True),
+        REGIME_SIDEWAYS:  dict(min_score=3, min_vol=0.8, tp_pct=4.0,  sl_pct=1.5,  capital_mult=1.0, max_global_pos=10, max_market_pos=4,  entry_allowed=True),
+        REGIME_BEAR:      dict(min_score=4, min_vol=1.0, tp_pct=2.5,  sl_pct=1.0,  capital_mult=0.8, max_global_pos=5,  max_market_pos=2,  entry_allowed=True),
+        REGIME_CRASH:     dict(min_score=6, min_vol=2.0, tp_pct=1.5,  sl_pct=0.8,  capital_mult=0.5, max_global_pos=2,  max_market_pos=1,  entry_allowed=True),
     },
     "NORMAL": {
         REGIME_MEGA_BULL: dict(min_score=4, min_vol=0.7, tp_pct=5.0,  sl_pct=2.0,  capital_mult=1.1, max_global_pos=10, max_market_pos=4,  entry_allowed=True),

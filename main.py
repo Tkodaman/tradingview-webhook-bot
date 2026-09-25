@@ -52,7 +52,7 @@ async def start_shadow_scanner():
     from services.ai_agent.research_engine import financial_agent
     from services.data_ingestion.tradingview_live_client import tradingview_live_client
     
-    WATCHLIST = ["BTCUSD", "ETHUSD", "TSLA", "NVDA", "QQQ"]
+    WATCHLIST = ["BTCUSD", "ETHUSD", "TSLA", "NVDA", "QQQ", "ASML", "VRT", "EME", "GLW"]
     
     while True:
         try:

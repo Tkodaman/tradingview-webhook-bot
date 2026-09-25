@@ -3313,11 +3313,17 @@ The following code has been modified to include a line number before every line,
 
             container.innerHTML = `
                 <div class="inner-box" style="border-left: 3px solid var(--accent-blue);">
-                    <div class="inner-box-title">🎯 Yarının Strateji Eğilimi: <span style="color:#93c5fd;">${synthesis.tomorrow_strategy_bias || 'NÖTR'}</span></div>
+                    <div class="inner-box-title">
+                        <span>🎯 Yarının Strateji Eğilimi: <span style="color:#93c5fd;">${synthesis.tomorrow_strategy_bias || 'NÖTR'}</span></span>
+                        <span style="font-size:10px; color:#94a3b8; font-family:'JetBrains Mono'; float:right;">🕒 ${synthesis.session_date || ''}</span>
+                    </div>
                     <p style="color:var(--text-secondary); font-size:12px; margin-top:4px;">${synthesis.executive_takeaway || 'Veri sentezleniyor.'}</p>
                 </div>
                 <div class="inner-box" style="border-left: 3px solid var(--accent-yellow);">
-                    <div class="inner-box-title">🏆 Günün En İyi Kurulumu:</div>
+                    <div class="inner-box-title">
+                        <span>🏆 Günün En İyi Kurulumu:</span>
+                        <span style="font-size:10px; color:#94a3b8; font-family:'JetBrains Mono'; float:right;">🕒 ${synthesis.session_date || ''}</span>
+                    </div>
                     <div style="font-size:12px; color:#fff; font-weight:600;">${synthesis.top_performing_setup || '-'}</div>
                     <div class="inner-box-item"><span>⚠️</span> <div><span style="color:#fff;">Kritik Hata/Risk:</span> ${synthesis.worst_mistake_detected || 'Tespit edilen hata yok.'}</div></div>
                 </div>
@@ -3956,6 +3962,11 @@ The following code has been modified to include a line number before every line,
                 const regimes = data.regimes || {};
                 const profiles = data.trade_profiles || {};
                 const riskMode = data.current_risk_mode || 'NORMAL';
+                
+                // Otonom hafızadan gelen aktif modu UI üzerinde kalıcı işaretle
+                document.querySelectorAll('.risk-btn').forEach(btn => btn.classList.remove('active'));
+                const activeBtn = document.getElementById('risk-btn-' + riskMode);
+                if(activeBtn) activeBtn.classList.add('active');
 
                 // Guncelleme zamani
                 const updEl = document.getElementById('regimeLastUpdate');

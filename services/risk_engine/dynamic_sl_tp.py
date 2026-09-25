@@ -14,18 +14,18 @@ def calculate_atr_based_tp_sl(
         # Fallback: Minimum R:R 1:2 garantisi
         return (4.0 if is_crypto else 3.5), (1.5 if is_crypto else 1.5)
 
-    tp_multiplier = 3.0 if is_crypto else 2.5   # FIX: 2.5/2.0 -> 3.0/2.5 (TP genisletme)
-    sl_multiplier = 1.0                          # FIX: 1.5 -> 1.0 (SL sıkılaştırma)
+    tp_multiplier = 4.0 if is_crypto else 3.5   # Otonom İnsiyatif: Kâr Maksimizasyonu (Kazanç Arttıralım)
+    sl_multiplier = 1.0
     tp_pct = ((atr_value * tp_multiplier) / entry_price) * 100.0
     sl_pct = ((atr_value * sl_multiplier) / entry_price) * 100.0
 
-    # === SL üst limiti %2.5 (%4.3'ten düşürüldü) ===
-    sl_pct = max(1.0, min(sl_pct + 0.2, 2.5))   # FIX: max 4.3 -> 2.5
-    # === TP alt limiti %2.5 (%1.8'den yükseltildi) ===
-    tp_pct = max(2.5, min(tp_pct, 9.0))          # FIX: min 1.8 -> 2.5
-    # === Minimum R:R 1:2 garantisi ===
-    if tp_pct < sl_pct * 2.0:
-        tp_pct = sl_pct * 2.0                    # FIX: 1.8x -> 2.0x (katı R:R kuralı)
+    # === SL üst limiti %2.5 ===
+    sl_pct = max(1.0, min(sl_pct + 0.2, 2.5))
+    # === TP alt limiti %2.5, Üst limiti %15.0 (Cüretkar kazançlar için limit açıldı) ===
+    tp_pct = max(2.5, min(tp_pct, 15.0))
+    # === Minimum R:R 1:2.5 garantisi (Özgüvenli avcı) ===
+    if tp_pct < sl_pct * 2.5:
+        tp_pct = sl_pct * 2.5
 
     from core.logger import logger
     logger.debug(f"[ATR TP/SL] entry={entry_price} atr={atr_value:.4f} crypto={is_crypto} -> TP=%{tp_pct:.2f} SL=%{sl_pct:.2f} R:R={tp_pct/sl_pct:.2f}")
@@ -35,10 +35,10 @@ class DynamicRiskManager:
         # symbol -> { "high_water_mark": float, "initial_sl_set": bool }
         self.price_history = {}
 
-        # === SIKI TRAILING STOP PARAMETRESİ ===
-        # trailing_distance_pct: SL her zaman en yüksek fiyatın %1.5 altında
+        # === ÖZGÜVENLİ TRAILING STOP PARAMETRESİ ===
+        # trailing_distance_pct: Kârın izini sürerken sahte iğnelere (wicks) kurban gitmemek için biraz esnetildi
         # Aktivasyon yok — giriş anından itibaren geçerli, asla aşağı inmez
-        self.trailing_distance_pct = 1.5   # Kullanıcı isteği: %1.5 sıkı takip
+        self.trailing_distance_pct = 2.0   # %2.0 dinamik iz sürme (Nefes payı bırakıldı)
 
     async def on_price_update(self, symbol: str, current_price: float):
         """

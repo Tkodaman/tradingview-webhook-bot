@@ -141,8 +141,8 @@ RISK_PARAMS = {
     },
 
     # Kriptolara Özel Dinamik Makas / Hata İzolasyonu
-    "crypto_dynamic_sl_base": 2.0,           # Kriptoda min stop (Standart %1.5 yetmez)
-    "crypto_dynamic_tp_base": 4.0,           # Kriptoda hedef kâr (Standart %3.0 yerine)
+    "crypto_dynamic_sl_base": 3.5,           # Kriptoda min stop (Kullanici istegi: 3.5%)
+    "crypto_dynamic_tp_base": 5.0,           # Kriptoda hedef kâr (Kullanici istegi: 5.0%)
     
     # Analiz Ağırlıkları
     "weight_technical": 0.40,

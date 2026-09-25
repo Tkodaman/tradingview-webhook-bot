@@ -3,6 +3,7 @@ from services.ranking.top20_engine import top20_engine, Top20EvaluationResponse
 from services.indicators_engine.twelve_indicators import twelve_indicators_engine, TwelveIndicatorsData, TwelveIndicatorsScore
 from services.risk_engine.margin_controller import margin_controller, MarginCalculationRequest, AsymmetricMarginPlan
 from services.indicators_engine.quantitative_indicators import quantitative_engine_24, Quantitative24Data
+from services.indicators_engine.hierarchy_engine import master_hierarchy_engine, MasterHierarchyData, MasterHierarchyReport
 
 router = APIRouter()
 
@@ -20,6 +21,14 @@ async def evaluate_twelve_indicators(data: TwelveIndicatorsData):
     TradingView Geçerli 12 İndikatör Mantıksal Puanlama ve Sinyal Uç Noktası
     """
     return twelve_indicators_engine.evaluate(data)
+
+@router.post("/evaluate-hierarchy", response_model=MasterHierarchyReport)
+async def evaluate_hierarchy(data: MasterHierarchyData):
+    """
+    Sıralı Değerlendirme Motoru: 
+    Order Flow > Volume Profile > Anchored VWAP >> Price Action > Fibonacci > İndikatör
+    """
+    return master_hierarchy_engine.evaluate(data)
 
 @router.post("/calculate-asymmetric-margin", response_model=AsymmetricMarginPlan)
 async def calculate_asymmetric_margin(req: MarginCalculationRequest):

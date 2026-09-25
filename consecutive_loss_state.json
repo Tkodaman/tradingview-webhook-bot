@@ -1,1 +1,1 @@
-{"consecutive_losses": 0, "daily_losses": 0, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {}, "symbol_blocks": {}, "last_reset_date": "2026-09-24"}
+{"consecutive_losses": 0, "daily_losses": 1, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {"YKBNK": 1}, "symbol_blocks": {}, "last_reset_date": "2026-09-25"}

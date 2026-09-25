@@ -28,7 +28,7 @@ class MarginCalculationRequest(BaseModel):
     target_profit_pct: Optional[float] = None  # örn: +3.00%
     stop_loss_pct: Optional[float] = None      # örn: -1.50% (R:R >= 2.0)
     slippage_rate_pct: float = Field(0.08, description="Tek Yön Kayma Payı (%0.05 - %0.10)")
-    max_position_margin_pct: float = Field(20.0, description="Tek İşleme Ayrılabilecek Maksimum Marj (%)")
+    max_position_margin_pct: float = Field(35.0, description="Tek İşleme Ayrılabilecek Maksimum Marj (%)")
 
 class AsymmetricMarginPlan(BaseModel):
     symbol: str

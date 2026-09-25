@@ -55,6 +55,7 @@ class AssetUniverseManager:
             "NASDAQ:LIN", "NASDAQ:CSCO", "NASDAQ:ADBE", "NASDAQ:TXN", "NASDAQ:QCOM",
             
             # High Momentum & AI / Chips
+            "NYSE:VRT", "NYSE:EME", "NYSE:GLW", # User-requested targets
             "NASDAQ:AMAT", "NASDAQ:ISRG", "NASDAQ:CMCSA", "NASDAQ:INTU", "NASDAQ:AMGN",
             "NASDAQ:BKNG", "NASDAQ:HON", "NASDAQ:VRTX", "NASDAQ:LRCX", "NASDAQ:PANW",
             "NASDAQ:MU", "NASDAQ:REGN", "NASDAQ:ADP", "NASDAQ:ADI", "NASDAQ:MDLZ",

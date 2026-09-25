@@ -914,7 +914,7 @@ class LiveTradeManager:
                 pct = ((curr_price - pos.entry_price) / pos.entry_price) * 100.0
 
                 # === KAZAN-KAZAN: FLASH CRASH (HABER ETKİSİ) KORUMASI ===
-                if pct <= -3.0 and not pos.trailing_stop_activated:
+                if pct <= -4.0 and not pos.trailing_stop_activated:
                     if is_open:
                         logger.warning(f"🚨 [FLASH CRASH DETECTED] {pos.symbol} %{pct:.2f} düştü! Acil stop tetikleniyor.")
                         self.close_position(pos_id, "CLOSED_FLASH_CRASH")
