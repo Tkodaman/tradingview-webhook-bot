@@ -60,84 +60,14 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                 effective_balance = live_trade_manager.account_balance
                 real_available_cash = live_trade_manager.available_cash
                 
-                # === ALPACA KAYNAK HAKIKATI (Single Source of Truth) ===
-                # LIVE/PAPER modda tum pozisyon ve PnL verileri TAMAMEN Alpaca'dan gelir.
-                # Botun yerel hesaplari UI'ya HICBIR ZAMAN yansimaz.
-                alpaca_positions_for_ui = []
-                try:
-                    from core.config import settings
-                    if settings.trading_mode in ["LIVE", "PAPER"]:
-                        from services.broker.factory import get_broker
-                        from core.logger import logger
-                        broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
-                        if broker and broker.api:
-                            alpaca_eq = float(broker.get_account_balance())
-                            raw_positions = broker.get_open_positions() or []
-                            active_assets = sum(float(p.get("market_value", 0)) for p in raw_positions)
+                # Dashboard'a gönderilecek pozisyon listesi
+                # live_trade_manager arka planda zaten Alpaca ile senkronize edildiği için (Ghost Cleanup dahil),
+                # burada tekrar tekrar her milisaniyede internet üzerinden Alpaca'ya HTTP isteği atmak 
+                # (blocking request) tüm sunucuyu kitler ve gecikme yaratır. Doğrudan yerel belleği kullanıyoruz.
+                positions_for_dashboard = [
+                    p.model_dump() for p in live_trade_manager.positions.values() if p.status in ["OPEN", "SHADOW_OPEN"]
+                ]
 
-                            # 1. Alpaca sembol -> bot pozisyon eslestirmesi (yerel PnL'i Alpaca ile ezdik)
-                            synced_symbols = set()
-                            for rp in raw_positions:
-                                alpaca_sym = rp.get("symbol", "")           # ornekle "ETHUSD"
-                                alpaca_sym_t = alpaca_sym + "T"             # ornekle "ETHUSDT"
-                                avg_entry = float(rp.get("avg_entry_price", 0) or 0)
-                                curr_price = float(rp.get("current_price", 0) or 0)
-                                unreal_pl  = float(rp.get("unrealized_pl", 0) or 0)
-                                unreal_plpc= float(rp.get("unrealized_plpc", 0) or 0) * 100
-                                qty        = float(rp.get("qty", 0) or 0)
-                                mkt_val    = float(rp.get("market_value", 0) or 0)
-
-                                # Bot'taki eslesen pozisyonu bul ve ALPACA verileriyle ezip gec
-                                for p in live_trade_manager.positions.values():
-                                    if p.symbol in (alpaca_sym, alpaca_sym_t):
-                                        if p.status == "PENDING_BROKER":
-                                            p.status = "OPEN"
-                                        if avg_entry > 0:
-                                            p.entry_price = avg_entry
-                                        if curr_price > 0:
-                                            p.current_price = curr_price
-                                        p.unrealized_pnl     = round(unreal_pl, 2)
-                                        p.unrealized_pnl_pct = round(unreal_plpc, 4)
-                                        p.quantity           = qty
-                                        p.nominal_value      = mkt_val
-                                        synced_symbols.add(p.symbol)
-
-                                # UI icin Alpaca'dan gelen ham veriyi hazirla (kesin deger)
-                                alpaca_positions_for_ui.append({
-                                    "id": f"ALPACA-{alpaca_sym}",
-                                    "symbol": alpaca_sym_t,            # Bot formatinda goster
-                                    "market": "CRYPTO" if alpaca_sym.endswith("USD") and len(alpaca_sym) <= 8 else "NASDAQ",
-                                    "side": rp.get("side", "long").upper(),
-                                    "entry_price": avg_entry,
-                                    "current_price": curr_price,
-                                    "quantity": qty,
-                                    "nominal_value": mkt_val,
-                                    "unrealized_pnl": round(unreal_pl, 2),
-                                    "unrealized_pnl_pct": round(unreal_plpc, 4),
-                                    "target_profit_price": 0,
-                                    "stop_loss_price": 0,
-                                    "break_even_trigger_price": 0,
-                                    "status": "OPEN",
-                                    "opened_at": "",
-                                    "source": "ALPACA_LIVE",  # UI'da gosterim icin
-                                })
-
-                            effective_balance = min(alpaca_eq, 5000.0)
-                            real_available_cash = max(0.0, effective_balance - active_assets)
-                            logger.debug(f"[WS SYNC] {len(raw_positions)} Alpaca pozisyonu UI'a aktarildi.")
-                except Exception as sync_err:
-                    from core.logger import logger
-                    logger.warning(f"[WS SYNC ERROR] Alpaca senkronizasyon hatasi: {sync_err}")
-
-                # Dashboard'a gonderilecek pozisyon listesi:
-                # LIVE/PAPER modda: Alpaca'dan gelen gercek veriler
-                # SIMULATION modda: Bot'un yerel listesi
-                if alpaca_positions_for_ui:
-                    positions_for_dashboard = alpaca_positions_for_ui
-                else:
-                    positions_for_dashboard = [
-                        p.model_dump() for p in live_trade_manager.positions.values() if p.status == "OPEN"
-                    ]
 
                 # Bot uptime hesapla
                 elapsed = int(time.time() - _BOT_START_TIME)
@@ -169,7 +99,7 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
             from core.logger import logger
             logger.error(f"Broadcaster error: {e}")
         
-        await asyncio.sleep(1.5)  # 1.5 saniyelik yayın periyodu
+        await asyncio.sleep(0.4)  # 0.4 saniyelik ultra hızlı yayın periyodu
 
 @router.websocket("/live")
 async def websocket_endpoint(websocket: WebSocket):

@@ -1,0 +1,98 @@
+{
+    "updated_at": "2026-09-26T13:30:00+03:00",
+    "crypto_portfolio": {
+        "market": "BtcTurk",
+        "assets": [
+            {
+                "symbol": "POL",
+                "entry_price": 5.790,
+                "total_invested": 7090.0,
+                "currency": "TRY",
+                "status": "ACTIVE_TRAILING",
+                "buy_date": "2026-09-26",
+                "ai_suggested": true,
+                "strategy": "SCALPING_DAY_TRADE"
+            },
+            {
+                "symbol": "AAVE",
+                "entry_price": 7536.0,
+                "total_invested": 7090.0,
+                "currency": "TRY",
+                "status": "ACTIVE_TRAILING",
+                "buy_date": "2026-09-26",
+                "ai_suggested": true,
+                "strategy": "SCALPING_DAY_TRADE"
+            },
+            {
+                "symbol": "LTC",
+                "entry_price": "MARKET_DYNAMIC",
+                "total_invested": 7132.5,
+                "currency": "TRY",
+                "status": "ACTIVE_TRAILING",
+                "buy_date": "2026-09-26",
+                "ai_suggested": true,
+                "strategy": "HIT_AND_RUN"
+            },
+            {
+                "symbol": "ONDO",
+                "entry_price": 26.625,
+                "total_invested": 14437.0,
+                "currency": "TRY",
+                "status": "ACTIVE_TRAILING",
+                "buy_date": "Unknown",
+                "strategy": "TREND_SURFING"
+            },
+            {
+                "symbol": "ETH",
+                "entry_price": 2640.50,
+                "total_invested": 1200.0,
+                "currency": "USD",
+                "status": "ACTIVE_TRAILING",
+                "buy_date": "2026-09-26",
+                "ai_suggested": true,
+                "autonomous_mode": true
+            }
+        ]
+    },
+    "stock_portfolio": {
+        "market": "Midas",
+        "assets": [
+            {
+                "symbol": "AMZN",
+                "entry_price": 268.0,
+                "total_invested": 483.90,
+                "currency": "USD",
+                "status": "HOLD",
+                "buy_date": "2026-08-12",
+                "ai_suggested": false
+            },
+            {
+                "symbol": "AMZN",
+                "entry_price": 257.97,
+                "total_invested": 310.79,
+                "currency": "USD",
+                "status": "HOLD",
+                "buy_date": "2026-09-22",
+                "ai_suggested": true
+            },
+            {
+                "symbol": "ANET",
+                "entry_price": 201.23,
+                "total_invested": 408.41,
+                "currency": "USD",
+                "status": "HOLD",
+                "buy_date": "2026-09-18",
+                "ai_suggested": true
+            },
+            {
+                "symbol": "NVDA",
+                "entry_price": 222.02,
+                "total_invested": 210.0,
+                "currency": "USD",
+                "status": "HOLD",
+                "buy_date": "2026-09-24",
+                "ai_suggested": false
+            }
+        ]
+    }
+}

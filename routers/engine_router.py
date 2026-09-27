@@ -13,7 +13,7 @@ class AutoRunnerToggleRequest(BaseModel):
     capital_per_trade: float = Field(100.0, description="İşlem başına kullanılacak bakiye")
 
 @router.post("/auto-runner/toggle")
-async def toggle_auto_runner(req: AutoRunnerToggleRequest):
+def toggle_auto_runner(req: AutoRunnerToggleRequest):
     """
     TradingView ücretli alarmına gerek kalmadan otonom 12-indikatör tarayıcısını başlatır/durdurur.
     """
@@ -46,7 +46,7 @@ class AutonomousLabRequest(BaseModel):
     trial_count: int = Field(50, description="Otonom deneme sayısı")
 
 @router.post("/autonomous-lab/run")
-async def run_autonomous_lab_experiment(req: AutonomousLabRequest):
+def run_autonomous_lab_experiment(req: AutonomousLabRequest):
     """
     10-Skill, 12-İndikatör ve Makro Verilerle Otonom $100 Algoritma Havuzu Denemeleri Yığını Çalıştırır
     """
@@ -56,7 +56,7 @@ async def run_autonomous_lab_experiment(req: AutonomousLabRequest):
     )
 
 @router.get("/autonomous-lab/latest")
-async def get_latest_autonomous_lab_experiment():
+def get_latest_autonomous_lab_experiment():
     """
     En son çalıştırılan otonom algoritma havuzu sonuçlarını döndürür
     """
@@ -76,7 +76,7 @@ def get_risk_mode():
     }
 
 @router.post("/engine/risk-mode")
-async def set_risk_mode(req: RiskModeRequest):
+def set_risk_mode(req: RiskModeRequest):
     from core.config import settings
     from services.market_feed.live_stream import live_trade_manager
     try:
@@ -107,7 +107,7 @@ class CapitalAllocationRequest(BaseModel):
     allocation_pct: float = Field(..., description="Kasa üzerinden işlem başına kullanılacak bakiye yüzdesi (örn: 10.0)")
 
 @router.post("/engine/capital-allocation")
-async def set_capital_allocation(req: CapitalAllocationRequest):
+def set_capital_allocation(req: CapitalAllocationRequest):
     from core.config import settings
     import dotenv
     from pathlib import Path
@@ -135,7 +135,7 @@ class BacktestRequest(BaseModel):
     days_back: int = Field(30, description="Kaç günlük geçmiş veri çekilecek?")
 
 @router.post("/engine/run-backtest")
-async def run_backtest_endpoint(req: BacktestRequest):
+def run_backtest_endpoint(req: BacktestRequest):
     try:
         from services.agents.backtest_engine import BacktestEngine
         engine = BacktestEngine(symbols=req.symbols, timeframe=req.timeframe, days_back=req.days_back)
@@ -162,7 +162,7 @@ class AiModelRequest(BaseModel):
     model_name: str = Field("gpt-6-astra", description="Model ismi (örn: gpt-6-astra, gemini-1.5-flash)")
 
 @router.post("/engine/ai-model")
-async def set_ai_model(req: AiModelRequest):
+def set_ai_model(req: AiModelRequest):
     import os
     import dotenv
     from pathlib import Path
@@ -190,7 +190,7 @@ async def set_ai_model(req: AiModelRequest):
 
 
 @router.get("/market/regime")
-async def get_market_regime():
+def get_market_regime():
     """
     Canli Piyasa Rejimi (MEGA_BULL / BULL / SIDEWAYS / BEAR / CRASH)
     Risk Modu x Rejim kombinasyonuyla olusan ticaret profili ve trailing parametrelerini dondurur.

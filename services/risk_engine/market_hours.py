@@ -66,7 +66,7 @@ class MarketHoursValidator:
         # NASDAQ Pre-Market: 11:00 - 16:30 TSİ
         nasdaq_pre = not is_weekend and (11 * 60 <= current_minute < 16 * 60 + 30)
         # NASDAQ Post-Market: 23:00 - 03:00 TSİ (Geceyarısını geçer)
-        nasdaq_post = not is_weekend and (current_minute > 23 * 60 or current_minute < 3 * 60)
+        nasdaq_post = ((0 <= weekday <= 4) and current_minute > 23 * 60) or ((1 <= weekday <= 5) and current_minute < 3 * 60)
 
         # Extended hours config check
         from core.config import settings

@@ -91,74 +91,72 @@ class LiveTradeManager:
         
         try:
             broker_positions = alpaca_client.sync_open_positions()
-            if not broker_positions:
-                return
-
-            for bp in broker_positions:
-                raw_sym = bp.get("symbol")
-                asset_class = bp.get("asset_class", "us_equity")
-                qty = abs(float(bp.get("qty", 0)))
-                if qty == 0: continue
-                
-                # Alpaca represents crypto as BATUSD, we might have it as BATUSDT locally.
-                possible_symbols = [raw_sym]
-                if asset_class == "crypto" or (raw_sym.endswith("USD") and raw_sym != "USD"):
-                    if raw_sym.endswith("USD"):
-                        possible_symbols.append(raw_sym + "T")
-                
-                # Check if we already have it locally
-                local_pos = next((p for p in self.positions.values() if p.symbol in possible_symbols and p.status == "OPEN"), None)
-                
-                # If we don't have it locally, add it
-                if not local_pos:
-                    # Choose standard symbol (prefer USDT for crypto to match TV)
-                    sym = possible_symbols[-1] if (asset_class == "crypto" and len(possible_symbols) > 1) else raw_sym
-                    market = "CRYPTO" if asset_class == "crypto" or raw_sym.endswith("USD") else "NASDAQ"
-
-                    entry_price = float(bp.get("avg_entry_price", 0))
-                    current_price = float(bp.get("current_price", entry_price))
-                    side = "BUY" if float(bp.get("qty", 0)) > 0 else "SELL"
+            active_broker_symbols = set()
+            if broker_positions:
+                for bp in broker_positions:
+                    raw_sym = bp.get("symbol")
+                    asset_class = bp.get("asset_class", "us_equity")
+                    qty = abs(float(bp.get("qty", 0)))
+                    if qty == 0: continue
                     
-                    # Estimate limits since broker might not return bracket details easily via /positions
-                    # Genişletilmiş Makas (Spread) Koruması: Manuel alınan varlıkların anında kapanmaması için tolerans artırıldı.
-                    if market == "CRYPTO":
-                        tp_margin = 0.15  # %15 TP
-                        sl_margin = 0.10  # %10 SL
-                        be_margin = 0.05  # %5 Break-Even
-                    else:
-                        tp_margin = 0.10  # %10 TP
-                        sl_margin = 0.05  # %5 SL
-                        be_margin = 0.03  # %3 Break-Even
+                    possible_symbols = [raw_sym]
+                    if asset_class == "crypto" or (raw_sym.endswith("USD") and raw_sym != "USD"):
+                        if raw_sym.endswith("USD"):
+                            possible_symbols.append(raw_sym + "T")
+                            
+                    active_broker_symbols.update(possible_symbols)
+                    
+                    local_pos = next((p for p in self.positions.values() if p.symbol in possible_symbols and p.status == "OPEN"), None)
+                    
+                    if not local_pos:
+                        sym = possible_symbols[-1] if (asset_class == "crypto" and len(possible_symbols) > 1) else raw_sym
+                        market = "CRYPTO" if asset_class == "crypto" or raw_sym.endswith("USD") else "NASDAQ"
+                        entry_price = float(bp.get("avg_entry_price", 0))
+                        current_price = float(bp.get("current_price", entry_price))
+                        side = "BUY" if float(bp.get("qty", 0)) > 0 else "SELL"
                         
-                    tp_price = entry_price * (1 + tp_margin) if side == "BUY" else entry_price * (1 - tp_margin)
-                    sl_price = entry_price * (1 - sl_margin) if side == "BUY" else entry_price * (1 + sl_margin)
-                    be_price = entry_price * (1 + be_margin) if side == "BUY" else entry_price * (1 - be_margin)
-                    
-                    pos = ActivePosition(
-                        id=f"sync_{int(time.time())}_{sym}",
-                        symbol=sym,
-                        market=market,
-                        side=side,
-                        entry_price=entry_price,
-                        current_price=current_price,
-                        quantity=qty,
-                        nominal_value=entry_price * qty,
-                        target_profit_price=tp_price,
-                        stop_loss_price=sl_price,
-                        break_even_trigger_price=be_price,
-                        opened_at=datetime.now(timezone.utc).isoformat(),
-                        unrealized_pnl=float(bp.get("unrealized_pl", 0)),
-                        unrealized_pnl_pct=float(bp.get("unrealized_plpc", 0)) * 100
-                    )
-                    self.positions[pos.id] = pos
-                else:
-                    # LOCAL'DE VARSA: Alpaca'nın GERÇEK gerçekleşme (Fill) fiyatını ve miktarını senkronize et
-                    # Bu sayede TradingView ile Alpaca arasındaki fiyat/makas (slippage) farkı kâr/zarar hesabını bozmaz!
-                    real_entry_price = float(bp.get("avg_entry_price", 0))
-                    if real_entry_price > 0:
-                        local_pos.entry_price = real_entry_price
-                        local_pos.quantity = qty
-                        local_pos.nominal_value = real_entry_price * qty
+                        if market == "CRYPTO":
+                            tp_margin = 0.15
+                            sl_margin = 0.10
+                            be_margin = 0.05
+                        else:
+                            tp_margin = 0.10
+                            sl_margin = 0.05
+                            be_margin = 0.03
+                            
+                        tp_price = entry_price * (1 + tp_margin) if side == "BUY" else entry_price * (1 - tp_margin)
+                        sl_price = entry_price * (1 - sl_margin) if side == "BUY" else entry_price * (1 + sl_margin)
+                        be_price = entry_price * (1 + be_margin) if side == "BUY" else entry_price * (1 - be_margin)
+                        
+                        pos = ActivePosition(
+                            id=f"sync_{int(time.time())}_{sym}",
+                            symbol=sym,
+                            market=market,
+                            side=side,
+                            entry_price=entry_price,
+                            current_price=current_price,
+                            quantity=qty,
+                            nominal_value=entry_price * qty,
+                            target_profit_price=tp_price,
+                            stop_loss_price=sl_price,
+                            break_even_trigger_price=be_price,
+                            opened_at=datetime.now(timezone.utc).isoformat(),
+                            unrealized_pnl=float(bp.get("unrealized_pl", 0)),
+                            unrealized_pnl_pct=float(bp.get("unrealized_plpc", 0)) * 100
+                        )
+                        self.positions[pos.id] = pos
+                    else:
+                        real_entry_price = float(bp.get("avg_entry_price", 0))
+                        if real_entry_price > 0:
+                            local_pos.entry_price = real_entry_price
+                            local_pos.quantity = qty
+                            local_pos.nominal_value = real_entry_price * qty
+            
+            # Hayalet Pozisyon Temizligi (Ghost Position Cleanup)
+            # Eger lokalde acik gorunen bir pozisyon broker'da yoksa, kapatildi/iptal edildi varsay!
+            stale_positions = [p for p in self.positions.values() if p.status == "OPEN" and p.symbol not in active_broker_symbols]
+            for sp in stale_positions:
+                self.close_position(sp.id, "CLOSED_OFFLINE_SYNC")
             
             # Save the synced state to local db
             self.save_state()
@@ -671,12 +669,13 @@ class LiveTradeManager:
                 is_paper = settings.trading_mode.upper() != "LIVE"
                 broker = get_broker("ALPACA", paper=is_paper)
                 if broker and broker.api:
+                    tif = "gtc" if pos.market == "CRYPTO" else "day"
                     broker.api.submit_order(
                         symbol=broker._format_symbol(pos.symbol),
                         qty=str(close_qty),
                         side="sell" if pos.side == "BUY" else "buy",
                         type="market",
-                        time_in_force="day",
+                        time_in_force=tif,
                     )
             except Exception as e:
                 logger.warning(f"[KÂR KİLİDİ BROKER WARN] {pos.symbol} kısmi kâr emri iletilemedi: {e}")
@@ -885,83 +884,13 @@ class LiveTradeManager:
 
     def _autonomous_opportunity_hunter(self):
         """
-        Tam Otonom (Fully Autonomous) Al-Sat Motoru.
-        Piyasa açıkken sürekli olarak fırsatları kollar ve yüksek güven skorlu hedeflere otomatik girer.
+        [DEVRE DIŞI] Bu motor auto_runner.py Hunter Mode v3 ile çakışıyordu.
+        Otonom al-sat kararları artık yalnızca auto_runner.py tarafından verilir.
+        live_stream.py sadece fiyat güncellemesi ve pozisyon yönetimi yapar.
         """
-        now = time.time()
-        # Her 5 saniyede bir kontrol et ki piyasaya ve işlemciye aşırı yük binmesin
-        if now - self.last_autonomous_check < 5.0:
-            return
-        self.last_autonomous_check = now
-        
-        active_positions = [p for p in self.positions.values() if p.status == "OPEN"]
-        
-        crypto_count = len([p for p in active_positions if p.market == "CRYPTO"])
-        stock_count = len([p for p in active_positions if p.market in ["NASDAQ", "BIST", "STOCK"]])
-        
-        if crypto_count + stock_count >= 8:
-            return  # Kasa riski yönetimi: Genel maksimum 8 aktif pozisyon (4 Kripto + 4 Hisse)
-            
-        try:
-            from routers.market_router import matrix_results
-            for m in matrix_results:
-                sym = m.get("symbol", "")
-                market = m.get("market", "")
-                score = m.get("confidence_score", 0.0)
-                vol_ratio = m.get("volume_ratio", 1.0)
-                decision = m.get("decision", "WAIT")
-                
-                # Halihazırda bu varlıkta açık işlemimiz (veya Gölge İşlemimiz) varsa pas geç
-                has_pos = any(p.symbol == sym and p.status == "OPEN" for p in self.positions.values())
-                has_shadow = any(p.symbol == sym and "SHADOW_OPEN" in p.status for p in self.shadow_positions.values())
-                if has_pos or has_shadow:
-                    continue
-                    
-                # Piyasanın açık olup olmadığını teyit et
-                from services.risk_engine.market_hours import market_hours_validator
-                is_open, _, _ = market_hours_validator.is_market_open(sym)
-                if not is_open:
-                    continue
-                    
-                # BIST Koruması: BIST için otonom al-sat yapılmasın, sadece izlensin
-                if market == "BIST":
-                    continue
-                    
-                # Sepet (Portföy Çeşitlendirmesi) Koruması: Kriptoda max 4, Hisselerde max 4
-                if market == "CRYPTO" and crypto_count >= 4:
-                    continue
-                if market != "CRYPTO" and stock_count >= 4:
-                    continue
-                    
-                # TETİKLEME ŞARTI: Güven Skoru > 85, Hacim İvmesi > 1.2x ve Karar = BUY
-                if score >= 85.0 and vol_ratio >= 1.2 and decision == "BUY":
-                    # Kasa bütçesini tüketmemek için işlem başına 100$ - 300$ arası sabit bütçe
-                    import random
-                    auto_capital = random.uniform(100.0, 300.0)
-                    # Pozisyon rollback: capital_allocated varsa iade et, yoksa nominal_value kullan
-                    pos = None
-                    refund = getattr(pos, 'capital_allocated', None) or getattr(pos, 'nominal_value', 0.0)
-                    if self.available_cash < auto_capital:
-                        auto_capital = self.available_cash # Eğer yeterli nakit yoksa eldekini kullan
-                        
-                    if auto_capital < 10.0:  # Minimum bütçe koruması
-                        continue
-                        
-                    logger.info(f"🤖 [OTONOM MOTOR TETİKLENDİ] {sym} | Skor: {score} | Hacim: {vol_ratio}x. Sisteme otomatik alım emri gönderiliyor.")
-                    
-                    # İşlemi Sanal/Gerçek aç
-                    self.open_position(
-                        symbol=sym,
-                        capital=auto_capital,
-                        side="BUY",
-                        tp_pct=3.0,
-                        sl_pct=1.5
-                    )
-                    
-                    # Tek bir döngüde maksimum 1 işlem açsın, spami engellesin.
-                    break
-        except Exception as e:
-            logger.error(f"Otonom fırsat avcısı hatası: {e}")
+        return  # Çift motor çakışması giderildi — auto_runner.py tek avcı
+
+
 
     def _evaluate_open_positions(self):
         for pos_id, pos in list(self.positions.items()):

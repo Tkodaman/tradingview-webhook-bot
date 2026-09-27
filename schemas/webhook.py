@@ -1,30 +1,50 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, Dict, Any, List
 
 class WebhookSignal(BaseModel):
     passphrase: str
     security_token: Optional[str] = None
-    timestamp_ms: Optional[int] = Field(default=None, description="Milisaniye cinsinden TradingView çıkış zamanı")
-    action: str = Field(default="BUY", description="BUY, SELL, CLOSE, HOLD (Büyük/Küçük harf duyarsız)")
-    symbol: str
-    quantity: float = Field(default=1.0, gt=0, description="TradingView tarafından hesaplanan dinamik lot/kontrat")
-    price: float = Field(default=0.0, description="Emir tetiklenme fiyatı")
+    timestamp_ms: int = Field(..., description="Milisaniye cinsinden TradingView çıkış zamanı")
+    action: str = Field(..., description="BUY, SELL, CLOSE, HOLD")
+    symbol: str = Field(..., min_length=2, description="İşlem paritesi")
+    quantity: float = Field(default=1.0, gt=0, description="Dinamik lot/kontrat")
+    price: float = Field(..., gt=0, description="Emir tetiklenme fiyatı")
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
-    account_equity: Optional[float] = Field(default=None, description="TradingView hesap bakiyesi / sermayesi")
-    market_position: Optional[str] = Field(default=None, description="long, short veya flat")
-    market_position_size: Optional[float] = Field(default=None, description="Mevcut toplam pozisyon büyüklüğü")
-    order_id: Optional[str] = Field(default=None, description="Strateji emir kimliği")
+    account_equity: Optional[float] = Field(default=None)
+    market_position: Optional[str] = Field(default=None)
+    market_position_size: Optional[float] = Field(default=None)
+    order_id: Optional[str] = Field(default=None)
     timeframe: Optional[str] = "15m"
-    micro_tf: Optional[str] = Field(default=None, description="Tetikleyici alt zaman dilimi (10m, 15m, 30m)")
-    macro_tf: Optional[str] = Field(default=None, description="Makro trend zaman dilimi (45m, 75m, 120m)")
+    micro_tf: Optional[str] = Field(default=None)
+    macro_tf: Optional[str] = Field(default=None)
     strategy_name: Optional[str] = "TradingView_Strategy"
     indicators: Optional[Dict[str, float]] = Field(default_factory=dict)
     macro_tags: Optional[List[str]] = Field(default_factory=list)
 
+    @field_validator('action')
     @classmethod
     def validate_action(cls, v: str) -> str:
-        return v.upper() if v else "BUY"
+        valid_actions = ["BUY", "SELL", "CLOSE", "HOLD"]
+        upper_v = v.upper().strip() if v else ""
+        if upper_v not in valid_actions:
+            raise ValueError(f"Geçersiz aksiyon (Action): {v}. Beklenen: {valid_actions}")
+        return upper_v
+
+    @field_validator('symbol')
+    @classmethod
+    def validate_symbol(cls, v: str) -> str:
+        if not v.isalnum():
+            raise ValueError(f"Geçersiz sembol (Symbol): {v}. Sadece alfanumerik olmalıdır.")
+        return v.upper()
+
+    @model_validator(mode='after')
+    def validate_vital_data(self) -> 'WebhookSignal':
+        if not self.timestamp_ms:
+            raise ValueError("timestamp_ms eksik! Gecikme ölçümü yapılamaz.")
+        if self.price <= 0:
+            raise ValueError("Tetikleme fiyatı (price) 0'dan büyük olmalıdır.")
+        return self
 
 class RiskAnalysisResult(BaseModel):
     symbol: str

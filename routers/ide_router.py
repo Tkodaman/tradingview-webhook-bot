@@ -75,7 +75,7 @@ async def trigger_ide_model(req: IDETriggerRequest):
     live_trade_manager.user_credits -= cost
     
     try:
-        llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+        llm_provider = os.getenv("LLM_PROVIDER", "openai").lower()
         
         gemini_model = None
         openai_client = None
@@ -241,7 +241,7 @@ async def trigger_analyst_custom(req: CustomPromptRequest):
     try:
         final_prompt = req.prompt
         
-        llm_provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+        llm_provider = os.getenv("LLM_PROVIDER", "openai").lower()
         if llm_provider == "openai":
             openai_model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-6-astra")
             if openai_model_name == "gpt-6-astra":

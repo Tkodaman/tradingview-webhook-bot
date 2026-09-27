@@ -77,6 +77,46 @@ class AlpacaClient:
             logger.error(f"❌ [ALPACA NETWORK ERROR] {e}")
             return None
 
+    def update_bracket_orders(self, symbol: str, take_profit_price: float, stop_loss_price: float) -> dict:
+        """Dynamically update TP and SL for an open position to enforce trailing stop at the broker level."""
+        try:
+            import requests
+            headers = {
+                "APCA-API-KEY-ID": self.api_key,
+                "APCA-API-SECRET-KEY": self.api_secret,
+                "Content-Type": "application/json"
+            }
+            # Fetch open orders for this symbol
+            response = requests.get(f"{self.base_url}/orders?status=open&symbols={symbol.upper()}", headers=headers)
+            if response.status_code != 200:
+                return {"status": "error", "reason": "Failed to fetch open orders"}
+            
+            orders = response.json()
+            updated = False
+            for order in orders:
+                order_id = order.get("id")
+                order_type = order.get("type")
+                
+                # Update Stop Loss (type: stop or stop_limit)
+                if order_type in ["stop", "stop_limit", "trailing_stop"]:
+                    patch_payload = {"stop_price": str(round(stop_loss_price, 4))}
+                    res = requests.patch(f"{self.base_url}/orders/{order_id}", json=patch_payload, headers=headers)
+                    if res.status_code == 200: updated = True
+                
+                # Update Take Profit (type: limit)
+                elif order_type == "limit":
+                    patch_payload = {"limit_price": str(round(take_profit_price, 4))}
+                    res = requests.patch(f"{self.base_url}/orders/{order_id}", json=patch_payload, headers=headers)
+                    if res.status_code == 200: updated = True
+            
+            if updated:
+                return {"status": "success"}
+            return {"status": "error", "reason": "No open TP/SL orders found to update"}
+        except Exception as e:
+            from core.logger import logger
+            logger.error(f"[ALPACA PATCH ERROR] {e}")
+            return {"status": "error", "reason": str(e)}
+
     def sync_open_positions(self) -> list:
         if not self.api_key or not self.api_secret:
             return []

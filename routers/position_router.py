@@ -26,7 +26,7 @@ class AutoTradeToggleRequest(BaseModel):
     enabled: bool = Field(..., description="Tam Otonom Mod Durumu")
 
 @router.post("/toggle-auto-trade")
-async def toggle_auto_trade(req: AutoTradeToggleRequest):
+def toggle_auto_trade(req: AutoTradeToggleRequest):
     from services.market_feed.live_stream import live_trade_manager
     live_trade_manager.auto_trade_enabled = req.enabled
     live_trade_manager.save_auto_trade_flag()
@@ -35,7 +35,7 @@ async def toggle_auto_trade(req: AutoTradeToggleRequest):
 
 
 @router.get("/active")
-async def get_active_positions():
+def get_active_positions():
     """
     Canli Acik Pozisyonlar ve Kar/Zarar Listesi (15s cache ile)
     """
@@ -75,13 +75,13 @@ async def get_active_positions():
                     
                 # Eğer yerel (PAPER) açık pozisyonlar varsa ve Alpaca'da yoksa, onları raw_positions'a ekle
                 # live_trade_manager.positions dictionary'sinde key pos_id'dir.
-                added_mock_symbols = set()
+                added_local_symbols = set()
                 for pos_id, lp in live_trade_manager.positions.items():
                     local_sym = (lp.symbol or "").upper()
-                    if lp.status == "OPEN" and local_sym not in alpaca_symbols and local_sym not in added_mock_symbols:
-                        added_mock_symbols.add(local_sym)
-                        # Yerel pozisyonu Alpaca formatında mock'la
-                        mock_p = {
+                    if lp.status == "OPEN" and local_sym not in alpaca_symbols and local_sym not in added_local_symbols:
+                        added_local_symbols.add(local_sym)
+                        # Yerel pozisyonu Alpaca formatında hazırla (Paper Trading)
+                        local_p = {
                             "id": lp.id,
                             "symbol": lp.symbol,
                             "asset_class": lp.market,
@@ -93,7 +93,7 @@ async def get_active_positions():
                             "unrealized_pl": str(lp.unrealized_pnl),
                             "unrealized_plpc": str(lp.unrealized_pnl_pct / 100.0)
                         }
-                        raw_positions.append(mock_p)
+                        raw_positions.append(local_p)
                 
                 active_list = []
                 for p in raw_positions:
@@ -300,7 +300,7 @@ async def open_live_position(req: OpenPositionRequest):
         return {"status": "error", "message": f"Server error: {str(e)}"}
 
 @router.post("/close/{pos_id:path}")
-async def close_live_position(pos_id: str):
+def close_live_position(pos_id: str):
     """
     1-Tikla Canli Pozisyon Kapatma (Alpaca Broker Destekli)
     Alpaca basarisiz olsa bile yerel pozisyon her zaman kapatilir.
@@ -368,7 +368,7 @@ async def close_live_position(pos_id: str):
 
 
 @router.post("/reset-account")
-async def reset_account_balance():
+def reset_account_balance():
     """
     Kasayı Kesin Olarak $1,000.00 Tabanına Sıfırlar ve Tüm Eski İşlem Kalıntılarını Temizler
     """
@@ -383,7 +383,7 @@ async def reset_account_balance():
     }
 
 @router.get("/daily-stats")
-async def get_daily_stats():
+def get_daily_stats():
     """
     Alpaca komisyonları dahil günlük PnL (Kâr/Zarar) istatistikleri
     """
@@ -391,7 +391,7 @@ async def get_daily_stats():
 
 
 @router.get("/clock")
-async def get_alpaca_clock():
+def get_alpaca_clock():
     """
     Alpaca'dan canlı piyasa saati ve durumunu çeker
     """
@@ -424,7 +424,7 @@ async def get_alpaca_clock():
     }
 
 @router.get("/history/summary")
-async def get_history_summary():
+def get_history_summary():
     """Returns a summary and list of all historically closed positions."""
     from services.market_feed.live_stream import live_trade_manager
     history = live_trade_manager.trade_history

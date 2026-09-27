@@ -89,7 +89,7 @@ class DynamicRiskManager:
                 if new_sl > current_sl:
                     logger.info(f"[CHANDELIER] {symbol} SL {current_sl:.4f} -> {new_sl:.4f} (ATR bazli)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
-                    await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
+                    await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
                     await self._notify_ui(symbol, matched_pos)
                 return
 
@@ -111,7 +111,7 @@ class DynamicRiskManager:
                     f"| PnL={profit_pct:+.2f}%"
                 )
                 matched_pos.stop_loss_price = round(new_sl, 4)
-                await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
+                await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
                 await self._notify_ui(symbol, matched_pos)
 
         elif matched_pos.side == "SELL":
@@ -121,7 +121,7 @@ class DynamicRiskManager:
                 if new_sl < current_sl:
                     logger.info(f"[CHANDELIER] {symbol} SELL SL {current_sl:.4f} -> {new_sl:.4f} (ATR bazli)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
-                    await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
+                    await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
                     await self._notify_ui(symbol, matched_pos)
                 return
 
@@ -134,7 +134,7 @@ class DynamicRiskManager:
             if new_sl < current_sl:
                 logger.info(f"[TRAILING SL] {symbol} SELL SL {current_sl:.4f} -> {new_sl:.4f}")
                 matched_pos.stop_loss_price = round(new_sl, 4)
-                await self._update_broker_sl(symbol, matched_pos.take_profit_price, matched_pos.stop_loss_price)
+                await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
                 await self._notify_ui(symbol, matched_pos)
 
     async def _update_broker_sl(self, symbol: str, tp_price: float, sl_price: float):
@@ -155,7 +155,7 @@ class DynamicRiskManager:
             "type": "DYNAMIC_SPREAD_UPDATE",
             "symbol": symbol,
             "new_sl": position.stop_loss_price,
-            "new_tp": position.take_profit_price,
+            "new_tp": position.target_profit_price,
             "message": f"🤖 YZ Makas Guncellemesi: {symbol} yeni Stop-Loss: ${position.stop_loss_price:.4f}"
         })
 

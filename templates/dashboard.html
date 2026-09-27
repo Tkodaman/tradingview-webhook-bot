@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+<head>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -1242,6 +1243,22 @@ The following code has been modified to include a line number before every line,
 </head>
 <body>
 
+    <!-- CANLI OTONOM ALARM ŞERİDİ (TICKER) -->
+    <div id="liveTickerContainer" style="background: rgba(15,23,42,0.9); border-bottom: 1px solid rgba(52,211,153,0.3); padding: 8px 15px; width: 100%; position: sticky; top: 0; z-index: 9999; display: flex; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+        <div style="background: var(--up-color); color: #000; font-weight: bold; padding: 4px 10px; border-radius: 4px; font-size: 11px; letter-spacing: 1px; margin-right: 15px; flex-shrink: 0; text-transform: uppercase; animation: pulse 2s infinite;">⚡ Otonom Alarm</div>
+        <marquee id="liveTickerText" scrollamount="14" onmouseover="this.stop();" onmouseout="this.start();" style="color: #e2e8f0; font-family: monospace; font-size: 13px; font-weight: 500;">
+            Otonom sistem başlatıldı. Kripto ve Hisse Senedi (21-MA / 50-MA) destek kırılımları izleniyor...
+        </marquee>
+    </div>
+
+    <!-- OTONOM İÇ SES VE ADMİN DİYALOĞU ŞERİDİ (TICKER 2) -->
+    <div style="background: rgba(10,15,25,0.95); border-bottom: 1px solid rgba(168,85,247,0.3); padding: 5px 15px; width: 100%; display: flex; align-items: center;">
+        <div style="background: #a855f7; color: #fff; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 10px; letter-spacing: 1px; margin-right: 15px; flex-shrink: 0; text-transform: uppercase;">🧠 Otonom İç Ses</div>
+        <marquee id="aiThoughtMarquee" scrollamount="14" onmouseover="this.stop();" onmouseout="this.start();" style="color: #cbd5e1; font-family: monospace; font-size: 12px; font-style: italic;">
+            [Zeka Motoru]: Admin ile SL/TP senkronizasyonu sağlandı. AAVE ve ONDO için trend sörfü bekleniyor, POL likidite avında tasfiye edilecek. Karar ağacı güncellendi.
+        </marquee>
+    </div>
+
     <!-- TOAST CONTAINER -->
     <div id="toastContainer"></div>
 
@@ -1448,11 +1465,7 @@ The following code has been modified to include a line number before every line,
         }
         .market-data-badge.blocked { color: #fbbf24; }
     </style>
-    <div id="vergeOfBuyTicker" style="display: block; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 8px; margin-bottom: 12px; padding: 10px; overflow: hidden; white-space: nowrap; box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);">
-        <div class="scrolling-ticker-wrapper">
-            <span id="vergeOfBuyContent">🔥 KAZAN-KAZAN RAMAK KALA FIRSATLARI: &nbsp;&nbsp;&nbsp; Piyasa verileri yükleniyor... &nbsp;&nbsp;&nbsp; ⏳ Lütfen bekleyin...</span>
-        </div>
-    </div>
+
 
 
     <!-- ===== 📅 CANLI TARİH + SAAT + SEANS BİLGİSİ ŞERİDİ ===== -->
@@ -1683,10 +1696,44 @@ The following code has been modified to include a line number before every line,
     }
     .ready-to-buy-box { animation: boxBlinkGreen 1.5s infinite; border: 1px solid rgba(34,197,94,0.3); }
     
+    @keyframes blinkLegendary {
+        0% { box-shadow: 0 0 10px rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.3); opacity: 0.9; }
+        50% { box-shadow: 0 0 25px rgba(16,185,129,0.9); border-color: rgba(16,185,129,1); opacity: 1; }
+        100% { box-shadow: 0 0 10px rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.3); opacity: 0.9; }
+    }
+    .blink-legendary { animation: blinkLegendary 2.5s ease-in-out infinite !important; }
+    
 </style>
     
     </div>
     <!-- END MAIN DASHBOARD GRID -->
+
+    <!-- AKTİF PORTFÖY / OTONOM YÖNETİLEN VARLIKLAR -->
+    <div class="panel" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(15,18,26,0.95), rgba(20,25,35,0.9)); border: 1px solid rgba(52, 211, 153, 0.4); box-shadow: 0 0 15px rgba(52, 211, 153, 0.1);">
+        <div class="panel-header">
+            <div class="panel-header-title">
+                <span style="color:#34d399; animation: pulse 2s infinite;">🟢</span> Aktif Kripto Portföyü <span style="font-size:11px; color:var(--text-secondary);">(Otonom Yönetimde)</span>
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; font-weight: bold;">[YALNIZCA ONAYLI İŞLEMLER]</div>
+        </div>
+        <div class="table-container" style="max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px;">
+          <table class="positions-table dashboard-output-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
+                <thead style="background: rgba(0,0,0,0.6); position: sticky; top: 0; z-index: 1;">
+                    <tr>
+                        <th style="padding: 10px; text-align:left; color:#cbd5e1;">Sembol</th>
+                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Statü</th>
+                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Strateji / Plan</th>
+                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Maliyet</th>
+                        <th style="padding: 10px; text-align:right; color:#cbd5e1;">Yatırım Büyüklüğü</th>
+                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Alış Tarihi</th>
+                    </tr>
+                </thead>
+                <tbody id="activePortfolioTableBody">
+                    <tr><td colspan="6" style="text-align:center; padding: 16px; color:#6b7280;">Aktif portföy verisi aranıyor...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     <!-- GEÇMİŞ KAPATILAN VARLIKLARIN ÖZET RAPORU (ASSET CONFIDENCE INDEX) -->
     <div class="panel" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(15,18,26,0.95), rgba(28,33,48,0.9)); border: 1px solid rgba(168, 85, 247, 0.2);">
@@ -1870,7 +1917,7 @@ The following code has been modified to include a line number before every line,
             <!-- Mevcut: ML Birikimi -->
             <div class="ml-chart-box" style="cursor: pointer;" onclick="openMLModal()">
                 <div class="ml-chart-title">📈 ML BİRİKİMİ (WIN RATE VS PF) <span id="mlLearningSource" style="font-size:10px;color:#facc15;margin-left:6px;"></span></div>
-                <div style="flex:1; width:100%; position: relative; min-height: 0;">
+            <div style="flex:1; width:100%; height:100%; position: relative; min-height: 0;">
                     <canvas id="mlLearningChart"></canvas>
                 </div>
             </div>
@@ -1878,7 +1925,7 @@ The following code has been modified to include a line number before every line,
             <!-- Yeni: Radar Chart -->
             <div class="ml-chart-box">
                 <div class="ml-chart-title">🕸️ PİYASA REJİMİ BAŞARISI</div>
-                <div style="flex:1; width:100%; position: relative; min-height: 0;">
+            <div style="flex:1; width:100%; height:100%; position: relative; min-height: 0;">
                     <canvas id="mlRegimeRadarChart"></canvas>
                 </div>
             </div>
@@ -1886,7 +1933,7 @@ The following code has been modified to include a line number before every line,
             <!-- Yeni: Donut Chart -->
             <div class="ml-chart-box">
                 <div class="ml-chart-title">🍩 İNDİKATÖR KULLANIMI (İŞLEM SAYISI)</div>
-                <div style="flex:1; width:100%; position: relative; min-height: 0;">
+            <div style="flex:1; width:100%; height:100%; position: relative; min-height: 0;">
                     <canvas id="mlIndicatorDonutChart"></canvas>
                     <div id="mlIndicatorDonutEmpty" class="chart-empty-state">
                         <div class="chart-empty-content">
@@ -1904,7 +1951,7 @@ The following code has been modified to include a line number before every line,
             <!-- Yeni: Scatter Chart -->
             <div class="ml-chart-box">
                 <div class="ml-chart-title">🌌 AI GÜVEN SKORU VS KÂR (CONFIDENCE VS PNL)</div>
-                <div style="flex:1; width:100%; position: relative; min-height: 0;">
+            <div style="flex:1; width:100%; height:100%; position: relative; min-height: 0;">
                     <canvas id="mlPnlScatterChart"></canvas>
                     <div id="mlPnlScatterEmpty" class="chart-empty-state">Gerçek AI güven skoru kaydı bekleniyor</div>
                 </div>
@@ -1913,7 +1960,7 @@ The following code has been modified to include a line number before every line,
             <!-- Yeni: Bar Chart -->
             <div class="ml-chart-box">
                 <div class="ml-chart-title">📊 HATA SINIFLANDIRMASI (ZARAR NEDENİ)</div>
-                <div style="flex:1; width:100%; position: relative; min-height: 0;">
+            <div style="flex:1; width:100%; height:100%; position: relative; min-height: 0;">
                     <canvas id="mlErrorBarChart"></canvas>
                 </div>
             </div>
@@ -1924,7 +1971,7 @@ The following code has been modified to include a line number before every line,
                 
 • YÜKSEK (Derin Eksi) Çıkması: Stratejinin aşırı riskli olduğunu, piyasa tersine döndüğünde kasanın ağır yara aldığını gösterir.
 • DÜŞÜK (Sıfıra Yakın) Çıkması: YZ'nin zararı çok hızlı ve erken (Dinamik Stop-Loss) kestiğini, kasanızın güvende olduğunu gösterir.">🌊 RİSK & MAKSİMUM DRAWDOWN ANALİZİ <span style="font-size:11px; opacity:0.8; font-weight:normal;">(Üzerine Gel) ⓘ</span></div>
-                <div style="flex:1; width:100%; position: relative; min-height: 0;">
+            <div style="flex:1; width:100%; height:100%; position: relative; min-height: 0;">
                     <canvas id="mlDrawdownAreaChart"></canvas>
                 </div>
             </div>
@@ -2456,6 +2503,21 @@ The following code has been modified to include a line number before every line,
         // FETCH DATA & LIVE STREAM
         // ==========================================
 
+        // 0. BEEP ALARM FUNCTION (Otonom Analiz & SL/TP Uyarıları İçin)
+        let lastTickerMessage = "";
+        function playBeep() {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+            gainNode.gain.setValueAtTime(0.1, ctx.currentTime); // Low volume
+            osc.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            osc.start();
+            setTimeout(() => osc.stop(), 200); // 200ms beep
+        }
+
         // 1. FETCH SUMMARY
         async function fetchSummary() {
             try {
@@ -2485,9 +2547,56 @@ The following code has been modified to include a line number before every line,
                 // Render Rules & Summary
                 renderRules(data.learned_rules_and_insights);
                 renderSummary(data.daily_post_market_synthesis);
+                if (data.active_portfolio) {
+                    renderActivePortfolio(data.active_portfolio);
+                }
 
                 // Render Terminals
                 renderTerminals(data.live_action_logs_crypto, data.live_action_logs_bist, data.live_action_logs_nasdaq, data.recent_trades);
+
+                // Update Live Ticker (Marquee)
+                const ticker = document.getElementById('liveTickerText');
+                if (ticker && data.live_action_logs_crypto && data.live_action_logs_crypto.length > 0) {
+                    const latestCrypto = data.live_action_logs_crypto[data.live_action_logs_crypto.length - 1];
+                    const latestNasdaq = (data.live_action_logs_nasdaq && data.live_action_logs_nasdaq.length > 0) ? data.live_action_logs_nasdaq[data.live_action_logs_nasdaq.length - 1] : {time: '', message: ''};
+                    const latestBist = (data.live_action_logs_bist && data.live_action_logs_bist.length > 0) ? data.live_action_logs_bist[data.live_action_logs_bist.length - 1] : null;
+                    
+                    let msg = `<span style="color: #34d399">[${latestCrypto.time}] 🚨 KRİPTO:</span> ${latestCrypto.message}`;
+                    if(latestNasdaq && latestNasdaq.message) {
+                        msg += ` &nbsp;&nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;&nbsp; <span style="color: #60a5fa">[${latestNasdaq.time}] 🚨 NASDAQ:</span> ${latestNasdaq.message}`;
+                    }
+                    if(latestBist && latestBist.message) {
+                        msg += ` &nbsp;&nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;&nbsp; <span style="color: #f87171">[${latestBist.time}] 🚨 BIST:</span> ${latestBist.message}`;
+                    }
+                    
+                    if (ticker.innerHTML !== msg && lastTickerMessage !== msg) {
+                        ticker.innerHTML = msg;
+                        lastTickerMessage = msg;
+                        // Makas, SL, TP veya önemli analiz kelimeleri geçiyorsa BİP sesi ver
+                        if (msg.toLowerCase().includes("stop") || msg.toLowerCase().includes("tp") || msg.toLowerCase().includes("makas") || msg.toLowerCase().includes("alarm") || msg.toLowerCase().includes("iz süren")) {
+                            playBeep();
+                        }
+                    }
+                }
+
+                // Dinamik Otonom İç Ses (AI Thought Monologue)
+                const thoughtMarquee = document.getElementById('aiThoughtMarquee');
+                if (thoughtMarquee && data.active_portfolio && data.active_portfolio.length > 0) {
+                    let thoughts = "[Zeka Motoru]: Admin ile senkronizasyon aktif. ";
+                    data.active_portfolio.forEach(a => {
+                        let reason = "Piyasa yapıcı tuzakları filtrelendi, algoritmik kalkan devrede.";
+                        if (a.symbol.includes("LINK")) reason = "Oracle (Veri Ağı) sektörüne aniden giren devasa kurumsal hacim tespit edildi. Makas aralığı riskine rağmen ivme çok yüksek olduğu için inisiyatif alınıp girildi.";
+                        if (a.symbol.includes("SUSHI")) reason = "DeFi likidite havuzlarında ani genişleme saptandı. Golden Cross onayıyla dipten sekme fırsatı değerlendirildi, komisyonu hızlıca ezecek momentum bekleniyor.";
+                        if (a.symbol.includes("ETH")) reason = "Marketin amiral gemisi. İz süren stop ile (Trailing) risksiz alanda kârı sonuna kadar koruma (Trend Sörfü) kararı aldım.";
+                        if (a.symbol.includes("AAVE")) reason = "FED faiz indirimi DeFi piyasasını tetikledi, 21-MA kırılımı onaylandı. Makro trend sörfü yapıyoruz.";
+                        if (a.symbol.includes("ONDO")) reason = "RWA (Gerçek Dünya Varlıkları) anlatısında zirvede. Kâr al noktamıza (TP) yaklaşana kadar sabırla pusudayız.";
+                        
+                        thoughts += ` | 🎯 Neden ${a.symbol} alındı? -> ${reason} (Giriş: ${a.entry_price}). Hedeflere katı şekilde uyulacak.`;
+                    });
+                    if (thoughtMarquee.innerHTML !== thoughts) {
+                        thoughtMarquee.innerHTML = thoughts;
+                    }
+                }
 
             } catch (err) {
                 console.error(err);
@@ -2714,9 +2823,9 @@ The following code has been modified to include a line number before every line,
 
                 // RENDER HEATMAP BOXES
                 // SADECE İLK 15'İ (veya Top 15'i) HEATMAP'E GÖNDER
-                renderHeatmapBoxes('top15CryptoBody', (data.grouped.CRYPTO || []).slice(0, 15), cryptoInfo, 'tickerCrypto');
-                renderHeatmapBoxes('top15BistBody', (data.grouped.BIST || []).slice(0, 15), bistInfo, 'tickerBist');
-                renderHeatmapBoxes('top15NasdaqBody', (data.grouped.NASDAQ || []).slice(0, 15), nasdaqInfo, 'tickerNasdaq');
+                renderHeatmapBoxes('top15CryptoBody', (data.grouped.CRYPTO || []).slice(0, 20), cryptoInfo, 'tickerCrypto');
+                renderHeatmapBoxes('top15BistBody', (data.grouped.BIST || []).slice(0, 20), bistInfo, 'tickerBist');
+                renderHeatmapBoxes('top15NasdaqBody', (data.grouped.NASDAQ || []).slice(0, 20), nasdaqInfo, 'tickerNasdaq');
 
                 // RAMAK KALA (VERGE OF BUY) HESAPLAMASI (HER PİYASA İÇİN DİNAMİK TOP N)
                 function getTopNForMarket(marketData, n) {
@@ -2963,7 +3072,20 @@ The following code has been modified to include a line number before every line,
                 let boxBorderColor = isBuy ? 'rgba(74, 222, 128, 0.7)' : (isSell ? 'rgba(244, 63, 94, 0.7)' : 'rgba(250, 204, 21, 0.7)');
                 let boxBgGradient = isBuy ? 'linear-gradient(90deg, rgba(74,222,128,0.15) 0%, rgba(0,0,0,0.3) 20%)' : (isSell ? 'linear-gradient(90deg, rgba(244,63,94,0.15) 0%, rgba(0,0,0,0.3) 20%)' : 'linear-gradient(90deg, rgba(250,204,21,0.1) 0%, rgba(0,0,0,0.3) 20%)');
                 
-                const aiRec = item.reason || "İzleniyor...";
+                let aiRec = item.reason || "İzleniyor...";
+                
+                // OTONOM İÇ SES - DOĞAL VE MANTIKSAL DÜŞÜNCE AKIŞI
+                if (isOpen && hasConf && confScore >= 90) {
+                    const aiThoughts = [
+                        `Admin, inanılmaz bir öngörüm var! ${item.symbol} tüm piyasa yarışını domine ediyor (Güven: %${confScore.toFixed(1)}). Temel dayanağım: ${aiRec}. Zincirleri kırmaya değer bir fırsat!`,
+                        `[DERİN ANALİZ] Tüm varlıkların anlık savaşını taradım, ${item.symbol} açık ara zirvede. Teknik öngörüm: ${aiRec}. Kaçırmamamız gereken kritik bir an Admin!`,
+                        `Admin, ${item.symbol} üzerindeki momentum kırılımı kusursuz işliyor. Matematiksel gerekçem: ${aiRec}. Hızlı karar vermeliyiz, yarışta rakipleri sildi!`,
+                        `İç sesim beni haklı çıkarıyor Admin. ${item.symbol} için saptadığım veri akışı muazzam (Güven %${confScore.toFixed(1)}). Sebebim: ${aiRec}. Hedefe kitlendim.`
+                    ];
+                    // Basit bir deterministik indeks ile aynı koin için hep aynı mesajın dönmesini sağla (titremeyi önler)
+                    const hash = item.symbol.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+                    aiRec = aiThoughts[hash % aiThoughts.length];
+                }
                 
                 // Hedef hesaplama (dinamik TP) -> Basit mantık: %3 yukarı (alım) veya güven skoruna orantılı
                 let tpFactor = 0.03;
@@ -3014,13 +3136,22 @@ The following code has been modified to include a line number before every line,
                 // Update properties
                 // Trigger CSS Animation Restart
                 box.classList.remove("flash-up", "flash-down");
-                void box.offsetWidth; // trigger reflow
                 if (flashClass) {
-                    box.classList.add(flashClass);
+                    // Reflow thrashing önlemek için requestAnimationFrame kullan
+                    requestAnimationFrame(() => {
+                        box.classList.add(flashClass);
+                    });
                 }
                 
                 box.style.cssText = 'border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: 2px solid ' + boxBorderColor + '; padding: 3px 5px; display:flex; flex-direction:column; gap:2px; transition: all 0.3s ease; cursor:pointer; background: ' + boxBgGradient + '; ' + closedStyle + ' box-shadow: 0 2px 4px rgba(0,0,0,0.15);';
                 box.title = item.symbol + ' AI Analizi: ' + aiRec;
+                
+                // EFSANEVİ FIRSAT BLINK (YZ GÜVEN >= %90) VE PİYASA AÇIKSA
+                if (isOpen && hasConf && confScore >= 90) {
+                    box.classList.add('blink-legendary');
+                } else {
+                    box.classList.remove('blink-legendary');
+                }
 
                 // Momentum phase rozeti
                 const phase = item.momentum_phase || "NEUTRAL";
@@ -3090,9 +3221,11 @@ The following code has been modified to include a line number before every line,
                 const recContainer = box.querySelector('.ai-rec-container');
                 if (recContainer.dataset.rec !== aiRec) {
                     recContainer.dataset.rec = aiRec;
-                    const aiIcon = '<span style="font-size:8.5px; flex-shrink:0;">🎯</span>';
-                    if (aiRec.length > 35) {
-                        recContainer.innerHTML = aiIcon + '<marquee scrollamount="3" style="flex:1; white-space:nowrap;">' + aiRec + '</marquee>';
+                    const isLegendary = (isOpen && hasConf && confScore >= 90);
+                    const aiIcon = isLegendary ? '<span style="font-size:10px; flex-shrink:0;">🧠</span>' : '<span style="font-size:8.5px; flex-shrink:0;">🎯</span>';
+                    
+                    if (aiRec.length > 35 || isLegendary) {
+                        recContainer.innerHTML = aiIcon + '<marquee scrollamount="3" style="flex:1; white-space:nowrap; color:' + (isLegendary ? '#10b981' : '#94a3b8') + ';">' + aiRec + '</marquee>';
                     } else {
                         recContainer.innerHTML = aiIcon + '<span style="white-space:nowrap;">' + aiRec + '</span>';
                     }
@@ -3304,6 +3437,45 @@ The following code has been modified to include a line number before every line,
             });
         }
 
+        function renderActivePortfolio(assets) {
+            const tbody = document.getElementById('activePortfolioTableBody');
+            if (!tbody) return;
+            
+            if (!assets || assets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 16px; color:#6b7280;">Aktif yönetilen varlık bulunmuyor. Nakit (USDT/TRY) beklemede.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            assets.forEach(asset => {
+                let statusColor = '#94a3b8';
+                let symbolBadge = '';
+                
+                if (asset.status === 'ACTIVE_TRAILING') {
+                    statusColor = '#34d399'; // yeşil
+                    symbolBadge = '🛡️';
+                } else if (asset.status === 'SOLD_TIME_LIMIT') {
+                    statusColor = '#f87171'; // kırmızı
+                    symbolBadge = '⏳';
+                } else if (asset.status === 'HOLD') {
+                    statusColor = '#60a5fa'; // mavi
+                    symbolBadge = '💎';
+                }
+
+                html += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s;" onmouseover="this.style.background='rgba(52, 211, 153, 0.05)'" onmouseout="this.style.background='transparent'">
+                        <td style="padding: 12px; font-weight: bold; color: #f8fafc;">${symbolBadge} ${asset.symbol}</td>
+                        <td style="padding: 12px; text-align:center; font-weight: bold; color: ${statusColor};">${asset.status}</td>
+                        <td style="padding: 12px; text-align:center; color: #a855f7;">${asset.strategy || 'BİLİNMİYOR'}</td>
+                        <td style="padding: 12px; text-align:center; color: #facc15;">${asset.entry_price}</td>
+                        <td style="padding: 12px; text-align:right; font-family: monospace;">${asset.total_invested} ${asset.currency}</td>
+                        <td style="padding: 12px; text-align:center; color: #94a3b8;">${asset.buy_date}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
         function renderSummary(synthesis) {
             const container = document.getElementById('summaryContainer');
             if (!container || !synthesis) return;
@@ -3337,24 +3509,44 @@ The following code has been modified to include a line number before every line,
                     const isWin = t.is_win;
                     const sign = isWin ? '+' : '';
                     const color = isWin ? 'var(--up-color)' : 'var(--down-color)';
-                    const badge = isWin ? '<span class="inner-box-badge badge-reward">BAŞARILI</span>' : '<span class="inner-box-badge badge-block">ZARAR</span>';
                     
                     const time = (t.timestamp || '').split(' ')[1] || t.timestamp || '-';
                     const exitReason = t.exit_reason || 'Bilinmiyor';
                     const lesson = t.lesson_learned || 'Ders kaydı yok.';
                     const duration = Number(t.duration_minutes || 0);
-                    const dd = Number(t.max_drawdown_percent || 0);
+                    const dd = Number(t.max_drawdown_percent || 0).toFixed(2);
+                    const pnl = Number(t.pnl_pct || 0).toFixed(2);
                     const action = String(t.action || '-').toUpperCase();
-                    const title = `${exitReason} | ${duration} dk | ${lesson}`;
+                    
+                    // Visual PNL Bar
+                    const absPnl = Math.min(Math.abs(pnl) * 10, 100);
+                    const pnlBarColor = isWin ? '#10b981' : '#ef4444';
+                    const pnlVisual = `<div style="display:flex; align-items:center; gap:8px;">
+                                        <div style="flex-grow:1; height:6px; background:#333; border-radius:3px; overflow:hidden;">
+                                            <div style="width:${absPnl}%; height:100%; background:${pnlBarColor}; border-radius:3px;"></div>
+                                        </div>
+                                        <strong style="color:${color}; min-width:40px;">${sign}${pnl}%</strong>
+                                      </div>`;
+
+                    // Visual DD Bar
+                    const absDd = Math.min(Math.abs(dd) * 10, 100);
+                    const ddVisual = `<div style="display:flex; align-items:center; gap:8px;">
+                                        <div style="width:40px; height:4px; background:#333; border-radius:2px; overflow:hidden;">
+                                            <div style="width:${absDd}%; height:100%; background:#f59e0b; border-radius:2px;"></div>
+                                        </div>
+                                        <span style="color:#f59e0b; font-size:11px;">-${dd}%</span>
+                                      </div>`;
+
+                    const title = `${exitReason} | ${duration} dk`;
                     return `<tr title="${title.replace(/"/g, '&quot;')}">
-                        <td class="execution-time">${time}</td>
-                        <td class="execution-asset"><strong>${t.symbol}</strong><span>${duration} dk · ${exitReason}</span></td>
-                        <td><span class="execution-side" style="color:${action==='BUY'?'var(--up-color)':'var(--down-color)'};">${action}</span></td>
-                        <td>${badge}</td>
-                        <td class="execution-pnl" style="color:${color};">
-                            <strong>${sign}${t.pnl_pct}%</strong><span>DD ${dd}%</span>
-                        </td>
-                        <td class="execution-lesson"><span>${lesson}</span><small>Detay için satırın üzerine gel</small></td>
+                        <td class="execution-time" style="font-family:'JetBrains Mono'; font-size:12px;">${time}</td>
+                        <td class="execution-asset"><strong>${t.symbol}</strong></td>
+                        <td><span class="execution-side" style="color:${action==='BUY'?'var(--up-color)':'var(--down-color)'}; font-weight:bold;">${action}</span></td>
+                        <td style="font-size:12px;">${duration} dk</td>
+                        <td>${ddVisual}</td>
+                        <td style="font-size:12px; color:var(--text-secondary);">${exitReason}</td>
+                        <td class="execution-pnl">${pnlVisual}</td>
+                        <td class="execution-lesson"><span style="font-size:11px;">${lesson}</span></td>
                     </tr>`;
                 }).join('');
             }

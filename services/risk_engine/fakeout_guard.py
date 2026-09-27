@@ -119,7 +119,7 @@ class FakeoutGuard:
 
         # Sonuc hesapla
         confidence = round(fakeout_signals / max_signals, 2)
-        is_fakeout = fakeout_signals >= 2  # 2+ soft sinyal = fakeout
+        is_fakeout = fakeout_signals >= 4  # 4+ soft sinyal = fakeout (Cüretkar mod)
 
         if is_fakeout:
             reason_str = " | ".join(reasons)

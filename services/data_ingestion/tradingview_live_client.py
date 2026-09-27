@@ -43,11 +43,11 @@ class TradingViewLiveClient:
             return {**self.cached_us_data, **self.cached_tr_data, **self.cached_crypto_data}
 
         columns = [
-            "name", "close", "change", "high", "low", "volume",
-            "RSI", "MACD.macd", "MACD.signal", "EMA20", "EMA50", "EMA200",
-            "ATR", "VWAP", "Stoch.K", "ADX", "Volatility.D", "average_volume_10d_calc",
-            "ChaikinMoneyFlow",
-            "open"   # === YENİ: Candle Body Ratio için açılış fiyatı ===
+            "name", "close", "change|15", "high|15", "low|15", "volume|15",
+            "RSI|15", "MACD.macd|15", "MACD.signal|15", "EMA20|15", "EMA50|15", "EMA200|15",
+            "ATR|15", "VWAP|15", "Stoch.K|15", "ADX|15", "Volatility.D|15", "average_volume_10d_calc|15",
+            "ChaikinMoneyFlow|15",
+            "open|15"   # === YENİ: Candle Body Ratio için açılış fiyatı ===
         ]
 
         headers = {
@@ -104,7 +104,16 @@ class TradingViewLiveClient:
                             adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
                             
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
-                            vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else None
+                            
+                            # YENİ: 15-dakikalık mum kapanış gürültüsünü (Volume Reset) düzeltmek için zaman prorasyonu
+                            import time as time_mod
+                            current_min = time_mod.localtime(now).tm_min
+                            min_in_candle = (current_min % 15) + 1 # 1 to 15
+                            expected_fraction = min_in_candle / 15.0
+                            adjusted_vol_avg = vol_avg * expected_fraction
+                            
+                            vol_ratio = round(vol / adjusted_vol_avg, 2) if adjusted_vol_avg > 0 else None
+                            
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
                             candle_open_val = round(float(vals[19] if len(vals) > 19 and vals[19] else price), 2)
@@ -230,7 +239,15 @@ class TradingViewLiveClient:
                             stoch_v = vals[14]; stoch_k = round(float(stoch_v), 2) if stoch_v is not None else None
                             adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
-                            vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else None
+                            
+                            import time as time_mod
+                            current_min = time_mod.localtime(now).tm_min
+                            min_in_candle = (current_min % 15) + 1 
+                            expected_fraction = min_in_candle / 15.0
+                            adjusted_vol_avg = vol_avg * expected_fraction
+                            
+                            vol_ratio = round(vol / adjusted_vol_avg, 2) if adjusted_vol_avg > 0 else None
+                            
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
                             candle_open_val = round(float(vals[19] if len(vals) > 19 and vals[19] else price), 2)
@@ -323,7 +340,15 @@ class TradingViewLiveClient:
                             adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
                             adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
-                            vol_ratio = round(vol / vol_avg, 2) if vol_avg > 0 else None
+                            
+                            import time as time_mod
+                            current_min = time_mod.localtime(now).tm_min
+                            min_in_candle = (current_min % 15) + 1 
+                            expected_fraction = min_in_candle / 15.0
+                            adjusted_vol_avg = vol_avg * expected_fraction
+                            
+                            vol_ratio = round(vol / adjusted_vol_avg, 2) if adjusted_vol_avg > 0 else None
+                            
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
                             candle_open_val = round(float(vals[19] if len(vals) > 19 and vals[19] else price), 4 if price < 1.0 else 2)

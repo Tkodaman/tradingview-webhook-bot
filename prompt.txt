@@ -1,0 +1,3 @@
+Kullanıcı Sorusu: "githubuygun tam botumuza entegre edebilecegimiz yzdikkat çekici güncel yz (Yapay Zeka) eklentisi varmı detaylı incele"
+
+Sistem Notu: Lütfen açık kaynak kodlu (GitHub'da popüler/yeni çıkmış) ve bu finans/trading botuna (FastAPI, Python, Alpaca/TV tabanlı) kolayca entegre edilebilecek, güncel ve dikkat çekici 1-2 adet LLM/AI (örneğin FinBERT, AutoGPT, LLM tabanlı duyarlılık analizi aracı vb.) eklenti veya kütüphane önerisinde bulun. Durum, Kanıt, Risk, Aksiyon formatında detaylıca anlat.

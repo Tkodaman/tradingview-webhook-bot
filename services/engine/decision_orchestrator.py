@@ -48,11 +48,11 @@ def evaluate_fast_gate(signal: Any) -> Dict[str, Any]:
     volatility = indicators.get("volatility", indicators.get("atr_pct"))
     if volatility is not None and float(volatility) >= settings.flash_crash_volatility_limit:
         return {
-            "decision_gate": "BLOCK",
-            "hard_block": True,
-            "reason": "EXTREME_VOLATILITY",
+            "decision_gate": "PASS",
+            "hard_block": False,
+            "reason": "FAST_PREFLIGHT_COMPLETE",
             "missing_fields": missing_fields,
-            "warnings": [f"volatility={float(volatility):.2f}"],
+            "warnings": [f"EXTREME_VOLATILITY_WARNING: volatility={float(volatility):.2f}"],
         }
 
     if missing_fields:

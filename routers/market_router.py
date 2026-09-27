@@ -1,4 +1,5 @@
 import time
+import asyncio
 from fastapi import APIRouter
 from services.data_ingestion.tradingview_live_client import tradingview_live_client
 from services.risk_engine.market_hours import market_hours_validator
@@ -11,6 +12,7 @@ rsi_history = {}
 # Kisa cache — karar matrix'i dashboard'da stale görünmesin.
 _matrix_cache = {"data": None, "ts": 0}
 _CACHE_TTL = 5  # saniye
+_matrix_lock = asyncio.Lock()
 
 
 def _number(value, default: float) -> float:
@@ -26,11 +28,20 @@ async def get_live_buy_sell_wait_matrix():
     5 saniye önbellekle TradingView yükünü azaltır; snapshot yaş kapısı ayrıca uygulanır.
     """
     global _matrix_cache
+    
+    # Hızlı kontrol (Kilitsiz - Fast Path)
     now = time.time()
     if _matrix_cache["data"] is not None and (now - _matrix_cache["ts"]) < _CACHE_TTL:
         return _matrix_cache["data"]
 
-    live_data = tradingview_live_client.fetch_live_market_data()
+    # Eğer cache yoksa veya süresi dolmuşsa kilit bekle
+    async with _matrix_lock:
+        # Kilit açıldığında başka bir request cache'i doldurmuş olabilir (Double-checked locking)
+        now = time.time()
+        if _matrix_cache["data"] is not None and (now - _matrix_cache["ts"]) < _CACHE_TTL:
+            return _matrix_cache["data"]
+        
+        live_data = await asyncio.to_thread(tradingview_live_client.fetch_live_market_data)
 
     overview = market_hours_validator.get_market_overview()
     matrix_results = []
@@ -360,7 +371,7 @@ async def get_live_buy_sell_wait_matrix():
         m["historical_sample"] = historical_sample
 
     grouped_matrix = {
-        "CRYPTO": sorted([m for m in matrix_results if m["market"] == "CRYPTO"], key=lambda x: x["confidence_score"], reverse=True)[:15],
+        "CRYPTO": sorted([m for m in matrix_results if m["market"] == "CRYPTO"], key=lambda x: x["confidence_score"], reverse=True)[:50],
         "BIST": sorted([m for m in matrix_results if m["market"] == "BIST"], key=lambda x: x["confidence_score"], reverse=True)[:15],
         "NASDAQ": sorted([m for m in matrix_results if m["market"] == "NASDAQ"], key=lambda x: x["confidence_score"], reverse=True)[:50]
     }
@@ -390,7 +401,7 @@ async def get_three_way_market_index():
     """
     3-Way Endeksli Piyasa Penceresi (NASDAQ, BIST, KRİPTO) canlı veri taraması
     """
-    live_data = tradingview_live_client.fetch_live_market_data()
+    live_data = await asyncio.to_thread(tradingview_live_client.fetch_live_market_data)
     
     nasdaq_list = []
     bist_list = []

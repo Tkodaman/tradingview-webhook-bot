@@ -1,7 +1,6 @@
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
-import sys
 import os
 import asyncio
 import time
@@ -64,13 +63,14 @@ async def start_shadow_scanner():
                     logger.info(f"[SHADOW AI] {symbol} için doğrulanmış fiyat yok; cache yazılmadı.")
                     continue
 
-                mock_signal = WebhookSignal(
+                pre_analysis_probe = WebhookSignal(
                     symbol=symbol,
-                    action="BUY", 
+                    action="BUY", # Sadece piyasayı analiz etmek için yön tayini (temsili)
                     price=float(market_item["price"]),
-                    quantity=1.0,
+                    quantity=1.0, # Miktar analiz için önemsizdir
                     passphrase=settings.passphrase,
                     timeframe="15m",
+                    timestamp_ms=int(time.time() * 1000),
                     indicators={
                         key: value for key, value in market_item.items()
                         if key in {"rsi", "macd", "atr_pct", "adx", "volume_ratio", "cmf"}
@@ -80,7 +80,7 @@ async def start_shadow_scanner():
                 try:
                     audit_result = await asyncio.to_thread(
                         financial_agent.audit_tradingview_signal_concurrently,
-                        mock_signal
+                        pre_analysis_probe
                     )
                     
                     # Cache'e yaz
@@ -104,6 +104,32 @@ async def start_shadow_scanner():
 
 app = FastAPI(title="TradingView AI Webhook Gateway, Risk Engine & 10-Skill Financial AI Analyst")
 
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi import Request
+import json
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = exc.errors()
+    structured_errors = []
+    for e in errors:
+        loc = " -> ".join([str(l) for l in e.get("loc", [])])
+        msg = e.get("msg", "")
+        structured_errors.append(f"Field '{loc}': {msg}")
+    
+    error_summary = " | ".join(structured_errors)
+    logger.error(f"🛑 [WEBHOOK ŞEMA İHLALİ] Yapısal Hata veya Eksik Veri: {error_summary}")
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "status": "REJECTED",
+            "reason": "Payload validation failed (JSON Schema/Pydantic).",
+            "details": structured_errors
+        }
+    )
+
 from services.market_feed.live_stream import live_trade_manager
 @app.on_event("startup")
 async def startup_event():
@@ -112,6 +138,25 @@ async def startup_event():
     
     # Shadow AI (Gölge Zeka) Cache Tarayıcısını Başlat
     asyncio.create_task(start_shadow_scanner())
+    
+    # --- OTONOM MOTOR ENTEGRASYONLARI ---
+    # 1. L2 Orderbook Asenkron Tarayıcı (Spoofing Algılayıcı) - Geçici Olarak Devre Dışı
+    # from services.engine.l2_orderbook_engine import l2_orderbook_engine
+    # asyncio.create_task(l2_orderbook_engine.start_l2_stream())
+    logger.info("[STARTUP] L2 Orderbook Otonom Tarayıcı Devre Dışı Bırakıldı.")
+
+    # 2. StatArb Engine Döngüsü (Her 5 dakikada bir tarama)
+    async def run_advanced_engines():
+        from services.engine.stat_arb_engine import stat_arb_engine
+        while True:
+            try:
+                if live_trade_manager.market_prices:
+                    stat_arb_engine.scan_for_opportunities(live_trade_manager.market_prices)
+            except Exception as e:
+                logger.error(f"[Advanced Engines Loop] Hata: {e}")
+            await asyncio.sleep(300)
+
+    asyncio.create_task(run_advanced_engines())
     
     # Start WebSocket Broadcaster
     asyncio.create_task(live_data_broadcaster(live_trade_manager))

@@ -1,1 +1,1 @@
-{"consecutive_losses": 0, "daily_losses": 1, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {"YKBNK": 1}, "symbol_blocks": {}, "last_reset_date": "2026-09-25"}
+{"consecutive_losses": 0, "daily_losses": 23, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {"POLUSDT": 1, "AAVEUSDT": 2, "YFIUSDT": 2, "ADAUSDT": 0, "LINKUSDT": 1, "SUSHIUSDT": 3, "BTCUSDT": 0, "ETHUSDT": 2, "SOLUSDT": 2, "UNIUSDT": 1, "CRVUSDT": 1, "AVAXUSDT": 1, "DOGEUSDT": 1}, "symbol_blocks": {}, "last_reset_date": "2026-09-27"}

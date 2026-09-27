@@ -113,19 +113,18 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         rsi = ind.get("rsi")
         if rsi is not None:
             if action_clean in ["BUY", "LONG"] and rsi > 70:
-                logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. RSI ({rsi}) > 70 (Overbought).")
-                return _strict_rejection(signal, "STRICT_FILTER_RSI_OVERBOUGHT")
+                logger.warning(f"[SOFT FILTER] {signal.symbol} BUY: RSI ({rsi}) > 70 (Overbought). Cüretkar moda geçildi, işlem engellenmiyor.")
+                signal.macro_tags.append("RSI_OVERBOUGHT_WARNING")
             elif action_clean in ["SELL", "SHORT"] and rsi < 30:
-                logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. RSI ({rsi}) < 30 (Oversold).")
-                return _strict_rejection(signal, "STRICT_FILTER_RSI_OVERSOLD")
+                logger.warning(f"[SOFT FILTER] {signal.symbol} SELL: RSI ({rsi}) < 30 (Oversold). Cüretkar moda geçildi, işlem engellenmiyor.")
+                signal.macro_tags.append("RSI_OVERSOLD_WARNING")
                 
         # Trend Gücü Katmanı: ADX (Yatay Piyasa Tespiti)
         adx = ind.get("adx")
         if adx is not None:
             if adx < 20:
                 signal.macro_tags.append("REGIME_CHOPPY_RANGING") # gpt-6-astra'ya yatay piyasa olduğunu söyle
-                logger.warning(f"[STRICT FILTER] {signal.symbol} {action_clean} rejected. ADX ({adx}) < 20 (Ranging Market).")
-                return _strict_rejection(signal, "STRICT_FILTER_ADX_RANGING")
+                logger.warning(f"[SOFT FILTER] {signal.symbol} {action_clean}: ADX ({adx}) < 20 (Ranging Market). İşlem engellenmiyor.")
             elif adx > 40:
                 signal.macro_tags.append("REGIME_HIGH_VOLATILITY")
 
@@ -135,11 +134,11 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         if macd is not None and macd_signal is not None:
             hist = macd - macd_signal
             if action_clean in ["BUY", "LONG"] and hist < 0:
-                logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. MACD Hist ({hist}) < 0.")
-                return _strict_rejection(signal, "STRICT_FILTER_MACD_BEARISH")
+                logger.warning(f"[SOFT FILTER] {signal.symbol} BUY: MACD Hist ({hist}) < 0. İşlem engellenmiyor.")
+                signal.macro_tags.append("MACD_BEARISH_WARNING")
             elif action_clean in ["SELL", "SHORT"] and hist > 0:
-                logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. MACD Hist ({hist}) > 0.")
-                return _strict_rejection(signal, "STRICT_FILTER_MACD_BULLISH")
+                logger.warning(f"[SOFT FILTER] {signal.symbol} SELL: MACD Hist ({hist}) > 0. İşlem engellenmiyor.")
+                signal.macro_tags.append("MACD_BULLISH_WARNING")
 
 
     # 1. Ajan Analizi ve Dereceli Risk Değerlendirmesi

@@ -9,18 +9,36 @@ from services.engine.trade_journal_learning import trade_journal_engine
 
 router = APIRouter()
 
+import json
+import os
+
 @router.get("/summary")
-async def get_experience_memory_summary():
+def get_experience_memory_summary():
     """
     Otonom İç Deneyim & Dinamik Tecrübe Hafızası Sentezi
     """
+    data = experience_memory_engine.get_summary().model_dump()
+    
+    # Portföyü frontend'e taşıyalım
+    portfolio_path = os.path.join(os.getcwd(), "portfolio_memory.json")
+    active_portfolio = []
+    if os.path.exists(portfolio_path):
+        try:
+            with open(portfolio_path, "r", encoding="utf-8") as f:
+                p_data = json.load(f)
+                active_portfolio = p_data.get("crypto_portfolio", {}).get("assets", [])
+        except Exception:
+            pass
+            
+    data["active_portfolio"] = active_portfolio
+
     return {
         "status": "success",
-        "data": experience_memory_engine.get_summary()
+        "data": data
     }
 
 @router.get("/algorithmic-stats")
-async def get_algorithmic_stats():
+def get_algorithmic_stats():
     """
     Algoritmik Hata Payı Eğrisi ve Geleceğe Dair Eylem Planı (Kazan-Kazan)
     """
@@ -30,14 +48,14 @@ async def get_algorithmic_stats():
     }
 
 @router.get("/timeline")
-async def get_autonomous_tracker_timeline():
+def get_autonomous_tracker_timeline():
     """
     Otonom Sürüş Yol Haritası & Saatlik / 8 Saatlik İlerleme Takipçisi
     """
     return journey_tracker.get_timeline_data()
 
 @router.get("/asset-confidence-index")
-async def get_asset_confidence_index():
+def get_asset_confidence_index():
     """
     Geçmiş Arşiv İstatistiklerinden Türetilen Algoritmik Hisse/Varlık Güven Endeksi & Dinamik Uzmanlık Sıralaması
     """
@@ -49,7 +67,7 @@ async def get_asset_confidence_index():
     }
 
 @router.get("/trades")
-async def get_experience_trades():
+def get_experience_trades():
     """
     Detaylı Trade Post-Mortem ve Çıkarılan Dersler Listesi
     """
@@ -60,7 +78,7 @@ async def get_experience_trades():
     }
 
 @router.get("/advanced-metrics")
-async def get_advanced_metrics():
+def get_advanced_metrics():
     """
     5 adet yeni ML gelişmiş analitik grafiği (Radar, Donut, Scatter, Bar, Area)
     için gerekli olan veri setlerini döndürür.
@@ -72,12 +90,12 @@ async def get_advanced_metrics():
     }
 
 @router.get("/export/json")
-async def export_experience_json():
+def export_experience_json():
     """Tarihsel deneyim verilerini JSON formatında dışa aktar"""
     return experience_memory_engine.get_summary().model_dump()
 
 @router.get("/export/csv")
-async def export_experience_csv():
+def export_experience_csv():
     """Tarihsel işlemleri CSV formatında dışa aktar"""
     trades = experience_memory_engine.trade_history
     output = io.StringIO()
@@ -149,7 +167,7 @@ class SimulateTradeMemoryRequest(BaseModel):
     market_regime: str = Field("GÜÇLÜ KANTİTATİF BOĞA", description="Piyasa rejimi")
 
 @router.post("/simulate-trade")
-async def simulate_experience_trade(req: SimulateTradeMemoryRequest):
+def simulate_experience_trade(req: SimulateTradeMemoryRequest):
     """
     Otonom Tecrübe Hafızasına test işlemi enjekte eder ve anlık kuralları yeniden kalibre eder
     """
@@ -169,7 +187,7 @@ async def simulate_experience_trade(req: SimulateTradeMemoryRequest):
     }
 
 @router.post("/calibrate")
-async def calibrate_experience_memory():
+def calibrate_experience_memory():
     """
     Hafıza motorunu ve dinamik çarpanları yeniden kalibre eder
     """
@@ -190,7 +208,7 @@ class LogInjectRequest(BaseModel):
     message: str = Field("Otonom sinyal taraması tamamlandı.", description="Mesaj")
 
 @router.post("/test-log")
-async def inject_experience_log(req: LogInjectRequest):
+def inject_experience_log(req: LogInjectRequest):
     """
     Canlı terminallere anlık log enjekte eder
     """
@@ -198,14 +216,14 @@ async def inject_experience_log(req: LogInjectRequest):
     return {"status": "success", "market": req.market, "level": req.level, "message": req.message}
 
 @router.get("/journal")
-async def get_trade_journal_learning():
+def get_trade_journal_learning():
     """
     Sert Giriş/Çıkış Eğitimi, İşlem Günlüğü ve Birikim Veri Deposu
     """
     return trade_journal_engine.get_journal_summary()
 
 @router.get("/learning-curve")
-async def get_learning_curve():
+def get_learning_curve():
     """
     Geçmişteki gerçek işlemlere dayanarak Otonom Makine Öğrenmesi (ML) gelişim eğrisini oluşturur.
     Gerçek kümülatif win_rate ve kümülatif profit factor hesaplanır.

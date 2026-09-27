@@ -29,6 +29,8 @@ class MarginCalculationRequest(BaseModel):
     stop_loss_pct: Optional[float] = None      # örn: -1.50% (R:R >= 2.0)
     slippage_rate_pct: float = Field(0.08, description="Tek Yön Kayma Payı (%0.05 - %0.10)")
     max_position_margin_pct: float = Field(35.0, description="Tek İşleme Ayrılabilecek Maksimum Marj (%)")
+    vix_or_volatility: Optional[float] = Field(None, description="VIX Endeksi veya ATR Volatilitesi")
+    win_rate_pct: Optional[float] = Field(None, description="Strateji Başarı Oranı (%)")
 
 class AsymmetricMarginPlan(BaseModel):
     symbol: str
@@ -108,11 +110,17 @@ class MathematicalNetReturnEngine:
         entry_price: float,
         exit_price: float,
         market_cfg: Dict[str, Any],
-        slippage_rate: float
+        slippage_rate: float,
+        action: str = "BUY"
     ) -> ExactCostBreakdown:
         nominal_buy_val = qty * entry_price
         nominal_sell_val = qty * exit_price
-        gross_pnl = round(nominal_sell_val - nominal_buy_val, 4)
+        
+        if action == "BUY":
+            gross_pnl = round(nominal_sell_val - nominal_buy_val, 4)
+        else:
+            # SHORT position: Profit is when exit_price < entry_price
+            gross_pnl = round(nominal_buy_val - nominal_sell_val, 4)
 
         # 1. Alış Komisyonu
         buy_comm = (nominal_buy_val * (market_cfg["commission_rate_pct"] / 100.0)) + market_cfg.get("fixed_fee_usd", 0.0)
@@ -153,11 +161,36 @@ class MathematicalNetReturnEngine:
         tp_pct = req.target_profit_pct if req.target_profit_pct else cfg["default_tp_pct"]
         sl_pct = req.stop_loss_pct if req.stop_loss_pct else cfg["default_sl_pct"]
         slip_rate = req.slippage_rate_pct if req.slippage_rate_pct else cfg["slippage_pct"]
+        
+        # Dinamik Slippage Ayarlaması (VIX/Volatilite)
+        if req.vix_or_volatility:
+            vix = req.vix_or_volatility
+            if vix > 25.0:
+                slip_rate *= 2.0  # Aşırı Korku/Oynaklık
+            elif vix > 18.0:
+                slip_rate *= 1.5  # Yüksek Volatilite
+            elif vix < 13.0:
+                slip_rate *= 0.5  # Sakin Piyasa, Düşük Slippage
+        
         be_trigger_pct = cfg["be_trigger_pct"]
         currency = cfg["currency"]
 
         account = req.account_size
         risk_pct = req.risk_per_trade_pct
+        
+        # Kelly Criterion (Position Sizing)
+        if req.win_rate_pct and req.win_rate_pct > 0:
+            w = req.win_rate_pct / 100.0
+            r = tp_pct / sl_pct
+            kelly_pct = w - ((1.0 - w) / r)
+            half_kelly_pct = (kelly_pct / 2.0) * 100.0
+            if half_kelly_pct > 0:
+                # Cüretkar ama güvenli Half-Kelly, maks %5 riskle sınırlandırılır
+                risk_pct = min(half_kelly_pct, 5.0)
+            else:
+                # Dezavantajlı setup, minimum koruma riski
+                risk_pct = 0.5
+
         entry = req.entry_price
         action = req.action.upper()
         max_margin_pct = req.max_position_margin_pct
@@ -191,12 +224,14 @@ class MathematicalNetReturnEngine:
         final_pos_val = min(ideal_pos_val, max_margin_cap)
 
         exact_qty = round(final_pos_val / entry, 4)
-        actual_risk_at_sl = round(exact_qty * stop_distance, 2)
         rr_ratio = round(tp_pct / sl_pct, 2)
 
         # Kâr Hedefinde ve Stop Noktasında Tam Maliyet Ayrıştırması
-        costs_at_tp = self.calculate_costs_and_net_pnl(exact_qty, entry, tp_price, cfg, slip_rate)
-        costs_at_sl = self.calculate_costs_and_net_pnl(exact_qty, entry, sl_price, cfg, slip_rate)
+        costs_at_tp = self.calculate_costs_and_net_pnl(exact_qty, entry, tp_price, cfg, slip_rate, action)
+        costs_at_sl = self.calculate_costs_and_net_pnl(exact_qty, entry, sl_price, cfg, slip_rate, action)
+
+        # Gerçek risk, stop noktasındaki net zarar (komisyon ve kayma dahil) mutlak değeridir.
+        actual_risk_at_sl = round(abs(costs_at_sl.net_pnl), 2)
 
         notes = (
             f"[{m_key}] R:R Oranı {rr_ratio}:1. Fiyat +%{be_trigger_pct:.2f} kâra ({currency}{be_trigger_price:.2f}) ulaştığında "

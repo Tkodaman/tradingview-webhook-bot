@@ -164,3 +164,72 @@ async def agent_custom_stream(prompt: str):
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ==========================================
+# Claude Agent Endpoints (darkapi.shop)
+# ==========================================
+
+from pydantic import BaseModel as _BaseModel
+from typing import Dict, Any as _Any, Optional as _Optional
+
+class ClaudeChatRequest(_BaseModel):
+    message: str
+    system_prompt: _Optional[str] = None
+    max_tokens: int = 1024
+
+class ClaudeSignalRequest(_BaseModel):
+    symbol: str
+    indicators: Dict[str, _Any] = {}
+    regime: str = "UNKNOWN"
+    score: float = 0.0
+
+@router.get("/claude/status")
+async def claude_status():
+    """Claude agent bağlantı durumu"""
+    from services.ai.claude_agent import claude_agent
+    return claude_agent.status()
+
+@router.post("/claude/chat")
+async def claude_chat(req: ClaudeChatRequest):
+    """Claude ile serbest sohbet"""
+    from services.ai.claude_agent import claude_agent
+    if not claude_agent.is_ready():
+        return {"error": "Claude agent bağlı değil. .env dosyasını kontrol edin."}
+    response = claude_agent.chat(
+        user_message=req.message,
+        system_prompt=req.system_prompt,
+        max_tokens=req.max_tokens,
+    )
+    return {"response": response, "model": claude_agent._model}
+
+@router.post("/claude/analyze-signal")
+async def claude_analyze_signal(req: ClaudeSignalRequest):
+    """Bir sembol için Claude sinyal analizi"""
+    from services.ai.claude_agent import claude_agent
+    if not claude_agent.is_ready():
+        return {"error": "Claude agent bağlı değil."}
+    result = claude_agent.analyze_signal(
+        symbol=req.symbol,
+        indicators=req.indicators,
+        regime=req.regime,
+        score=req.score,
+    )
+    return result
+
+@router.get("/claude/market-commentary")
+async def claude_market_commentary():
+    """Güncel piyasa özeti yorumu"""
+    from services.ai.claude_agent import claude_agent
+    from services.market_feed.live_stream import live_trade_manager
+    if not claude_agent.is_ready():
+        return {"error": "Claude agent bağlı değil."}
+    prices = getattr(live_trade_manager, "market_prices", {})
+    symbols_data = [
+        {"symbol": sym, "rsi": v.get("rsi", 0), "decision": v.get("decision", "WAIT"),
+         "volume_ratio": v.get("volume_ratio", 0), "change_pct": v.get("change_pct", 0)}
+        for sym, v in list(prices.items())[:10]
+    ]
+    commentary = claude_agent.market_commentary(symbols_data)
+    return {"commentary": commentary}
+

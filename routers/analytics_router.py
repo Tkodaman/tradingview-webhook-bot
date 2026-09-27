@@ -13,7 +13,7 @@ router = APIRouter(dependencies=[Depends(verify_ip)])
 
 
 @router.get("/expectancy")
-async def get_expectancy():
+def get_expectancy():
     """
     Gerçek işlem geçmişinden Expectancy (Beklenen Değer) ve Kelly Fraction hesaplar.
     """
@@ -21,7 +21,7 @@ async def get_expectancy():
 
 
 @router.get("/correlation")
-async def get_correlation():
+def get_correlation():
     """
     Açık pozisyonların anlık fiyatlarından biriken zaman serisiyle korelasyon ısı haritası üretir.
     """
@@ -29,7 +29,7 @@ async def get_correlation():
 
 
 @router.get("/strategy-map")
-async def get_strategy_map():
+def get_strategy_map():
     """
     Piyasa Rejimi Tespit Motoru'nun son ürettiği sonuçlardan sembol -> strateji haritası.
     Aktif Risk & Frekans Modu'nun her sembole otonom uyguladığı canlı TP/SL dahildir.
@@ -42,7 +42,7 @@ async def get_strategy_map():
 
 
 @router.get("/thought-stream")
-async def get_thought_stream():
+def get_thought_stream():
     """
     Fakeout Guard, Stop-Hunt Evader ve Korelasyon Filtresi'nin canlı "neden bekliyorum/koruyorum" akışı.
     """

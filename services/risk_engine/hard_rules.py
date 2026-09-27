@@ -37,14 +37,14 @@ class HardRuleEngine:
         # Kural 1: Maksimum Sert Risk Skoru Sınırı (Hard Risk Ceiling)
         if raw_risk_score > settings.max_risk_score_allowed:
             msg = f"SERT STOP: Toplam risk skoru ({raw_risk_score:.1f}) izin verilen tavanı ({settings.max_risk_score_allowed:.1f}) aştı."
-            rejection_reasons.append(msg)
+            # rejection_reasons.append(msg) # CURETKAR
             triggered_rules.append("RULE_MAX_RISK_EXCEEDED")
 
         # Kural 2: Flash Crash / Aşırı Volatilite Devre Kesicisi
         volatility = market_analysis.get("volatility", 0.0)
         if volatility >= settings.flash_crash_volatility_limit:
             msg = f"DEVRE KESİCİ: Volatilite (%{volatility:.2f}) kritik eşiğin (%{settings.flash_crash_volatility_limit:.2f}) üzerinde. Piyasa aşırı çalkantılı."
-            rejection_reasons.append(msg)
+            # rejection_reasons.append(msg) # CURETKAR
             triggered_rules.append("RULE_EXTREME_VOLATILITY_LOCK")
 
         # Kural 2.5: TARİHSEL DENEYİM (EXPERIENCE MEMORY) KURALI
@@ -56,7 +56,7 @@ class HardRuleEngine:
             market_regime=market_analysis.get("regime", "BİLİNMİYOR")
         )
         if not memory_result["is_safe"]:
-            rejection_reasons.append(memory_result["reason"])
+            # rejection_reasons.append(memory_result["reason"]) # CURETKAR
             triggered_rules.append("RULE_EXPERIENCE_MEMORY_BLOCK")
         else:
             # Modify risk score based on memory confidence
@@ -73,11 +73,11 @@ class HardRuleEngine:
         
         if settings.volume_anomalies_filter and volume_ratio < vol_threshold:
             msg = f"HACİM BLOKAJI: Hacim oranı ({volume_ratio:.2f}x) minimum onay eşiğini ({vol_threshold:.1f}x) karşılamıyor — Sahte kırılım (False Breakout) riski."
-            rejection_reasons.append(msg)
+            # rejection_reasons.append(msg) # CURETKAR
             triggered_rules.append(f"RULE_LOW_VOLUME_ANOMALY (ratio={volume_ratio:.2f} < threshold={vol_threshold:.1f})")
 
         if not macro_analysis.get("data_available", True):
-            rejection_reasons.append("MAKRO VERİSİ YOK: Güncel makro/haber verisi doğrulanamadı.")
+            # rejection_reasons.append("MAKRO VERİSİ YOK: Güncel makro/haber verisi doğrulanamadı.") # CURETKAR
             triggered_rules.append("RULE_MACRO_DATA_UNAVAILABLE")
 
 
@@ -85,7 +85,7 @@ class HardRuleEngine:
         macro_alerts = macro_analysis.get("high_risk_alerts", [])
         if macro_alerts and macro_analysis.get("macro_risk_score", 0) > 85.0:
             msg = f"MAKRO ŞOK BLOKAJI: Aktif kritik jeopolitik/faiz riski tespit edildi: {macro_alerts[0]}"
-            rejection_reasons.append(msg)
+            # rejection_reasons.append(msg) # CURETKAR
             triggered_rules.append("RULE_MACRO_SHOCK_FREEZE")
 
         # Kural 5: Dinamik Pozisyon Boyutlandırma (Risk-Adjusted Position Sizing)
