@@ -159,7 +159,7 @@ def get_shadow_cache():
 
 class AiModelRequest(BaseModel):
     provider: str = Field(..., description="LLM Provider: 'openai' veya 'gemini'")
-    model_name: str = Field("gpt-6-astra", description="Model ismi (örn: gpt-6-astra, gemini-1.5-flash)")
+    model_name: str = Field("gpt-6-astra", description="Model ismi (örn: gpt-6-astra, gemini-2.5-pro)")
 
 @router.post("/engine/ai-model")
 def set_ai_model(req: AiModelRequest):

@@ -18,9 +18,10 @@ class BotTrainer:
             "weight_macro": settings.weight_macro,
             "weight_sentiment": settings.weight_sentiment,
             "max_risk_score_allowed": settings.max_risk_score_allowed,
-            "sharpe_ratio": 1.45,
-            "win_rate": 68.5,
-            "max_drawdown": 4.2
+            "sharpe_ratio": None,
+            "win_rate": None,
+            "max_drawdown": None,
+            "data_quality": "UNAVAILABLE"
         }
 
     def load_historical_scenarios_from_memory(self) -> List[Dict[str, Any]]:
@@ -213,6 +214,21 @@ class BotTrainer:
         }
 
     def train_bot(self, iterations: int = 400) -> Dict[str, Any]:
+        # Historical records currently lack verified provenance and complete
+        # entry-time features. Never optimize live settings using fabricated
+        # regimes or imputed indicators. Preserve the active risk configuration.
+        return {
+            "status": "BLOCKED_UNVERIFIED_TRAINING_DATA",
+            "reason": "Kaynağı doğrulanmış eğitim verisi ve zaman sıralı doğrulama gerekli.",
+            "optimized_weights": {},
+            "backtest_performance": None,
+            "scenarios_tested": 0,
+            "applied_to_live_settings": False,
+            "data_quality": "UNAVAILABLE"
+        }
+
+    def _disabled_legacy_train_bot(self, iterations: int = 400) -> Dict[str, Any]:
+        raise RuntimeError("Sentetik eğitim ve canlı ayar güncellemesi devre dışı.")
         """
         Gerçek geçmiş verileri ve sentetik verileri harmanlayarak (Data Augmentation) 
         Grid/Randomized Search ile model ağırlıklarını eğitir.

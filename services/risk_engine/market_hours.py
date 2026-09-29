@@ -217,7 +217,7 @@ class MarketHoursValidator:
                         "market": "NASDAQ", "is_open": False, "session": "PRE_MARKET", "trt_time": current_time_str
                     }
             else:
-                if ext_enabled and (current_minute > us_close_minute or current_minute < 3 * 60):
+                if ext_enabled and ((current_minute > us_close_minute and weekday in [0, 1, 2, 3, 4]) or (current_minute < 3 * 60 and weekday in [1, 2, 3, 4, 5])):
                     return True, f"🟣 NASDAQ Post-Market (Otonom İşlemlere Açık) ({current_time_str} TRT)", {
                         "market": "NASDAQ", "is_open": True, "session": "POST_MARKET", "trt_time": current_time_str
                     }

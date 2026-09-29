@@ -192,19 +192,25 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     if action_clean in ["BUY", "LONG"]:
         from services.ai_agent.system_prompt import RISK_PARAMS
         
-        # TP/SL Senkronizasyonu: auto_runner veya LLM zaten hesapladıysa kullan
+        # TP/SL Senkronizasyonu: auto_runner veya LLM zaten dinamik hesapladıysa kullan
         # Böylece Local DB ve Alpaca aynı seviyeleri takip eder (DESYNC önleme)
-        if signal.take_profit and signal.take_profit > signal.price > 0:
+        is_crypto = signal.symbol.endswith("USDT") or signal.symbol in ["BTC", "ETH", "SOL", "BNB"]
+        if signal.take_profit and signal.take_profit > signal.price > 0 and signal.stop_loss and 0 < signal.stop_loss < signal.price:
             tp_pct = round(((signal.take_profit - signal.price) / signal.price) * 100.0, 2)
-            logger.info(f"[TP SYNC] {signal.symbol} — Signal'dan gelen LLM TP kullanıldı: %{tp_pct} (${signal.take_profit})")
-        else:
-            tp_pct = RISK_PARAMS.get("default_take_profit_pct", 3.0)
-        
-        if signal.stop_loss and 0 < signal.stop_loss < signal.price:
             sl_pct = round(((signal.price - signal.stop_loss) / signal.price) * 100.0, 2)
-            logger.info(f"[SL SYNC] {signal.symbol} — Signal'dan gelen LLM SL kullanıldı: %{sl_pct} (${signal.stop_loss})")
+            logger.info(f"[TP/SL SYNC] {signal.symbol} — Sinyalden gelen dinamik hedefler kullanıldı: TP=%{tp_pct} (${signal.take_profit}) | SL=%{sl_pct} (${signal.stop_loss})")
         else:
-            sl_pct = RISK_PARAMS.get("default_stop_loss_pct", 1.5)
+            from services.risk_engine.dynamic_sl_tp import calculate_atr_based_tp_sl
+            atr_pct = signal.indicators.get("volatility", signal.indicators.get("atr_pct", 1.8)) if signal.indicators else 1.8
+            tp_pct, sl_pct = calculate_atr_based_tp_sl(
+                entry_price=signal.price,
+                atr_pct=atr_pct,
+                is_crypto=is_crypto,
+                risk_mode=settings.current_risk_mode,
+            )
+            signal.take_profit = round(signal.price * (1 + tp_pct / 100.0), 4)
+            signal.stop_loss = round(signal.price * (1 - sl_pct / 100.0), 4)
+            logger.info(f"[DYNAMIC ATR SYNC] {signal.symbol} — Dinamik hesaplanan hedefler: TP=%{tp_pct} (${signal.take_profit}) | SL=%{sl_pct} (${signal.stop_loss})")
         
         # Strateji tag'ine göre override (sadece signal'da TP/SL yoksa)
         if signal.macro_tags and not signal.take_profit:

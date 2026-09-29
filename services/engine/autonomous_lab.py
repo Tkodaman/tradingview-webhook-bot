@@ -21,6 +21,32 @@ class AutonomousAlgorithmLab:
         self.net_return_engine = MathematicalNetReturnEngine()
 
     def run_autonomous_experiment_pool(self, base_capital: float = 100.0, trial_count: int = 50) -> Dict[str, Any]:
+        # No historical replay or broker fills exist for this experiment.
+        # Returning random wins would misrepresent measured performance.
+        result = {
+            "status": "UNAVAILABLE",
+            "data_quality": "UNAVAILABLE",
+            "trial_count": 0,
+            "base_capital_per_trial": base_capital,
+            "starting_balance": None,
+            "final_balance": None,
+            "net_total_pnl": None,
+            "win_rate": None,
+            "profit_factor": None,
+            "max_drawdown": None,
+            "wins_count": 0,
+            "losses_count": 0,
+            "break_even_count": 0,
+            "dynamic_spreads_calibrated": [],
+            "equity_curve": [],
+            "trials_ledger": [],
+            "ai_summary_report": "Doğrulanmış deney sonucu yok. Rastgele performans üretimi kapatıldı."
+        }
+        self.last_run_result = result
+        return result
+
+    def _disabled_legacy_experiment_pool(self, base_capital: float = 100.0, trial_count: int = 50) -> Dict[str, Any]:
+        raise RuntimeError("Rastgele deney sonuçları üretimi devre dışı.")
         """
         Kullanıcıdan komut beklemeden tüm hisse evreni üzerinde 100$ paketlerle
         otonom denemeler havuzu oluşturur, dinamik stop/kâr makasını belirler ve kümülatif rapor üretir.

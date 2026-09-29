@@ -5,30 +5,87 @@ from core.config import settings
 
 def calculate_atr_based_tp_sl(
     entry_price: float,
-    atr_value: float,
+    atr_value: float = 0.0,
+    atr_pct: float = None,
     side: str = "BUY",
     is_crypto: bool = False,
+    risk_mode: str = "AGGRESSIVE",
+    regime: str = "SIDEWAYS",
 ) -> tuple:
-    # === FIX-4: R:R orani düzetme — SL daha sıkı, TP daha geniş ===
-    if entry_price <= 0 or atr_value <= 0:
-        # Fallback: Minimum R:R 1:2 garantisi
-        return (4.0 if is_crypto else 3.5), (1.5 if is_crypto else 1.5)
+    """
+    Dinamik ATR ve Volatilite Bazlı Kâr Al (TP) ve Zarar Kes (SL) Hesaplayıcı.
+    Kullanıcı Direktifi:
+      - Sabit dar aralıklar (%2) piyasa gürültüsünde tehlikelidir, dinamik olmalı.
+      - Hisse kafasını kaldırdığında kârı cebe indirmeli (hızlı TP).
+      - Kırmızıya dönünce aşık olmadan küçük bir zararla kapatmalı (sağlam SL).
+      - Varlığın gerçek oynaklığına (ATR) ve piyasa rejimine göre dinamik nefes payı bırakılmalı.
+    """
+    if entry_price <= 0:
+        return (3.0 if not is_crypto else 4.5), (1.8 if not is_crypto else 2.5)
 
-    tp_multiplier = 4.0 if is_crypto else 3.5   # Otonom İnsiyatif: Kâr Maksimizasyonu (Kazanç Arttıralım)
-    sl_multiplier = 1.0
-    tp_pct = ((atr_value * tp_multiplier) / entry_price) * 100.0
-    sl_pct = ((atr_value * sl_multiplier) / entry_price) * 100.0
+    # 1. Efektif ATR Yüzdesini Belirle
+    if atr_pct is not None and atr_pct > 0:
+        eff_atr_pct = float(atr_pct)
+    elif atr_value > 0 and entry_price > 0:
+        eff_atr_pct = (atr_value / entry_price) * 100.0
+    else:
+        # Fallback volatilite varsayımı
+        eff_atr_pct = 3.2 if is_crypto else 1.6
 
-    # === SL üst limiti %2.5 ===
-    sl_pct = max(1.0, min(sl_pct + 0.2, 2.5))
-    # === TP alt limiti %2.5, Üst limiti %15.0 (Cüretkar kazançlar için limit açıldı) ===
-    tp_pct = max(2.5, min(tp_pct, 15.0))
-    # === Minimum R:R 1:2.5 garantisi (Özgüvenli avcı) ===
-    if tp_pct < sl_pct * 2.5:
-        tp_pct = sl_pct * 2.5
+    mode = (risk_mode or "AGGRESSIVE").upper()
+    is_short_term = mode in ["SNIPER", "AGGRESSIVE"]
+
+    # 2. Dinamik Stop-Loss (SL) Hesabı
+    # Varlığın normal mum oynaklığının (ATR) dışına konulur, böylece "stop-hunt" ve fitil gürültüsünden kaçınılır.
+    if is_crypto:
+        # Kripto: fitiller daha sert, ATR çarpanı 1.4x - 1.6x
+        sl_mult = 1.35 if is_short_term else 1.55
+        calculated_sl = eff_atr_pct * sl_mult
+        # Kripto sınırları: Asgari %2.0, Azami %4.8 (gün içi sermaye korunur)
+        min_sl = 2.0
+        max_sl = 4.8 if is_short_term else 6.0
+    else:
+        # Hisse Senetleri (NASDAQ / BIST): ATR çarpanı 1.25x - 1.45x
+        sl_mult = 1.25 if is_short_term else 1.45
+        calculated_sl = eff_atr_pct * sl_mult
+        # Hisse sınırları: Asgari %1.4, Azami %3.2 (hızlı kesme)
+        min_sl = 1.4
+        max_sl = 3.2 if is_short_term else 4.5
+
+    sl_pct = max(min_sl, min(calculated_sl, max_sl))
+
+    # 3. Dinamik Kâr Al (TP) Hesabı
+    # Hantal %10 rallileri beklemez; volatiliteye göre hızlıca kârı cebe indirir.
+    # Risk-Ödül Oranı (R:R) en az 1.35x - 1.50x korunur.
+    if is_crypto:
+        tp_mult = 1.85 if is_short_term else 2.40
+        calculated_tp = eff_atr_pct * tp_mult
+        min_rr = 1.35 if is_short_term else 1.50
+        min_tp = max(2.8, sl_pct * min_rr)
+        max_tp = 7.5 if is_short_term else 14.0
+    else:
+        tp_mult = 1.60 if is_short_term else 2.00
+        calculated_tp = eff_atr_pct * tp_mult
+        min_rr = 1.40 if is_short_term else 1.60
+        min_tp = max(2.0, sl_pct * min_rr)
+        max_tp = 4.8 if is_short_term else 8.5
+
+    tp_pct = max(min_tp, min(calculated_tp, max_tp))
+
+    # 4. Rejim Düzeltmeleri
+    if regime in ["BEAR", "CRASH"]:
+        # Ayı veya Çöküş rejiminde kâr alma daha da hızlı olmalı (reversal yemeden çık)
+        tp_pct = max(min_tp * 0.9, tp_pct * 0.85)
+    elif regime == "MEGA_BULL":
+        # Güçlü boğada kâr hedefi hafifçe esneyebilir
+        tp_pct = min(max_tp, tp_pct * 1.15)
 
     from core.logger import logger
-    logger.debug(f"[ATR TP/SL] entry={entry_price} atr={atr_value:.4f} crypto={is_crypto} -> TP=%{tp_pct:.2f} SL=%{sl_pct:.2f} R:R={tp_pct/sl_pct:.2f}")
+    logger.info(
+        f"🎯 [DYNAMIC ATR TP/SL] entry={entry_price:.2f} ATR%={eff_atr_pct:.2f}% "
+        f"({mode}/{regime}/{'CRYPTO' if is_crypto else 'STOCK'}) -> "
+        f"TP=%{tp_pct:.2f} | SL=%{sl_pct:.2f} | R:R={tp_pct/sl_pct:.2f}"
+    )
     return round(tp_pct, 2), round(sl_pct, 2)
 class DynamicRiskManager:
     def __init__(self):
@@ -36,9 +93,9 @@ class DynamicRiskManager:
         self.price_history = {}
 
         # === ÖZGÜVENLİ TRAILING STOP PARAMETRESİ ===
-        # trailing_distance_pct: Kârın izini sürerken sahte iğnelere (wicks) kurban gitmemek için biraz esnetildi
-        # Aktivasyon yok — giriş anından itibaren geçerli, asla aşağı inmez
-        self.trailing_distance_pct = 2.0   # %2.0 dinamik iz sürme (Nefes payı bırakıldı)
+        # trailing_distance_pct: Kârın izini sürerken sahte iğnelere (wicks) kurban gitmemek için ESNETİLDİ.
+        # Çok sıkı (%2) trailing stop, ufak bir düzeltmede (pullback) kârlı işlemi zararına kapatıyordu.
+        self.trailing_distance_pct = 3.5   # %3.5 dinamik iz sürme (Geniş Nefes Payı Bırakıldı)
 
     async def on_price_update(self, symbol: str, current_price: float):
         """

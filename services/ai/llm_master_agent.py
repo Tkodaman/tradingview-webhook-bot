@@ -2,52 +2,48 @@ import os, time, json, re
 from typing import Dict, Any, Optional, List
 from core.logger import logger
 
-_OPENAI_AVAILABLE = False
+_GEMINI_AVAILABLE = False
 try:
-    from openai import OpenAI
-    _OPENAI_AVAILABLE = True
+    import google.generativeai as genai
+    _GEMINI_AVAILABLE = True
 except ImportError:
-    logger.warning('[CLAUDE AGENT] openai kutuphanesi yok.')
+    logger.warning('[GEMINI AGENT] google.generativeai kutuphanesi yok.')
 
-class ClaudeAgentService:
+class LLMMasterAgentService:
     def __init__(self):
-        self._api_key  = os.getenv('ANTHROPIC_AUTH_TOKEN', '')
-        self._base_url = os.getenv('ANTHROPIC_BASE_URL', 'https://darkapi.shop/v1')
-        self._model    = os.getenv('ANTHROPIC_MODEL', 'claude-sonnet-5')
-        self._client   = None
+        self._api_key  = os.getenv('GEMINI_API_KEY', '')
+        self._model    = os.getenv('GEMINI_MODEL_NAME', 'gemini-2.5-pro')
+        self._generative_model = None
         self._ready    = False
         self._last_call = 0.0
-        self._min_interval = 1.0
-        if _OPENAI_AVAILABLE and self._api_key:
+        self._min_interval = 2.0
+        if _GEMINI_AVAILABLE and self._api_key:
             try:
-                self._client = OpenAI(api_key=self._api_key, base_url=self._base_url)
+                genai.configure(api_key=self._api_key)
+                self._generative_model = genai.GenerativeModel(self._model)
                 self._ready = True
-                logger.info('[CLAUDE AGENT] Hazir (OpenAI Uyumlu) — ' + self._base_url)
+                logger.info(f'[GEMINI AGENT] Hazir — Model: {self._model}')
             except Exception as e:
-                logger.error('[CLAUDE AGENT] Client olusturulamadi: ' + str(e))
+                logger.error('[GEMINI AGENT] Client olusturulamadi: ' + str(e))
 
     def chat(self, user_message, system_prompt=None, max_tokens=1024):
-        if not self._ready or not self._client:
-            return '[CLAUDE_OFFLINE]'
+        if not self._ready or not self._generative_model:
+            return '[LLM_OFFLINE]'
         elapsed = time.time() - self._last_call
         if elapsed < self._min_interval:
             time.sleep(self._min_interval - elapsed)
         self._last_call = time.time()
         try:
-            messages = []
+            prompt = ""
             if system_prompt:
-                messages.append({'role': 'system', 'content': system_prompt})
-            messages.append({'role': 'user', 'content': user_message})
+                prompt += f"System Instructions:\n{system_prompt}\n\n"
+            prompt += f"User:\n{user_message}"
             
-            resp = self._client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                max_tokens=max_tokens
-            )
-            return resp.choices[0].message.content
+            resp = self._generative_model.generate_content(prompt)
+            return resp.text
         except Exception as e:
-            logger.error('[CLAUDE AGENT] API hatasi: ' + str(e))
-            return '[CLAUDE_ERROR] ' + str(e)
+            logger.error('[GEMINI AGENT] API hatasi: ' + str(e))
+            return '[LLM_ERROR] ' + str(e)
 
     def analyze_signal(self, symbol, indicators, regime='UNKNOWN', score=0.0):
         rsi    = indicators.get('rsi', 'N/A')
@@ -99,4 +95,4 @@ class ClaudeAgentService:
         return {'ready': self._ready, 'base_url': self._base_url, 'model': self._model,
                 'key_prefix': self._api_key[:16] + '...' if self._api_key else 'YOK'}
 
-claude_agent = ClaudeAgentService()
+llm_master_agent = LLMMasterAgentService()

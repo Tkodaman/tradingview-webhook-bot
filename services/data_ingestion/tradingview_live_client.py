@@ -43,7 +43,7 @@ class TradingViewLiveClient:
             return {**self.cached_us_data, **self.cached_tr_data, **self.cached_crypto_data}
 
         columns = [
-            "name", "close", "change|15", "high|15", "low|15", "volume|15",
+            "name", "close", "change", "high|15", "low|15", "volume|15",
             "RSI|15", "MACD.macd|15", "MACD.signal|15", "EMA20|15", "EMA50|15", "EMA200|15",
             "ATR|15", "VWAP|15", "Stoch.K|15", "ADX|15", "Volatility.D|15", "average_volume_10d_calc|15",
             "ChaikinMoneyFlow|15",
@@ -107,12 +107,33 @@ class TradingViewLiveClient:
                             
                             # YENİ: 15-dakikalık mum kapanış gürültüsünü (Volume Reset) düzeltmek için zaman prorasyonu
                             import time as time_mod
-                            current_min = time_mod.localtime(now).tm_min
-                            min_in_candle = (current_min % 15) + 1 # 1 to 15
-                            expected_fraction = min_in_candle / 15.0
-                            adjusted_vol_avg = vol_avg * expected_fraction
+                            from services.risk_engine.market_hours import market_hours_validator
                             
-                            vol_ratio = round(vol / adjusted_vol_avg, 2) if adjusted_vol_avg > 0 else None
+                            status_tuple = market_hours_validator.is_market_open("NASDAQ")
+                            is_open = status_tuple[0]
+                            session_type = status_tuple[2].get("session", "RTH")
+                            
+                            # TradingView'in standart hacim verisi sadece Normal Seans (RTH) için güncellenir.
+                            # Pre/Post market'te MOC mumunu bölmek sahte hacim patlamaları (5x-10x) yaratır.
+                            if is_open and session_type == "RTH":
+                                # 15 dakikalık mum için saniye bazlı kusursuz prorasyon
+                                candle_start = (int(now) // 900) * 900
+                                seconds_in_candle = int(now) - candle_start
+                                effective_seconds = max(seconds_in_candle, 60)
+                                expected_fraction = effective_seconds / 900.0
+                                adjusted_vol_avg = vol_avg * expected_fraction
+                                
+                                if adjusted_vol_avg > 0:
+                                    vol_ratio = round(vol / adjusted_vol_avg, 2)
+                                else:
+                                    vol_ratio = 1.0
+                                    
+                                if seconds_in_candle < 180 and vol_ratio < 0.80:
+                                    vol_ratio = max(vol_ratio, 0.80)
+                            else:
+                                # Piyasa kapalıyken son mum "Kapanış Müzayedesi (MOC)" mumudur ve 
+                                # ortalama bir mumun devasa katı hacme sahiptir.
+                                vol_ratio = 1.0
                             
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
@@ -164,33 +185,25 @@ class TradingViewLiveClient:
                     # KAZAN-KAZAN: ALPACA HİBRİT GERÇEK ZAMANLI (IEX) OVERRIDE
                     # 15 dakika gecikmeli TV NASDAQ fiyatlarını Alpaca'dan canlı ez.
                     # =======================================================
-                    from core.config import settings
-                    if getattr(settings, "alpaca_extended_hours", True):
-                        try:
-                            # Sadece NASDAQ sembollerini çek
-                            nasdaq_syms = list(results.keys())
-                            if nasdaq_syms:
-                                from services.broker.alpaca_bridge import AlpacaBroker
-                                # Instantiating is light since it just sets up REST client
-                                temp_broker = AlpacaBroker(paper=True)
-                                rt_prices = temp_broker.get_realtime_prices(nasdaq_syms)
-                                
-                                for sym, rt_data in rt_prices.items():
-                                    if sym in results:
-                                        old_price = results[sym]["price"]
-                                        new_price = rt_data["price"]
-                                        if new_price > 0:
-                                            results[sym]["price"] = new_price
-                                            results[sym]["change_pct"] = rt_data["change_pct"]
-                                            results[sym]["high"] = rt_data["high"]
-                                            results[sym]["low"] = rt_data["low"]
-                                            # Update related fields relying on price
-                                            if "atr_pct" in results[sym] and "ATR" in columns:
-                                                pass # ATR percentage could be updated but it's minor
-                                            results[sym]["source"] = "HYBRID_ALPACA_LIVE"
-                                            # logger.debug(f"[HYBRID] {sym} fiyatı Alpaca'dan güncellendi: {old_price} -> {new_price}")
-                        except Exception as override_err:
-                            logger.error(f"[ALPACA OVERRIDE ERROR] {override_err}")
+                    # from core.config import settings
+                    # if getattr(settings, "alpaca_extended_hours", True):
+                    #     try:
+                    #         nasdaq_syms = list(results.keys())
+                    #         if nasdaq_syms:
+                    #             from services.broker.alpaca_bridge import AlpacaBroker
+                    #             temp_broker = AlpacaBroker(paper=True)
+                    #             rt_prices = temp_broker.get_realtime_prices(nasdaq_syms)
+                    #             for sym, rt_data in rt_prices.items():
+                    #                 if sym in results:
+                    #                     new_price = rt_data["price"]
+                    #                     if new_price > 0:
+                    #                         results[sym]["price"] = new_price
+                    #                         results[sym]["change_pct"] = rt_data["change_pct"]
+                    #                         results[sym]["high"] = rt_data["high"]
+                    #                         results[sym]["low"] = rt_data["low"]
+                    #                         results[sym]["source"] = "HYBRID_ALPACA_LIVE"
+                    #     except Exception as override_err:
+                    #         logger.error(f"[ALPACA OVERRIDE ERROR] {override_err}")
                             
                     self.cached_us_data = results
         except Exception as e:
@@ -241,12 +254,29 @@ class TradingViewLiveClient:
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
                             
                             import time as time_mod
-                            current_min = time_mod.localtime(now).tm_min
-                            min_in_candle = (current_min % 15) + 1 
-                            expected_fraction = min_in_candle / 15.0
-                            adjusted_vol_avg = vol_avg * expected_fraction
+                            from services.risk_engine.market_hours import market_hours_validator
                             
-                            vol_ratio = round(vol / adjusted_vol_avg, 2) if adjusted_vol_avg > 0 else None
+                            status_tuple = market_hours_validator.is_market_open("BIST")
+                            is_open = status_tuple[0]
+                            session_type = status_tuple[2].get("session", "RTH")
+                            
+                            if is_open and session_type == "RTH":
+                                # 15 dakikalık mum için saniye bazlı kusursuz prorasyon
+                                candle_start = (int(now) // 900) * 900
+                                seconds_in_candle = int(now) - candle_start
+                                effective_seconds = max(seconds_in_candle, 60)
+                                expected_fraction = effective_seconds / 900.0
+                                adjusted_vol_avg = vol_avg * expected_fraction
+                                
+                                if adjusted_vol_avg > 0:
+                                    vol_ratio = round(vol / adjusted_vol_avg, 2)
+                                else:
+                                    vol_ratio = 1.0
+                                    
+                                if seconds_in_candle < 180 and vol_ratio < 0.80:
+                                    vol_ratio = max(vol_ratio, 0.80)
+                            else:
+                                vol_ratio = 1.0
                             
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
@@ -341,13 +371,22 @@ class TradingViewLiveClient:
                             adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
                             
-                            import time as time_mod
-                            current_min = time_mod.localtime(now).tm_min
-                            min_in_candle = (current_min % 15) + 1 
-                            expected_fraction = min_in_candle / 15.0
+                            # 15 dakikalık mum için saniye bazlı kusursuz prorasyon
+                            candle_start = (int(now) // 900) * 900
+                            seconds_in_candle = int(now) - candle_start
+                            # İlk 1 dakikayı 60s gibi say ki sıfıra bölme veya devasa rasyolar çıkmasın
+                            effective_seconds = max(seconds_in_candle, 60)
+                            expected_fraction = effective_seconds / 900.0
                             adjusted_vol_avg = vol_avg * expected_fraction
                             
-                            vol_ratio = round(vol / adjusted_vol_avg, 2) if adjusted_vol_avg > 0 else None
+                            if adjusted_vol_avg > 0:
+                                vol_ratio = round(vol / adjusted_vol_avg, 2)
+                            else:
+                                vol_ratio = 1.0
+                                
+                            # Mum yeni açıldığında (ilk 3 dakika) hacim tam oturmaz, yapay 0'a düşmeyi engelle
+                            if seconds_in_candle < 180 and vol_ratio < 0.80:
+                                vol_ratio = max(vol_ratio, 0.80)
                             
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===

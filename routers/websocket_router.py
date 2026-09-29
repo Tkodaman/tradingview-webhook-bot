@@ -42,7 +42,8 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
     while True:
         try:
             if manager.active_connections:
-                prices = live_trade_manager.get_live_prices()
+                # UI shouldn't fetch, just use the data fetched by auto_runner.py to keep it extremely fast
+                prices = await asyncio.to_thread(live_trade_manager.get_live_prices, fetch_new=False)
                 
                 # Check Supervisor Agent Risk Profile
                 try:

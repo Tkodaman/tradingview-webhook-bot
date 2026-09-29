@@ -7,6 +7,7 @@ REGIMES = ["GUCLU BOGA", "VOLATIL", "YATAY", "AYI"]
 LEVELS = ["INFO", "SCAN", "WARN", "ORDER", "WIN"]
 
 def generate_ma_message(sym):
+    raise RuntimeError("Doğrulanmamış piyasa mesajı üretimi kapatıldı.")
     # Kullanicinin istegi uzerine 21 ve 50 MA otonom uyarilari
     event_type = random.choice(["21_MA", "50_MA", "GENEL"])
     if event_type == "21_MA":
@@ -17,6 +18,7 @@ def generate_ma_message(sym):
         return f"[{sym}] Otonom Tarama: Volatilite {random.uniform(1.0, 5.0):.1f}x. Squeeze (sikisma) tespiti..."
 
 def inject_log():
+    raise RuntimeError("Canlı günlüğe yapay mesaj ekleme kapatıldı.")
     market = random.choice(["CRYPTO", "NASDAQ", "BIST"])
     level = random.choice(LEVELS)
     sym = random.choice(SYMBOLS)
@@ -32,6 +34,7 @@ def inject_log():
         pass
 
 def inject_simulated_trade():
+    raise RuntimeError("İşlem hafızasına yapay işlem ekleme kapatıldı.")
     sym = random.choice(SYMBOLS)
     is_win = random.random() > 0.4
     pnl = random.uniform(1.0, 5.0) if is_win else random.uniform(-1.0, -4.0)
@@ -48,10 +51,5 @@ def inject_simulated_trade():
     except:
         pass
 
-print("Dinamik MA (21/50) Ticker Motoru Aktif...")
-
-while True:
-    inject_log()
-    if random.random() > 0.5:
-        inject_simulated_trade()
-    time.sleep(7) # Dashboard 5 saniyede bir ceker
+if __name__ == "__main__":
+    raise SystemExit("Yapay veri enjektörü kapatıldı; hiçbir veri gönderilmedi.")

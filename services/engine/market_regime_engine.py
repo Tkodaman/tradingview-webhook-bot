@@ -31,46 +31,45 @@ ALL_REGIMES = [REGIME_CRASH, REGIME_BEAR, REGIME_SIDEWAYS, REGIME_BULL, REGIME_M
 # ─────────────────────────────────────────────
 DECISION_MATRIX = {
     "SNIPER": {
-        REGIME_MEGA_BULL: dict(min_score=2, min_vol=0.4, tp_pct=8.0,  sl_pct=3.0,  capital_mult=1.5, max_global_pos=15, max_market_pos=6,  entry_allowed=True),
-        REGIME_BULL:      dict(min_score=3, min_vol=0.5, tp_pct=6.0,  sl_pct=2.5,  capital_mult=1.2, max_global_pos=12, max_market_pos=5,  entry_allowed=True),
-        REGIME_SIDEWAYS:  dict(min_score=4, min_vol=0.7, tp_pct=4.0,  sl_pct=1.5,  capital_mult=1.0, max_global_pos=8,  max_market_pos=3,  entry_allowed=True),
-        REGIME_BEAR:      dict(min_score=7, min_vol=1.2, tp_pct=2.5,  sl_pct=1.0,  capital_mult=0.5, max_global_pos=3,  max_market_pos=1,  entry_allowed=False),
-        REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=2.0,  sl_pct=0.8,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
+        REGIME_MEGA_BULL: dict(min_score=2, min_vol=0.4, tp_pct=3.5,  sl_pct=1.8,  capital_mult=1.5, max_global_pos=15, max_market_pos=6,  entry_allowed=True),
+        REGIME_BULL:      dict(min_score=3, min_vol=0.5, tp_pct=3.0,  sl_pct=1.6,  capital_mult=1.2, max_global_pos=12, max_market_pos=5,  entry_allowed=True),
+        REGIME_SIDEWAYS:  dict(min_score=4, min_vol=0.7, tp_pct=2.5,  sl_pct=1.5,  capital_mult=1.0, max_global_pos=8,  max_market_pos=3,  entry_allowed=True),
+        REGIME_BEAR:      dict(min_score=7, min_vol=1.2, tp_pct=2.0,  sl_pct=1.4,  capital_mult=0.5, max_global_pos=3,  max_market_pos=1,  entry_allowed=False),
+        REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=1.8,  sl_pct=1.2,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
     },
     "AGGRESSIVE": {
-        REGIME_MEGA_BULL: dict(min_score=2, min_vol=0.5, tp_pct=7.0,  sl_pct=3.0,  capital_mult=1.5, max_global_pos=20, max_market_pos=8,  entry_allowed=True),
-        REGIME_BULL:      dict(min_score=2, min_vol=0.6, tp_pct=6.0,  sl_pct=2.5,  capital_mult=1.3, max_global_pos=15, max_market_pos=6,  entry_allowed=True),
-        REGIME_SIDEWAYS:  dict(min_score=3, min_vol=0.8, tp_pct=4.0,  sl_pct=1.5,  capital_mult=1.0, max_global_pos=10, max_market_pos=4,  entry_allowed=True),
-        REGIME_BEAR:      dict(min_score=4, min_vol=1.0, tp_pct=2.5,  sl_pct=1.0,  capital_mult=0.8, max_global_pos=5,  max_market_pos=2,  entry_allowed=True),
-        REGIME_CRASH:     dict(min_score=6, min_vol=2.0, tp_pct=1.5,  sl_pct=0.8,  capital_mult=0.5, max_global_pos=2,  max_market_pos=1,  entry_allowed=True),
+        REGIME_MEGA_BULL: dict(min_score=2, min_vol=0.5, tp_pct=3.8,  sl_pct=2.0,  capital_mult=1.5, max_global_pos=20, max_market_pos=8,  entry_allowed=True),
+        REGIME_BULL:      dict(min_score=2, min_vol=0.6, tp_pct=3.2,  sl_pct=1.8,  capital_mult=1.3, max_global_pos=15, max_market_pos=6,  entry_allowed=True),
+        REGIME_SIDEWAYS:  dict(min_score=3, min_vol=0.8, tp_pct=2.8,  sl_pct=1.6,  capital_mult=1.0, max_global_pos=10, max_market_pos=4,  entry_allowed=True),
+        REGIME_BEAR:      dict(min_score=4, min_vol=1.0, tp_pct=2.2,  sl_pct=1.5,  capital_mult=0.8, max_global_pos=5,  max_market_pos=2,  entry_allowed=True),
+        REGIME_CRASH:     dict(min_score=6, min_vol=2.0, tp_pct=1.8,  sl_pct=1.2,  capital_mult=0.5, max_global_pos=2,  max_market_pos=1,  entry_allowed=True),
     },
     "NORMAL": {
-        REGIME_MEGA_BULL: dict(min_score=4, min_vol=0.7, tp_pct=10.0, sl_pct=4.0,  capital_mult=1.1, max_global_pos=10, max_market_pos=4,  entry_allowed=True),
-        REGIME_BULL:      dict(min_score=5, min_vol=0.8, tp_pct=8.0,  sl_pct=3.5,  capital_mult=1.0, max_global_pos=10, max_market_pos=4,  entry_allowed=True),
-        REGIME_SIDEWAYS:  dict(min_score=6, min_vol=1.0, tp_pct=6.0,  sl_pct=3.0,  capital_mult=0.8, max_global_pos=6,  max_market_pos=2,  entry_allowed=True),
-        REGIME_BEAR:      dict(min_score=7, min_vol=1.2, tp_pct=4.0,  sl_pct=2.0,  capital_mult=0.5, max_global_pos=3,  max_market_pos=1,  entry_allowed=True),
-        REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=2.5,  sl_pct=1.5,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
+        REGIME_MEGA_BULL: dict(min_score=4, min_vol=0.7, tp_pct=8.0,  sl_pct=3.5,  capital_mult=1.1, max_global_pos=10, max_market_pos=4,  entry_allowed=True),
+        REGIME_BULL:      dict(min_score=5, min_vol=0.8, tp_pct=6.0,  sl_pct=3.0,  capital_mult=1.0, max_global_pos=10, max_market_pos=4,  entry_allowed=True),
+        REGIME_SIDEWAYS:  dict(min_score=6, min_vol=1.0, tp_pct=5.0,  sl_pct=2.5,  capital_mult=0.8, max_global_pos=6,  max_market_pos=2,  entry_allowed=True),
+        REGIME_BEAR:      dict(min_score=7, min_vol=1.2, tp_pct=3.5,  sl_pct=2.0,  capital_mult=0.5, max_global_pos=3,  max_market_pos=1,  entry_allowed=True),
+        REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=2.0,  sl_pct=1.5,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
     },
     "TIGHT": {
-        REGIME_MEGA_BULL: dict(min_score=5, min_vol=0.9, tp_pct=5.0,  sl_pct=3.0,  capital_mult=0.9, max_global_pos=6,  max_market_pos=2,  entry_allowed=True),
-        REGIME_BULL:      dict(min_score=6, min_vol=1.0, tp_pct=4.0,  sl_pct=2.5,  capital_mult=0.8, max_global_pos=5,  max_market_pos=2,  entry_allowed=True),
-        REGIME_SIDEWAYS:  dict(min_score=7, min_vol=1.2, tp_pct=3.5,  sl_pct=2.5,  capital_mult=0.7, max_global_pos=4,  max_market_pos=1,  entry_allowed=True),
-        REGIME_BEAR:      dict(min_score=8, min_vol=1.5, tp_pct=2.5,  sl_pct=2.0,  capital_mult=0.4, max_global_pos=2,  max_market_pos=1,  entry_allowed=True),
-        REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=1.5,  sl_pct=1.5,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
+        REGIME_MEGA_BULL: dict(min_score=5, min_vol=0.9, tp_pct=4.0,  sl_pct=2.5,  capital_mult=0.9, max_global_pos=6,  max_market_pos=2,  entry_allowed=True),
+        REGIME_BULL:      dict(min_score=6, min_vol=1.0, tp_pct=3.5,  sl_pct=2.0,  capital_mult=0.8, max_global_pos=5,  max_market_pos=2,  entry_allowed=True),
+        REGIME_SIDEWAYS:  dict(min_score=7, min_vol=1.2, tp_pct=3.0,  sl_pct=1.8,  capital_mult=0.7, max_global_pos=4,  max_market_pos=1,  entry_allowed=True),
+        REGIME_BEAR:      dict(min_score=8, min_vol=1.5, tp_pct=2.0,  sl_pct=1.5,  capital_mult=0.4, max_global_pos=2,  max_market_pos=1,  entry_allowed=True),
+        REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=1.5,  sl_pct=1.2,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
     },
     "CONSERVATIVE": {
-        REGIME_MEGA_BULL: dict(min_score=6, min_vol=1.0, tp_pct=3.0,  sl_pct=1.2,  capital_mult=0.8, max_global_pos=4,  max_market_pos=2,  entry_allowed=True),
-        REGIME_BULL:      dict(min_score=7, min_vol=1.2, tp_pct=2.5,  sl_pct=1.0,  capital_mult=0.7, max_global_pos=3,  max_market_pos=1,  entry_allowed=True),
-        REGIME_SIDEWAYS:  dict(min_score=9, min_vol=1.5, tp_pct=2.0,  sl_pct=0.8,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
-        REGIME_BEAR:      dict(min_score=9, min_vol=2.0, tp_pct=1.0,  sl_pct=0.5,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
-        REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=1.0,  sl_pct=0.5,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
+        REGIME_MEGA_BULL: dict(min_score=6, min_vol=1.0, tp_pct=3.0,  sl_pct=1.5,  capital_mult=0.8, max_global_pos=4,  max_market_pos=2,  entry_allowed=True),
+        REGIME_BULL:      dict(min_score=7, min_vol=1.2, tp_pct=2.5,  sl_pct=1.2,  capital_mult=0.7, max_global_pos=3,  max_market_pos=1,  entry_allowed=True),
+        REGIME_SIDEWAYS:  dict(min_score=9, min_vol=1.5, tp_pct=2.0,  sl_pct=1.0,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
+        REGIME_BEAR:      dict(min_score=9, min_vol=2.0, tp_pct=1.2,  sl_pct=0.8,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
+        REGIME_CRASH:     dict(min_score=9, min_vol=2.0, tp_pct=1.0,  sl_pct=0.6,  capital_mult=0.0, max_global_pos=0,  max_market_pos=0,  entry_allowed=False),
     },
 }
 
-# Kripto TP/SL carpanlari (Volatilite toleransi — 2.0x'ten kisaltildi)
-# Sniper + Mega Boga: TP=8*1.25=10%, SL=3*1.33=4%
+# Kripto TP/SL carpanlari (Volatilite toleransi)
 CRYPTO_TP_MULTIPLIER = 1.25
-CRYPTO_SL_MULTIPLIER = 1.33
+CRYPTO_SL_MULTIPLIER = 1.30
 
 # ─────────────────────────────────────────────
 # TRAILING STOP MATRISI
@@ -78,37 +77,37 @@ CRYPTO_SL_MULTIPLIER = 1.33
 # ─────────────────────────────────────────────
 TRAILING_MATRIX = {
     "SNIPER": {
-        REGIME_MEGA_BULL: [(15.0, 0.020), (8.0, 0.040), (3.0, 0.070), (0.0, None)],
-        REGIME_BULL:      [(10.0, 0.025), (5.0, 0.045), (2.0, 0.065), (0.0, None)],
-        REGIME_SIDEWAYS:  [(5.0,  0.015), (2.0, 0.025), (0.5, 0.035), (0.0, None)],
-        REGIME_BEAR:      [(3.0,  0.010), (1.0, 0.015), (0.0, None)],
-        REGIME_CRASH:     [(1.0,  0.005), (0.0, None)],
+        REGIME_MEGA_BULL: [(3.0, 0.008), (2.0, 0.012), (1.2, 0.015), (0.0, None)],
+        REGIME_BULL:      [(2.8, 0.008), (1.8, 0.012), (1.0, 0.015), (0.0, None)],
+        REGIME_SIDEWAYS:  [(2.2, 0.008), (1.4, 0.010), (0.8, 0.014), (0.0, None)],
+        REGIME_BEAR:      [(1.8, 0.006), (1.0, 0.008), (0.6, 0.012), (0.0, None)],
+        REGIME_CRASH:     [(1.0, 0.005), (0.5, 0.008), (0.0, None)],
     },
     "AGGRESSIVE": {
-        REGIME_MEGA_BULL: [(12.0, 0.030), (6.0, 0.055), (2.0, 0.080), (0.0, None)],
-        REGIME_BULL:      [(8.0,  0.035), (4.0, 0.060), (1.5, 0.070), (0.0, None)],
-        REGIME_SIDEWAYS:  [(4.0,  0.020), (2.0, 0.035), (0.5, 0.050), (0.0, None)],
-        REGIME_BEAR:      [(2.0,  0.015), (1.0, 0.020), (0.0, None)],
-        REGIME_CRASH:     [(1.0,  0.008), (0.0, None)],
+        REGIME_MEGA_BULL: [(3.5, 0.010), (2.4, 0.015), (1.5, 0.018), (0.0, None)],
+        REGIME_BULL:      [(3.0, 0.010), (2.0, 0.014), (1.2, 0.018), (0.0, None)],
+        REGIME_SIDEWAYS:  [(2.5, 0.010), (1.6, 0.012), (0.9, 0.016), (0.0, None)],
+        REGIME_BEAR:      [(2.0, 0.008), (1.2, 0.010), (0.7, 0.014), (0.0, None)],
+        REGIME_CRASH:     [(1.2, 0.006), (0.6, 0.008), (0.0, None)],
     },
     "NORMAL": {
-        REGIME_MEGA_BULL: [(20.0, 0.030), (10.0, 0.050), (4.0, 0.080), (0.0, None)],
-        REGIME_BULL:      [(12.0, 0.030), (6.0, 0.050), (3.0, 0.070), (0.0, None)],
-        REGIME_SIDEWAYS:  [(6.0,  0.020), (3.0, 0.030), (1.5, 0.040), (0.0, None)],
-        REGIME_BEAR:      [(4.0,  0.015), (2.0, 0.020), (0.0, None)],
-        REGIME_CRASH:     [(2.0,  0.010), (0.0, None)],
+        REGIME_MEGA_BULL: [(8.0, 0.025), (4.0, 0.035), (2.0, 0.045), (0.0, None)],
+        REGIME_BULL:      [(6.0, 0.025), (3.0, 0.035), (1.5, 0.045), (0.0, None)],
+        REGIME_SIDEWAYS:  [(4.0, 0.020), (2.0, 0.030), (1.0, 0.035), (0.0, None)],
+        REGIME_BEAR:      [(2.5, 0.015), (1.5, 0.020), (0.0, None)],
+        REGIME_CRASH:     [(1.5, 0.010), (0.0, None)],
     },
     "TIGHT": {
-        REGIME_MEGA_BULL: [(8.0,  0.010), (4.0, 0.020), (1.5, 0.030), (0.0, None)],
-        REGIME_BULL:      [(5.0,  0.008), (2.0, 0.015), (0.5, 0.025), (0.0, None)],
-        REGIME_SIDEWAYS:  [(3.0,  0.005), (1.0, 0.010), (0.0, None)],
-        REGIME_BEAR:      [(1.5,  0.005), (0.5, 0.008), (0.0, None)],
+        REGIME_MEGA_BULL: [(4.0,  0.010), (2.0, 0.015), (1.0, 0.020), (0.0, None)],
+        REGIME_BULL:      [(3.0,  0.008), (1.5, 0.012), (0.8, 0.018), (0.0, None)],
+        REGIME_SIDEWAYS:  [(2.0,  0.006), (1.0, 0.010), (0.0, None)],
+        REGIME_BEAR:      [(1.2,  0.005), (0.6, 0.008), (0.0, None)],
         REGIME_CRASH:     [(0.5,  0.003), (0.0, None)],
     },
     "CONSERVATIVE": {
-        REGIME_MEGA_BULL: [(6.0,  0.008), (3.0, 0.015), (1.0, 0.020), (0.0, None)],
-        REGIME_BULL:      [(4.0,  0.008), (2.0, 0.012), (0.5, 0.018), (0.0, None)],
-        REGIME_SIDEWAYS:  [(2.0,  0.005), (0.5, 0.008), (0.0, None)],
+        REGIME_MEGA_BULL: [(3.0,  0.008), (1.8, 0.012), (1.0, 0.016), (0.0, None)],
+        REGIME_BULL:      [(2.5,  0.008), (1.5, 0.010), (0.7, 0.015), (0.0, None)],
+        REGIME_SIDEWAYS:  [(1.8,  0.006), (0.8, 0.008), (0.0, None)],
         REGIME_BEAR:      [(1.0,  0.005), (0.0, None)],
         REGIME_CRASH:     [(0.5,  0.003), (0.0, None)],
     },

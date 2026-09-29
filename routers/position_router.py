@@ -10,9 +10,33 @@ from core.security import verify_ip
 
 router = APIRouter(dependencies=[Depends(verify_ip)])
 
-# 3 saniyelik pozisyon cache — Trailing stop güncellemelerini hızlı yansıtmak için kısaltıldı
+# 3 saniyelik pozisyon cache
 _pos_cache = {"data": None, "ts": 0}
 _POS_CACHE_TTL = 3
+
+_ai_summary_cache = {"text": "Veri sentezleniyor... İlk 10 işlemden sonra aktifleşecek.", "ts": 0}
+_AI_SUMMARY_TTL = 600  # 10 dakikada bir güncelle
+
+import threading
+from services.ai.llm_master_agent import LLMMasterAgentService
+_llm_agent = LLMMasterAgentService()
+
+def _update_ai_summary_bg(history_sample):
+    global _ai_summary_cache
+    try:
+        if not history_sample:
+            return
+        
+        prompt = "Sen elit bir hedge fon yöneticisisin. Aşağıdaki son kapatılan işlemlere bakarak 2 cümlelik agresif ve teknik bir özet yap. Neden kazandık/kaybettik? Botun performansı nasıl?\n\nİşlemler:\n"
+        for t in history_sample:
+            prompt += f"- {t.get('symbol')} | PnL: {t.get('net_pnl')} | Sebep: {t.get('reason')}\n"
+            
+        res = _llm_agent.chat(prompt, max_tokens=150)
+        if "[LLM_ERROR]" not in res and "[LLM_OFFLINE]" not in res:
+            _ai_summary_cache["text"] = res
+            _ai_summary_cache["ts"] = time.time()
+    except Exception as e:
+        logger.error(f"[AI SUMMARY ERROR] {e}")
 
 
 class OpenPositionRequest(BaseModel):
@@ -467,11 +491,18 @@ def get_history_summary():
     total_trades_str = f"{total_real} / {total_virtual}"
     win_rate_str = f"%{round(win_rate_real, 1)} / %{round(win_rate_virtual, 1)}"
     
+    # AI Summary Background Trigger
+    global _ai_summary_cache
+    if time.time() - _ai_summary_cache["ts"] > _AI_SUMMARY_TTL:
+        _ai_summary_cache["ts"] = time.time() # Prevent multiple threads
+        threading.Thread(target=_update_ai_summary_bg, args=(history[:10],), daemon=True).start()
+    
     # PnL Renkleri için ham verileri de dönelim, string'i frontend halletsin
     return {
         "total_trades": total_trades_str,
         "win_rate": win_rate_str,
         "pnl_real": round(pnl_real, 2),
         "pnl_virtual": round(pnl_virtual, 2),
-        "recent_trades": history[:30] # Return up to 30 most recent for the UI table
+        "recent_trades": history[:30],
+        "ai_summary": _ai_summary_cache["text"]
     }

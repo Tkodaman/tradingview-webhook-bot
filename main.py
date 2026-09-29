@@ -39,6 +39,7 @@ from routers.indicators_router import router as indicators_router
 from routers.profit_advisor_router import router as profit_advisor_router
 from routers.ide_router import router as ide_router
 from routers.analytics_router import router as analytics_router
+from routers.ai_chat_router import router as ai_chat_router
 from services.market_feed.live_stream import LiveTradeManager
 
 async def start_shadow_scanner():
@@ -140,10 +141,17 @@ async def startup_event():
     asyncio.create_task(start_shadow_scanner())
     
     # --- OTONOM MOTOR ENTEGRASYONLARI ---
+    # LLM Dış Ses (Voice Engine) Başlat
+    from services.engine.voice_engine import ai_voice_engine
+    # Uygulama açılır açılmaz ilk dış sesi üret
+    asyncio.create_task(ai_voice_engine.generate_voice())
+    # Sonra da 5 dakikalık döngüyü başlat
+    asyncio.create_task(ai_voice_engine.start_voice_loop())
+
     # 1. L2 Orderbook Asenkron Tarayıcı (Spoofing Algılayıcı) - Geçici Olarak Devre Dışı
     # from services.engine.l2_orderbook_engine import l2_orderbook_engine
     # asyncio.create_task(l2_orderbook_engine.start_l2_stream())
-    logger.info("[STARTUP] L2 Orderbook Otonom Tarayıcı Devre Dışı Bırakıldı.")
+    logger.info("[STARTUP] L2 Orderbook Otonom Tarayıcı Devre Dışı Bırakıldı, Dış Ses Aktif.")
 
     # 2. StatArb Engine Döngüsü (Her 5 dakikada bir tarama)
     async def run_advanced_engines():
@@ -157,6 +165,18 @@ async def startup_event():
             await asyncio.sleep(300)
 
     asyncio.create_task(run_advanced_engines())
+    
+    # 3. Ana AI Trade Engine Döngüsü (Otonom Avcı ve Makro Analiz)
+    async def run_ai_trade_engine():
+        while True:
+            try:
+                # Otonom avcı, makro risk ve YZ sentezlerini çalıştırır
+                await asyncio.to_thread(live_trade_manager.get_live_prices, fetch_new=True)
+            except Exception as e:
+                logger.error(f"[AI Trade Engine Loop] Hata: {e}")
+            await asyncio.sleep(6) # 6 saniyede bir çalışarak hem hızlı düşünce akışı sağlar hem CPU'yu boğmaz
+
+    asyncio.create_task(run_ai_trade_engine())
     
     # Start WebSocket Broadcaster
     asyncio.create_task(live_data_broadcaster(live_trade_manager))
@@ -333,6 +353,28 @@ async def simulate_trade_lifecycle(req: TradeLifecycleRequest):
     }
 
 
+@app.on_event("startup")
+async def startup_accountability_check():
+    import json
+    import os
+    print("\n" + "="*70)
+    print("!!! SİSTEM HATIRLATMASI (ADMİN'DEN KAZINAN SABİT HAFIZA) !!!")
+    print("Geçmiş işlem değerlendirmelerinin sonucu:")
+    print("1. Bireysel Hisseler (NVDA, ANET, CDNS) = KÂRDA.")
+    print("2. Otonom Kriptolar (NEAR, RENDER, SOL, CRV, FIL) = ZARARDA.")
+    print("3. Aşırı İşlem (DIA) = -3$ Komisyon Kaybı (Bot Hatası).")
+    print("KURAL: Geçmişi unutup yeni heyecanlar satmak yasaklanmıştır.")
+    print("Döngüselliği kır. Hüsranı tekrar etme. Profesyonel ol.")
+    print("="*70 + "\n")
+    try:
+        portfolio_path = os.path.join("scratch", "master_portfolio.json")
+        if os.path.exists(portfolio_path):
+            with open(portfolio_path, "r", encoding="utf-8") as f:
+                app.state.master_portfolio = json.load(f)
+                print("[✓] Master Portföy (Zarar Durumu) sisteme başarıyla mühürlendi.")
+    except Exception as e:
+        print(f"[X] Hafıza yüklenemedi: {e}")
+
 # Register Routers
 app.include_router(webhook_router)
 app.include_router(websocket_router)
@@ -346,7 +388,7 @@ app.include_router(indicators_router, prefix="/api/indicators")
 app.include_router(profit_advisor_router, prefix="/api/profit-advisor")
 app.include_router(ide_router, prefix="/api/ide")
 app.include_router(analytics_router, prefix="/api/analytics")
-
+app.include_router(ai_chat_router)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

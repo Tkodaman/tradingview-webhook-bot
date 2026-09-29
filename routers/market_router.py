@@ -5,14 +5,41 @@ from services.data_ingestion.tradingview_live_client import tradingview_live_cli
 from services.risk_engine.market_hours import market_hours_validator
 from services.market_feed.live_stream import live_trade_manager
 from services.risk_engine.fakeout_guard import fakeout_guard
+import subprocess
+import threading
 
 router = APIRouter()
 rsi_history = {}
+_macro_voice_state = {"CRYPTO": {"last_spoken": 0}, "NASDAQ": {"last_spoken": 0}, "BIST": {"last_spoken": 0}}
 
+def speak_turkish(text):
+    import requests, urllib.parse, subprocess, time, os
+    try:
+        url = f'https://translate.google.com/translate_tts?ie=UTF-8&q={urllib.parse.quote(text)}&tl=tr&client=tw-ob'
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200:
+            filename = f"voice_alert_{int(time.time())}.mp3"
+            with open(filename, 'wb') as f:
+                f.write(res.content)
+            
+            ps_cmd = f'''
+            Add-Type -AssemblyName presentationCore
+            $mp = New-Object system.windows.media.mediaplayer
+            $mp.open('{filename}')
+            $mp.Play()
+            Start-Sleep -Seconds 10
+            $mp.Stop()
+            $mp.Close()
+            Remove-Item -Path '{filename}' -ErrorAction SilentlyContinue
+            '''
+            subprocess.Popen(['powershell', '-Command', ps_cmd], creationflags=subprocess.CREATE_NO_WINDOW)
+    except:
+        pass
 # Kisa cache — karar matrix'i dashboard'da stale görünmesin.
 _matrix_cache = {"data": None, "ts": 0}
 _CACHE_TTL = 5  # saniye
 _matrix_lock = asyncio.Lock()
+_score_history = {}  # { "AAPL": [(timestamp, score), ...], ... }
 
 
 def _number(value, default: float) -> float:
@@ -121,8 +148,12 @@ async def get_live_buy_sell_wait_matrix():
         
         momentum_phase = "NEUTRAL"
         if vol_ratio >= 2.0:
-            score += 4
-            momentum_phase = "WHALE_WAVE"
+            if chg < -1.5:
+                score -= 5 # Çöküş Panik Satışı
+                momentum_phase = "PANIC_DUMP"
+            else:
+                score += 4
+                momentum_phase = "WHALE_WAVE"
         elif 50.0 <= rsi <= 70.0 and data.get("ema_golden_cross", False):
             score += 3
             momentum_phase = "FRESH_BREAKOUT"
@@ -171,14 +202,68 @@ async def get_live_buy_sell_wait_matrix():
             momentum_phase = "TREND_RISK"
             risk_block_reason = "Çelişen Trend Sinyali (EMA Boğa, Supertrend Ayı)"
             
+        # ==========================================
+        # KASA VE BÜTÇE DİSİPLİNİ (14 LİMİT & 9 YAVAŞLATMA EŞİĞİ)
+        # ==========================================
+        active_positions_list = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
+        total_active_count = len(active_positions_list)
+        
+        try:
+            from services.risk_engine.rotation_engine import rotation_engine
+        except ImportError:
+            rotation_engine = None
+        
+        if not open_pos and not risk_block_reason: # Eğer halihazırda sahte sinyal engeli yoksa, bütçe engelini kontrol et
+            if total_active_count >= 14:
+                # Kasa tamamen dolu, SADECE ROTASYON yapılabilir. Düz alım yasak.
+                rotate_ok = False
+                if rotation_engine:
+                    rotate_ok = rotation_engine.evaluate_rotation(sym, score, data, active_positions_list).get("rotate", False)
+                if not rotate_ok:
+                    risk_block_reason = f"Bütçe Dolu (Kapasite: {total_active_count}/14). Nakit bitti, sadece devasa fırsatlar için rotasyon izni var."
+            elif total_active_count >= 9:
+                # 9 Varlıktan sonra vites düşür (Nakit rezervini koru, sadece en yüksek fırsatlara kurşun at)
+                if score < 7:
+                    risk_block_reason = f"Kasa Yavaşlama Bölgesinde ({total_active_count}/14). Nakit rezervi sadece en kaliteli (Skor 7+) fırsatlar için bekletiliyor. Bu fırsat elendi (Skor: {score})."
+            
+        rotation_check = {"rotate": False}
+        if not open_pos and not risk_block_reason and not data_gate_blocked:
+            try:
+                if rotation_engine:
+                    rotation_check = rotation_engine.evaluate_rotation(sym, score, data, active_positions_list)
+            except Exception:
+                pass
+
         if open_pos:
             decision = "HOLD"
             badge = "🟢 POSITION_OPEN"
             reason = f"Açık Pozisyon Aktif (Giriş: ${open_pos.entry_price}, PnL: ${open_pos.unrealized_pnl})"
+        elif rotation_check.get("rotate", False):
+            decision = "ROTATE"
+            badge = "🔄 ROTASYON ONAYI"
+            reason = rotation_check.get("reason", "Nadir ve güçlü kâr fırsatı yakalandı, rotasyon öneriliyor.")
+            score += 15 # Rotasyon sinyalini en üste taşımak için devasa puan
         elif risk_block_reason:
             decision = "WAIT"
             badge = "🚧 RISK_BLOCK"
             reason = risk_block_reason
+            
+            # GÖLGE İŞLEM ENJEKSİYONU (Manuel Trade İçin)
+            if score >= 5 and vol_ratio >= 1.5:
+                try:
+                    from services.engine.bot_thought_stream import bot_thought_stream
+                    sl_level = price * (1 - (atr_pct / 100))
+                    tp_level = price * (1 + (atr_pct * 2 / 100))
+                    msg = f"GÖLGE İŞLEM (Manuel Fırsat): {sym} tetiklendi. Skor: {score}, Hacim: {vol_ratio:.2f}x. Kasa kilitli olduğu için girilemedi. Manuel giriş Pivot: ${price:.4f} | Hedef: ${tp_level:.4f} | Stop: ${sl_level:.4f}"
+                    bot_thought_stream.add_throttled(
+                        category="⚡ GÖLGE İŞLEM", 
+                        symbol=sym, 
+                        message=msg, 
+                        level="WARN", 
+                        cooldown_sec=120
+                    )
+                except Exception:
+                    pass
         elif data_gate_blocked:
             decision = "WAIT"
             badge = "⏳ DATA_BLOCKED"
@@ -196,39 +281,22 @@ async def get_live_buy_sell_wait_matrix():
                 reason = f"Kritik Aşırı Şişkinlik (RSI={rsi:.1f})"
             else:
                 reason = "Negatif MACD kesişimi ve satıcı baskısı"
-        elif rsi_climbed_from_40:
+        elif score >= 6 and vol_ratio >= 2.5:
             decision = "BUY"
-            badge = "🟢 BUY_OPPORTUNITY"
-            reason = f"Fırsat: RSI 40-50 bölgesinden ivmelenerek {rsi:.1f} bandını geçti"
-        elif score >= 3:
-            decision = "BUY"
-            badge = "🟢 BUY_SIGNAL"
+            badge = "🟢 EXPLOSIVE_BREAKOUT"
+            reason = f"Hacim Patlaması (Vol: {vol_ratio:.1f}x) ve Yüksek Skor ({score})"
             
+            # Detaylı Neden Ekleme (Opsiyonel)
             adx_val = _number(data.get("adx"), 0.0)
-            if data.get("vwap_bullish", False) and vol_ratio >= 1.0:
-                reason = "Fiyat VWAP üstünde - kurumsal destek aktif"
+            if data.get("vwap_bullish", False):
+                reason += " | VWAP Üstü Kurumsal Destek"
             elif data.get("ema_golden_cross", False):
-                reason = "EMA Golden Cross aktif (20>50>200)"
-            elif adx_val >= 40:
-                reason = f"Güçlü trend ivmesi ADX={int(adx_val)}"
-            elif rsi < 40 and macd > 0:
-                reason = "Aşırı satım dibinden MACD alım kesişimi"
-            else:
-                factors = []
-                if rsi > 60: factors.append(f"RSI({rsi:.1f}) Güçlü")
-                elif rsi > 50: factors.append("RSI Pozitif")
-                if macd > 0: factors.append("MACD Alışta")
-                if vol_ratio > 1.2: factors.append(f"Hacim Sıçraması({vol_ratio:.1f}x)")
-                if chg > 1.0: factors.append("Fiyat İvmeli")
-                if 20.0 <= stoch_k <= 85.0: factors.append("Stoch Teyitli")
-                if cmf > 0.05: factors.append("Kurumsal Toplama (CMF)")
+                reason += " | EMA Golden Cross (20>50>200)"
                 
-                if len(factors) >= 2:
-                    reason = " | ".join(factors[:2]) + f" ({score}/9)"
-                elif len(factors) == 1:
-                    reason = factors[0] + f" | Eğilim Pozitif ({score}/9)"
-                else:
-                    reason = f"Teknik Görünüm İyileşiyor ({score}/9)"
+        elif rsi_climbed_from_40 and vol_ratio >= 2.0 and score >= 4:
+            decision = "BUY"
+            badge = "🟢 MOMENTUM_BUY"
+            reason = f"Hacimli RSI İvmesi (Vol: {vol_ratio:.1f}x, Skor: {score})"
         else:
             decision = "WAIT"
             badge = "🟡 WAIT_PATIENT"
@@ -275,37 +343,78 @@ async def get_live_buy_sell_wait_matrix():
         sym = m["symbol"].upper()
         ai_data = confidence_map.get(sym, {})
         
-        # Temel indikatör ve ivme bazlı puan — her indikatör adil yarışır
-        # Skor şişmesini engellemek için katsayı 3.0'a çekildi (max ~50)
-        base_ind_score = min(50.0, (m.get("score", 0) * 3.0) + (m.get("change_pct", 0.0) * 1.0))
+        # KULLANICI İSTEĞİ: Yüksekten (zaten patlamış) varlıkları değil, dipten toparlanan veya yeni harekete başlayan (RSI 25-50) varlıkları yarıştır!
+        chg_val = m.get("change_pct", 0.0)
+        rsi_val = m.get("rsi", 50.0)
+        
+        chg_bonus = 0.0
+        if chg_val > 6.0:
+            chg_bonus = -10.0 # Zaten patlamış, trene sondan binme cezası
+        elif 0.5 <= chg_val <= 3.5:
+            chg_bonus = +5.0  # Yeni uyanıyor, patlamaya hazır (Erken trend)
+            
+        rsi_bonus = 0.0
+        if 25.0 <= rsi_val <= 35.0:
+            rsi_bonus = +8.0  # Aşırı satım, dip fiyat!
+        elif 35.0 < rsi_val <= 50.0:
+            rsi_bonus = +4.0  # Dipten dönüş, yükseliş potansiyeli
+        elif rsi_val >= 75.0:
+            rsi_bonus = -10.0 # Şişmiş, riskli bölge
+            
+        # Temel indikatör skoru + Kullanıcı felsefesine (Erken Keşif) uygun bonuslar
+        # Eskiden burası (score * 2.5) ile aşırı şişiyordu. Şimdi 2.0 yaptık.
+        base_ind_score = min(40.0, (m.get("score", 0) * 2.0) + chg_bonus + rsi_bonus)
         
         m["expertise_level"] = ai_data.get("expertise_level", "🟡 NÖTR / DENGELİ")
         m["ai_action"] = ai_data.get("action_recommendation", "🟡 Standart İnceleme")
         
-        # Teknik yarış skoru. Sabit 40 taban puanı yok; eksik veri avantaj üretmez.
-        final_dynamic_score = 35.0 + base_ind_score
+        # Teknik yarış taban skoru (Eskiden 35'ti. Şişmeyi önlemek için 25'e çektik)
+        final_dynamic_score = 25.0 + base_ind_score
         
-        # AI Geçmişi BONUS olarak ekleniyor (katsayı değil düz bonus)
+        # ML / AI Geçmiş Deneyimi (Experience Memory Engine)
         historical_sample = int(ai_data.get("total_trades", 0) or 0) if ai_data else 0
         if ai_data and "confidence_score" in ai_data:
             raw_conf = float(ai_data["confidence_score"])
-            # Küçük örneklem geçmişi teknik skoru domine edemez.
-            sample_factor = min(1.0, historical_sample / 20.0)
-            ai_bonus = min(5.0, max(-3.0, (raw_conf - 50.0) * 0.12 * sample_factor))
+            sample_factor = min(1.0, historical_sample / 10.0)
+            
+            # ML'in Geçmiş Tecrübe Skoru
+            ai_bonus = (raw_conf - 50.0) * 0.3 * sample_factor 
+            
+            if raw_conf >= 75.0 and sample_factor >= 0.5:
+                ai_bonus += 5.0 # Eskiden 10'du, şişmeyi önlemek için düşürüldü
+            
+            ai_bonus = min(15.0, max(-15.0, ai_bonus))
             final_dynamic_score += ai_bonus
             
-        # Aksiyon Boost (Al sinyali güçlü, Sat sinyali düşür)
-        action_boost = 0.0
-        if "BUY" in m["decision"] or "AL" in m["ai_action"].upper():
-            action_boost = 5.0
-        elif "SELL" in m["decision"] or "SAT" in m["ai_action"].upper():
-            action_boost = -5.0
+            if ai_bonus > 3.0:
+                m["reason"] += f" | 🧠 ML Geçmişi Parlak (+{ai_bonus:.1f} Puan)"
+            elif ai_bonus < -3.0:
+                m["reason"] += f" | 🧠 ML Sabıkalı Varlık ({ai_bonus:.1f} Puan)"
             
-        # Hacim Boost: 1.0x'ten sapma kadar ek puan (max +8, min -3)
-        vol_ratio_val = m.get("volume_ratio", 1.0) or 1.0
-        volume_boost = min(8.0, max(-3.0, (vol_ratio_val - 1.0) * 4.0))
+        # Aksiyon Boost KALDIRILDI (Çünkü zaten "BUY" kararı Score üzerinden alınıyordu, çifte puanlama yapıyordu)
         
-        # Adil Değer (Fair Value) Hesaplaması — orta banda ceza YOK
+        # Hacim Boost: Maksimum +8, Minimum -3
+        vol_ratio_val = m.get("volume_ratio", 1.0) or 1.0
+        volume_boost = min(8.0, max(-3.0, (vol_ratio_val - 1.0) * 3.5))
+        
+        # 💣 Ticking Time Bomb (Patlamaya Hazır Bomba) Sıkışma Bonusu
+        squeeze_bonus = 0.0
+        current_rsi = m.get("rsi", 50.0)
+        current_adx = float(m.get("adx", 0.0) or 0.0)
+        # Sıkışma (Konsolidasyon) Şartları: RSI 40-55 arası (ne aşırı satım ne aşırı alım), trend yatay (ADX < 25)
+        is_consolidating = (40.0 <= current_rsi <= 55.0) and (current_adx < 25.0)
+        
+        if is_consolidating and vol_ratio_val > 1.8:
+            # Sıkışan bir tahtaya aniden devasa hacim (1.8x) girdiyse, bu bir patlama sinyalidir!
+            squeeze_bonus = 15.0
+            m["reason"] = f"🧨 SIKIŞMA KIRILIMI: Patlamaya hazır bomba! Hacim {vol_ratio_val:.1f}x"
+            m["badge"] = "🧨 BOMBA"
+        elif is_consolidating and vol_ratio_val > 1.3:
+            # Hafif uyanış
+            squeeze_bonus = 7.0
+            m["reason"] += " | 🧨 Uyanış (Hacim artıyor)"
+        
+        # Adil Değer (Fair Value) Hesaplaması
         fair_value_boost = 0.0
         session_high = m.get("high", price * 1.02)
         session_low = m.get("low", price * 0.98)
@@ -314,52 +423,74 @@ async def get_live_buy_sell_wait_matrix():
             position_in_range = (price - session_low) / (session_high - session_low)
             
             if position_in_range <= 0.30:
-                # Güne dipte işlem görüyor → Fırsat (Eşiği 0.25'ten 0.30'a çektim biraz daha esnek olsun)
                 fair_value_boost = 6.0
                 dist_from_low = max(0, ((price - session_low) / session_low) * 100)
                 m["reason"] += f" | 📉 Adil Değer Altı (Dibe %{dist_from_low:.1f} Yakın)"
             elif position_in_range >= 0.75:
-                # Güne zirvede işlem görüyor → Risk (0.80'den 0.75'e çektim)
                 fair_value_boost = -5.0
                 dist_from_high = max(0, ((session_high - price) / price) * 100)
                 if dist_from_high < 0.05:
-                    m["reason"] += f" | 📈 Zirve Testi (Gün içi yüksek: ${session_high:.2f}, fiyat zirve seviyesinde)"
+                    m["reason"] += f" | 📈 Zirve Testi"
                 else:
-                    m["reason"] += f" | 📈 Zirve Fiyatlama (Gün içi yüksek: ${session_high:.2f}, zirveye %{dist_from_high:.2f} uzak)"
-            # Orta bant: nötr, ceza yok
+                    m["reason"] += f" | 📈 Zirve Fiyatlama"
                 
-        final_dynamic_score += (action_boost + volume_boost + fair_value_boost)
+        final_dynamic_score += (volume_boost + squeeze_bonus + fair_value_boost)
         
-        # Yatay / Kararsız Piyasa Cezası (Hafif)
-        # RSI 44-56 + düşük hacim = yatay bekleniyor, sadece hafif indir
+        # --- SAF MATEMATİKSEL HACİM VE MOMENTUM ÇARPANLARI ---
         current_rsi = m.get("rsi", 50.0)
         current_vol = m.get("volume_ratio", 1.0) or 1.0
-        if 44.0 <= current_rsi <= 56.0 and current_vol < 0.8:
-            final_dynamic_score -= 8.0  # Eskisi -20, artık hafif -8
-            m["reason"] += " (Yatay Bölge/Düşük Hacim)"
+        
+        # Hacim artışına göre orantısal puan (Maksimum +5 puan) - Sadece hacim > 2.0 ise etki eder.
+        if current_vol >= 2.0:
+            vol_bonus = min(5.0, (current_vol - 1.0) * 1.5)
+            final_dynamic_score += vol_bonus
+            
+        # Düşük hacim ve yataylık cezası
+        if 45.0 <= current_rsi <= 55.0 and current_vol < 0.8:
+            final_dynamic_score -= 5.0
         
         # ─── GÜVEN SKORU: Geniş Marjlı Doğal Dağılım ───────────────────────────
-        # Formül: 50 + (ranking - 50) * quality_factor
-        # Bu formül 50 etrafında simetrik, doğal bir dağılım üretir:
-        #   WAIT sinyal  (final~45)  → ~45%
-        #   Zayıf BUY   (final~58)  → ~58%
-        #   Orta BUY    (final~67)  → ~67%
-        #   Güçlü BUY   (final~85)  → ~84%  (otonom eşiğe yakın)
-        #   Çok Güçlü   (final~98)  → ~97%  (otonom tetikler!)
-        #
-        # Eski sorun: quality_factor min=0.65 → final=85 iken conf=72.75 (daralma)
-        # Düzeltme:   quality_factor min=0.92 → final=85 iken conf=84.5  (doğru!)
+        quality_factor = 0.90 + (0.10 * float(m.get("indicator_coverage", 0.0)))
         
-        quality_factor = 0.92 + (0.08 * float(m.get("indicator_coverage", 0.0)))
-        # quality_factor: min 0.92 (eksik veri), max 1.00 (tam veri)
+        # Otonom Konsey Kararı: Yarış dinamiklerini yansıtmak için taban skor (baseline) 30'dan 45'e çekildi.
+        ranking_score = min(99.0, max(1.0, round(final_dynamic_score, 1)))
+        confidence_score = round(45.0 + (ranking_score - 30.0) * quality_factor, 1)
         
-        ranking_score = min(99.9, max(1.0, round(final_dynamic_score, 1)))
-        confidence_score = round(50.0 + (ranking_score - 50.0) * quality_factor, 1)
-        confidence_score = min(99.9, max(0.0, confidence_score))
+        # Sadece KESİN ve ÇOK GÜÇLÜ hisseler 90 üzerine çıkabilsin diye hafif bir ceza (eskisi kadar pısırık değil):
+        if confidence_score > 85.0:
+            confidence_score = 85.0 + ((confidence_score - 85.0) * 0.8) # 85'ten sonrasını hafif frenle
+            
+        # Son 30 dk yarış verisi çarpanı (Simülasyon/Geçmiş ağırlığı)
+        # Hacim ve Trend güçlü olan varlıklar doğrudan zirve yarışına girer.
+        confidence_score = min(99.9, max(0.0, round(confidence_score, 1)))
         
         if m.get("decision_gate") != "ALLOW_ENTRY":
             ranking_score = 0.0
             confidence_score = 0.0
+            
+        # === Puan Yumuşatma (Smoothing / EMA) ===
+        now_ts = time.time()
+        if sym not in _score_history:
+            _score_history[sym] = []
+            
+        # Sadece son 15 dakikadaki (900 saniye) kayıtları tut - TUTARLI VE YUMUŞAK GEÇİŞ
+        _score_history[sym].append((now_ts, confidence_score, ranking_score))
+        _score_history[sym] = [t for t in _score_history[sym] if now_ts - t[0] <= 900]
+        
+        if len(_score_history[sym]) > 1:
+            total_weight = 0
+            weighted_conf = 0
+            weighted_rank = 0
+            for t_ts, t_conf, t_rank in _score_history[sym]:
+                # Yeni verilere daha fazla ağırlık ver (zaman farkı 0 ise weight 1, 180s ise weight 1/2)
+                # Bu sayede 1 dakikalık sahte balina iğneleri listeyi darmadağın edemez, istikrar gerekir.
+                weight = 1.0 / (1.0 + (now_ts - t_ts) / 180.0)
+                weighted_conf += t_conf * weight
+                weighted_rank += t_rank * weight
+                total_weight += weight
+            confidence_score = round(weighted_conf / total_weight, 1)
+            ranking_score = round(weighted_rank / total_weight, 1)
+
         m["ranking_score"] = ranking_score
         m["confidence_score"] = confidence_score
         m["confidence_label"] = (
@@ -375,6 +506,56 @@ async def get_live_buy_sell_wait_matrix():
         "BIST": sorted([m for m in matrix_results if m["market"] == "BIST"], key=lambda x: x["confidence_score"], reverse=True)[:15],
         "NASDAQ": sorted([m for m in matrix_results if m["market"] == "NASDAQ"], key=lambda x: x["confidence_score"], reverse=True)[:50]
     }
+    
+    # === GLOBAL MACRO FORESIGHT (SESLİ ÖNSEZİ) ===
+    now_ts = time.time()
+    for m_name, assets in grouped_matrix.items():
+        if not assets: continue
+        
+        # Sadece 30 dakikada bir aynı anonsu tekrarla
+        if now_ts - _macro_voice_state.get(m_name, {}).get("last_spoken", 0) < 1800:
+            continue
+            
+        high_vol_dumps = [a for a in assets[:20] if a.get("rsi", 50) < 35 and a.get("volume_ratio", 1) > 1.2]
+        high_vol_pumps = [a for a in assets[:20] if a.get("rsi", 50) > 65 and a.get("volume_ratio", 1) > 1.2]
+        low_vol_stagnant = [a for a in assets[:20] if a.get("volume_ratio", 1) < 0.75]
+        
+        active_pos_count = len([p for p in live_trade_manager.positions.values() if p.status == "OPEN"])
+        
+        import random
+        
+        if len(high_vol_dumps) >= 5:
+            _macro_voice_state[m_name] = {"last_spoken": now_ts}
+            msg = random.choice([
+                f"Dikkat komutan. {m_name} cephesinde sert bir çöküş paniği var. Nakitte beklemek en iyisi.",
+                f"{m_name} piyasasında kan gövdeyi götürüyor. Balinalar satışa geçti, kalkanları kaldır.",
+                f"Acil durum. {m_name} tarafında hacimli satışlar başladı, radarı izlemeye al."
+            ])
+            threading.Thread(target=speak_turkish, args=(msg,)).start()
+        elif len(high_vol_pumps) >= 5:
+            _macro_voice_state[m_name] = {"last_spoken": now_ts}
+            msg = random.choice([
+                f"Mükemmel haber. {m_name} tarafında mega boğa piyasası tetiklendi. Hacimler patlıyor.",
+                f"{m_name} cephesinde roketler ateşlendi. Piyasaya devasa para girişi var.",
+                f"Komutan, {m_name} piyasasında rüzgar arkamızda. Fırsatları değerlendirme zamanı."
+            ])
+            threading.Thread(target=speak_turkish, args=(msg,)).start()
+        elif len(low_vol_stagnant) >= 10:
+            _macro_voice_state[m_name] = {"last_spoken": now_ts}
+            msg = random.choice([
+                f"{m_name} piyasasında hacim tamamen kurumuş durumda. Fırsat yok, beklemede kalıyoruz.",
+                f"{m_name} tarafında yaprak kıpırdamıyor. Enerjimizi boşa harcamayalım.",
+                f"Sessizlik hakim. {m_name} cephesinde sığ sular, işlem yapmak için tehlikeli."
+            ])
+            threading.Thread(target=speak_turkish, args=(msg,)).start()
+        elif active_pos_count >= 14 and m_name == "CRYPTO": # Sadece bir kere söylemesi için CRYPTO sekmesinde tetiklensin
+            _macro_voice_state[m_name] = {"last_spoken": now_ts}
+            msg = random.choice([
+                f"Kasa kapasitesi doldu. İçeride çok fazla açık pozisyon var. Yeni alımlar durduruldu.",
+                f"Komutan, maksimum portföy limitine ulaştık. Nakit koruma protokolü devrede.",
+                f"Tüm slotlar dolu. Şuan sadece mevcut pozisyonları koruma ve devasa fırsatları izleme modundayız."
+            ])
+            threading.Thread(target=speak_turkish, args=(msg,)).start()
         
     result = {
         "status": "success",

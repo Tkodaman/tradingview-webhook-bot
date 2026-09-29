@@ -68,18 +68,8 @@ class LiveTradeManager:
         self.pause_reason: str = ""
         self.auto_resume_reconciler: bool = False
 
-        # Canlı Fiyat Havuzu
-        self.market_prices: Dict[str, Dict[str, Any]] = {
-            "NVDA": {"price": 218.93, "change_pct": -0.84, "high": 220.78, "low": 215.10, "market": "NASDAQ"},
-            "QQQ": {"price": 482.50, "change_pct": 1.12, "high": 484.20, "low": 480.00, "market": "NASDAQ"},
-            "AAPL": {"price": 224.20, "change_pct": 0.85, "high": 225.50, "low": 222.80, "market": "NASDAQ"},
-            "MSFT": {"price": 448.50, "change_pct": 1.34, "high": 451.00, "low": 446.20, "market": "NASDAQ"},
-            "META": {"price": 514.00, "change_pct": 2.80, "high": 518.20, "low": 509.00, "market": "NASDAQ"},
-            "TSLA": {"price": 215.80, "change_pct": -1.15, "high": 220.40, "low": 214.50, "market": "NASDAQ"},
-            "THYAO": {"price": 312.50, "change_pct": 1.80, "high": 315.00, "low": 308.50, "market": "BIST"},
-            "ASELS": {"price": 64.80, "change_pct": 2.20, "high": 65.40, "low": 63.50, "market": "BIST"},
-            "BTCUSDT": {"price": 65420.00, "change_pct": 3.10, "high": 66200.00, "low": 64800.00, "market": "CRYPTO"}
-        }
+        # Canlı Fiyat Havuzu (Sıfır Sahte Veri)
+        self.market_prices: Dict[str, Dict[str, Any]] = {}
 
         self.load_state()
         self.sync_with_broker()
@@ -356,35 +346,36 @@ class LiveTradeManager:
         # Kesin Alpaca bütçe uyumluluğu: Serbest nakitin %95'ini geçemez
         return min(cap, max(10.0, self.available_cash * 0.95))
 
-    def get_live_prices(self) -> Dict[str, Any]:
+    def get_live_prices(self, fetch_new: bool = True) -> Dict[str, Any]:
         """
         TradingView resmi scanner sunucularından anlık gerçek piyasa fiyatlarını çeker.
         """
-        tv_live = tradingview_live_client.fetch_live_market_data()
-        for sym, tv_data in tv_live.items():
-            if sym not in self.market_prices:
-                self.market_prices[sym] = {
-                    "price": tv_data.get("price", 0.0),
-                    "change_pct": tv_data.get("change_pct", 0.0),
-                    "high": tv_data.get("high", 0.0),
-                    "low": tv_data.get("low", 0.0),
-                    "market": tv_data.get("market", "UNKNOWN"),
-                    "last_updated_ts": tv_data.get("last_updated_ts", time.time()),
-                    "source": tv_data.get("source", "UNKNOWN")
-                }
-            else:
-                self.market_prices[sym]["price"] = tv_data["price"]
-                self.market_prices[sym]["change_pct"] = tv_data["change_pct"]
-                self.market_prices[sym]["high"] = tv_data["high"]
-                self.market_prices[sym]["low"] = tv_data["low"]
-                self.market_prices[sym]["market"] = tv_data.get("market", self.market_prices[sym].get("market", "UNKNOWN"))
-                self.market_prices[sym]["last_updated_ts"] = tv_data.get("last_updated_ts", time.time())
-                self.market_prices[sym]["source"] = tv_data.get("source", self.market_prices[sym].get("source", "UNKNOWN"))
+        if fetch_new:
+            tv_live = tradingview_live_client.fetch_live_market_data()
+            for sym, tv_data in tv_live.items():
+                if sym not in self.market_prices:
+                    self.market_prices[sym] = {
+                        "price": tv_data.get("price", 0.0),
+                        "change_pct": tv_data.get("change_pct", 0.0),
+                        "high": tv_data.get("high", 0.0),
+                        "low": tv_data.get("low", 0.0),
+                        "market": tv_data.get("market", "UNKNOWN"),
+                        "last_updated_ts": tv_data.get("last_updated_ts", time.time()),
+                        "source": tv_data.get("source", "UNKNOWN")
+                    }
+                else:
+                    self.market_prices[sym]["price"] = tv_data["price"]
+                    self.market_prices[sym]["change_pct"] = tv_data["change_pct"]
+                    self.market_prices[sym]["high"] = tv_data["high"]
+                    self.market_prices[sym]["low"] = tv_data["low"]
+                    self.market_prices[sym]["market"] = tv_data.get("market", self.market_prices[sym].get("market", "UNKNOWN"))
+                    self.market_prices[sym]["last_updated_ts"] = tv_data.get("last_updated_ts", time.time())
+                    self.market_prices[sym]["source"] = tv_data.get("source", self.market_prices[sym].get("source", "UNKNOWN"))
 
-        # Makro Foresight Kontrolü
-        macro_eval = advanced_analytics_engine.check_macro_correction_risk(self.market_prices)
-        self.is_macro_standby = macro_eval.get("is_standby_required", False)
-        self.macro_standby_reason = macro_eval.get("message", "")
+            # Makro Foresight Kontrolü - Ağır İşlem, sadece yeni veri geldiğinde hesapla
+            macro_eval = advanced_analytics_engine.check_macro_correction_risk(self.market_prices)
+            self.is_macro_standby = macro_eval.get("is_standby_required", False)
+            self.macro_standby_reason = macro_eval.get("message", "")
 
         updated_data = {}
         for sym, data in self.market_prices.items():
@@ -397,46 +388,47 @@ class LiveTradeManager:
             low = data["low"]
             market_type = data["market"]
 
-            # --- SHADOW POSITION CHECK ---
-            for pid, pos in list(self.shadow_positions.items()):
-                if "SHADOW_OPEN" not in pos.status:
-                    continue
-                if pos.symbol == sym:
-                    curr = price
-                    pos.current_price = curr
-                    pnl_pct = round(((curr - pos.entry_price) / pos.entry_price) * 100.0, 2)
-                    
-                    is_closed = False
-                    is_success = False
-                    if pos.side == "BUY":
-                        if curr >= pos.target_profit_price:
-                            is_closed = True
-                            is_success = True
-                        elif curr <= pos.stop_loss_price:
-                            is_closed = True
-                            is_success = False
-                    else: # SELL
-                        if curr <= pos.target_profit_price:
-                            is_closed = True
-                            is_success = True
-                        elif curr >= pos.stop_loss_price:
-                            is_closed = True
-                            is_success = False
+            if fetch_new:
+                # --- SHADOW POSITION CHECK ---
+                for pid, pos in list(self.shadow_positions.items()):
+                    if "SHADOW_OPEN" not in pos.status:
+                        continue
+                    if pos.symbol == sym:
+                        curr = price
+                        pos.current_price = curr
+                        pnl_pct = round(((curr - pos.entry_price) / pos.entry_price) * 100.0, 2)
                         
-                    if is_closed:
-                        pos.status = "SHADOW_CLOSED"
-                        try:
-                            from services.engine.trade_journal_learning import trade_journal_engine
-                            opened_dt = datetime.strptime(pos.opened_at, "%Y-%m-%d %H:%M UTC")
-                            duration = int((datetime.now(timezone.utc).replace(tzinfo=None) - opened_dt).total_seconds() / 60)
-                            trade_journal_engine.evaluate_shadow_trade_autopsy(
-                                symbol=pos.symbol, side=pos.side, entry_price=pos.entry_price,
-                                exit_price=curr, pnl_pct=pnl_pct, duration_mins=duration, success=is_success
-                            )
-                        except Exception as e:
-                            logger.error(f"[SHADOW EVAL ERROR] {e}")
-                        del self.shadow_positions[pid]
-            # -----------------------------
+                        is_closed = False
+                        is_success = False
+                        if pos.side == "BUY":
+                            if curr >= pos.target_profit_price:
+                                is_closed = True
+                                is_success = True
+                            elif curr <= pos.stop_loss_price:
+                                is_closed = True
+                                is_success = False
+                        else: # SELL
+                            if curr <= pos.target_profit_price:
+                                is_closed = True
+                                is_success = True
+                            elif curr >= pos.stop_loss_price:
+                                is_closed = True
+                                is_success = False
+                            
+                        if is_closed:
+                            pos.status = "SHADOW_CLOSED"
+                            try:
+                                from services.engine.trade_journal_learning import trade_journal_engine
+                                opened_dt = datetime.strptime(pos.opened_at, "%Y-%m-%d %H:%M UTC")
+                                duration = int((datetime.now(timezone.utc).replace(tzinfo=None) - opened_dt).total_seconds() / 60)
+                                trade_journal_engine.evaluate_shadow_trade_autopsy(
+                                    symbol=pos.symbol, side=pos.side, entry_price=pos.entry_price,
+                                    exit_price=curr, pnl_pct=pnl_pct, duration_mins=duration, success=is_success
+                                )
+                            except Exception as e:
+                                logger.error(f"[SHADOW EVAL ERROR] {e}")
+                            del self.shadow_positions[pid]
+                # -----------------------------
 
             updated_data[sym] = {
                 "symbol": sym,
@@ -453,12 +445,13 @@ class LiveTradeManager:
                 "data_age_seconds": round(max(0.0, time.time() - data["last_updated_ts"]), 1) if data.get("last_updated_ts") else None
             }
 
-        # Açık pozisyonların PnL ve Başa Baş (Break-Even) kontrolü
-        self._evaluate_open_positions()
-        
-        # Otonom (Auto-Trade) Alım Denetleyicisi
-        if self.auto_trade_enabled:
-            self._autonomous_opportunity_hunter()
+        if fetch_new:
+            # Açık pozisyonların PnL ve Başa Baş (Break-Even) kontrolü
+            self._evaluate_open_positions()
+            
+            # Otonom (Auto-Trade) Alım Denetleyicisi
+            if self.auto_trade_enabled:
+                self._autonomous_opportunity_hunter()
 
         return {
             "timestamp": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S UTC+3"),
@@ -554,14 +547,16 @@ class LiveTradeManager:
         else:
             qty = round(capital / entry_price, 4)
 
+        # Dinamik Başa Baş (Break-Even): TP mesafesinin %40'ında (min %0.8, maks %1.5) kilitle
+        be_dist_pct = max(0.8, min(1.5, tp_pct * 0.40))
         if side == "BUY":
             tp_price = round(entry_price * (1.0 + (tp_pct / 100.0)), decimals)
             sl_price = round(entry_price * (1.0 - (sl_pct / 100.0)), decimals)
-            be_trigger = round(entry_price * 1.025, decimals) # %2.50 kârda Break-Even
+            be_trigger = round(entry_price * (1.0 + (be_dist_pct / 100.0)), decimals)
         else:
             tp_price = round(entry_price * (1.0 - (tp_pct / 100.0)), decimals)
             sl_price = round(entry_price * (1.0 + (sl_pct / 100.0)), decimals)
-            be_trigger = round(entry_price * 0.975, decimals) # %2.50 kârda Break-Even
+            be_trigger = round(entry_price * (1.0 - (be_dist_pct / 100.0)), decimals)
 
         pos_id = f"POS-{sym}-{int(time.time())}"
         pos = ActivePosition(
@@ -941,6 +936,16 @@ class LiveTradeManager:
                 gross = (curr_price - pos.entry_price) * pos.quantity
                 pct = ((curr_price - pos.entry_price) / pos.entry_price) * 100.0
 
+                # === KURUMLARIN GEMİYİ TERK ETMESİ (SMART MONEY DUMP / INSTITUTIONAL EXIT) ===
+                cmf = self.market_prices.get(search_sym, {}).get("cmf")
+                if cmf is not None and float(cmf) <= -0.15:
+                    if is_open:
+                        logger.warning(f"🚨 [SMART MONEY DUMP] {pos.symbol} için CMF {float(cmf):.3f} seviyesine çakıldı! Kurumlar boşaltıyor. Kâr/Zarar: %{pct:.2f}. ACİL ÇIKIŞ (Kaos öncesi kaçış).")
+                        from services.engine.bot_thought_stream import bot_thought_stream
+                        bot_thought_stream.add("🌊 SMART MONEY SÖRFÜ", pos.symbol, f"Kurumlar gemiyi terk ediyor (CMF: {float(cmf):.2f}). Biz de iniyoruz.", "WARNING")
+                        self.close_position(pos_id, "CLOSED_SMART_MONEY_DUMP")
+                        continue
+
                 # === KAZAN-KAZAN: FLASH CRASH (HABER ETKİSİ) KORUMASI ===
                 if pct <= -4.0 and not pos.trailing_stop_activated:
                     if is_open:
@@ -964,24 +969,21 @@ class LiveTradeManager:
                 except Exception:
                     trailing_dist_raw = None
 
-                if trailing_dist_raw is None:
-                    # Rejim matrisine göre trailing henüz aktif olmamalı
-                    continue
+                if trailing_dist_raw is not None:
+                    trailing_dist = 1.0 - trailing_dist_raw  # dist=0.05 -> 1.0-0.05=0.95
 
-                trailing_dist = 1.0 - trailing_dist_raw  # dist=0.05 -> 1.0-0.05=0.95
-
-                # İşleme girildiğinden itibaren her yükselişte anında iz sürer
-                pos.trailing_stop_activated = True
-                new_sl = round(pos.highest_price_seen * trailing_dist, 5)
-                if new_sl > pos.stop_loss_price:
-                    old_sl = pos.stop_loss_price
-                    pos.stop_loss_price = new_sl
-                    logger.info(f"🤖 [AI-TRAILING] {pos.symbol} için Kademeli İzleyen Stop makası (Mesafe: %{round((1-trailing_dist)*100, 1)}) daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
-                    try:
-                        from services.broker.alpaca_client import alpaca_client
-                        alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
-                    except Exception:
-                        pass
+                    # İşleme girildiğinden itibaren her yükselişte anında iz sürer
+                    pos.trailing_stop_activated = True
+                    new_sl = round(pos.highest_price_seen * trailing_dist, 5)
+                    if new_sl > pos.stop_loss_price:
+                        old_sl = pos.stop_loss_price
+                        pos.stop_loss_price = new_sl
+                        logger.info(f"🤖 [AI-TRAILING] {pos.symbol} için Kademeli İzleyen Stop makası (Mesafe: %{round((1-trailing_dist)*100, 1)}) daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
+                        try:
+                            from services.broker.alpaca_client import alpaca_client
+                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
+                        except Exception:
+                            pass
 
                 # 1. Başa Baş (Break-Even) Kontrolü (+%2.50 kârda)
                 if not pos.break_even_activated and curr_price >= pos.break_even_trigger_price:
@@ -1010,20 +1012,9 @@ class LiveTradeManager:
 
                 # 3. SL / Trailing Stop Kontrolü
                 if curr_price <= pos.stop_loss_price:
-                    # === KAZAN-KAZAN: İLK 5 DAKİKA ERKEN STOP (STOP-HUNT) KORUMASI ===
-                    import datetime
-                    from dateutil import parser
-                    opened_at_dt = parser.parse(pos.opened_at)
-                    time_alive_secs = (datetime.datetime.now(datetime.timezone.utc) - opened_at_dt).total_seconds()
-                    
-                    if not pos.trailing_stop_activated and time_alive_secs < 300: # 5dk dolmadı
-                        # Fiyat %3'ten fazla düşmediyse stop olma (gürültü filtresi)
-                        if pct > -3.0:
-                            logger.info(f"🛡️ [EARLY STOP SHIELD] {pos.symbol} açılalı {int(time_alive_secs)}s oldu. Geçici stop-hunt iptal (Kayıp: %{pct:.2f}).")
-                            continue
-                    
                     if is_open:
                         reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
+                        logger.info(f"🛑 [DYNAMIC SL HIT] {pos.symbol} Stop seviyesine (${pos.stop_loss_price:.4f}) ulaştı (Güncel: ${curr_price:.4f}, Kayıp: %{pct:.2f}). Kestirip atılıyor.")
                         self.close_position(pos_id, reason)
                         continue
             else:

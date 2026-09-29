@@ -1,6 +1,6 @@
 import io
 import csv
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from services.engine.experience_memory_engine import experience_memory_engine
@@ -94,6 +94,17 @@ def export_experience_json():
     """Tarihsel deneyim verilerini JSON formatında dışa aktar"""
     return experience_memory_engine.get_summary().model_dump()
 
+@router.get("/dynamic-voice")
+def get_dynamic_voice():
+    """LLM tarafindan uretilen dis ses ve alarm metinlerini dondurur"""
+    from services.engine.voice_engine import ai_voice_engine
+    return {
+        "status": "success",
+        "alarm": ai_voice_engine.current_alarm,
+        "thought": ai_voice_engine.current_thought,
+        "last_update": ai_voice_engine.last_update.strftime("%H:%M:%S")
+    }
+
 @router.get("/export/csv")
 def export_experience_csv():
     """Tarihsel işlemleri CSV formatında dışa aktar"""
@@ -171,20 +182,7 @@ def simulate_experience_trade(req: SimulateTradeMemoryRequest):
     """
     Otonom Tecrübe Hafızasına test işlemi enjekte eder ve anlık kuralları yeniden kalibre eder
     """
-    trade = experience_memory_engine.record_completed_trade(
-        symbol=req.symbol,
-        action=req.action,
-        entry_price=req.entry_price,
-        exit_price=req.exit_price,
-        pnl_pct=req.pnl_pct,
-        market_regime=req.market_regime,
-        indicators={"rsi": 62, "volume_ratio": 1.6, "atr_pct": 1.8}
-    )
-    return {
-        "status": "success",
-        "trade": trade.model_dump(),
-        "summary": experience_memory_engine.get_summary().model_dump()
-    }
+    raise HTTPException(status_code=410, detail="Sentetik işlemlerin işlem hafızasına yazılması kapatıldı.")
 
 @router.post("/calibrate")
 def calibrate_experience_memory():
@@ -212,8 +210,7 @@ def inject_experience_log(req: LogInjectRequest):
     """
     Canlı terminallere anlık log enjekte eder
     """
-    experience_memory_engine.add_live_log(req.market, req.level, req.message)
-    return {"status": "success", "market": req.market, "level": req.level, "message": req.message}
+    raise HTTPException(status_code=410, detail="Canlı günlüklere dışarıdan test mesajı eklenmesi kapatıldı.")
 
 @router.get("/journal")
 def get_trade_journal_learning():
@@ -228,73 +225,5 @@ def get_learning_curve():
     Geçmişteki gerçek işlemlere dayanarak Otonom Makine Öğrenmesi (ML) gelişim eğrisini oluşturur.
     Gerçek kümülatif win_rate ve kümülatif profit factor hesaplanır.
     """
-    import time
-    import random
-    from datetime import datetime, timedelta
-    
-    trades = experience_memory_engine.trade_history
-    use_dynamic_sim = len(trades) < 20
-    
-    curve = []
-    if use_dynamic_sim:
-        current_minute = int(time.time() / 60)
-        random.seed(current_minute)
-        
-        # Simüle edilmiş 45 noktalı bir öğrenme eğrisi (Yapay zekanın kendini geliştirdiğini gösterir)
-        base_win_rate = 55.0
-        base_pf = 1.2
-        
-        for i in range(45):
-            date_str = (datetime.now() - timedelta(days=45-i)).strftime("%Y-%m-%d")
-            
-            # Zaman geçtikçe öğrenme artar (yukarı eğimli bir curve)
-            progress_factor = (i / 45.0)
-            win_rate = base_win_rate + (progress_factor * 30.0) + random.uniform(-3.5, 3.5)
-            if win_rate > 95.0: win_rate = 95.0
-            
-            pf = base_pf + (progress_factor * 1.8) + random.uniform(-0.2, 0.3)
-            
-            curve.append({
-                "date": date_str,
-                "win_rate": round(win_rate, 1),
-                "profit_factor": round(pf, 2)
-            })
-    else:
-        wins = 0
-        total_gross_profit = 0.0
-        total_gross_loss = 0.0
-        
-        cumulative_points = []
-        for i, t in enumerate(trades):
-            pnl = getattr(t, 'pnl_pct', 0.0)
-            is_win = getattr(t, 'is_win', pnl > 0)
-            
-            if is_win:
-                wins += 1
-                total_gross_profit += pnl
-            else:
-                total_gross_loss += abs(pnl)
-                
-            current_win_rate = (wins / (i + 1)) * 100
-            current_pf = total_gross_profit / total_gross_loss if total_gross_loss > 0 else (total_gross_profit if total_gross_profit > 0 else 0.0)
-            
-            cumulative_points.append({
-                "date": getattr(t, 'timestamp', datetime.now().strftime("%Y-%m-%d"))[:10],
-                "win_rate": round(current_win_rate, 1),
-                "profit_factor": round(current_pf, 2)
-            })
-            
-        if len(cumulative_points) > 40:
-            step = max(1, len(cumulative_points) // 40)
-            curve = cumulative_points[::step]
-            if curve[-1] != cumulative_points[-1]:
-                curve.append(cumulative_points[-1])
-        else:
-            curve = cumulative_points
-            
-    return {
-        "status": "success",
-        "data_source": "SYNTHETIC_PREVIEW" if use_dynamic_sim else "REAL_TRADE_HISTORY",
-        "is_synthetic": use_dynamic_sim,
-        "learning_curve": curve
-    }
+    from services.engine.learning_curve import build_learning_curve
+    return build_learning_curve(experience_memory_engine.trade_history)

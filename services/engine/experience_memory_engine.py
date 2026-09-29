@@ -129,13 +129,7 @@ class ExperienceMemoryEngine:
 
     def ensure_active_live_logs(self):
         """Terminallerin sürekli canlı nabız atmasını ve taze log üretmesini sağlar"""
-        now = time.time()
-        if now - self._last_heartbeat_time < 15:
-            return
-        self._last_heartbeat_time = now
-        heartbeat = "⚡ [Otonom Zeka - Admin]: Piyasada derinlemesine likidite taraması yapılıyor. Zirveyi zorlayan (Squeeze) varlıklar filtrelendi, dipten (MA-50) dönüş yapan fırsatlar radarımda kilitli. Balina tuzaklarına karşı tetikteyim, onaylanmış yeni bir 'Vur-Kaç' sinyali düşene kadar kalkanlar aktif. Kâr hedefleri izleniyor."
-        for market in ("CRYPTO", "BIST", "NASDAQ"):
-            self.add_live_log(market, "SYSTEM", heartbeat)
+        pass
 
     def add_live_log(self, market: str, level: str, message: str):
         log_entry = {
@@ -247,16 +241,16 @@ class ExperienceMemoryEngine:
             losing_trades = [t for t in self.trade_history if not t.is_win]
             error_margin_pct = (len(losing_trades) / total_trades) * 100.0
             
-            # Eğer hata payı %30'un üzerindeyse genel bir "Zarar Daraltma" kuralı ekle
+            # Eğer hata payı %30'un üzerindeyse genel bir "Whipsaw / Stop-Hunt" kalkanı ekle
             if error_margin_pct >= 30.0:
                 self.learned_rules.append({
                     "rule_id": f"STAT-MACRO-{rule_idx}",
                     "cluster_key": "GLOBAL_RISK",
                     "type": "CAUTION",
-                    "category": "Makro Hata Payı Daraltması",
-                    "insight": f"Genel hata payı (İstatistiksel Zarar Oranı) %{error_margin_pct:.1f} seviyesinde.",
-                    "action_taken": "Tüm Stop-Loss (Zarar Kes) seviyeleri %25 daha dar (tight) uygulanacak.",
-                    "impact_status": "🛡️ STOP-LOSS DARALTMA DEVREDE",
+                    "category": "Makro Hata Payı Yüksekliği (Whipsaw Algılandı)",
+                    "insight": f"Genel hata payı (İstatistiksel Zarar Oranı) %{error_margin_pct:.1f} seviyesinde. Mevcut Makas çok dar (Stop-Hunt kurbanı olunuyor).",
+                    "action_taken": "Tüm Stop-Loss (Zarar Kes) seviyeleri %50 oranında GENİŞLETİLDİ (Nefes payı açıldı).",
+                    "impact_status": "🛡️ STOP-LOSS ESNETME DEVREDE",
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
                 rule_idx += 1
@@ -1002,15 +996,43 @@ class ExperienceMemoryEngine:
             if not area_labels:
                 area_labels, area_data, area_tooltips = ["DOĞRULANMIŞ VERİ YOK"], [0], ["Henüz drawdown ölçülecek gerçek işlem yok"]
 
-        ai_summary = "Motor Aktif Pusu Modunda. Canlı veriler üzerinden derin öğrenme simülasyonu devam ediyor..."
-        if not use_dynamic_sim:
-            if not self.trade_history:
-                ai_summary = "Doğrulanmış işlem yok. Performans yorumu üretmek için gerçek trade geçmişi gerekiyor."
+        # --- DİNAMİK YAPAY ZEKA KONSEY RAPORU (LLM BENZETİMİ) ---
+        ai_summary = "<span style='color:var(--text-muted);'>Doğrulanmış işlem yok. Gerçek trade verisi bekleniyor.</span>"
+        
+        if len(self.trade_history) > 0:
+            recent_trades = self.trade_history[-20:]
+            wins = [t for t in recent_trades if getattr(t, 'pnl_pct', 0) > 0]
+            win_rate = (len(wins) / len(recent_trades)) * 100
+            total_pnl = sum([getattr(t, 'pnl_pct', 0) for t in recent_trades])
+            
+            # Hata Teşhisi
+            stop_hits = len([t for t in recent_trades if "STOP" in str(getattr(t, 'exit_reason', '')).upper()])
+            
+            # Ajan L (Öğrenme) Dinamik Yorumu
+            l_insight = "Kazanma oranı beklenen eşiğin altında. Hatalı kırılımları elemek için daha fazla hacim teyidi aranmalı."
+            if win_rate >= 50.0:
+                l_insight = "Kazanma oranı istikrarlı. Mevcut rejim (trend/hacim) filtreleri piyasayla senkronize çalışıyor."
+                
+            # Ajan Q (Quant) Dinamik Yorumu
+            q_insight = "Kümülatif kayıp bölgesindeyiz. Kâr al (TP) seviyelerine ulaşılamadan fiyat geri dönüyor olabilir."
+            if total_pnl > 0:
+                q_insight = "Risk/Ödül matematiği pozitif getiri üretiyor. PnL eğrisi istikrarlı bir şekilde yukarı yönlü."
+                
+            # Ajan R (Risk) Dinamik Yorumu
+            r_insight = f"Toplam {len(recent_trades)} işlemin {stop_hits} tanesi (%{(stop_hits/len(recent_trades)*100):.0f}) Stop-Loss ile kesildi."
+            if stop_hits > (len(recent_trades) / 2):
+                r_insight += " UYARI: Stoplanma oranı çok yüksek. Piyasa gürültüsü fazla, ATR (kalkan) marjları genişletilmeli."
             else:
-                recent_pnl = sum([getattr(t, 'pnl_pct', 0) for t in self.trade_history[-5:]])
-                if recent_pnl > 2: ai_summary = f"Son işlemlerde oldukça kârlıyız (+%{round(recent_pnl, 2)}). Strateji mükemmel uyumlu."
-                elif recent_pnl < -2: ai_summary = f"Zarar birikimi var (%{round(recent_pnl, 2)}). Risk limitlerini daraltıyorum."
-                else: ai_summary = f"Son 5 doğrulanmış işlemde net performans: %{round(recent_pnl, 2)}. Kesin avantaj için daha fazla örnek gerekiyor."
+                r_insight += " Disiplinli risk yönetimi aktif. Likidasyon veya kontrolsüz düşüş tehlikesi yok."
+
+            # Zenginleştirilmiş Ajan Sentezi HTML (Gerçek Veri)
+            ai_summary = f"""
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div><span style="color:var(--up-color); font-weight:bold;">🕵️‍♂️ Ajan L (Öğrenme Motoru):</span> İsabet Oranı: <b>%{(win_rate):.1f}</b>. {l_insight}</div>
+                <div><span style="color:var(--accent-blue); font-weight:bold;">⚙️ Ajan Q (Quant Motoru):</span> Net PnL İvmesi: <b>%{(total_pnl):.2f}</b>. {q_insight}</div>
+                <div><span style="color:var(--accent-yellow); font-weight:bold;">🛡️ Ajan R (Risk Motoru):</span> {r_insight}</div>
+            </div>
+            """
 
         return {
             "sample_size": len(self.trade_history),

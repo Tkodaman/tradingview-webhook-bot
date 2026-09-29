@@ -41,7 +41,7 @@
             background-color: var(--bg-base);
             color: var(--text-primary);
             min-height: 100vh;
-            padding: 18px 24px;
+            padding: 8px 8px;
             overflow-x: hidden;
             /* Kodaman Studio logo arka plan (watermark) */
             position: relative;
@@ -1243,19 +1243,12 @@ The following code has been modified to include a line number before every line,
 </head>
 <body>
 
-    <!-- CANLI OTONOM ALARM ŞERİDİ (TICKER) -->
-    <div id="liveTickerContainer" style="background: rgba(15,23,42,0.9); border-bottom: 1px solid rgba(52,211,153,0.3); padding: 8px 15px; width: 100%; position: sticky; top: 0; z-index: 9999; display: flex; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
-        <div style="background: var(--up-color); color: #000; font-weight: bold; padding: 4px 10px; border-radius: 4px; font-size: 11px; letter-spacing: 1px; margin-right: 15px; flex-shrink: 0; text-transform: uppercase; animation: pulse 2s infinite;">⚡ Otonom Alarm</div>
-        <marquee id="liveTickerText" scrollamount="14" onmouseover="this.stop();" onmouseout="this.start();" style="color: #e2e8f0; font-family: monospace; font-size: 13px; font-weight: 500;">
-            Otonom sistem başlatıldı. Kripto ve Hisse Senedi (21-MA / 50-MA) destek kırılımları izleniyor...
-        </marquee>
-    </div>
-
+    <!-- CANLI OTONOM ALARM ŞERİDİ (KALDIRILDI) -->
     <!-- OTONOM İÇ SES VE ADMİN DİYALOĞU ŞERİDİ (TICKER 2) -->
     <div style="background: rgba(10,15,25,0.95); border-bottom: 1px solid rgba(168,85,247,0.3); padding: 5px 15px; width: 100%; display: flex; align-items: center;">
         <div style="background: #a855f7; color: #fff; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 10px; letter-spacing: 1px; margin-right: 15px; flex-shrink: 0; text-transform: uppercase;">🧠 Otonom İç Ses</div>
-        <marquee id="aiThoughtMarquee" scrollamount="14" onmouseover="this.stop();" onmouseout="this.start();" style="color: #cbd5e1; font-family: monospace; font-size: 12px; font-style: italic;">
-            [Zeka Motoru]: Admin ile SL/TP senkronizasyonu sağlandı. AAVE ve ONDO için trend sörfü bekleniyor, POL likidite avında tasfiye edilecek. Karar ağacı güncellendi.
+        <marquee id="aiThoughtMarquee" scrollamount="14" onmouseover="this.stop();" onmouseout="this.start();" style="color: #f8fafc; font-family: monospace; font-size: 16px; font-weight: 600; padding: 4px 0;">
+            Zeka Motoru başlatılıyor, piyasa sinyalleri bekleniyor...
         </marquee>
     </div>
 
@@ -1332,7 +1325,7 @@ The following code has been modified to include a line number before every line,
     </div>
 
     <!-- MAIN DASHBOARD LAYOUT (SINGLE COLUMN) -->
-    <div style="display: flex; flex-direction: column; gap: 24px; padding: 0 16px; margin: 0 auto; max-width: 100%; align-items: stretch;">
+    <div style="display: flex; flex-direction: column; gap: 24px; padding: 0 4px; margin: 0 auto; width: 100%; box-sizing: border-box; align-items: stretch;">
         
         <!-- MAIN CONTENT -->
         <div style="width: 100%;">
@@ -1560,38 +1553,41 @@ The following code has been modified to include a line number before every line,
     
     <!-- Old structure continuation -->
     <div>
-        <div id="top5OpportunitiesWrap" style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 0; margin: 10px -16px 20px -16px; padding: 12px 16px; border-left: none; border-right: none;">
+        <div id="top5OpportunitiesWrap" style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 0; margin: 10px 0 20px 0; padding: 12px 8px; border-left: none; border-right: none;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-            <span style="font-size:14px;font-weight:700;color:#facc15;">🔥 [A2] Top 15 Alım Isı Haritası & Momentum (Canlı Fiyatlar)</span>
+            <span style="font-size:14px;font-weight:700;color:#facc15;">🔥 [A2] Otonom Alım Isı Haritası & Momentum (Canlı)</span>
         </div>
-        <div style="display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;">
+        
+
+        
+        <div style="display:flex; gap:6px; align-items:flex-start; flex-wrap:wrap;">
             <!-- Bist -->
-            <div style="flex:1; min-width:280px; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
+            <div style="flex:1; min-width:280px; box-sizing:border-box; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px; overflow:hidden;">
                 <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#38bdf8; text-align:center;">🇹🇷 BIST 100/30</div>
                 <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
                     <marquee id="tickerBist" scrollamount="4" style="font-size:10px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
                 </div>
-                <div id="top15BistBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
+                <div id="top15BistBody" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important; gap:8px; font-size:12px;">
                     <!-- Data here -->
                 </div>
             </div>
             <!-- Kripto -->
-            <div style="flex:1; min-width:280px; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
-                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#4ade80; text-align:center;">🪙 Kripto Piyasası</div>
-                <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
-                    <marquee id="tickerCrypto" scrollamount="4" style="font-size:10px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
+            <div style="flex:2.2; min-width:540px; box-sizing:border-box; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:12px; overflow:hidden;">
+                <div style="font-size:14px; font-weight:bold; margin-bottom:8px; color:#4ade80; text-align:center;">🪙 Kripto Piyasası</div>
+                <div style="overflow:hidden; white-space:nowrap; margin-bottom:12px; background:rgba(0,0,0,0.2); border-radius:4px; padding:6px 0;">
+                    <marquee id="tickerCrypto" scrollamount="4" style="font-size:12px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
                 </div>
-                <div id="top15CryptoBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
+                <div id="top15CryptoBody" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important; gap:8px; font-size:12px;">
                     <!-- Data here -->
                 </div>
             </div>
             <!-- Nasdaq -->
-            <div style="flex:1; min-width:280px; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:8px;">
-                <div style="font-size:12px; font-weight:bold; margin-bottom:8px; color:#f472b6; text-align:center;">🇺🇸 NASDAQ Mega-Cap</div>
-                <div style="overflow:hidden; white-space:nowrap; margin-bottom:8px; background:rgba(0,0,0,0.2); border-radius:4px; padding:4px 0;">
-                    <marquee id="tickerNasdaq" scrollamount="4" style="font-size:10px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
+            <div style="flex:2.2; min-width:540px; box-sizing:border-box; border: 1px solid rgba(255,255,255,0.05); border-radius:6px; padding:12px; overflow:hidden;">
+                <div style="font-size:14px; font-weight:bold; margin-bottom:8px; color:#f472b6; text-align:center;">🇺🇸 NASDAQ Mega-Cap</div>
+                <div style="overflow:hidden; white-space:nowrap; margin-bottom:12px; background:rgba(0,0,0,0.2); border-radius:4px; padding:6px 0;">
+                    <marquee id="tickerNasdaq" scrollamount="4" style="font-size:12px; color:#ffffff; font-family: 'JetBrains Mono', monospace;">Veriler Bekleniyor...</marquee>
                 </div>
-                <div id="top15NasdaqBody" style="display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-size:11px;">
+                <div id="top15NasdaqBody" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important; gap:8px; font-size:12px;">
                     <!-- Data here -->
                 </div>
             </div>
@@ -1620,6 +1616,14 @@ The following code has been modified to include a line number before every line,
             </div>
         </div>
 
+        <!-- AI Otonom Analiz Raporu -->
+        <div id="summaryAiAnalysisBox" style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid #c084fc; padding: 10px 14px; margin-bottom: 16px; border-radius: 4px; display: none;">
+            <div style="font-size: 11px; color: #c084fc; font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                <span>🤖 GPT Astra 6 (Otonom Analiz)</span>
+            </div>
+            <div id="summaryAiAnalysisText" style="font-size: 13px; color: #e2e8f0; line-height: 1.5;">Yükleniyor...</div>
+        </div>
+
         <!-- Recent Trades Table -->
         <div class="table-container" style="max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px;">
             <table class="positions-table dashboard-output-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
@@ -1642,27 +1646,6 @@ The following code has been modified to include a line number before every line,
         </div>
     </div>
 
-    <!-- BİRLEŞİK CANLI PİYASA PANELİ -->
-    <div class="markets-container unified-market-panel">
-        <div class="unified-market-header">
-            <div class="window-title"><span>📡</span> BİRLEŞİK CANLI PİYASA AKIŞI</div>
-            <span class="market-data-badge">Tek görünüm · gerçek zamanlı karar matrisi</span>
-        </div>
-        <div class="unified-market-groups">
-            <div class="market-group" id="windowBist">
-                <div class="market-group-header"><span>🇹🇷 BIST 100/30</span><span id="badgeBistStatus" class="window-status-badge status-closed">🛑 KAPALI</span><span id="bistStatsCount" class="market-data-badge">-- Hisse</span></div>
-                <div class="ticker-grid" id="gridBist"></div>
-            </div>
-            <div class="market-group" id="windowCrypto">
-                <div class="market-group-header"><span>🪙 KRİPTO</span><span id="badgeCryptoStatus" class="window-status-badge status-open"><span class="live-dot"></span> 7/24 AÇIK</span><span id="cryptoStatsCount" class="market-data-badge">-- Varlık</span></div>
-                <div class="ticker-grid" id="gridCrypto"></div>
-            </div>
-            <div class="market-group" id="windowNasdaq">
-                <div class="market-group-header"><span>🇺🇸 NASDAQ MEGA-CAP</span><span id="badgeNasdaqStatus" class="window-status-badge status-closed">🛑 KAPALI</span><span id="nasdaqStatsCount" class="market-data-badge">-- Hisse</span></div>
-                <div class="ticker-grid" id="gridNasdaq"></div>
-            </div>
-        </div>
-    </div>
 
     <!-- YENİ: İSTATİSTİKSEL HATA PAYI VE EYLEM PLANI (KAZAN-KAZAN) -->
     
@@ -1764,6 +1747,7 @@ The following code has been modified to include a line number before every line,
         </div>
     </div>
 
+
     <!-- YENİ: KORKU VE AÇGÖZLÜLÜK (FEAR & GREED) + VIX WIDGET'I -->
     <div style="display: flex; gap: 20px; margin-bottom: 24px;">
         <!-- Fear & Greed Panel -->
@@ -1819,12 +1803,14 @@ The following code has been modified to include a line number before every line,
             </div>
         </div>
         
-        <!-- YENİ: AI Performans Yorumu -->
-        <div style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid #8b5cf6; padding: 10px 16px; margin: 16px 0; border-radius: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span style="font-size: 18px;">🤖</span>
-            <span id="aiSummaryText" style="color: #cbd5e1; font-size: 13px; font-style: italic;">Yapay Zeka performans analizi yükleniyor...</span>
-            <span id="mlDataQualityBadge" style="margin-left:auto; font-size:10px; padding:4px 7px; border-radius:4px; color:#facc15; background:rgba(250,204,21,0.1); border:1px solid rgba(250,204,21,0.25);">VERİ KALİTESİ: KONTROL EDİLİYOR</span>
-            <span id="mlSampleSizeBadge" style="font-size:10px; padding:4px 7px; border-radius:4px; color:#cbd5e1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);">N=--</span>
+        <!-- Dinamik Yapay Zeka (LLM) Konsey Sentez Paneli -->
+        <div id="aiSummaryPanel" style="margin: 0 16px 16px 16px; padding: 12px 16px; background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; border-left: 4px solid var(--crypto-accent);">
+            <div style="font-size: 13px; color: var(--crypto-accent); font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                <span>🧠</span> Zeka Motoru: (a6) Performans & Hata Teşhis Konseyi
+            </div>
+            <div id="aiSummaryText" style="font-size: 13px; color: var(--text-primary); line-height: 1.5; font-family: 'Outfit', sans-serif;">
+                Rapor yükleniyor... Grafikler ajanlar tarafından sentezleniyor...
+            </div>
         </div>
         
         <!-- Gelişmiş ML Analitik Grafikleri Grid -->
@@ -2035,6 +2021,8 @@ The following code has been modified to include a line number before every line,
                 <span id="analyticsRiskModeBadge" style="font-size:11px; font-weight:700; color:#fbbf24; background:rgba(251,191,36,0.12); padding:3px 8px; border-radius:4px;">Mod: —</span>
             </div>
         </div>
+
+
         <div class="two-col-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
             <div class="inner-box" id="expectancyBox" style="height:220px; overflow-y:auto; box-sizing:border-box;">
                 <div class="inner-box-title"><span>📐 Expectancy & Kelly Oranı</span></div>
@@ -2058,8 +2046,19 @@ The following code has been modified to include a line number before every line,
                 <span style="color: var(--accent-blue);">🧠</span> (a10) Bot Düşünce Akışı (Canlı)
             </div>
         </div>
-        <div id="thoughtStreamBox" style="max-height: 220px; overflow-y: auto;">
-            <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+        <div style="display: flex; gap: 20px; overflow: hidden;">
+            <div style="flex: 1; border-right: 1px solid rgba(255,255,255,0.05); padding-right: 10px;">
+                <div style="font-size: 11px; color: var(--accent-blue); margin-bottom: 8px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">Kripto (Crypto)</div>
+                <div id="thoughtStreamBoxCrypto" style="max-height: 220px; overflow-y: auto;">
+                    <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+                </div>
+            </div>
+            <div style="flex: 1; padding-left: 10px;">
+                <div style="font-size: 11px; color: var(--accent-yellow); margin-bottom: 8px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">Hisse (BIST/Nasdaq)</div>
+                <div id="thoughtStreamBoxStock" style="max-height: 220px; overflow-y: auto;">
+                    <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2556,48 +2555,41 @@ The following code has been modified to include a line number before every line,
 
                 // Update Live Ticker (Marquee)
                 const ticker = document.getElementById('liveTickerText');
-                if (ticker && data.live_action_logs_crypto && data.live_action_logs_crypto.length > 0) {
-                    const latestCrypto = data.live_action_logs_crypto[data.live_action_logs_crypto.length - 1];
-                    const latestNasdaq = (data.live_action_logs_nasdaq && data.live_action_logs_nasdaq.length > 0) ? data.live_action_logs_nasdaq[data.live_action_logs_nasdaq.length - 1] : {time: '', message: ''};
-                    const latestBist = (data.live_action_logs_bist && data.live_action_logs_bist.length > 0) ? data.live_action_logs_bist[data.live_action_logs_bist.length - 1] : null;
+                if (ticker) {
+                    let msg = "";
                     
-                    let msg = `<span style="color: #34d399">[${latestCrypto.time}] 🚨 KRİPTO:</span> ${latestCrypto.message}`;
-                    if(latestNasdaq && latestNasdaq.message) {
-                        msg += ` &nbsp;&nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;&nbsp; <span style="color: #60a5fa">[${latestNasdaq.time}] 🚨 NASDAQ:</span> ${latestNasdaq.message}`;
-                    }
-                    if(latestBist && latestBist.message) {
-                        msg += ` &nbsp;&nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;&nbsp; <span style="color: #f87171">[${latestBist.time}] 🚨 BIST:</span> ${latestBist.message}`;
-                    }
+                    // 1. Dynamic Market Mood
+                    let mood = "NÖTR (Dengeli)";
+                    if (data.total_profit_factor > 1.5) mood = "AÇGÖZLÜ (Agresif Alım)";
+                    else if (data.total_profit_factor < 0.8) mood = "KORKU (Savunma)";
+                    msg += `<span style="color: var(--accent-blue); font-weight: bold;">[Astra-6 Modu: ${mood}]</span> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; `;
                     
+                    // 2. Win Rate & Total PnL
+                    const winRate = data.win_rate_pct ? data.win_rate_pct.toFixed(1) : 0;
+                    const pnl = data.net_pnl_usd ? data.net_pnl_usd.toFixed(2) : 0;
+                    const pnlColor = pnl >= 0 ? "var(--up-color)" : "var(--down-color)";
+                    msg += `<span style="color: #e2e8f0">🎯 Yapay Zeka Başarı Oranı: %${winRate}</span> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; `;
+                    msg += `<span style="color: ${pnlColor}">💵 Kümülatif Otonom Kâr: $${pnl}</span> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; `;
+                    
+                    // 3. Best Performing Asset / Insight
+                    if (data.learned_rules_and_insights && data.learned_rules_and_insights.length > 0) {
+                        const insightObj = data.learned_rules_and_insights[data.learned_rules_and_insights.length - 1];
+                        const insight = typeof insightObj === 'object' ? (insightObj.lesson || insightObj.insight || insightObj.text || JSON.stringify(insightObj)) : insightObj;
+                        msg += `<span style="color: var(--accent-yellow)">🧠 Son Deneyim: ${insight}</span> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; `;
+                    }
+
+                    // 4. Active Portfolio Status
+                    const activeCount = data.active_portfolio ? data.active_portfolio.length : 0;
+                    msg += `<span style="color: #a78bfa">📊 Sistemdeki Aktif Varlıklar: ${activeCount}</span>`;
+
                     if (ticker.innerHTML !== msg && lastTickerMessage !== msg) {
                         ticker.innerHTML = msg;
                         lastTickerMessage = msg;
-                        // Makas, SL, TP veya önemli analiz kelimeleri geçiyorsa BİP sesi ver
-                        if (msg.toLowerCase().includes("stop") || msg.toLowerCase().includes("tp") || msg.toLowerCase().includes("makas") || msg.toLowerCase().includes("alarm") || msg.toLowerCase().includes("iz süren")) {
-                            playBeep();
-                        }
                     }
                 }
 
-                // Dinamik Otonom İç Ses (AI Thought Monologue)
-                const thoughtMarquee = document.getElementById('aiThoughtMarquee');
-                if (thoughtMarquee && data.active_portfolio && data.active_portfolio.length > 0) {
-                    let thoughts = "[Zeka Motoru]: Admin ile senkronizasyon aktif. ";
-                    data.active_portfolio.forEach(a => {
-                        let reason = "Piyasa yapıcı tuzakları filtrelendi, algoritmik kalkan devrede.";
-                        if (a.symbol.includes("LINK")) reason = "Oracle (Veri Ağı) sektörüne aniden giren devasa kurumsal hacim tespit edildi. Makas aralığı riskine rağmen ivme çok yüksek olduğu için inisiyatif alınıp girildi.";
-                        if (a.symbol.includes("SUSHI")) reason = "DeFi likidite havuzlarında ani genişleme saptandı. Golden Cross onayıyla dipten sekme fırsatı değerlendirildi, komisyonu hızlıca ezecek momentum bekleniyor.";
-                        if (a.symbol.includes("ETH")) reason = "Marketin amiral gemisi. İz süren stop ile (Trailing) risksiz alanda kârı sonuna kadar koruma (Trend Sörfü) kararı aldım.";
-                        if (a.symbol.includes("AAVE")) reason = "FED faiz indirimi DeFi piyasasını tetikledi, 21-MA kırılımı onaylandı. Makro trend sörfü yapıyoruz.";
-                        if (a.symbol.includes("ONDO")) reason = "RWA (Gerçek Dünya Varlıkları) anlatısında zirvede. Kâr al noktamıza (TP) yaklaşana kadar sabırla pusudayız.";
-                        
-                        thoughts += ` | 🎯 Neden ${a.symbol} alındı? -> ${reason} (Giriş: ${a.entry_price}). Hedeflere katı şekilde uyulacak.`;
-                    });
-                    if (thoughtMarquee.innerHTML !== thoughts) {
-                        thoughtMarquee.innerHTML = thoughts;
-                    }
-                }
-
+                // Dinamik Otonom İç Ses, fetchDynamicVoice() tarafından güncellenecektir.
+                // Buradaki hardcoded metinler (Zeka Motoru, LINK, SUSHI vb.) otonom akışı bozduğu için tamamen silindi.
             } catch (err) {
                 console.error(err);
             }
@@ -2822,10 +2814,12 @@ The following code has been modified to include a line number before every line,
                 }
 
                 // RENDER HEATMAP BOXES
-                // SADECE İLK 15'İ (veya Top 15'i) HEATMAP'E GÖNDER
-                renderHeatmapBoxes('top15CryptoBody', (data.grouped.CRYPTO || []).slice(0, 20), cryptoInfo, 'tickerCrypto');
+                renderHeatmapBoxes('top15CryptoBody', (data.grouped.CRYPTO || []).slice(0, 33), cryptoInfo, 'tickerCrypto');
                 renderHeatmapBoxes('top15BistBody', (data.grouped.BIST || []).slice(0, 20), bistInfo, 'tickerBist');
-                renderHeatmapBoxes('top15NasdaqBody', (data.grouped.NASDAQ || []).slice(0, 20), nasdaqInfo, 'tickerNasdaq');
+                renderHeatmapBoxes('top15NasdaqBody', (data.grouped.NASDAQ || []).slice(0, 33), nasdaqInfo, 'tickerNasdaq');
+
+                // OTONOM İÇ SES: GERÇEK DİNAMİK VERİ (bot_thought_stream'den beslenir)
+                // Sabit ve donuk metinler kaldırıldı. Marquee güncellemeleri fetchDynamicVoice() tarafından yönetilmelidir.
 
                 // RAMAK KALA (VERGE OF BUY) HESAPLAMASI (HER PİYASA İÇİN DİNAMİK TOP N)
                 function getTopNForMarket(marketData, n) {
@@ -2865,12 +2859,7 @@ The following code has been modified to include a line number before every line,
                 if (cryptoVixBar) cryptoVixBar.style.width = Math.min(100, cryptoVixVal * 10) + '%';
                 // ----------------------------------
 
-                // RENDER EACH GRID SEPARATELY
-                // ALT DETAY PENCERELERİ İÇİN 30 LİMİTİ
-                renderMarketGroup('gridCrypto', (data.grouped.CRYPTO || []).slice(0, 30), cryptoInfo.is_open, 'cryptoStatsCount');
-                renderMarketGroup('gridBist', (data.grouped.BIST || []).slice(0, 30), bistInfo.is_open, 'bistStatsCount');
-                renderMarketGroup('gridNasdaq', (data.grouped.NASDAQ || []).slice(0, 30), nasdaqInfo.is_open, 'nasdaqStatsCount');
-
+                // RENDER EACH GRID SEPARATELY (REMOVED: Unified panel is deleted)
             } catch (err) {
                 console.error("fetchLiveMatrix error:", err);
             }
@@ -3056,9 +3045,13 @@ The following code has been modified to include a line number before every line,
                 window.heatmapPrevPrices[item.symbol] = item.price;
                 
                 const isUp = item.change_pct >= 0;
-                const missileReady = isOpen && isMissileOpportunity(item);
+                
+                // Sadece RTH (Ana Seans) açıksa tam parlaklıkta göster
+                const isRthOpen = isOpen && (!marketInfo || (!marketInfo.is_pre_market && !marketInfo.is_post_market));
+                const missileReady = isRthOpen && isMissileOpportunity(item);
                 const chgColor = flashColor ? flashColor : (isUp ? '#4ade80' : '#f43f5e');
-                const closedStyle = isOpen ? "" : "opacity: 0.4; filter: grayscale(80%);";
+                const closedStyle = isRthOpen ? "" : "opacity: 0.4; filter: grayscale(80%);";
+                
                 const formattedPrice = formatDyn(item.price);
                 const rsiStr = (item.rsi !== null && item.rsi !== undefined) ? parseFloat(item.rsi).toFixed(1) : '-';
                 const volStr = (item.volume_ratio !== undefined && item.volume_ratio !== null) ? parseFloat(item.volume_ratio).toFixed(2) : '-';
@@ -3116,21 +3109,21 @@ The following code has been modified to include a line number before every line,
                     box.onclick = () => { document.getElementById('newPosSymbol').value = item.symbol; openNewPositionModal(); };
                     
                     box.innerHTML = 
-                        '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-                            '<div style="display:flex; align-items:center; gap:3px;">' +
-                                '<span class="rank-badge" style="font-size:9px; font-weight:800; min-width:16px; display:inline-block;"></span>' +
-                                '<span class="sym-name" style="font-weight:700; font-size:10px; color:#fbbf24; letter-spacing: -0.3px;"></span>' +
-                                '<span class="rank-change" style="font-size:8px; font-weight:700;"></span>' +
-                                '<span class="sym-change" style="font-size:8px; font-weight:600;"></span>' +
-                                '<span class="conf-badge" style="font-size:8px; color:#fbbf24; background: rgba(251,191,36,0.15); padding: 1px 2px; border-radius:2px; font-weight:600;"></span>' +
+                        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2px;">' +
+                            '<div style="display:flex; align-items:center; gap:4px; min-width:0; flex:1; overflow:hidden;">' +
+                                '<span class="rank-badge" style="font-size:11px; font-weight:800; min-width:20px; display:inline-block;"></span>' +
+                                '<span class="sym-name" style="font-weight:800; font-size:12.5px; color:#fbbf24; letter-spacing: -0.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>' +
+                                '<span class="rank-change" style="font-size:10px; font-weight:700;"></span>' +
+                                '<span class="sym-change" style="font-size:10px; font-weight:700;"></span>' +
+                                '<span class="conf-badge" style="font-size:10px; color:#fbbf24; background: rgba(251,191,36,0.15); padding: 1px 4px; border-radius:2px; font-weight:700;"></span>' +
                             '</div>' +
-                            '<span class="curr-price" style="font-weight:800; font-size:10.5px;"></span>' +
+                            '<span class="curr-price" style="font-weight:800; font-size:13px;"></span>' +
                         '</div>' +
-                        '<div style="display:flex; justify-content:space-between; align-items:center; font-size:8.5px; color:#cbd5e1; font-weight: 500;">' +
+                        '<div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:#cbd5e1; font-weight: 500; margin-bottom: 2px;">' +
                             '<span class="vol-rsi"></span>' +
                             '<span class="hedef-price"></span>' +
                         '</div>' +
-                        '<div class="ai-rec-container" style="font-size:8.5px; color:#94a3b8; display:flex; align-items:center; gap:3px; overflow:hidden;" data-rec="">' +
+                        '<div class="ai-rec-container" style="font-size:10.5px; color:#94a3b8; display:flex; align-items:center; gap:4px; overflow:hidden;" data-rec="">' +
                         '</div>';
                 }
                 // Update properties
@@ -3143,7 +3136,7 @@ The following code has been modified to include a line number before every line,
                     });
                 }
                 
-                box.style.cssText = 'border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); border-left: 2px solid ' + boxBorderColor + '; padding: 3px 5px; display:flex; flex-direction:column; gap:2px; transition: all 0.3s ease; cursor:pointer; background: ' + boxBgGradient + '; ' + closedStyle + ' box-shadow: 0 2px 4px rgba(0,0,0,0.15);';
+                box.style.cssText = 'border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); border-left: 3px solid ' + boxBorderColor + '; padding: 4px 8px; display:flex; flex-direction:column; gap:2px; transition: all 0.3s ease; cursor:pointer; background: ' + boxBgGradient + '; ' + closedStyle + ' box-shadow: 0 4px 6px rgba(0,0,0,0.15); min-width:0; overflow:hidden;';
                 box.title = item.symbol + ' AI Analizi: ' + aiRec;
                 
                 // EFSANEVİ FIRSAT BLINK (YZ GÜVEN >= %90) VE PİYASA AÇIKSA
@@ -3166,6 +3159,10 @@ The following code has been modified to include a line number before every line,
                     phaseLabel = "<span style='font-size:7px;background:rgba(74,222,128,0.2);color:#4ade80;padding:1px 3px;border-radius:2px;font-weight:700;'>💎 TAZE</span>";
                 } else if (phase === "PEAK_RISK") {
                     phaseLabel = "<span style='font-size:7px;background:rgba(244,63,94,0.2);color:#f43f5e;padding:1px 3px;border-radius:2px;font-weight:700;'>⚠️ ZİRVE</span>";
+                } else if (phase === "PANIC_DUMP") {
+                    phaseLabel = "<span style='font-size:7px;background:rgba(239,68,68,0.3);color:#ef4444;padding:1px 3px;border-radius:2px;font-weight:800; border:1px solid #ef4444;'>🩸 ÇÖKÜŞ PANİK</span>";
+                    box.style.boxShadow = '0 0 8px rgba(239,68,68,0.5), 0 2px 4px rgba(0,0,0,0.15)';
+                    box.classList.add('blink-danger');
                 }
                 
                 box.querySelector('.sym-name').innerText = item.symbol;
@@ -3224,11 +3221,7 @@ The following code has been modified to include a line number before every line,
                     const isLegendary = (isOpen && hasConf && confScore >= 90);
                     const aiIcon = isLegendary ? '<span style="font-size:10px; flex-shrink:0;">🧠</span>' : '<span style="font-size:8.5px; flex-shrink:0;">🎯</span>';
                     
-                    if (aiRec.length > 35 || isLegendary) {
-                        recContainer.innerHTML = aiIcon + '<marquee scrollamount="3" style="flex:1; white-space:nowrap; color:' + (isLegendary ? '#10b981' : '#94a3b8') + ';">' + aiRec + '</marquee>';
-                    } else {
-                        recContainer.innerHTML = aiIcon + '<span style="white-space:nowrap;">' + aiRec + '</span>';
-                    }
+                    recContainer.innerHTML = aiIcon + '<marquee scrollamount="3" style="flex:1; color:' + (isLegendary ? '#10b981' : '#94a3b8') + ';">' + aiRec + '</marquee>';
                 }
                 
                 // Append to container (moves it to the end, ensuring correct order)
@@ -3846,6 +3839,12 @@ The following code has been modified to include a line number before every line,
                 const virtColor = data.pnl_virtual >= 0 ? "#4ade80" : "#ef4444";
                 
                 pnlEl.innerHTML = `<span style="color:${realColor}">${pnlRealStr}</span> / <span style="color:${virtColor}">${pnlVirtualStr}</span>`;
+                
+                // AI Summary update
+                if (data.ai_summary) {
+                    document.getElementById('summaryAiAnalysisBox').style.display = 'block';
+                    document.getElementById('summaryAiAnalysisText').innerHTML = data.ai_summary;
+                }
                 
                 const tbody = document.getElementById('summaryTableBody');
                 tbody.innerHTML = "";
@@ -4739,7 +4738,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (donutCanvas) donutCanvas.style.opacity = hasIndicatorData ? '1' : '0';
                 const summaryEl = document.getElementById('aiSummaryText');
                 if (summaryEl && metrics.ai_summary_text) {
-                    summaryEl.innerText = metrics.ai_summary_text;
+                    summaryEl.innerHTML = metrics.ai_summary_text;
                 }
                 const sampleSize = Number(metrics.sample_size || 0);
                 const qualityEl = document.getElementById('mlDataQualityBadge');
@@ -5091,31 +5090,127 @@ document.addEventListener("DOMContentLoaded", function() {
     // 🧠 BOT DÜŞÜNCE AKIŞI: Fakeout Guard / Stop-Hunt Evader / Korelasyon Filtresi canlı gerekçeleri
     // ================================================================
     async function fetchThoughtStream() {
-        const box = document.getElementById('thoughtStreamBox');
-        if (!box) return;
-        try {
-            const res = await fetch('/api/analytics/thought-stream');
-            const d = await res.json();
-            if (!d.thoughts || d.thoughts.length === 0) {
-                box.innerHTML = '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Henüz bir koruma/bekleme kararı üretilmedi.</div>';
-                return;
-            }
-            box.innerHTML = d.thoughts.map(t => {
-                const levelColor = t.level === 'WARN' ? 'var(--accent-yellow)' : 'var(--text-secondary)';
-                return `<div class="inner-box-item">
-                    <span>${t.category}</span>
-                    <div>
-                        <b>${t.symbol}</b>: <span style="color:${levelColor};">${t.message}</span>
-                        <span style="font-size:10px; color:#64748b; font-family:'JetBrains Mono'; margin-left:6px;">🕒 ${t.timestamp}</span>
-                    </div>
-                </div>`;
-            }).join('');
-        } catch (e) { console.error("fetchThoughtStream error:", e); }
+    const boxCrypto = document.getElementById('thoughtStreamBoxCrypto');
+    const boxStock = document.getElementById('thoughtStreamBoxStock');
+    if (!boxCrypto || !boxStock) return;
+    try {
+        const res = await fetch('/api/analytics/thought-stream');
+        const d = await res.json();
+        
+        const cryptoThoughts = [];
+        const stockThoughts = [];
+        
+        if (d.thoughts && d.thoughts.length > 0) {
+            d.thoughts.forEach(t => {
+                let isCrypto = (t.symbol || '').toUpperCase().endsWith('USDT') || (t.symbol || '').toUpperCase().endsWith('USD');
+                if (isCrypto) cryptoThoughts.push(t);
+                else stockThoughts.push(t);
+            });
+        }
+        
+        const renderThought = (t) => {
+            let levelColor = 'var(--text-secondary)';
+            if (t.level === 'WARN') levelColor = 'var(--accent-yellow)';
+            if (t.level === 'SUCCESS') levelColor = 'var(--up-color)';
+            if (t.level === 'ERROR') levelColor = 'var(--down-color)';
+            if (t.level === 'INFO') levelColor = 'var(--accent-blue)';
+            
+            let emoji = "🧠";
+            const msgLower = (t.message || '').toLowerCase();
+            if (msgLower.includes('sinyal')) emoji = '📡';
+            if (msgLower.includes('risk') || msgLower.includes('kalkan') || msgLower.includes('savunma')) emoji = '🛡️';
+            if (msgLower.includes('volatilite')) emoji = '🌪️';
+            if (msgLower.includes('likidite')) emoji = '💧';
+            if (msgLower.includes('hacim')) emoji = '📊';
+            if (msgLower.includes('limit')) emoji = '🚧';
+            if (msgLower.includes('momentum')) emoji = '🚀';
+            
+            let catText = t.category.replace('ASTRA-6 AI', 'Yapay Zeka').trim();
+            let symText = (t.symbol || '').replace('ANALİZ', 'Değerlendirme').trim();
+            
+            return `<div class="inner-box-item" style="display:flex; gap:8px; align-items:flex-start;">
+                <span style="font-size: 16px;">${emoji}</span>
+                <div style="flex:1;">
+                    <b style="color:var(--accent-blue); font-size:11px;">${catText} [${symText}]</b>: <span style="color:${levelColor};">${t.message}</span>
+                    <span style="font-size:10px; color:#64748b; font-family:'JetBrains Mono'; margin-left:6px;">🕒 ${t.timestamp}</span>
+                </div>
+            </div>`;
+        };
+        
+        if (cryptoThoughts.length === 0) boxCrypto.innerHTML = '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Kripto akışı bekleniyor.</div>';
+        else boxCrypto.innerHTML = cryptoThoughts.map(renderThought).join('');
+        
+        if (stockThoughts.length === 0) boxStock.innerHTML = '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Hisse senedi akışı bekleniyor.</div>';
+        else boxStock.innerHTML = stockThoughts.map(renderThought).join('');
+        
+    } catch (e) { console.error("fetchThoughtStream error:", e); }
     }
     fetchThoughtStream();
     setInterval(fetchThoughtStream, 5000); // canli karar akisi, hizli yenilenir
 
+    // ASTRA AI OTONOM SENTEZLEYİCİLERİ
+    async function fetchAiSynthesis() {
+        // AI Opportunity Fetch
+        const oppBox = document.getElementById('aiOpportunityText');
+        if (oppBox) {
+            try {
+                const res = await fetch('/api/analytics/ai-opportunities');
+                const d = await res.json();
+                if (d.ai_analysis) {
+                    oppBox.innerText = d.ai_analysis;
+                }
+            } catch(e) { console.error("fetchAiOpportunity error:", e); }
+        }
 
+        // AI Psychology Fetch
+        const psyBox = document.getElementById('aiPsychologyText');
+        if (psyBox) {
+            try {
+                const res = await fetch('/api/analytics/ai-psychology');
+                const d = await res.json();
+                if (d.ai_analysis) {
+                    psyBox.innerText = d.ai_analysis;
+                }
+            } catch(e) { console.error("fetchAiPsychology error:", e); }
+        }
+
+        // AI Correlation Fetch
+        const corBox = document.getElementById('aiCorrelationText');
+        if (corBox) {
+            try {
+                const res = await fetch('/api/analytics/ai-correlation');
+                const d = await res.json();
+                if (d.ai_analysis) {
+                    corBox.innerText = d.ai_analysis;
+                }
+            } catch(e) { console.error("fetchAiCorrelation error:", e); }
+        }
+    }
+    fetchAiSynthesis();
+    setInterval(fetchAiSynthesis, 60000); // 1 dakikada bir güncelle (AI thread'i arka planda cache tutuyor)
+
+    // OTONOM DIŞ SES (LLM) GÜNCELLEYİCİ
+    async function fetchDynamicVoice() {
+        try {
+            const resp = await fetch('/api/memory/dynamic-voice');
+            const data = await resp.json();
+            if (data.status === 'success') {
+                const alarmEl = document.getElementById('liveTickerText');
+                if (alarmEl && data.alarm) {
+                    alarmEl.innerHTML = `[${data.last_update}] ${data.alarm}`;
+                }
+                
+                const thoughtMarquee = document.getElementById('aiThoughtMarquee');
+                if (thoughtMarquee && data.thought) {
+                    thoughtMarquee.innerHTML = `💬 ${data.thought}`;
+                }
+            }
+        } catch (e) {
+            console.error("Dış ses güncellenemedi:", e);
+        }
+    }
+    fetchDynamicVoice();
+    setInterval(fetchDynamicVoice, 30000); // 30 saniyede bir kontrol et
 
     let mlFullChart = null;
     window.openMLModal = function() {
@@ -5215,6 +5310,58 @@ document.addEventListener("DOMContentLoaded", function() {
             });
         }
     };
+
+    // GEÇMİŞ KAPATILAN VARLIKLAR ÖZET RAPORU DİNAMİK VERİ ÇEKİMİ
+    async function fetchHistorySummary() {
+        try {
+            const res = await fetch('/api/position/history/summary');
+            const data = await res.json();
+            
+            document.getElementById('summaryTotalTrades').innerText = data.total_trades || "0 / 0";
+            document.getElementById('summaryWinRate').innerText = data.win_rate || "%0.0 / %0.0";
+            
+            const pnlReal = parseFloat(data.pnl_real || 0);
+            const pnlVirtual = parseFloat(data.pnl_virtual || 0);
+            const colorReal = pnlReal >= 0 ? '#4ade80' : '#f43f5e';
+            const colorVirtual = pnlVirtual >= 0 ? '#4ade80' : '#f43f5e';
+            
+            document.getElementById('summaryTotalPnl').innerHTML = 
+                `<span style="color:${colorReal}">$${pnlReal.toFixed(2)}</span> / <span style="color:${colorVirtual}">$${pnlVirtual.toFixed(2)}</span>`;
+                
+            if (data.ai_summary) {
+                document.getElementById('summaryAiAnalysisBox').style.display = 'block';
+                document.getElementById('summaryAiAnalysisText').innerText = data.ai_summary;
+            } else {
+                document.getElementById('summaryAiAnalysisBox').style.display = 'none';
+            }
+            
+            const tbody = document.getElementById('historySummaryTableBody');
+            if (tbody && data.recent_trades) {
+                tbody.innerHTML = data.recent_trades.map(t => {
+                    const chgColor = (parseFloat(t.net_pnl) >= 0) ? '#4ade80' : '#f43f5e';
+                    const sideColor = t.side === 'BUY' ? '#4ade80' : '#f43f5e';
+                    const outPrice = t.exit_price ? '$' + parseFloat(t.exit_price).toFixed(4) : '-';
+                    const reason = t.reason ? t.reason.replace('CLOSED_', '') : '';
+                    
+                    return `
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 8px; font-weight: bold; color: #fbbf24;">${t.symbol}</td>
+                            <td style="padding: 8px; text-align:center; color:${sideColor}">${t.side}</td>
+                            <td style="padding: 8px; text-align:right;">$${parseFloat(t.entry_price).toFixed(4)}</td>
+                            <td style="padding: 8px; text-align:right;">${outPrice}</td>
+                            <td style="padding: 8px; text-align:right;">${t.quantity}</td>
+                            <td style="padding: 8px; text-align:right; color:${chgColor}; font-weight:bold;">$${parseFloat(t.net_pnl).toFixed(2)}</td>
+                            <td style="padding: 8px; text-align:center;"><span style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:3px; font-size:10px;">${reason}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        } catch (e) {
+            console.error("fetchHistorySummary error:", e);
+        }
+    }
+    fetchHistorySummary();
+    setInterval(fetchHistorySummary, 15000); // 15 saniyede bir history yenile
 
 });
 </script>

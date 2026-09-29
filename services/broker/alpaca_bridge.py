@@ -129,16 +129,23 @@ class AlpacaBroker(BaseBroker):
             if is_fractional:
                 # === KESİRLİ LOT: Sadece standart saatlerde çalışır, Market Order zorunludur ===
                 # Alpaca bracket order kesirli lot desteklemez.
-                # Çözüm: Market order + ayrı stop order + ayrı limit order
-                logger.info(f"Alpaca: Fractional qty ({qty}) - market + separate SL/TP orders for {alpaca_sym}")
-                order = self.api.submit_order(
-                    symbol=alpaca_sym,
-                    qty=qty,
-                    side=side.lower(),
-                    type='market',
-                    time_in_force=tif
-                )
-                logger.info(f"Alpaca Market Order (Fractional): {side} {qty} {alpaca_sym} - OrderID: {order.id}")
+                # Çözüm: Limit order + ayrı stop order + ayrı limit order
+                logger.info(f"Alpaca: Fractional qty ({qty}) - limit + separate SL/TP orders for {alpaca_sym}")
+                
+                # Emir tipi zafiyeti (Slippage) için Smart Limit kullanımı
+                order_type = 'limit' if limit_price else 'market'
+                order_kwargs = {
+                    "symbol": alpaca_sym,
+                    "qty": qty,
+                    "side": side.lower(),
+                    "type": order_type,
+                    "time_in_force": tif
+                }
+                if limit_price:
+                    order_kwargs["limit_price"] = round(limit_price, 2)
+                    
+                order = self.api.submit_order(**order_kwargs)
+                logger.info(f"Alpaca {order_type.capitalize()} Order (Fractional): {side} {qty} {alpaca_sym} - OrderID: {order.id}")
 
                 # === AYRI STOP-LOSS EMRİ (Alpaca sunucusunda aktif kalır) ===
                 sl_side = "sell" if side.lower() == "buy" else "buy"

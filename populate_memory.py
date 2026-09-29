@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 MEMORY_FILE = "experience_memory.json"
 
 def generate_synthetic_trades(num_trades=50):
+    raise RuntimeError("Sentetik işlem geçmişi üretimi kapatıldı.")
     assets = ["NVDA", "AMZN", "ANET", "BTCUSD", "ETHUSD", "SOL-USD"]
     regimes = ["TRENDING_UP", "HIGH_VOLATILITY", "SIDEWAYS_CHOP", "TRENDING_DOWN"]
     indicators = [
@@ -42,6 +43,7 @@ def generate_synthetic_trades(num_trades=50):
     return trades
 
 def update_memory_file():
+    raise RuntimeError("Doğrulanmamış işlemlerin hafızaya yazılması kapatıldı.")
     if os.path.exists(MEMORY_FILE):
         with open(MEMORY_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
