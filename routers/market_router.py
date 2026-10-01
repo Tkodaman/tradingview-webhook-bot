@@ -242,7 +242,8 @@ async def get_live_buy_sell_wait_matrix():
             # risk_block_reason = ... (İptal edildi, erken trendleri blokluyordu)
             
         # ==========================================
-        # KASA VE BÜTÇE DİSİPLİNİ (14 LİMİT & 9 YAVAŞLATMA EŞİĞİ)
+        # KASA VE BÜTÇE DİSİPLİNİ (10 MAX + 4 BOT İNSİYATİFİ YEDEK = 14 MAX)
+        # BIST Alpaca'da işlem görmediği için portföy kapasitesi sadece NASDAQ+Kripto hesaplanır.
         # ==========================================
         active_positions_list = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
         total_active_count = len(active_positions_list)
@@ -254,16 +255,16 @@ async def get_live_buy_sell_wait_matrix():
         
         if not open_pos and not risk_block_reason: # Eğer halihazırda sahte sinyal engeli yoksa, bütçe engelini kontrol et
             if total_active_count >= 14:
-                # Kasa tamamen dolu, SADECE ROTASYON yapılabilir. Düz alım yasak.
+                # Kasa yedeklerle birlikte tamamen dolu (14 max), SADECE ROTASYON yapılabilir.
                 rotate_ok = False
                 if rotation_engine:
                     rotate_ok = rotation_engine.evaluate_rotation(sym, score, data, active_positions_list).get("rotate", False)
                 if not rotate_ok:
                     risk_block_reason = f"Bütçe Dolu (Kapasite: {total_active_count}/14). Nakit bitti, sadece devasa fırsatlar için rotasyon izni var."
-            elif total_active_count >= 9:
-                # 9 Varlıktan sonra vites düşür (Nakit rezervini koru, sadece en yüksek fırsatlara kurşun at)
-                if score < 7:
-                    risk_block_reason = f"Kasa Yavaşlama Bölgesinde ({total_active_count}/14). Nakit rezervi sadece en kaliteli (Skor 7+) fırsatlar için bekletiliyor. Bu fırsat elendi (Skor: {score})."
+            elif total_active_count >= 10:
+                # 10 Varlıktan sonra sadece bot insiyatifi devreye girer (çok güçlü fırsatlar)
+                if score < 6:
+                    risk_block_reason = f"Kasa Esneme Bölgesinde ({total_active_count}/10). Yedek 4 kapasite sadece çok güçlü fırsatlara saklanıyor. Bu fırsat elendi (Skor: {score})."
             
         rotation_check = {"rotate": False}
         if not open_pos and not risk_block_reason and not data_gate_blocked:

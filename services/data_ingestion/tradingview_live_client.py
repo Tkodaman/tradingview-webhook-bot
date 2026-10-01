@@ -42,8 +42,15 @@ class TradingViewLiveClient:
         if now - self.last_fetch_time < self.cache_ttl_seconds and self.cached_us_data:
             return {**self.cached_us_data, **self.cached_tr_data, **self.cached_crypto_data}
 
-        # Tarafımdan (Konsey) En Yüksek Başarı İçin Önerilen: Tüm Piyasalar (NASDAQ, BIST, KRİPTO) 15 Dakika (15m)
+        # NASDAQ ve BIST için 15 Dakika (15m), Kripto için 1 Saat (1h)
         columns_15m = [
+            "name", "close", "change", "high|15", "low|15", "volume|15",
+            "RSI|15", "MACD.macd|15", "MACD.signal|15", "EMA20|15", "EMA50|15", "EMA200|15",
+            "ATR|15", "VWAP|15", "Stoch.K|15", "ADX|15", "Volatility.D|15", "average_volume_10d_calc|15",
+            "ChaikinMoneyFlow|15", "open|15"
+        ]
+
+        columns_60m = [
             "name", "close", "change", "high|60", "low|60", "volume|60",
             "RSI|60", "MACD.macd|60", "MACD.signal|60", "EMA20|60", "EMA50|60", "EMA200|60",
             "ATR|60", "VWAP|60", "Stoch.K|60", "ADX|60", "Volatility.D|60", "average_volume_10d_calc|60",
@@ -332,7 +339,7 @@ class TradingViewLiveClient:
             with httpx.Client(timeout=15.0, trust_env=False) as client:
                 res_crypto = client.post(
                     "https://scanner.tradingview.com/crypto/scan",
-                    json={"symbols": {"tickers": active_tickers["CRYPTO"]}, "columns": columns_15m},
+                    json={"symbols": {"tickers": active_tickers["CRYPTO"]}, "columns": columns_60m},
                     headers=headers
                 )
                 if res_crypto.status_code == 200:
@@ -355,10 +362,11 @@ class TradingViewLiveClient:
                             price_val = float(vals[1] or 0.0)
                             if price_val <= 0.0:
                                 continue
-                            price = round(price_val, 4 if price_val < 1.0 else 2)
+                            prec = 8 if price_val < 0.0001 else (4 if price_val < 1.0 else 2)
+                            price = round(price_val, prec)
                             chg = round(float(vals[2] or 0.0), 2)
-                            high = round(float(vals[3] or price), 4 if price < 1.0 else 2)
-                            low = round(float(vals[4] or price), 4 if price < 1.0 else 2)
+                            high = round(float(vals[3] or price), prec)
+                            low = round(float(vals[4] or price), prec)
                             vol = float(vals[5] or 0)
                             rsi_v = vals[6]; rsi = round(float(rsi_v), 2) if rsi_v is not None else None
                             macd = round(float(vals[7] or 0.0), 2)
@@ -372,12 +380,12 @@ class TradingViewLiveClient:
                             adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
                             vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
                             
-                            # 15 dakikalık mum için saniye bazlı kusursuz prorasyon
-                            candle_start = (int(now) // 900) * 900
+                            # 60 dakikalık mum için saniye bazlı kusursuz prorasyon
+                            candle_start = (int(now) // 3600) * 3600
                             seconds_in_candle = int(now) - candle_start
                             # İlk 1 dakikayı 60s gibi say ki sıfıra bölme veya devasa rasyolar çıkmasın
                             effective_seconds = max(seconds_in_candle, 60)
-                            expected_fraction = effective_seconds / 900.0
+                            expected_fraction = effective_seconds / 3600.0
                             adjusted_vol_avg = vol_avg * expected_fraction
                             
                             raw_vol_ratio = 1.0
@@ -393,7 +401,7 @@ class TradingViewLiveClient:
                             
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
-                            candle_open_val = round(float(vals[19] if len(vals) > 19 and vals[19] else price), 4 if price < 1.0 else 2)
+                            candle_open_val = round(float(vals[19] if len(vals) > 19 and vals[19] else price), prec)
                             prev_high = self._prev_highs.get(clean_sym, 0.0)
                             self._prev_highs[clean_sym] = high
                             bid_ask_proxy = round(min(max((vol_ratio or 1.0) / 3.0, 0.0), 1.0), 3) if vol_ratio else 0.5

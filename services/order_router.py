@@ -533,7 +533,8 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
                     # --- TIER-1 STEALTH TWAP (Zaman Ağırlıklı Gizli İnfaz) ---
                     # Büyük emirleri (Örn > $500) tek seferde tahtaya vurup Slippage yememek için emri böler.
                     # Eğer Alpaca Elite VWAP API'si olsaydı doğrudan parametre geçilirdi. Burada kendi Stealth motorumuzu kullanıyoruz.
-                    import random, threading, time
+                    import random, threading
+                    import time as _twap_time
                     
                     def stealth_twap_execution(b, sym, q, tp, sl, lim):
                         try:
@@ -541,7 +542,7 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
                             slice_qty = q / slices
                             for i in range(slices):
                                 jitter_ms = random.uniform(0.1, 0.5)
-                                time.sleep(jitter_ms)
+                                _twap_time.sleep(jitter_ms)
                                 
                                 # Slippage'dan korunmak için küçük lokmalarla (Market Maker'a görünmeden) emri iletiyoruz.
                                 logger.info(f"[STEALTH TWAP] {sym} -> Parça {i+1}/{slices} İletiliyor (Miktar: {slice_qty:.4f})")
@@ -549,7 +550,7 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
                                 
                                 if slices > 1 and i < slices - 1:
                                     # Hacimsiz tahtada fiyatın oturması için 3 saniye bekle
-                                    time.sleep(3.0) 
+                                    _twap_time.sleep(3.0) 
                         except Exception as e:
                             logger.error(f"[TWAP ERROR] {sym} İnfazı sırasında hata: {e}")
                             

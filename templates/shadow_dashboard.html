@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tier-1 Gölge Arena & Konsey Kokpiti</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0f172a',
+                        cardBg: '#1e293b',
+                        accent: '#38bdf8',
+                        danger: '#f43f5e',
+                        success: '#10b981',
+                        warning: '#f59e0b'
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,0.2) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,0.2) 0, transparent 50%);
+            background-attachment: fixed;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+        }
+        .neon-glow {
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+        .log-entry {
+            border-left: 3px solid #38bdf8;
+            transition: all 0.3s ease;
+        }
+        .log-entry:hover {
+            background: rgba(56, 189, 248, 0.1);
+            transform: translateX(5px);
+        }
+        .log-danger { border-left-color: #f43f5e; }
+        .log-success { border-left-color: #10b981; }
+        .log-warning { border-left-color: #f59e0b; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        ::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.3); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(56,189,248,0.6); }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center glass-panel p-6">
+            <div>
+                <h1 class="text-3xl font-bold text-white neon-glow tracking-wide">GÖLGE ARENA <span class="text-accent">V2.0</span></h1>
+                <p class="text-slate-400 mt-1 text-sm">Tier-1 Otonom Simülasyon ve ML Öğrenim Merkezi</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <span class="relative flex h-3 w-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-accent"></span>
+                    </span>
+                    <span class="text-accent text-sm font-semibold tracking-wider">CANLI SİMÜLASYON AKTİF</span>
+                </div>
+                <button onclick="window.location.href='/'" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition-all border border-slate-600">Ana Kokpit'e Dön</button>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="glass-panel p-5 flex flex-col justify-center items-center">
+                <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Gölge Kasa (Sanal)</span>
+                <span class="text-2xl font-bold text-white">$10,450.00</span>
+                <span class="text-success text-xs mt-1">▲ +4.5% (Bu Hafta)</span>
+            </div>
+            <div class="glass-panel p-5 flex flex-col justify-center items-center">
+                <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Aktif Sörf (Vur-Kaç)</span>
+                <span class="text-2xl font-bold text-accent">2 İşlem</span>
+                <span class="text-slate-500 text-xs mt-1">Max 8 Saatlik Periyot</span>
+            </div>
+            <div class="glass-panel p-5 flex flex-col justify-center items-center">
+                <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">ML Revizyonu</span>
+                <span class="text-2xl font-bold text-warning">142</span>
+                <span class="text-slate-500 text-xs mt-1">Geçmiş Hatalardan Alınan Ders</span>
+            </div>
+            <div class="glass-panel p-5 flex flex-col justify-center items-center">
+                <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">Konsey Durumu</span>
+                <span class="text-xl font-bold text-success animate-pulse-slow">SENKRONİZE</span>
+                <span class="text-slate-500 text-xs mt-1">Yasama, Yürütme, Yargı Aktif</span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left Column: Agent Monologue -->
+            <div class="lg:col-span-2 glass-panel p-6 flex flex-col h-[600px]">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-white flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                        Ajan Zihin Akışı (İç Ses)
+                    </h2>
+                    <span class="text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700">Canlı Akış</span>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto space-y-4 pr-2" id="monologue-container">
+                    
+                    <div class="log-entry log-warning p-3 rounded bg-slate-800/50">
+                        <div class="flex justify-between text-xs text-slate-400 mb-1">
+                            <span>[YASAMA] - Konsey Kararı</span>
+                            <span>Bugün 00:25</span>
+                        </div>
+                        <p class="text-sm text-slate-200">MINA tahtasında 0.63x hacim tespit edildi. Fiyat artıyor (RSI 58.5) ancak hacim sahte (Fakeout). Gölge Arena testine bile değmez. İşlem VETO edildi.</p>
+                    </div>
+
+                    <div class="log-entry p-3 rounded bg-slate-800/50">
+                        <div class="flex justify-between text-xs text-slate-400 mb-1">
+                            <span>[YÜRÜTME] - Gölge Ajanı</span>
+                            <span>Dün 23:10</span>
+                        </div>
+                        <p class="text-sm text-slate-200">DOGE tahtasında 4.5x ani hacim patlaması tespit ettim. Gerçek parayla girmem ama Gölge Arena'da balina sörfüne atlıyorum. Giriş: $0.12, Hedef 8 Saat. İz süren makas %2'de kilitlendi. Tetiği çektim.</p>
+                    </div>
+                    
+                    <div class="log-entry log-danger p-3 rounded bg-slate-800/50">
+                        <div class="flex justify-between text-xs text-slate-400 mb-1">
+                            <span>[YARGI] - Denetim & Hata Payı</span>
+                            <span>Dün 18:30</span>
+                        </div>
+                        <p class="text-sm text-slate-200">CRV sanal işleminde makası %1'de çok dar tuttuğun için erken stop oldun. Piyasa seni silkeledi ve fiyat yukarı fırladı. Makine Öğrenimi (ML) ağırlıkları güncellendi: "Volatiliteye göre makası esnet."</p>
+                    </div>
+
+                    <div class="log-entry log-success p-3 rounded bg-slate-800/50">
+                        <div class="flex justify-between text-xs text-slate-400 mb-1">
+                            <span>[YÜRÜTME] - Vur Kaç Başarılı</span>
+                            <span>Dün 15:45</span>
+                        </div>
+                        <p class="text-sm text-slate-200">Sanal AAVE işleminde +%4 kâr hedefine ulaşıldı. 2 saatlik kısa periyotta balina hareketi başarıyla sömürüldü. Sanal kasaya kâr eklendi.</p>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Right Column: Active Shadow Trades -->
+            <div class="glass-panel p-6 flex flex-col h-[600px]">
+                <h2 class="text-xl font-bold text-white mb-6 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-warning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Aktif Gölge Pozisyonlar
+                </h2>
+                
+                <div class="space-y-4 flex-1 overflow-y-auto pr-2">
+                    <!-- Trade Card 1 -->
+                    <div class="bg-slate-800/80 rounded-lg p-4 border border-slate-700 hover:border-accent transition-colors">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-white text-lg">DOGE/USD</span>
+                            <span class="bg-accent/20 text-accent text-xs px-2 py-1 rounded">Balina Sörfü</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <div class="text-slate-400">Giriş Fiyatı:</div>
+                            <div class="text-right text-white">$0.1200</div>
+                            <div class="text-slate-400">Anlık Fiyat:</div>
+                            <div class="text-right text-accent font-semibold">$0.1234</div>
+                            <div class="text-slate-400">Geçen Süre:</div>
+                            <div class="text-right text-white">2s 14d (Max 8s)</div>
+                            <div class="text-slate-400">Dinamik Stop:</div>
+                            <div class="text-right text-success">$0.1210 (Risk Sıfırlandı)</div>
+                        </div>
+                        <div class="mt-3 w-full bg-slate-700 rounded-full h-1.5">
+                            <div class="bg-accent h-1.5 rounded-full" style="width: 45%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Trade Card 2 -->
+                    <div class="bg-slate-800/80 rounded-lg p-4 border border-slate-700 hover:border-warning transition-colors">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold text-white text-lg">WLD/USD</span>
+                            <span class="bg-warning/20 text-warning text-xs px-2 py-1 rounded">Tepki Denemesi</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <div class="text-slate-400">Giriş Fiyatı:</div>
+                            <div class="text-right text-white">$0.5100</div>
+                            <div class="text-slate-400">Anlık Fiyat:</div>
+                            <div class="text-right text-danger font-semibold">$0.4988</div>
+                            <div class="text-slate-400">Geçen Süre:</div>
+                            <div class="text-right text-white">4s 05d (Max 8s)</div>
+                            <div class="text-slate-400">Sabit Stop:</div>
+                            <div class="text-right text-danger">$0.4900</div>
+                        </div>
+                        <div class="mt-3 w-full bg-slate-700 rounded-full h-1.5">
+                            <div class="bg-danger h-1.5 rounded-full" style="width: 80%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script to simulate live data flowing in -->
+    <script>
+        setInterval(() => {
+            const container = document.getElementById('monologue-container');
+            const newLog = document.createElement('div');
+            newLog.className = 'log-entry p-3 rounded bg-slate-800/50 opacity-0';
+            
+            const msgs = [
+                "[YÜRÜTME] Piyasa döngüsü tarandı. Hacim stabil.",
+                "[YASAMA] Midas hisseleri kapalı, kripto Asya seansını bekliyor. İşlem yok.",
+                "[ML MOTORU] Geçmiş 142 hatanın ağırlıkları tarandı. Strateji onayı aktif."
+            ];
+            const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
+            
+            newLog.innerHTML = `
+                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>[SİSTEM] - Rutin Tarama</span>
+                    <span>Şimdi</span>
+                </div>
+                <p class="text-sm text-slate-200">${randomMsg}</p>
+            `;
+            
+            container.insertBefore(newLog, container.firstChild);
+            
+            // Trigger reflow
+            void newLog.offsetWidth;
+            
+            newLog.style.transition = 'opacity 0.5s ease-in';
+            newLog.style.opacity = '1';
+            
+            if(container.children.length > 8) {
+                container.removeChild(container.lastChild);
+            }
+        }, 12000);
+    </script>
+</body>
+</html>

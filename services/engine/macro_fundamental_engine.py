@@ -30,8 +30,9 @@ class MacroFundamentalEngine:
         current_time_str = now.strftime("%H:%M")
         
         # 13:15 - 13:40 UTC arası (TÜFE / Tarım Dışı İstihdam Karartması)
-        if "13:15" <= current_time_str <= "13:40":
-            return True, "MAKRO ŞOK KALKANI: TÜFE/İstihdam veri saati. Algoritmik kaos bekleniyor."
+        # KALKAN DEVRE DIŞI BIRAKILDI (Kullanıcı talebi)
+        # if "13:15" <= current_time_str <= "13:40":
+        #    return True, "MAKRO ŞOK KALKANI: TÜFE/İstihdam veri saati. Algoritmik kaos bekleniyor."
             
         # 18:45 - 19:10 UTC arası (FED / FOMC Faiz Kararı Karartması)
         if "18:45" <= current_time_str <= "19:10":

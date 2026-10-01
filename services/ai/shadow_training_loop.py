@@ -2,7 +2,8 @@ import asyncio
 import logging
 import random
 from datetime import datetime
-from services.ai.llm_master_agent import experience_memory_engine, llm_master_agent
+from services.ai.llm_master_agent import llm_master_agent
+from services.engine.experience_memory_engine import experience_memory_engine
 
 logger = logging.getLogger(__name__)
 

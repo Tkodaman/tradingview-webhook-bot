@@ -68,6 +68,7 @@ class TradingViewAutoStrategyRunner:
         Hunter Mode v3: Hard Block'lar kaldırıldı, puan cezasına dönüştürüldü.
         Sadece 3 gerçek HARD STOP: (1) Toxic Asset, (2) Piyasa kapalı, (3) Fiyat=0
         """
+        import time
         # is_running False bile olsa (otonom al-sat kapalı olsa bile) piyasayı izlemeye devam et!
         # Çünkü kullanıcı botun düşünce akışını ve neyi fırsat gördüğünü bilmek istiyor.
             
@@ -422,10 +423,11 @@ class TradingViewAutoStrategyRunner:
             elif 50.0 < rsi <= 65.0:
                 score += weights["rsi_mid"]
                 logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} trend devam ediyor -> +{weights['rsi_mid']}")
-            elif rsi >= 75.0:
-                # PATLAMIŞ VARLIK CEZASI! Yukarıdan almaya son.
-                score -= 3.0
-                logger.warning(f"[I1 RSI] {sym} RSI={rsi:.1f} AŞIRI ALIM (Zaten patlamış)! Tepeden maliyetlenmemek için uzak duruluyor -> -3.0")
+            elif rsi >= 70.0:
+                # KULLANICI EMRİ: Yüksek düzeltme (pullback) yeme ihtimali olan varlıklara girme! (Önden düşün)
+                # Kural: RSI 70 üzeri kesinlikle alım yapılmaz, elde varsa otonom dinamik makas (TRL) daraltılır.
+                score -= 5.0
+                logger.warning(f"[I1 RSI - ÖNDEN DÜŞÜN] {sym} RSI={rsi:.1f} YORGUN/ŞİŞKİN! Yüksek düzeltme riski. Otonom reddedildi -> -5.0")
 
             # ----------------------------------------------------------
             # İ2 — MACD (Moving Average Convergence/Divergence)
@@ -653,10 +655,11 @@ class TradingViewAutoStrategyRunner:
             if not _rp["entry_allowed"]:
                 logger.info(f"[REGIME-SOFT] {sym} ({_mtype_local}) {_rp['regime']} rejiminde aslında giriş yasak ancak otonom mod aktif. Sinyal gücüne güvenerek devam edilecek.")
 
-            required_score    = _rp["min_score"]
-            min_vol           = max(0.2, _rp["min_vol"] * 0.7)  # %30 gevşetildi
-            global_max_pos    = _rp["max_global_pos"]
-            max_pos_for_market_regime = _rp["max_market_pos"]
+            # TAM OTONOM CÜRETKAR MOD: Skor, Hacim ve Kapasite eşikleri esnetildi
+            required_score    = _rp["min_score"] - 2
+            min_vol           = max(0.1, _rp["min_vol"] * 0.5)
+            global_max_pos    = 10 # Normal kapasite 10
+            max_pos_for_market_regime = _rp["max_market_pos"] + 1
             
             # Temporal sl_tighten_pct ile stop-loss mesafesini dinamik olarak daralt
             base_tp = _rp["tp_pct"]
@@ -711,7 +714,7 @@ class TradingViewAutoStrategyRunner:
                 
                 logger.info(f"🧠 [TIER-1 ML FILTER] {sym} Win Probability: %{ml_prob*100:.1f} -> Güven Skoruna Etkisi: {ml_score_impact:+.1f} Puan")
 
-                if ml_prob < 0.40:
+                if ml_prob < 0.30:
                     msg = f"🚫 [TOXIC FLOW DETECTED] ML Modeli {sym} için kazanma ihtimalini %{ml_prob*100:.1f} olarak hesapladı. (Fakeout Riski). İşlem Reddedildi."
                     logger.warning(msg)
                     try:
@@ -768,8 +771,8 @@ class TradingViewAutoStrategyRunner:
                 pass
 
 
-            # Sıkılaştırılmış Alım Sinyali: Puan threshold'u esnetildi ama eksi 4 gibi tehlikeli değil (max -1)
-            is_buy_signal = (score >= (required_score - 1)) or (ml_prob >= 0.70)
+            # Tam Otonom Cüretkar Mod: Alım sinyali şartları iyice esnetildi
+            is_buy_signal = (score >= (required_score - 2)) or (ml_prob >= 0.60)
 
             # Hacim filtresi (Korku Zinciri Kırıldı)
             vol_penalty = 1.0
@@ -814,14 +817,17 @@ class TradingViewAutoStrategyRunner:
                 continue
 
             # SİSTEM GENELİ MAKSİMUM POZİSYON LİMİTİ (GLOBAL LIMIT BLOCK)
-            # MAKSİMUM LİMİT KESİN OLARAK 14 OLACAKTIR
             total_open_pos = sum(1 for p in live_trade_manager.positions.values() if p.status == "OPEN")
-            if total_open_pos >= 14 or total_open_pos >= global_max_pos:
-                msg = f"[GLOBAL LIMIT BLOCK] {sym} reddedildi. Sistem genelinde maksimum ({total_open_pos}/14) açık pozisyon limitine ulaşıldı."
+            
+            # Dinamik Esneme: 10 max, ama fırsat çok güçlüyse insiyatifle +4 yedeği kullan (Max 14)
+            current_max = 14 if (score >= required_score + 2 or ml_prob >= 0.70) else 10
+            
+            if total_open_pos >= current_max or total_open_pos >= 14:
+                msg = f"[GLOBAL LIMIT BLOCK] {sym} reddedildi. Sistem genelinde maksimum ({total_open_pos}/{current_max}) açık pozisyon limitine ulaşıldı."
                 logger.info(msg)
                 bot_thought_stream.add_throttled(
                     "🚧 Global Limit", sym,
-                    f"- Admin]: <span style='color:#10b981; font-weight:bold;'>{sym}</span> radarımda ama genel portföy limiti dolu ({total_open_pos}/14). Nakit koruması aktif, izlemekle yetiniyorum.",
+                    f"- Admin]: <span style='color:#10b981; font-weight:bold;'>{sym}</span> radarımda ama genel portföy limiti dolu ({total_open_pos}/{current_max}). Nakit koruması aktif, izlemekle yetiniyorum.",
                     "WARNING", cooldown_sec=300
                 )
                 try:

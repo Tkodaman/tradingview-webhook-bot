@@ -263,6 +263,17 @@ async def get_dashboard(request: Request):
         }
     )
 
+@app.get("/shadow", response_class=HTMLResponse)
+async def get_shadow_dashboard(request: Request):
+    """
+    Tier-1 Gölge Arena ve ML İç Ses (Monologue) Dashboard
+    """
+    return templates.TemplateResponse(
+        request=request,
+        name="shadow_dashboard.html",
+        context={}
+    )
+
 @app.post("/api/train")
 async def trigger_bot_training(iterations: int = 200):
     """

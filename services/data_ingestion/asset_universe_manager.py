@@ -21,23 +21,39 @@ class AssetUniverseManager:
         # Sistem Alpaca'dan "Asset not found" red yememek için Alpaca'nın /v2/assets API'sinden
         # bizzat onaylanmış tüm 33 adet trade edilebilir varlıkla güncellenmiştir.
         self.master_crypto_universe = [
-            "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:SOLUSDT", "BINANCE:DOGEUSDT",
-            "BINANCE:AVAXUSDT", "BINANCE:ADAUSDT", "BINANCE:DOTUSDT", "BINANCE:UNIUSDT",
-            "BINANCE:SHIBUSDT", "BINANCE:POLUSDT", "BINANCE:AAVEUSDT", "BINANCE:CRVUSDT",
-            "BINANCE:GRTUSDT", "BINANCE:BATUSDT", "BINANCE:SUSHIUSDT", "BINANCE:LINKUSDT",
-            "BINANCE:BCHUSDT", "BINANCE:LTCUSDT", "BINANCE:XRPUSDT", "BINANCE:YFIUSDT",
-            "BINANCE:PEPEUSDT", "BINANCE:WIFUSDT", "BINANCE:RENDERUSDT", "BINANCE:BONKUSDT",
-            "BINANCE:ARBUSDT", "BINANCE:ONDOUSDT", "BINANCE:LDOUSDT", "BINANCE:FILUSDT",
-            "BINANCE:XTZUSDT", "BINANCE:PAXGUSDT", "CRYPTO:TRUMPUSD", "CRYPTO:SKYUSD",
-            "CRYPTO:HYPEUSD",
-            # === +5 YENI KRIPTO (Yuksek Momentum & Likidite) ===
-            "BINANCE:SUIUSDT",   # SUI - Layer1, kurumsal ilgi yuksek
-            "BINANCE:TONUSDT",   # TON - Telegram ekosistemi, hacim patlamasi
-            "BINANCE:NEARUSDT",  # NEAR - AI zinciri, guclu momentum
-            "BINANCE:JUPUSDT",   # JUP - Solana DEX aggregator, yuksek hacim
-            "BINANCE:INJUSDT",   # INJ - DeFi/Cosmos, guvenilir volatilite
-            "BINANCE:QNTUSDT",   # QNT - Yuksek hacim ve momentum kırılımı (Kullanıcı Talebi)
-        ] # Tam destekli ve likiditesi yuksek Alpaca + Binance Kripto Listesi
+            # Katman 1 / Majörler
+            "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:SOLUSDT", "BINANCE:AVAXUSDT", 
+            "BINANCE:ADAUSDT", "BINANCE:DOTUSDT", "BINANCE:LINKUSDT", "BINANCE:BCHUSDT", 
+            "BINANCE:LTCUSDT", "BINANCE:XRPUSDT", "BINANCE:TRXUSDT", "BINANCE:ATOMUSDT",
+            "BINANCE:NEARUSDT", "BINANCE:APTUSDT", "BINANCE:SUIUSDT", "BINANCE:SEIUSDT",
+            "BINANCE:TONUSDT", "BINANCE:INJUSDT", "BINANCE:FTMUSDT", "BINANCE:EGLDUSDT",
+            "BINANCE:ALGOUSDT", "BINANCE:ICPUSDT", "BINANCE:STXUSDT", "BINANCE:TIAUSDT",
+            "BINANCE:KASUSDT", "BINANCE:MINAUSDT", "BINANCE:FLOWUSDT", "BINANCE:NEOUSDT",
+
+            # Meme & Topluluk Odaklı
+            "BINANCE:DOGEUSDT", "BINANCE:SHIBUSDT", "BINANCE:PEPEUSDT", "BINANCE:WIFUSDT", 
+            "BINANCE:BONKUSDT", "BINANCE:FLOKIUSDT", "BINANCE:MEMEUSDT", "BINANCE:BOMEUSDT",
+            "BINANCE:PEOPLEUSDT", "CRYPTO:TRUMPUSD", "CRYPTO:HYPEUSD",
+            
+            # Yapay Zeka (AI) & DePIN
+            "BINANCE:RENDERUSDT", "BINANCE:FETUSDT", "BINANCE:AGIXUSDT", "BINANCE:TAOUSDT",
+            "BINANCE:WLDUSDT", "BINANCE:ARUSDT", "BINANCE:FILUSDT", "BINANCE:GRTUSDT",
+            "BINANCE:THETAUSDT", "BINANCE:OCEANUSDT",
+            
+            # DeFi / DEX / Yield
+            "BINANCE:UNIUSDT", "BINANCE:AAVEUSDT", "BINANCE:CRVUSDT", "BINANCE:SUSHIUSDT",
+            "BINANCE:YFIUSDT", "BINANCE:ONDOUSDT", "BINANCE:LDOUSDT", "BINANCE:JUPUSDT",
+            "BINANCE:PENDLEUSDT", "BINANCE:DYDXUSDT", "BINANCE:MKRUSDT", "BINANCE:COMPUSDT",
+            "BINANCE:SNXUSDT", "BINANCE:GMXUSDT", "BINANCE:CAKEUSDT", "BINANCE:RUNEUSDT",
+
+            # Diğer Popüler / Hacimli (Metaverse, RWA, vs)
+            "BINANCE:QNTUSDT", "BINANCE:XLMUSDT", "BINANCE:VETUSDT", "BINANCE:IMXUSDT",
+            "BINANCE:GALAUSDT", "BINANCE:SANDUSDT", "BINANCE:MANAUSDT", "BINANCE:ORDIUSDT",
+            "BINANCE:1000SATSUSDT", "BINANCE:OMUSDT", "BINANCE:TWTUSDT", "BINANCE:ASTRUSDT",
+            "BINANCE:ROSEUSDT", "BINANCE:CHZUSDT", "BINANCE:ZILUSDT", "BINANCE:ENJUSDT",
+            "BINANCE:KAVAUSDT", "BINANCE:LUNCUSDT", "BINANCE:LPTUSDT", "BINANCE:MAGICUSDT",
+            "BINANCE:FXSUSDT", "BINANCE:XTZUSDT", "BINANCE:PAXGUSDT", "CRYPTO:SKYUSD"
+        ] # Top 80+ Tam destekli ve likiditesi yuksek Binance/Alpaca Listesi (Dinamik Yaris Havuzu)
         
         self.master_bist_universe = [
             "BIST:THYAO", "BIST:ASELS", "BIST:EREGL", "BIST:TUPRS", "BIST:KCHOL",
@@ -116,9 +132,9 @@ class AssetUniverseManager:
             "NYSE:WOLF",     # Wolfspeed - Sic karbur yari iletken, EV/AI chip
         ] # 165+ Mega & Volatile US Stocks
 
-        self.target_crypto_count = 38
-        self.target_bist_count = 20
-        self.target_nasdaq_count = 165  # Tüm universe izlenir
+        self.target_crypto_count = 50  # 80+ kripto içinden en iyi momentumu/puanı olan 50'si yarışır
+        self.target_bist_count = 20    # BIST 30 içinden en iyi 20
+        self.target_nasdaq_count = 80  # 165+ NASDAQ içinden hacmi ve skoru en iyi 80'i yarışır
 
         self._force_rotation()
 
