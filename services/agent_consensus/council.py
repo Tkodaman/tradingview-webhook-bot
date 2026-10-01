@@ -145,7 +145,10 @@ class AutonomousCouncil:
         results = {}
         total_score = 0
         
-        # Ağırlıklar (Flash Agent override edeceği için ağırlığı %0, o bağımsız çalışır)
+        # Yargı Sonrası ML Düzeltme / Yapılandırma (Dynamic Weight Reconfiguration)
+        import os, json
+        dynamic_weights_path = os.path.join(os.path.dirname(__file__), '..', 'ai', 'dynamic_weights.json')
+        
         weights = {
             "OBI": 0.10,          # %10 Mikro Yapı
             "MACRO": 0.20,        # %20 Hacim
@@ -155,6 +158,16 @@ class AutonomousCouncil:
             "FLASH": 0.0,         # %0 (Override özelliği var)
             "CHIEF_JUSTICE": 0.25 # %25 LLM Tartışma & Hafıza
         }
+        
+        if os.path.exists(dynamic_weights_path):
+            try:
+                with open(dynamic_weights_path, 'r') as f:
+                    new_weights = json.load(f)
+                    for k in weights.keys():
+                        if k in new_weights:
+                            weights[k] = float(new_weights[k])
+            except Exception:
+                pass # Hata durumunda varsayılan ağırlıklarla devam et
         
         for name, agent in self.agents.items():
             if name == "OBI":
