@@ -162,6 +162,30 @@ class MarketHoursValidator:
         trt = cls.get_turkey_time()
         weekday = trt.weekday()  # 0: Pazartesi, ..., 4: Cuma, 5: Cumartesi, 6: Pazar
         current_time_str = trt.strftime("%H:%M")
+        current_minute = trt.hour * 60 + trt.minute
+
+        # 🛑 KUSURSUZ İNFAZ & YÜCE DİVAN KURALI: Açılış Fırtınası Bekleme Süresi (Cooldown)
+        # "Her piyasa açılışında ilk 30 dk al-sat yapılmamalı ki yön belli olsun."
+        is_summer_time = (3 <= trt.month <= 10)
+        us_open_minute = 16 * 60 + 30 if is_summer_time else 17 * 60 + 30
+        
+        session_starts = {
+            "Asya Piyasası (Tokyo)": 3 * 60,         # 03:00 TRT
+            "Borsa İstanbul (BIST)": 10 * 60,        # 10:00 TRT
+            "Avrupa Piyasası (Londra)": 11 * 60,     # 11:00 TRT
+            "ABD Piyasası (New York)": us_open_minute# 16:30 / 17:30 TRT
+        }
+        
+        for session_name, start_min in session_starts.items():
+            if start_min <= current_minute < (start_min + 30):
+                remaining_mins = (start_min + 30) - current_minute
+                # Hafta sonu BIST ve ABD açılışı diye bir şey yoktur, kriptoyu o saatte boşuna kilitlemeyelim
+                if weekday >= 5 and session_name in ["Borsa İstanbul (BIST)", "ABD Piyasası (New York)"]:
+                    continue
+                
+                return False, f"🛑 FIRTINA KALKANI: {session_name} açılışının ilk 30 dakikasındayız (Yön Teyidi Bekleniyor). Kalan süre: {remaining_mins} dk.", {
+                    "market": market, "is_open": False, "reason": "SESSION_OPEN_COOLDOWN", "trt_time": current_time_str
+                }
 
         # 1. KRİPTO (24/7 AÇIK)
         if market == "CRYPTO":

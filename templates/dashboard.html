@@ -1292,6 +1292,9 @@ The following code has been modified to include a line number before every line,
             </div>
             
             <div class="action-buttons">
+                <button class="btn" style="border-color: #ef4444; color: #fca5a5;" id="btnFreezeMatrix" onclick="toggleFreezeMatrix()">
+                    <span id="freezeIcon">⏸️</span> <span id="freezeText">Ekranı Dondur</span>
+                </button>
                 <button class="btn btn-yellow" id="btnExportCsv" onclick="exportCsvData()">
                     <span>⬇</span> Tarihsel Veri (CSV)
                 </button>
@@ -1379,7 +1382,7 @@ The following code has been modified to include a line number before every line,
                             </div>
                             <select id="aiModelSelect" onchange="setAiModel(this)" style="width: 100%; padding: 8px; background: #0f121a; border: 1px solid #334155; color: #fff; border-radius: 6px; outline: none; font-family: 'JetBrains Mono'; font-size: 13px;">
                                 <option value="openai|gpt-6-astra" {% if llm_provider == 'openai' %}selected{% endif %}>OpenAI / gpt-6-astra (Primary)</option>
-                                <option value="gemini|gemini-1.5-flash" {% if llm_provider == 'gemini' %}selected{% endif %}>Google Gemini 1.5 Flash (Fallback)</option>
+                                <option value="gemini|gemini-2.5-pro" {% if llm_provider == 'gemini' %}selected{% endif %}>Google Gemini 2.5 Pro (Fallback / Advanced)</option>
                             </select>
                         </div>
                     </div>
@@ -2596,7 +2599,7 @@ The following code has been modified to include a line number before every line,
         }
         
         async function setAiModel(selectObj) {
-            const val = selectObj.value; // "openai|gpt-6-astra" veya "gemini|gemini-1.5-flash"
+            const val = selectObj.value; // "openai|gpt-6-astra" veya "gemini|gemini-2.5-pro"
             const parts = val.split("|");
             const provider = parts[0];
             const model_name = parts[1];
@@ -2758,7 +2761,26 @@ The following code has been modified to include a line number before every line,
         setInterval(updateDurations, 1000);
 
         // 3. FETCH LIVE MATRIX & 3-MARKET SEPARATED WINDOWS
+        window.isUIFrozen = false;
+        function toggleFreezeMatrix() {
+            window.isUIFrozen = !window.isUIFrozen;
+            const btn = document.getElementById('btnFreezeMatrix');
+            const icon = document.getElementById('freezeIcon');
+            const txt = document.getElementById('freezeText');
+            if (window.isUIFrozen) {
+                btn.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                icon.innerText = '▶️';
+                txt.innerText = 'Canlı Akışa Dön';
+            } else {
+                btn.style.backgroundColor = '';
+                icon.innerText = '⏸️';
+                txt.innerText = 'Ekranı Dondur';
+                fetchLiveMatrix(); // resume immediately
+            }
+        }
+        
         async function fetchLiveMatrix() {
+            if (window.isUIFrozen) return;
             try {
                 const res = await fetch('/api/market/live-matrix?t=' + Date.now());
                 const data = await res.json();
@@ -2916,8 +2938,8 @@ The following code has been modified to include a line number before every line,
 
             if (reason && reason !== 'İzleniyor...') parts.push(reason);
             else if (phase) parts.push(phase);
-            if (Number.isFinite(rsi) && rsi > 0) parts.push(`RSI ${rsi.toFixed(1)}`);
-            if (Number.isFinite(volume) && volume > 0) parts.push(`Hacim ${volume.toFixed(2)}x`);
+            if (Number.isFinite(rsi) && rsi > 0) parts.push(`RSI(1h) ${rsi.toFixed(1)}`);
+            if (Number.isFinite(volume) && volume > 0) parts.push(`Hac ${volume.toFixed(2)}x`);
             return parts.join(' | ');
         }
 
@@ -2926,14 +2948,19 @@ The following code has been modified to include a line number before every line,
             const confidence = Number(item.confidence_score || 0);
             const volume = Number(item.volume_ratio || 0);
             const rsi = (item.rsi !== null && item.rsi !== undefined) ? Number(item.rsi) : null;
+            const cmf = Number(item.cmf || 0);  // Kurumsal para akışı
             const adx = Number(item.adx || 0);
             const trendConfirmed = adx >= 20 || ['EARLY_EXPLOSION', 'FRESH_BREAKOUT', 'WHALE_WAVE'].includes(item.momentum_phase);
+            // RSI bandı genişletildi: 55-72 → 50-75 (daha adil)
+            // CMF > 0.05 VEYA devasa hacim (>=2.0) ek şart olarak eklendi
+            // Güven eşiği 65→60 (normalize güven skoru ile uyumlu)
+            const cmfOk = cmf > 0.05 || volume >= 2.0;
             return item.decision === 'BUY'
-                && Number(item.change_pct || 0) > 0
                 && volume >= 1.5
-                && rsi >= 55
-                && rsi <= 72
-                && confidence >= 65
+                && rsi >= 50
+                && rsi <= 75
+                && cmfOk
+                && confidence >= 60
                 && trendConfirmed;
         }
 
@@ -3053,8 +3080,45 @@ The following code has been modified to include a line number before every line,
                 const closedStyle = isRthOpen ? "" : "opacity: 0.4; filter: grayscale(80%);";
                 
                 const formattedPrice = formatDyn(item.price);
-                const rsiStr = (item.rsi !== null && item.rsi !== undefined) ? parseFloat(item.rsi).toFixed(1) : '-';
-                const volStr = (item.volume_ratio !== undefined && item.volume_ratio !== null) ? parseFloat(item.volume_ratio).toFixed(2) : '-';
+                const rsiVal = (item.rsi !== null && item.rsi !== undefined) ? parseFloat(item.rsi) : null;
+                const rsiStr = rsiVal !== null ? rsiVal.toFixed(1) : '-';
+                const volVal = (item.volume_ratio !== undefined && item.volume_ratio !== null) ? parseFloat(item.volume_ratio) : null;
+                const volStr = volVal !== null ? volVal.toFixed(2) : '-';
+                const cmfVal = (item.cmf !== undefined && item.cmf !== null) ? parseFloat(item.cmf) : null;
+                const atrPctVal = (item.atr_pct !== undefined && item.atr_pct !== null) ? parseFloat(item.atr_pct) : 1.5;
+                
+                // ─── RSI Renk Skalası (1h Timeframe — Isınma oku) ───
+                // 1h RSI daha serin çalışır: 70ün üstü gerçek aşırı alımdır.
+                // 45-65 bandı gerçek isınma bölgesidir — yeşil göster.
+                let rsiColor = '#94a3b8'; // nötr gri
+                let rsiLabel = ''; // Isınma durumu etiketi
+                if (rsiVal !== null) {
+                    if (rsiVal >= 80)    { rsiColor = '#f43f5e'; rsiLabel = '↑↑Aşırı Alm'; }  // Aşırı alım — kırmızı
+                    else if (rsiVal >= 70) { rsiColor = '#fb923c'; rsiLabel = '↑Güçlü';   }  // Olgun trend — turuncu
+                    else if (rsiVal >= 60) { rsiColor = '#4ade80'; rsiLabel = '↑Isınıyor'; }  // İdeal isınma — yeşil
+                    else if (rsiVal >= 50) { rsiColor = '#a3e635'; rsiLabel = '↗Yakın';    }  // Momentum kazanmaya başlayanlar
+                    else if (rsiVal >= 40) { rsiColor = '#facc15'; rsiLabel = '~Nötr';    }  // Yatay — sarı
+                    else if (rsiVal >= 28) { rsiColor = '#60a5fa'; rsiLabel = '↓Dip';     }  // Aşırı satım — mavi (fırsat)
+                    else                  { rsiColor = '#a78bfa'; rsiLabel = '↓↓Düşüş';  }  // Serbest düşüş — mor
+                }
+                
+                // ─── Hacim Renk Skalası ───
+                let volColor = '#94a3b8'; // nötr gri
+                if (volVal !== null) {
+                    if (volVal >= 3.0) volColor = '#a855f7';      // devasa balina — mor
+                    else if (volVal >= 2.0) volColor = '#4ade80'; // güçlü hacim — yeşil
+                    else if (volVal >= 1.5) volColor = '#facc15'; // yükselen hacim — sarı
+                    else if (volVal >= 1.0) volColor = '#94a3b8'; // normal — gri
+                    else volColor = '#f43f5e';                    // hacimsiz — kırmızı
+                }
+                
+                // ─── CMF Göstergesi ───
+                let cmfStr = '';
+                if (cmfVal !== null) {
+                    const cmfColor = cmfVal > 0.10 ? '#4ade80' : cmfVal > 0 ? '#a3e635' : cmfVal > -0.10 ? '#fb923c' : '#f43f5e';
+                    const cmfIcon = cmfVal > 0.10 ? '🏦+' : cmfVal > 0 ? '🏦' : cmfVal > -0.10 ? '🏦–' : '🏦⛔';
+                    cmfStr = ` | <span style="color:${cmfColor};font-size:9px;" title="CMF: Chaikin Money Flow (Kurumsal Para Akışı)">${cmfIcon}${cmfVal.toFixed(2)}</span>`;
+                }
                 
                 // If it doesn't have an arrow yet, default based on change_pct
                 if (!dirArrow) dirArrow = isUp ? "↑" : "↓";
@@ -3068,27 +3132,25 @@ The following code has been modified to include a line number before every line,
                 let aiRec = item.reason || "İzleniyor...";
                 
                 // OTONOM İÇ SES - DOĞAL VE MANTIKSAL DÜŞÜNCE AKIŞI
-                if (isOpen && hasConf && confScore >= 90) {
-                    const aiThoughts = [
-                        `Admin, inanılmaz bir öngörüm var! ${item.symbol} tüm piyasa yarışını domine ediyor (Güven: %${confScore.toFixed(1)}). Temel dayanağım: ${aiRec}. Zincirleri kırmaya değer bir fırsat!`,
-                        `[DERİN ANALİZ] Tüm varlıkların anlık savaşını taradım, ${item.symbol} açık ara zirvede. Teknik öngörüm: ${aiRec}. Kaçırmamamız gereken kritik bir an Admin!`,
-                        `Admin, ${item.symbol} üzerindeki momentum kırılımı kusursuz işliyor. Matematiksel gerekçem: ${aiRec}. Hızlı karar vermeliyiz, yarışta rakipleri sildi!`,
-                        `İç sesim beni haklı çıkarıyor Admin. ${item.symbol} için saptadığım veri akışı muazzam (Güven %${confScore.toFixed(1)}). Sebebim: ${aiRec}. Hedefe kitlendim.`
-                    ];
-                    // Basit bir deterministik indeks ile aynı koin için hep aynı mesajın dönmesini sağla (titremeyi önler)
-                    const hash = item.symbol.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-                    aiRec = aiThoughts[hash % aiThoughts.length];
-                }
+                // Fake hardcoded AI thoughts removed. 
+                // Now directly displaying the genuine analytical reason from the engine.
                 
-                // Hedef hesaplama (dinamik TP) -> Basit mantık: %3 yukarı (alım) veya güven skoruna orantılı
-                let tpFactor = 0.03;
-                if(hasConf && confScore >= 80) tpFactor = 0.045;
-                else if(hasConf && confScore < 40) tpFactor = 0.02;
+                // ─── ATR BAZLI DİNAMİK TP HESAPLAMASI ───
+                // Sabit %3 yerine piyasa oynaklığını (ATR) kullanan adil hedef
+                let tpFactor = (atrPctVal / 100) * 1.5;  // ATR'nin 1.5 katı hedef
+                // Momentum fazına göre çarpan
+                if (item.momentum_phase === 'WHALE_WAVE') tpFactor *= 1.8;
+                else if (item.momentum_phase === 'EARLY_EXPLOSION') tpFactor *= 1.5;
+                else if (item.momentum_phase === 'FRESH_BREAKOUT') tpFactor *= 1.3;
+                else if (item.momentum_phase === 'PEAK_RISK') tpFactor *= 0.5;
+                else if (item.momentum_phase === 'PANIC_DUMP') tpFactor *= 0.3;
+                // Minimum %0.5, maksimum %8 sınırı
+                tpFactor = Math.min(0.08, Math.max(0.005, tpFactor));
                 
-                // Target depends on decision: BUY means higher, SELL means lower
                 const isTargetUp = !isSell;
                 const hedefPrice = parseFloat(item.price) * (1 + (isTargetUp ? tpFactor : -tpFactor));
                 const formattedHedef = formatDyn(hedefPrice);
+                const hedefPct = (tpFactor * 100).toFixed(1);
                 
                 // Add to ticker
                 if (index < 5 && isOpen) {
@@ -3209,11 +3271,15 @@ The following code has been modified to include a line number before every line,
                 currPriceEl.innerText = '$' + formattedPrice + ' ' + dirArrow;
                 currPriceEl.style.color = chgColor;
                 
-                box.querySelector('.vol-rsi').innerHTML = 'RSI: <span style="color:#fff;">' + rsiStr + '</span> | Hac: <span style="color:#fff;">' + volStr + 'x</span>';
+                // ─── RSI + Hacim + CMF: Renk kodlu gösterim ───
+                box.querySelector('.vol-rsi').innerHTML =
+                    'RSI\(1h\):<span style="color:' + rsiColor + ';font-weight:700;margin-left:2px;">' + rsiStr + '</span>' +
+                    ' | Hac:<span style="color:' + volColor + ';font-weight:700;margin-left:2px;">' + volStr + 'x</span>' +
+                    cmfStr;
                 
+                // ─── ATR Bazlı Hedef Fiyat ───
                 const hedefPriceEl = box.querySelector('.hedef-price');
-                hedefPriceEl.innerText = 'Hedef: $' + formattedHedef;
-                hedefPriceEl.style.color = chgColor;
+                hedefPriceEl.innerHTML = 'Hdf:<span style="color:' + (isTargetUp ? '#4ade80' : '#f43f5e') + ';font-weight:700;">$' + formattedHedef + '</span> <span style="font-size:8px;opacity:0.7;">(' + (isTargetUp ? '+' : '-') + hedefPct + '%)</span>';
                 
                 const recContainer = box.querySelector('.ai-rec-container');
                 if (recContainer.dataset.rec !== aiRec) {
@@ -3343,6 +3409,7 @@ The following code has been modified to include a line number before every line,
                         <span>Y: ${formattedHigh}</span>
                     </div>
                     <span class="market-data-badge ${dataBadgeClass}">${dataBadge}</span>
+                    <button onclick="openForecastModal('${item.symbol}'); event.stopPropagation();" class="btn btn-purple" style="font-size:10px; padding:3px 6px; margin-top:4px; width:100%; justify-content:center;">🔮 8s Yapay Zeka Öngörüsü</button>
                 `;
             });
         }
@@ -5194,16 +5261,38 @@ document.addEventListener("DOMContentLoaded", function() {
         try {
             const resp = await fetch('/api/memory/dynamic-voice');
             const data = await resp.json();
+            const thoughtMarquee = document.getElementById('aiThoughtMarquee');
+            
             if (data.status === 'success') {
                 const alarmEl = document.getElementById('liveTickerText');
                 if (alarmEl && data.alarm) {
                     alarmEl.innerHTML = `[${data.last_update}] ${data.alarm}`;
                 }
-                
-                const thoughtMarquee = document.getElementById('aiThoughtMarquee');
-                if (thoughtMarquee && data.thought) {
+                // LLM cevabı varsa ve hala başlangıç metni değilse göster
+                const isDefault = !data.thought || data.thought.includes('Zeka Motoru') || data.thought.includes('taranıyor');
+                if (thoughtMarquee && data.thought && !isDefault) {
                     thoughtMarquee.innerHTML = `💬 ${data.thought}`;
+                    return;
                 }
+            }
+            
+            // LLM yanıt vermediyse veya hala başlangıç metni varsa:
+            // Gerçek bot_thought_stream'i çek ve göster
+            try {
+                const tsResp = await fetch('/api/analytics/thought-stream');
+                const tsData = await tsResp.json();
+                const thoughts = tsData.thoughts || [];
+                if (thoughtMarquee && thoughts.length > 0) {
+                    const msgs = thoughts
+                        .slice(0, 5)
+                        .map(t => `[${t.timestamp?.slice(11,16)||''}] ${t.category||''}: ${t.message||''}`)
+                        .join('  ·  ');
+                    thoughtMarquee.innerHTML = `🧠 ${msgs}`;
+                } else if (thoughtMarquee) {
+                    thoughtMarquee.innerHTML = `🧠 Piyasa izleniyor... Henüz teknik sinyal üretilmedi.`;
+                }
+            } catch(e2) {
+                // sessiz geç
             }
         } catch (e) {
             console.error("Dış ses güncellenemedi:", e);
@@ -5311,60 +5400,55 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     };
 
-    // GEÇMİŞ KAPATILAN VARLIKLAR ÖZET RAPORU DİNAMİK VERİ ÇEKİMİ
-    async function fetchHistorySummary() {
-        try {
-            const res = await fetch('/api/position/history/summary');
-            const data = await res.json();
-            
-            document.getElementById('summaryTotalTrades').innerText = data.total_trades || "0 / 0";
-            document.getElementById('summaryWinRate').innerText = data.win_rate || "%0.0 / %0.0";
-            
-            const pnlReal = parseFloat(data.pnl_real || 0);
-            const pnlVirtual = parseFloat(data.pnl_virtual || 0);
-            const colorReal = pnlReal >= 0 ? '#4ade80' : '#f43f5e';
-            const colorVirtual = pnlVirtual >= 0 ? '#4ade80' : '#f43f5e';
-            
-            document.getElementById('summaryTotalPnl').innerHTML = 
-                `<span style="color:${colorReal}">$${pnlReal.toFixed(2)}</span> / <span style="color:${colorVirtual}">$${pnlVirtual.toFixed(2)}</span>`;
-                
-            if (data.ai_summary) {
-                document.getElementById('summaryAiAnalysisBox').style.display = 'block';
-                document.getElementById('summaryAiAnalysisText').innerText = data.ai_summary;
-            } else {
-                document.getElementById('summaryAiAnalysisBox').style.display = 'none';
-            }
-            
-            const tbody = document.getElementById('historySummaryTableBody');
-            if (tbody && data.recent_trades) {
-                tbody.innerHTML = data.recent_trades.map(t => {
-                    const chgColor = (parseFloat(t.net_pnl) >= 0) ? '#4ade80' : '#f43f5e';
-                    const sideColor = t.side === 'BUY' ? '#4ade80' : '#f43f5e';
-                    const outPrice = t.exit_price ? '$' + parseFloat(t.exit_price).toFixed(4) : '-';
-                    const reason = t.reason ? t.reason.replace('CLOSED_', '') : '';
-                    
-                    return `
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <td style="padding: 8px; font-weight: bold; color: #fbbf24;">${t.symbol}</td>
-                            <td style="padding: 8px; text-align:center; color:${sideColor}">${t.side}</td>
-                            <td style="padding: 8px; text-align:right;">$${parseFloat(t.entry_price).toFixed(4)}</td>
-                            <td style="padding: 8px; text-align:right;">${outPrice}</td>
-                            <td style="padding: 8px; text-align:right;">${t.quantity}</td>
-                            <td style="padding: 8px; text-align:right; color:${chgColor}; font-weight:bold;">$${parseFloat(t.net_pnl).toFixed(2)}</td>
-                            <td style="padding: 8px; text-align:center;"><span style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:3px; font-size:10px;">${reason}</span></td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-        } catch (e) {
-            console.error("fetchHistorySummary error:", e);
-        }
-    }
-    fetchHistorySummary();
-    setInterval(fetchHistorySummary, 15000); // 15 saniyede bir history yenile
+
 
 });
+
+// 8-Hour AI Forecast Modal Logic
+async function openForecastModal(symbol) {
+    document.getElementById('forecastModalSymbol').innerText = symbol;
+    document.getElementById('forecastModalContent').innerHTML = '<div style="text-align:center; padding: 30px;"><div class="live-dot" style="margin-right:10px;"></div> <br><br><span style="color:#a855f7; font-weight:bold;">Derin Masa AI Verileri Analiz Ediyor...</span><br><br><span style="color:var(--text-secondary); font-size:12px;">Günlük, 1 Saatlik ve 15 Dakikalık veriler sentezlenerek 8 saatlik ATR (Volatilite) projeksiyonu çıkarılıyor. Lütfen bekleyin.</span></div>';
+    document.getElementById('forecastModalOverlay').classList.add('active');
+    
+    try {
+        const response = await fetch('/api/ide/analyst/custom', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                prompt: `Sen Derin Masa'nın baş analistisin. Şu anki piyasa şartlarına göre ${symbol} için önümüzdeki 8 saatlik detaylı fiyat hareketini, ATR (Volatilite) hedeflerini, muhtemel tepe/dip bantlarını ve trend senaryosunu tahmin et. Lütfen cevabı çok net, madde madde ve okunabilir formatta (Markdown) ver. Karar vermek isteyen trader'a net bir ufuk çiz.`
+            })
+        });
+        const data = await response.json();
+        const content = data.response || "Hata oluştu.";
+        
+        // Basit Markdown render (bold and line breaks)
+        let formattedContent = content
+            .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#fff;">$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/\n/g, '<br>');
+            
+        document.getElementById('forecastModalContent').innerHTML = `<div style="font-size: 13.5px; line-height: 1.6; color: #cbd5e1; padding:10px;">${formattedContent}</div>`;
+    } catch (e) {
+        document.getElementById('forecastModalContent').innerHTML = `<div style="color: #ef4444; padding:20px;">Bağlantı Hatası: ${e.message}</div>`;
+    }
+}
+function closeForecastModal() {
+    document.getElementById('forecastModalOverlay').classList.remove('active');
+}
 </script>
+
+<!-- 8-Hour AI Forecast Modal -->
+<div class="modal-overlay" id="forecastModalOverlay" style="z-index: 100000;">
+    <div class="modal-box" style="max-width: 600px;">
+        <div class="modal-header">
+            <div class="modal-title">🔮 8 Saatlik Projeksiyon: <span id="forecastModalSymbol" style="color:#a855f7;"></span></div>
+            <button class="modal-close-btn" onclick="closeForecastModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="forecastModalContent" style="max-height: 65vh; overflow-y: auto;">
+            <!-- Content -->
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

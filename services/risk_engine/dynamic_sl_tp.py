@@ -57,18 +57,29 @@ def calculate_atr_based_tp_sl(
     # 3. Dinamik Kâr Al (TP) Hesabı
     # Hantal %10 rallileri beklemez; volatiliteye göre hızlıca kârı cebe indirir.
     # Risk-Ödül Oranı (R:R) en az 1.35x - 1.50x korunur.
+    import json, os
+    dyn_tp_modifier = 1.0
+    dyn_sl_modifier = 1.0
+    try:
+        if os.path.exists("data/dynamic_thresholds.json"):
+            with open("data/dynamic_thresholds.json", "r") as f:
+                dyn = json.load(f)
+                dyn_tp_modifier = dyn.get("tp_multiplier_adjustment", 1.0)
+                dyn_sl_modifier = dyn.get("sl_multiplier_adjustment", 1.0)
+    except: pass
+
     if is_crypto:
-        tp_mult = 1.85 if is_short_term else 2.40
-        calculated_tp = eff_atr_pct * tp_mult
-        min_rr = 1.35 if is_short_term else 1.50
-        min_tp = max(2.8, sl_pct * min_rr)
-        max_tp = 7.5 if is_short_term else 14.0
+        calculated_tp = 3.5 * dyn_tp_modifier  # Otonom Makine Öğrenimi Çarpanı
+        min_tp = 3.5 * dyn_tp_modifier
+        max_tp = 3.5 * dyn_tp_modifier
     else:
-        tp_mult = 1.60 if is_short_term else 2.00
+        tp_mult = (1.25 if is_short_term else 1.60) * dyn_tp_modifier
         calculated_tp = eff_atr_pct * tp_mult
-        min_rr = 1.40 if is_short_term else 1.60
-        min_tp = max(2.0, sl_pct * min_rr)
-        max_tp = 4.8 if is_short_term else 8.5
+        min_rr = 1.15 if is_short_term else 1.25
+        min_tp = max(1.5, sl_pct * min_rr)
+        max_tp = 3.5 if is_short_term else 6.0
+        
+    sl_pct = sl_pct * dyn_sl_modifier
 
     tp_pct = max(min_tp, min(calculated_tp, max_tp))
 
@@ -95,7 +106,7 @@ class DynamicRiskManager:
         # === ÖZGÜVENLİ TRAILING STOP PARAMETRESİ ===
         # trailing_distance_pct: Kârın izini sürerken sahte iğnelere (wicks) kurban gitmemek için ESNETİLDİ.
         # Çok sıkı (%2) trailing stop, ufak bir düzeltmede (pullback) kârlı işlemi zararına kapatıyordu.
-        self.trailing_distance_pct = 3.5   # %3.5 dinamik iz sürme (Geniş Nefes Payı Bırakıldı)
+        self.trailing_distance_pct = 4.8   # %4.8 dinamik iz sürme (Geniş Nefes Payı Bırakıldı - Wick Guard)
 
     async def on_price_update(self, symbol: str, current_price: float):
         """

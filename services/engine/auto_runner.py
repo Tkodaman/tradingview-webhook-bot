@@ -32,6 +32,8 @@ from services.engine.kelly_criterion import kelly_engine
 
 # Global instances
 llm_intelligence = LLMMarketIntelligenceEngine()
+from services.intelligence.quant_alpha_engine import QuantAlphaEngine
+quant_alpha = QuantAlphaEngine()
 
 class TradingViewAutoStrategyRunner:
     def __init__(self):
@@ -106,7 +108,28 @@ class TradingViewAutoStrategyRunner:
         if fg_assessment.should_block:
             logger.warning(f"[F&G SOFT] Aşırı açgözlülük — lot x0.5, alım devam ediyor.")
 
-        market_data_raw = tradingview_live_client.fetch_live_market_data()
+        market_data_raw_unfiltered = tradingview_live_client.fetch_live_market_data()
+        
+        # === OTC & JUNK STOCK FILTER (Kullanıcı Koruması) ===
+        # TradingView'dan gelen anlamsız (Alpaca'da olmayan) OTC hisselerini engeller.
+        from services.data_ingestion.asset_universe_manager import AssetUniverseManager
+        universe = AssetUniverseManager()
+        valid_symbols = set(
+            [s.split(":")[-1] for s in universe.master_crypto_universe] +
+            [s.split(":")[-1] for s in universe.master_nasdaq_universe] +
+            [s.split(":")[-1] for s in universe.master_bist_universe]
+        )
+        
+        market_data_raw = {}
+        for sym, data in market_data_raw_unfiltered.items():
+            clean_sym = sym.replace("USDT", "USD").split(":")[-1] if "USDT" in sym else sym
+            # Kripto son eklerini ve BIST/NASDAQ kontrolünü esnek yap
+            if any(valid in sym for valid in valid_symbols) or "USD" in sym:
+                market_data_raw[sym] = data
+            else:
+                # Eger hicbir listede yoksa yoksay.
+                pass
+
         executed_triggers = []
 
         # === RSI YARIŞI: Yüksek RSI momentum = önce değerlendir ===
@@ -679,15 +702,71 @@ class TradingViewAutoStrategyRunner:
                     symbol=sym, indicators=data,
                     context={"fear_greed_score": fg_assessment.score}
                 )
-                if ml_prob >= 0.70: # Analiz felci kırıldı, %70+ başarı 
-                    score += 8  # ML Override (Agresif Güven!)
-                    logger.info(f"🧠 [ML BOLD OVERRIDE] {sym} Makine Öğrenimi fırsat saptadı (Win:%{ml_prob*100:.1f}). Skora +8 Cüretkar Bonus!")
-                    bot_thought_stream.add("🧠 Otonom Atılım", sym, f"Yapay Zeka korku zincirini kırdı (Win: %{ml_prob*100:.0f}). Tüm kısıtlamalar aşılarak agresif alım inisiyatifi kullanılıyor!", "SUCCESS")
-                elif ml_action == "BLOCK":
-                    logger.info(f"[ML-SOFT] {sym} ML BLOCK verdi ama sistem cüretkar modda, görmezden geliniyor.")
-                    ml_lot_mult = 0.8 # Sadece ufak lot kısıntısı
+                
+                # ==== TIER-1 YZ ORANSAL GÜVEN ENTEGRASYONU (FreqAI Mantığı) ====
+                # Win probability'ye (Kazanma olasılığına) göre skoru oransal artır/azalt.
+                # %50 nötr kabul edilir. 0.50'den sapan her %10'luk dilim için skora +/- 1 puan etki eder.
+                ml_score_impact = (ml_prob - 0.50) * 10.0
+                score += ml_score_impact
+                
+                logger.info(f"🧠 [TIER-1 ML FILTER] {sym} Win Probability: %{ml_prob*100:.1f} -> Güven Skoruna Etkisi: {ml_score_impact:+.1f} Puan")
+
+                if ml_prob < 0.40:
+                    msg = f"🚫 [TOXIC FLOW DETECTED] ML Modeli {sym} için kazanma ihtimalini %{ml_prob*100:.1f} olarak hesapladı. (Fakeout Riski). İşlem Reddedildi."
+                    logger.warning(msg)
+                    try:
+                        experience_memory_engine.add_live_log(_mtype_local, "BLOCK", msg)
+                    except: pass
+                    continue
+                
+                if ml_prob >= 0.70: 
+                    bot_thought_stream.add("🧠 Otonom Onay (Tier-1)", sym, f"Makine Öğrenimi (Win: %{ml_prob*100:.0f}) güvenliği onayladı. Fırsat geçerli.", "SUCCESS")
             except Exception as ml_err:
                 pass
+
+            # =========================================================
+            # TIER-1 ANALİST MOTORU (QUANT ALPHA EXTRACTION)
+            # =========================================================
+            # Alpha skoru -1.0 (Kesin Tuzak) ile +1.0 (Güçlü Kurumsal Trend) arasıdır.
+            # Skor oransal olarak (x5 katsayısıyla) güven skoruna etki eder.
+            try:
+                alpha_val = quant_alpha.evaluate_alpha(sym, data)
+                alpha_impact = alpha_val * 5.0
+                score += alpha_impact
+                
+                if alpha_impact != 0:
+                    logger.info(f"🔬 [TIER-1 ALPHA ANALYST] {sym} Alpha Skoru: {alpha_val:+.2f} -> Güven Skoruna Etkisi: {alpha_impact:+.1f} Puan")
+                
+                if alpha_val <= -0.6:
+                    msg = f"🚫 [ALPHA REJECT] {sym} Kurumsal Analist motoru bu harekette 'Fakeout/Spoofing' tespit etti. İşlem engellendi."
+                    logger.warning(msg)
+                    try:
+                        experience_memory_engine.add_live_log(_mtype_local, "BLOCK", msg)
+                    except: pass
+                    continue
+            except Exception as alpha_err:
+                pass
+
+            # =========================================================
+            # TIER-1 RISK & KASA OPTİMİZASYONU (KELLY CRITERION LAYER)
+            # =========================================================
+            # Sistem geçmiş performansa göre (Win Rate & Risk/Reward) ne kadar 
+            # agresif/defansif olması gerektiğini belirler. Bunu puan yarışına entegre ediyoruz.
+            try:
+                kelly_mult = kelly_engine.calculate_multiplier(live_trade_manager.trade_history)
+                # Kelly 1.0 normaldir. 1.0 altı defansif (zarar serisi), üstü agresiftir (kazanç serisi).
+                # Score üzerindeki oransal etki: (Kelly - 1.0) * 3.0
+                kelly_impact = (kelly_mult - 1.0) * 3.0
+                score += kelly_impact
+                
+                if kelly_impact != 0:
+                    logger.info(f"⚖️ [KELLY RISK ANALYST] Genel Kelly Çarpanı: {kelly_mult:.2f} -> Güven Skoruna Etkisi: {kelly_impact:+.1f} Puan")
+                    
+                if kelly_mult <= 0.3:
+                    bot_thought_stream.add_throttled("⚖️ Defans Modu", sym, "Kelly Kriteri çok düşük. Kasa koruma amacıyla puanlar baskılanıyor.", "WARNING", cooldown_sec=180)
+            except Exception as kelly_err:
+                pass
+
 
             # Sıkılaştırılmış Alım Sinyali: Puan threshold'u esnetildi ama eksi 4 gibi tehlikeli değil (max -1)
             is_buy_signal = (score >= (required_score - 1)) or (ml_prob >= 0.70)
@@ -781,6 +860,20 @@ class TradingViewAutoStrategyRunner:
                         live_trade_manager.close_position(open_pos.id, "CLOSED_EARLY")
                 continue
 
+            # ==========================================
+            # MARKET REGIME NO-TRADE KALKANI (Tier-1 Skill)
+            # ==========================================
+            if _mtype_local == "CRYPTO" and current_regime in ["SIDEWAYS", "BEAR", "CRASH"]:
+                if score < 8.0:
+                    msg = f"🛡️ [REGIME GUARD] Kripto {current_regime} rejiminde. Skor ({score}) 8'in altında olduğu için ALIM REDDEDİLDİ. (Yatay piyasa testere koruması)"
+                    logger.info(msg)
+                    try:
+                        experience_memory_engine.add_live_log(_mtype_local, "BLOCK", msg)
+                        live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Regime Guard")
+                    except Exception:
+                        pass
+                    continue
+            
             # ==========================================
             # MEAN REVERSION (ORTALAMAYA DÖNÜŞ) MOTORU
             # ==========================================
@@ -876,58 +969,12 @@ class TradingViewAutoStrategyRunner:
                 # Astra erişilemezse işlem normal devam eder (non-blocking).
                 # ═══════════════════════════════════════════════════════════
                 llm_lot_mult = 1.0
-                try:
-                    from services.ai.llm_master_agent import llm_master_agent
-                    if llm_master_agent.is_ready():
-                        try:
-                            cl_result = await asyncio.wait_for(
-                                asyncio.to_thread(
-                                    llm_master_agent.analyze_signal,
-                                    symbol=sym,
-                                    indicators={
-                                        "rsi": rsi, "macd": macd, "volume_ratio": vol_ratio,
-                                        "adx": adx, "cmf": cmf, "ema_golden_cross": ema_golden,
-                                        "atr_pct": atr_pct, "change_pct": chg_pct,
-                                    },
-                                    regime=dynamic_regime,
-                                    score=score,
-                                ),
-                                timeout=1.5
-                            )
-                        except asyncio.TimeoutError:
-                            logger.warning(f"⏳ [SLIPPAGE GUARD] {sym} LLM yanıtı 1.5 saniyeyi aştı. Gecikme riskine karşı LLM onayını atlıyor, matematiksel güvenle devam ediyoruz.")
-                            cl_result = {"action": "BUY", "confidence": 50, "reasoning": "LLM Timeout (1.5s) - Matematiksel Otonomi Devrede"}
-                        cl_action     = cl_result.get("action", "WAIT")
-                        cl_confidence = cl_result.get("confidence", 50)
-                        cl_reason     = cl_result.get("reasoning", "")
-
-                        if cl_action == "BUY" and cl_confidence >= 60:
-                            llm_lot_mult = 2.0   # Özgüvenli cüretkar onay → x2.0 bonus lot
-                            msg = f"✅ ONAYLANDI (Güven: %{cl_confidence}) | Neden: {cl_reason}"
-                            bot_thought_stream.add("🤖 ASTRA AI", sym, msg, "SUCCESS")
-                            logger.info(
-                                f"🚀 [ASTRA ✅] {sym} BUY onayladı "
-                                f"(güven:%{cl_confidence}) — Cüretkar lot x2.0 | {cl_reason}"
-                            )
-                        elif cl_action == "WAIT":
-                            llm_lot_mult = 0.8   # İhtiyatlı ama fırsatı kaçırmıyor → lot x0.8
-                            msg = f"⚠️ BEKLE (Güven: %{cl_confidence}) | Neden: {cl_reason}"
-                            bot_thought_stream.add("🤖 ASTRA AI", sym, msg, "WARNING")
-                            logger.warning(
-                                f"🤖 [ASTRA ⚠️] {sym} WAIT dedi "
-                                f"(güven:%{cl_confidence}) — lot x0.8 (Analiz felci kırıldı) | {cl_reason}"
-                            )
-                        else:  # SELL veya güçlü red
-                            # KISIR DÖNGÜ KIRILDI: Astra "Sat/Girme" derse, inatla yarım lot girilmeyecek. Zarara tahammül yok.
-                            msg = f"🔴 {cl_action} (Güven: %{cl_confidence}) | İşlem İPTAL Edildi: {cl_reason}"
-                            bot_thought_stream.add("🤖 ASTRA AI (Red)", sym, msg, "ERROR")
-                            logger.warning(f"🤖 [ASTRA 🔴] {sym} {cl_action} sinyali. Çakışma var, işlem iptal.")
-                            continue # İşleme girme!
-
-                        dyn_cap = round(dyn_cap * llm_lot_mult * vol_penalty, 2)
-                        dyn_cap = max(10.0, dyn_cap)  # Minimum bütçe
-                except Exception as cl_err:
-                    logger.debug(f"[ASTRA/GEMINI SKIP] {sym}: {cl_err} — Astra/Gemini devre dışı, normal devam")
+                # KUSURSUZ İNFAZ: Analiz Felci ve Çakışma Katmanlarının Çözülmesi
+                # auto_runner.py otonom olarak sadece kantitatif (matematiksel/teknik) sinyal üretecek.
+                # Sinyalin son onayı ve risk denetimi zaten order_router.py'daki Yüce Divan (AutonomousCouncil) tarafından yapılıyor.
+                # Burada ikinci bir LLM filtresi koymak çakışmalara (çift filtreleme) ve analiz felcine neden oluyordu.
+                llm_lot_mult = 1.0  # Standart lot ile devam, Yüce Divan (order_router) risk_level'ı belirleyecek.
+                logger.debug(f"[AUTO-RUNNER] {sym} kantitatif filtreleri geçti. Son karar için Yüce Divan'a (order_router) gönderiliyor.")
 
                 logger.info(f"⚡ [EXECUTION] {sym} Final Bütçe: ${dyn_cap:.2f} (Rejim x{_regime_cap_mult}, Cüretkar x{audacious_mult}, Astra/Gemini x{llm_lot_mult})")
 

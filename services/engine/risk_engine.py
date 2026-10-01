@@ -89,22 +89,24 @@ class RiskEngine:
         if kelly_perc <= 0:
             return 0.0
             
-        # --- SHAME PROTOCOL INTEGRATION ---
-        shame_score = 0
-        try:
-            import json
-            import os
-            shame_path = os.path.join(os.path.dirname(__file__), 'shame_protocol.json')
-            if os.path.exists(shame_path):
-                with open(shame_path, 'r') as f:
-                    data = json.load(f)
-                    shame_score = data.get('shame_score', 0)
-        except Exception:
-            pass
-            
-        # Mathematically degrade confidence (Each shame point reduces multiplier by 1%)
-        penalty = shame_score * 0.01
-        degraded_multiplier = max(0.01, fraction_multiplier - penalty)
+        # Mathematically adjust fraction (defaulting to safe fraction_multiplier)
+        degraded_multiplier = max(0.01, fraction_multiplier)
         
         safe_kelly = kelly_perc * degraded_multiplier
         return min(safe_kelly, 0.30)
+
+    @staticmethod
+    def evaluate_portfolio_reallocation(entry_price: float, current_price: float, max_drawdown_pct: float = 0.15) -> str:
+        """
+        Forces a hard stop if a position is trapped in hopium / severe drawdown.
+        Breaks the 'ACTIVE_TRAILING' vicious cycle.
+        Returns 'REALLOCATE' if max drawdown is breached, otherwise 'HOLD'.
+        """
+        if entry_price <= 0 or current_price <= 0:
+            return "HOLD"
+            
+        drawdown = (entry_price - current_price) / entry_price
+        if drawdown >= max_drawdown_pct:
+            return "REALLOCATE" # Hard Stop-Loss Triggered
+            
+        return "HOLD"

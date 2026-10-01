@@ -54,22 +54,30 @@ class FakeoutGuard:
         # Sahte kırılımın en guclu gostergesi: hacim olmadan fiyat cikmaz
         if vol_ratio < 0.80 and change_pct > 1.5:
             reason = f"[HR1] HACIMSIZ KIRILIM: Vol={vol_ratio:.2f}<0.80 + Chg={change_pct:.1f}%>1.5%"
-            logger.warning(f"[FAKEOUT GUARD HR1] {symbol} {reason}")
+            logger.debug(f"[FAKEOUT GUARD HR1] {symbol} {reason}")
             return FakeoutResult(is_fakeout=True, reason=reason, confidence=1.0)
 
         # HR2: FOMO Pump Hızı — tek tickte %15+ spike (Kural esnetildi - Agresif mod)
         # Manipülatif spike: haber/bot/wash trading — geri dönüş kaçınılmaz
         if change_pct >= 15.0 and vol_ratio < 1.5:
             reason = f"[HR2] FOMO PUMP SPIKE: Chg={change_pct:.1f}%>=15% hacim desteği yok"
-            logger.warning(f"[FAKEOUT GUARD HR2] {symbol} {reason}")
+            logger.debug(f"[FAKEOUT GUARD HR2] {symbol} {reason}")
             return FakeoutResult(is_fakeout=True, reason=reason, confidence=1.0)
 
         # HR3: Fitil Ağırlıklı Mum + Hacimsiz = Kesin Geri Dönüş
         # body_ratio < 0.20: mumun %80+ fitil, neredeyse hiç gövde yok
         if body_ratio < 0.20 and vol_ratio < 0.90 and change_pct > 0.5:
             reason = f"[HR3] FITIL+HACİMSİZ: Body={body_ratio:.2f}<0.20 Vol={vol_ratio:.2f}<0.90"
-            logger.warning(f"[FAKEOUT GUARD HR3] {symbol} {reason}")
+            logger.debug(f"[FAKEOUT GUARD HR3] {symbol} {reason}")
             return FakeoutResult(is_fakeout=True, reason=reason, confidence=0.95)
+
+        # HR4: Düşük Volatilite (Chop Zone) Tuzagı (Asya Seansı ve Testere Piyasası Koruması)
+        # atr_pct < 1.0 demek fiyat hic oynamıyor demektir. Burada yuzde 0.8 artıs "kırılım" gibi gosterilir ama
+        # hacim (vol_ratio) 2.0 altında oldugu icin gercek bir para girisi yoktur. Kesinlikle Fakeout'tur!
+        if atr_pct < 1.0 and change_pct > 0.8 and vol_ratio < 2.0:
+            reason = f"[HR4] CHOP ZONE TRAP: ATR={atr_pct:.2f}%<1.0 + Vol={vol_ratio:.2f}<2.0 (Yalancı Kırılım)"
+            logger.debug(f"[FAKEOUT GUARD HR4] {symbol} {reason}")
+            return FakeoutResult(is_fakeout=True, reason=reason, confidence=0.99)
 
         # ============================================================
         # SOFT SINYALLER: 2+ sinyal = FAKEOUT (max_signals=8 icinden)
@@ -123,7 +131,7 @@ class FakeoutGuard:
 
         if is_fakeout:
             reason_str = " | ".join(reasons)
-            logger.warning(
+            logger.debug(
                 f"[FAKEOUT GUARD v2] {symbol} SAHTE KIRILIM ({fakeout_signals}/{max_signals}, %{confidence*100:.0f}): {reason_str}"
             )
             return FakeoutResult(is_fakeout=True, reason=reason_str, confidence=confidence)

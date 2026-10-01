@@ -1,0 +1,6 @@
+{
+    "tp_multiplier_adjustment": 0.75,
+    "sl_multiplier_adjustment": 1.15,
+    "min_score_threshold": 5,
+    "last_calibration_time": 1790756876.1209362
+}

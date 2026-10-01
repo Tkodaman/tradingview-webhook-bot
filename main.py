@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
+
 # Proje kök dizinini sys.path'e ekle
 BASE_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR_PATH not in sys.path:
@@ -140,6 +141,14 @@ async def startup_event():
     # Shadow AI (Gölge Zeka) Cache Tarayıcısını Başlat
     asyncio.create_task(start_shadow_scanner())
     
+    # Superalgos Shadow Training Loop (Geçmiş İşlemlerle Walk-Forward Validation)
+    from services.ai.shadow_training_loop import shadow_trainer
+    asyncio.create_task(shadow_trainer.start_training_loop(interval_seconds=3600))
+    
+    # OKX Agent Trade Kit - AI Direct Risk Manager
+    from services.ai.ai_risk_manager import ai_risk_manager
+    asyncio.create_task(ai_risk_manager.start_risk_loop(interval_seconds=120))
+    
     # --- OTONOM MOTOR ENTEGRASYONLARI ---
     # LLM Dış Ses (Voice Engine) Başlat
     from services.engine.voice_engine import ai_voice_engine
@@ -196,6 +205,14 @@ async def startup_event():
         logger.info("[STARTUP] Alpaca Data Stream (Canlı Fiyat & Dinamik Makas) Dinleyicisi Başlatıldı.")
     except Exception as e:
         logger.error(f"[STARTUP] Alpaca Data Stream Başlatılamadı: {e}")
+
+    # 4. TIER-1 Otonom Motor (Astra-6 V2.0 SOTA)
+    try:
+        from services.engine.autonomous_loop import autonomous_engine
+        asyncio.create_task(autonomous_engine.start())
+        logger.info("🟢 [STARTUP] Tier-1 SOTA Otonom Motor Başlatıldı (Kusursuz Avcı).")
+    except Exception as e:
+        logger.error(f"[STARTUP] Otonom Motor Başlatılamadı: {e}")
 
     # Scheduler (BIST ve NASDAQ Zamanlanmış Görevleri)
     start_scheduler()

@@ -42,12 +42,12 @@ class TradingViewLiveClient:
         if now - self.last_fetch_time < self.cache_ttl_seconds and self.cached_us_data:
             return {**self.cached_us_data, **self.cached_tr_data, **self.cached_crypto_data}
 
-        columns = [
-            "name", "close", "change", "high|15", "low|15", "volume|15",
-            "RSI|15", "MACD.macd|15", "MACD.signal|15", "EMA20|15", "EMA50|15", "EMA200|15",
-            "ATR|15", "VWAP|15", "Stoch.K|15", "ADX|15", "Volatility.D|15", "average_volume_10d_calc|15",
-            "ChaikinMoneyFlow|15",
-            "open|15"   # === YENİ: Candle Body Ratio için açılış fiyatı ===
+        # Tarafımdan (Konsey) En Yüksek Başarı İçin Önerilen: Tüm Piyasalar (NASDAQ, BIST, KRİPTO) 15 Dakika (15m)
+        columns_15m = [
+            "name", "close", "change", "high|60", "low|60", "volume|60",
+            "RSI|60", "MACD.macd|60", "MACD.signal|60", "EMA20|60", "EMA50|60", "EMA200|60",
+            "ATR|60", "VWAP|60", "Stoch.K|60", "ADX|60", "Volatility.D|60", "average_volume_10d_calc|60",
+            "ChaikinMoneyFlow|60", "open|60"
         ]
 
         headers = {
@@ -62,10 +62,10 @@ class TradingViewLiveClient:
 
         # 1. ABD / NASDAQ Verilerini Çek
         try:
-            with httpx.Client(timeout=4.0, trust_env=False) as client:
+            with httpx.Client(timeout=15.0, trust_env=False) as client:
                 res_us = client.post(
                     "https://scanner.tradingview.com/america/scan",
-                    json={"symbols": {"tickers": active_tickers["NASDAQ"]}, "columns": columns},
+                    json={"symbols": {"tickers": active_tickers["NASDAQ"]}, "columns": columns_15m},
                     headers=headers
                 )
                 if res_us.status_code == 200:
@@ -122,14 +122,14 @@ class TradingViewLiveClient:
                                 effective_seconds = max(seconds_in_candle, 60)
                                 expected_fraction = effective_seconds / 900.0
                                 adjusted_vol_avg = vol_avg * expected_fraction
-                                
                                 if adjusted_vol_avg > 0:
-                                    vol_ratio = round(vol / adjusted_vol_avg, 2)
+                                    raw_vol_ratio = vol / adjusted_vol_avg
+                                    vol_ratio = round(raw_vol_ratio, 2)
                                 else:
                                     vol_ratio = 1.0
                                     
-                                if seconds_in_candle < 180 and vol_ratio < 0.80:
-                                    vol_ratio = max(vol_ratio, 0.80)
+                                    
+                                # Sahte hacim kısıtlaması KUSURSUZ İNFAZ PROTOKOLÜ gereği kaldırıldı.
                             else:
                                 # Piyasa kapalıyken son mum "Kapanış Müzayedesi (MOC)" mumudur ve 
                                 # ortalama bir mumun devasa katı hacme sahiptir.
@@ -211,10 +211,10 @@ class TradingViewLiveClient:
 
         # 2. BIST / Türkiye Verilerini Çek
         try:
-            with httpx.Client(timeout=4.0, trust_env=False) as client:
+            with httpx.Client(timeout=15.0, trust_env=False) as client:
                 res_tr = client.post(
                     "https://scanner.tradingview.com/turkey/scan",
-                    json={"symbols": {"tickers": active_tickers["BIST"]}, "columns": columns},
+                    json={"symbols": {"tickers": active_tickers["BIST"]}, "columns": columns_15m},
                     headers=headers
                 )
                 if res_tr.status_code == 200:
@@ -269,12 +269,13 @@ class TradingViewLiveClient:
                                 adjusted_vol_avg = vol_avg * expected_fraction
                                 
                                 if adjusted_vol_avg > 0:
-                                    vol_ratio = round(vol / adjusted_vol_avg, 2)
+                                    raw_vol_ratio = vol / adjusted_vol_avg
+                                    vol_ratio = round(raw_vol_ratio, 2)
                                 else:
                                     vol_ratio = 1.0
                                     
-                                if seconds_in_candle < 180 and vol_ratio < 0.80:
-                                    vol_ratio = max(vol_ratio, 0.80)
+                                    
+                                # Sahte hacim kısıtlaması KUSURSUZ İNFAZ PROTOKOLÜ gereği kaldırıldı.
                             else:
                                 vol_ratio = 1.0
                             
@@ -328,10 +329,10 @@ class TradingViewLiveClient:
 
         # 3. KRİPTO / Crypto Verilerini Çek
         try:
-            with httpx.Client(timeout=4.0, trust_env=False) as client:
+            with httpx.Client(timeout=15.0, trust_env=False) as client:
                 res_crypto = client.post(
                     "https://scanner.tradingview.com/crypto/scan",
-                    json={"symbols": {"tickers": active_tickers["CRYPTO"]}, "columns": columns},
+                    json={"symbols": {"tickers": active_tickers["CRYPTO"]}, "columns": columns_15m},
                     headers=headers
                 )
                 if res_crypto.status_code == 200:
@@ -379,14 +380,16 @@ class TradingViewLiveClient:
                             expected_fraction = effective_seconds / 900.0
                             adjusted_vol_avg = vol_avg * expected_fraction
                             
+                            raw_vol_ratio = 1.0
                             if adjusted_vol_avg > 0:
-                                vol_ratio = round(vol / adjusted_vol_avg, 2)
-                            else:
-                                vol_ratio = 1.0
+                                raw_vol_ratio = vol / adjusted_vol_avg
                                 
-                            # Mum yeni açıldığında (ilk 3 dakika) hacim tam oturmaz, yapay 0'a düşmeyi engelle
-                            if seconds_in_candle < 180 and vol_ratio < 0.80:
-                                vol_ratio = max(vol_ratio, 0.80)
+                            # Sahte hacim kısıtlaması KUSURSUZ İNFAZ PROTOKOLÜ gereği kaldırıldı.
+
+                            vol_ratio = round(raw_vol_ratio, 2)
+                            
+                            # Aşırı gürültüyü engelle, maks 5.0x
+                            vol_ratio = min(vol_ratio, 5.0)
                             
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===

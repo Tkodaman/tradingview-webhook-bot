@@ -149,7 +149,7 @@ class AlpacaClient:
                 "APCA-API-SECRET-KEY": self.api_secret,
                 "accept": "application/json"
             }
-            response = requests.get(f"{self.base_url}/account", headers=headers, timeout=2.0)
+            response = requests.get(f"{self.base_url}/account", headers=headers, timeout=10.0)
             if response.status_code == 200:
                 return response.json()
         except Exception as e:
@@ -205,7 +205,7 @@ class AlpacaClient:
                     clean_sym = clean_sym[:-3] + "/USD"
                 
                 req_url = f"https://data.alpaca.markets/v1beta3/crypto/us/latest/quotes?symbols={clean_sym}"
-                response = requests.get(req_url, headers=headers, timeout=2.0)
+                response = requests.get(req_url, headers=headers, timeout=10.0)
                 if response.status_code == 200:
                     data = response.json()
                     quotes = data.get("quotes", {})
@@ -219,7 +219,7 @@ class AlpacaClient:
             else:
                 # Stock quote
                 req_url = f"{data_url}/{symbol.upper()}/quotes/latest"
-                response = requests.get(req_url, headers=headers, timeout=2.0)
+                response = requests.get(req_url, headers=headers, timeout=10.0)
                 if response.status_code == 200:
                     data = response.json()
                     quote = data.get("quote", {})
@@ -256,7 +256,7 @@ class AlpacaClient:
                     clean_sym = clean_sym[:-3] + "/USD"
                 
                 req_url = f"https://data.alpaca.markets/v1beta3/crypto/us/latest/trades?symbols={clean_sym}"
-                response = requests.get(req_url, headers=headers, timeout=2.0)
+                response = requests.get(req_url, headers=headers, timeout=10.0)
                 if response.status_code == 200:
                     data = response.json()
                     trades = data.get("trades", {})
@@ -265,7 +265,7 @@ class AlpacaClient:
                         return float(trade.get("p", 0.0))
             else:
                 req_url = f"{data_url}/{symbol.upper()}/trades/latest"
-                response = requests.get(req_url, headers=headers, timeout=2.0)
+                response = requests.get(req_url, headers=headers, timeout=10.0)
                 if response.status_code == 200:
                     data = response.json()
                     trade = data.get("trade", {})

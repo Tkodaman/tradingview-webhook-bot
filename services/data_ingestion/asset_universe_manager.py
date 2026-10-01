@@ -36,7 +36,8 @@ class AssetUniverseManager:
             "BINANCE:NEARUSDT",  # NEAR - AI zinciri, guclu momentum
             "BINANCE:JUPUSDT",   # JUP - Solana DEX aggregator, yuksek hacim
             "BINANCE:INJUSDT",   # INJ - DeFi/Cosmos, guvenilir volatilite
-        ] # 38 adet - Tam destekli ve likiditesi yuksek Alpaca + Binance Kripto Listesi
+            "BINANCE:QNTUSDT",   # QNT - Yuksek hacim ve momentum kırılımı (Kullanıcı Talebi)
+        ] # Tam destekli ve likiditesi yuksek Alpaca + Binance Kripto Listesi
         
         self.master_bist_universe = [
             "BIST:THYAO", "BIST:ASELS", "BIST:EREGL", "BIST:TUPRS", "BIST:KCHOL",
@@ -242,19 +243,36 @@ class AssetUniverseManager:
         sorted_crypto = sort_by_early_entry(self.master_crypto_universe)
         self.active_crypto_targets = sorted_crypto[:self.target_crypto_count]
 
-        sorted_bist = sort_by_early_entry(self.master_bist_universe)
-        self.active_bist_targets = sorted_bist[:self.target_bist_count]
-
-        sorted_nasdaq = sort_by_early_entry(self.master_nasdaq_universe)
-        self.active_nasdaq_targets = sorted_nasdaq[:self.target_nasdaq_count]
+        # --- ADMIN İÇİN PİYASA SAATİ AJANI (Sahte veri ve ölü borsa engelleme) ---
+        from datetime import datetime, timezone, timedelta
+        now_utc = datetime.now(timezone.utc)
+        trt_time = now_utc + timedelta(hours=3)
+        hour = trt_time.hour
+        
+        # BIST: 10:00 - 18:00 arası açıktır
+        is_bist_open = 10 <= hour < 18
+        if is_bist_open:
+            sorted_bist = sort_by_early_entry(self.master_bist_universe)
+            self.active_bist_targets = sorted_bist[:self.target_bist_count]
+            if "BIST:XU100" not in self.active_bist_targets: self.active_bist_targets.append("BIST:XU100")
+        else:
+            self.active_bist_targets = [] # Ölü borsa, kaynak israfı yapma
+            
+        # NASDAQ: 16:30 - 23:00 arası açıktır (Kış saati 17:30)
+        is_nasdaq_open = 16 <= hour < 23
+        if is_nasdaq_open:
+            sorted_nasdaq = sort_by_early_entry(self.master_nasdaq_universe)
+            self.active_nasdaq_targets = sorted_nasdaq[:self.target_nasdaq_count]
+            if "NASDAQ:QQQ" not in self.active_nasdaq_targets: self.active_nasdaq_targets.append("NASDAQ:QQQ")
+        else:
+            self.active_nasdaq_targets = [] # Kapalı borsa, sahte hareketleri filtrele
 
         # Benchmark'larin her zaman izlenmesi
         if "BINANCE:BTCUSDT" not in self.active_crypto_targets:
             self.active_crypto_targets.append("BINANCE:BTCUSDT")
-        if "BIST:XU100" not in self.active_bist_targets:
-            self.active_bist_targets.append("BIST:XU100")
-        if "NASDAQ:QQQ" not in self.active_nasdaq_targets:
-            self.active_nasdaq_targets.append("NASDAQ:QQQ")
+
+        # YARIŞ LİSTESİ TABLOSU (Admin Scoreboard)
+        logger.info(f"📊 [DİNAMİK YARIŞ LİSTESİ] Kripto: {len(self.active_crypto_targets)} aktif | NASDAQ: {'Açık' if is_nasdaq_open else 'KAPALI (Filtrelendi)'} | BIST: {'Açık' if is_bist_open else 'KAPALI (Filtrelendi)'}")
 
         # Erken uyari radar taramasi — top-5'i logla
         self._early_alert_watchlist()

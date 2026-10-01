@@ -144,9 +144,18 @@ class LiveTradeManager:
             
             # Hayalet Pozisyon Temizligi (Ghost Position Cleanup)
             # Eger lokalde acik gorunen bir pozisyon broker'da yoksa, kapatildi/iptal edildi varsay!
-            stale_positions = [p for p in self.positions.values() if p.status == "OPEN" and p.symbol not in active_broker_symbols]
+            # KRITIK: Kapatilan pozisyon hemen positions dict'inden cikarilmali.
+            # Aksi halde bir sonraki sync dongusu ayni pozisyonu tekrar "hayalet" olarak bulup
+            # tekrar CLOSED_OFFLINE_SYNC yazar → cift/uclu zarar kaydi virüsü.
+            stale_positions = [
+                p for p in self.positions.values()
+                if p.status == "OPEN" and p.symbol not in active_broker_symbols
+            ]
             for sp in stale_positions:
                 self.close_position(sp.id, "CLOSED_OFFLINE_SYNC")
+                # Hemen sil — bir daha gorunmesin
+                self.positions.pop(sp.id, None)
+
             
             # Save the synced state to local db
             self.save_state()
@@ -953,6 +962,17 @@ class LiveTradeManager:
                         self.close_position(pos_id, "CLOSED_FLASH_CRASH")
                         continue
 
+                # === HOPIUM / DERİN ZARAR KES (REALLOCATION) ===
+                try:
+                    from services.engine.risk_engine import RiskEngine
+                    if RiskEngine.evaluate_portfolio_reallocation(pos.entry_price, curr_price, max_drawdown_pct=0.15) == "REALLOCATE":
+                        if is_open:
+                            logger.error(f"💥 [HOPIUM KIRICI - REALLOCATE] {pos.symbol} ağır zararda (%{pct:.2f}). Sistem ACTIVE_TRAILING felcinden kurtulmak için işlemi acil kesiyor!")
+                            self.close_position(pos_id, "CLOSED_REALLOCATE")
+                            continue
+                except Exception as e:
+                    pass
+
                 # AKILLI ÇIKIŞ (Erken Kâr Alma)
                 # Eğer pozisyon %1.5'tan fazla kârdaysa ve momentum zayıflıyorsa (RSI aşırı şişmiş vs. veya hacim düştüyse)
                 # Otonom Tarayıcı RSI verisine doğrudan erişemediğimizden fiyatın tepeden %1 düşüşüne de bakabiliriz.
@@ -1024,6 +1044,20 @@ class LiveTradeManager:
 
                 gross = (pos.entry_price - curr_price) * pos.quantity
                 pct = ((pos.entry_price - curr_price) / pos.entry_price) * 100.0
+
+                # === HOPIUM / DERİN ZARAR KES (REALLOCATION) ===
+                try:
+                    from services.engine.risk_engine import RiskEngine
+                    # For short, current_price > entry_price means drawdown. evaluate_portfolio_reallocation expects (entry, current) where current < entry is drawdown.
+                    # We can reverse them or write custom logic.
+                    drawdown = (curr_price - pos.entry_price) / pos.entry_price
+                    if drawdown >= 0.15:
+                        if is_open:
+                            logger.error(f"💥 [HOPIUM KIRICI - REALLOCATE SHORT] {pos.symbol} ağır zararda (%{pct:.2f}). Sistem ACTIVE_TRAILING felcinden kurtulmak için işlemi acil kesiyor!")
+                            self.close_position(pos_id, "CLOSED_REALLOCATE")
+                            continue
+                except Exception as e:
+                    pass
 
                 is_sniper = settings.current_risk_mode.upper() == "SNIPER"
                 

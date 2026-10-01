@@ -196,8 +196,10 @@ class AlpacaTradeStream:
                                 closed_locally.append(pos)
                             
                     for pos in closed_locally:
-                        logger.info(f"⚠️ [FALLBACK POLLING] {pos.symbol} pozisyonu REST API'de bulunamadi. Kapanis yansitiliyor.")
+                        logger.info(f"[FALLBACK POLLING] {pos.symbol} pozisyonu REST API'de bulunamadi. Kapanis yansitiliyor.")
                         live_trade_manager.close_position(pos.id, "CLOSED_OFFLINE_SYNC")
+                        # Hemen sil — bir sonraki polling dongusunde tekrar yazmasin (cift kayit virüsü)
+                        live_trade_manager.positions.pop(pos.id, None)
                         await manager.broadcast({
                             "type": "TRADE_UPDATE",
                             "symbol": pos.symbol,

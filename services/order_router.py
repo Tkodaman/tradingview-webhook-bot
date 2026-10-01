@@ -4,9 +4,14 @@ from core.logger import logger
 from services.analyzer.agent import analyzer_agent
 from services.market_feed.live_stream import live_trade_manager
 from services.broker.factory import get_broker
+from services.agent_consensus.council import council_engine
 from typing import Dict, Any
 from datetime import datetime, timezone
+import time
 
+# --- FREQTRADE COOLDOWN GUARD ---
+# Bir işlem kapatıldığında (SELL/CLOSE), aynı coin'e hemen (örn. 10 dakika) geri girilmesini engeller.
+_freqtrade_cooldowns = {}
 
 def _strict_rejection(signal: WebhookSignal, reason: str) -> Dict[str, Any]:
     """Return the same decision envelope used by downstream risk rejections."""
@@ -34,7 +39,32 @@ def _strict_rejection(signal: WebhookSignal, reason: str) -> Dict[str, Any]:
         },
     }
 
-def process_order(signal: WebhookSignal) -> Dict[str, Any]:
+def _execute_grid_strategy(signal: WebhookSignal, council_verdict: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    HUMMINGBOT KONSEPTİ: Yatay piyasada (Ranging) Alpaca komisyonlarını hesaba katarak Grid Izgarası kurar.
+    Alpaca kriptoda taker/maker komisyonu mevcuttur (örneğin %0.1). Hisse senedinde ise slippage ve ufak SEC fee'ler.
+    Biz güvenli tarafta kalıp %0.2 round-trip (gidiş-dönüş) komisyon maliyeti hesaplayacağız.
+    """
+    base_cost_pct = 0.20 # Yüzde 0.20 Gidiş-Dönüş Maliyet (Komisyon + Slippage)
+    atr_pct = float(signal.indicators.get('atr_pct', 0.5)) if signal.indicators else 0.5
+    
+    # Oransal ilerleme: Eğer kazanç aralığı (ATR) komisyonun 1.5 katını bile karşılamıyorsa işlem yapma
+    if atr_pct < base_cost_pct * 1.5:
+        logger.warning(f"[GRID REDDEDİLDİ] {signal.symbol} ATR ({atr_pct:.2f}%) Alpaca komisyon/slippage maliyetini (%{base_cost_pct}) aşamıyor. Grid kurmak oransal olarak kârsız.")
+        return _strict_rejection(signal, "GRID_UNPROFITABLE_DUE_TO_COMMISSION")
+        
+    grid_spacing = atr_pct / 3.0 # ATR'yi 3 parçaya bölüp limit order grid atıyoruz
+    logger.info(f"🕸️ [HUMMINGBOT GRID] {signal.symbol} için {grid_spacing:.2f}% aralıklarla Grid Izgarası aktif edildi! (Alpaca komisyonu dahil edildi).")
+    
+    return {
+        "status": "approved_grid",
+        "reason": f"Grid Izgarası Aktif. Aralık: {grid_spacing:.2f}%. Council Score: {council_verdict.get('score', 0)}",
+        "symbol": signal.symbol,
+        "grid_spacing_pct": grid_spacing,
+        "base_cost_pct": base_cost_pct
+    }
+
+def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[str, Any]:
     """
     Gelen TradingView sinyalini otonom analizör ajanına ve sert risk motoruna iletir.
     Onaylanan emirler anında canlı pozisyon yöneticisine ve broker köprüsüne iletilir.
@@ -43,6 +73,19 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     action_clean = str(signal.action).upper()
     signal.action = action_clean
 
+    # --- FREQTRADE COOLDOWN GUARD (10 Dakika Bekleme Süresi) ---
+    if action_clean in ["SELL", "SHORT", "CLOSE"]:
+        _freqtrade_cooldowns[signal.symbol] = time.time()
+    
+    if action_clean in ["BUY", "LONG"]:
+        last_sell_time = _freqtrade_cooldowns.get(signal.symbol, 0)
+        elapsed = time.time() - last_sell_time
+        if elapsed < 600:  # 10 dakika (600 saniye)
+            remaining = 600 - elapsed
+            logger.warning(f"[FREQTRADE COOLDOWN GUARD] {signal.symbol} icin yeni satis yapildi. {remaining:.0f} saniye daha isleme girilemez (Intikam Tradeleri Engellendi).")
+            return _strict_rejection(signal, "FREQTRADE_COOLDOWN_GUARD")
+    # -------------------------------------------------------------
+
     # Fast orchestration preflight: deterministic and local, no LLM/network call.
     from services.engine.decision_orchestrator import evaluate_fast_gate
     orchestration = evaluate_fast_gate(signal)
@@ -50,15 +93,51 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         logger.warning(f"[ORCHESTRATOR BLOCK] {signal.symbol}: {orchestration['reason']}")
         return _strict_rejection(signal, orchestration["reason"])
     # Fail-closed: eksik kritik indikatör (volume_ratio/atr_pct) teyit gerektirir.
-    # Daha önce bu WAIT durumu hiçbir yerde uygulanmıyordu; sinyal sessizce işleme devam ediyordu.
-    if orchestration["decision_gate"] == "WAIT" and action_clean in ["BUY", "LONG", "SELL", "SHORT"]:
-        logger.info(f"[ORCHESTRATOR WAIT] {signal.symbol}: eksik veri teyidi gerekiyor - {orchestration['missing_fields']}")
-        return {
-            "status": "wait",
-            "reason": "DATA_QUALITY_INCOMPLETE",
-            "missing_fields": orchestration["missing_fields"],
-            "decision": {"orchestration": orchestration, "signal": signal.model_dump()},
-        }
+    # ANALİZ FELCİ ÇÖZÜMÜ: Eksik veri varsa botu kilitleme (hard block yapma), sadece Yüce Divan'a "Eksik Veri" uyarısı ilet.
+    if orchestration.get("decision_gate") == "WAIT" and action_clean in ["BUY", "LONG", "SELL", "SHORT"]:
+        logger.info(f"[ORCHESTRATOR WAIT - SOFTENED] {signal.symbol}: Eksik veri var ({orchestration.get('missing_fields')}). İslem Yuce Divan inisiyatifine birakildi.")
+        if signal.macro_tags is None:
+            signal.macro_tags = []
+        signal.macro_tags.append("INCOMPLETE_DATA_WARNING")
+
+    # === [ASTRA 6] YÜCE DİVAN KONTROLÜ (AUTONOMOUS COUNCIL) ===
+    # Fast orchestration'ı geçtiyse bile 3 ajanlı konseyin onayından geçmek zorundadır.
+    
+    # KUSURSUZ İNFAZ: Asya Piyasası Hacimsizlik (Liquidity Trap) Koruması
+    # Kullanıcı Raporu: Asya piyasasında bot sürekli zarar ediyor. Bu yüzden Asya seansında (TSİ 02:00 - 09:00 arası) 
+    # işlem şartlarını ekstrem derecede zorlaştırıyoruz. Hacim patlaması yoksa asla girme.
+    from datetime import datetime, timezone, timedelta
+    trt_hour = (datetime.now(timezone.utc) + timedelta(hours=3)).hour
+    if 2 <= trt_hour < 9 and action_clean in ["BUY", "LONG"]:
+        if not signal.indicators or float(signal.indicators.get("volume_ratio", 0)) < 2.0:
+            logger.warning(f"[ASIAN SESSION TRAP] {signal.symbol} Asya seansında (Düşük Hacim). Volume Ratio 2.0 altında ({signal.indicators.get('volume_ratio', 'N/A')}). İŞLEM REDDEDİLDİ.")
+            return _strict_rejection(signal, "ASIAN_SESSION_LOW_LIQUIDITY_TRAP")
+        else:
+            logger.warning(f"[ASIAN SESSION ALERT] {signal.symbol} Asya seansında ancak muazzam hacim ({signal.indicators.get('volume_ratio')}) tespit edildi. Yüce Divan'a iletiliyor.")
+            if signal.macro_tags is None: signal.macro_tags = []
+            signal.macro_tags.append("ASIAN_SESSION_EXTREME_VOLUME")
+            
+    if action_clean in ["BUY", "LONG"]:
+        # Konsey modülünü local import ile çekiyoruz (Döngüsel importu önlemek için)
+        from services.agent_consensus.council import council_engine
+        
+        council_verdict = council_engine.convene(signal)
+        council_mode = council_verdict.get("mode", "DIRECTIONAL")
+        
+        if council_mode == "FLASH":
+            logger.warning(f"🚨 [TRUMP2CASH FLASH OVERRIDE] {signal.symbol} - SOSYAL MEDYA/KİLİT FİGÜR TETİKLEMESİ! PİYASA KURALLARI EZİLİYOR. 🚨")
+            logger.info(f"YÜCE DİVAN VETOLARI DEVRE DIŞI. FLASH EMİR BORSAYA İLETİLİYOR.")
+        elif council_mode == "GRID":
+            logger.info(f"🕸️ [HUMMINGBOT GRID MODE] {signal.symbol} YATAY PİYASADA. Alpaca Komisyonu hesaplanarak Makas/Grid aralığı oluşturulacak.")
+            return _execute_grid_strategy(signal, council_verdict)
+        else:
+            if not council_verdict["approved"]:
+                logger.warning(f"[YÜCE DİVAN VETOSU] {signal.symbol} REDDEDİLDİ. Neden: {council_verdict['reason']}")
+                return _strict_rejection(signal, council_verdict['reason'])
+            else:
+                logger.info(f"[YÜCE DİVAN ONAYI] {signal.symbol} İÇİN KONSENSÜS SAĞLANDI ({council_verdict.get('score', 0):.1f} Puan). YÖNLÜ (DIRECTIONAL) İŞLEME DEVAM EDİLİYOR.")
+    # ========================================================
+
 
     # 0. VERİ DOĞRULAMA — Null / Geçersiz Fiyat & Miktar Kontrolü
     if signal.price is None or signal.price <= 0:
@@ -72,6 +151,14 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
     live_high = signal.indicators.get("high_24h", signal.price) if signal.indicators else signal.price
     if live_high > 0 and signal.price > live_high * 1.15:
         logger.warning(f"[ANOMALY DETECTED] {signal.symbol} — Fiyat (${signal.price}) 24h yüksek (${live_high}) üzerinde %15+ sapma. MACRO SHOCK filtresi devreye alındı.")
+
+    # SOLANA MARKET MAKER - GUARDIAN DROP MODE (ESNETİLDİ)
+    # Eğer fiyat gün içinde %15'ten fazla çöktüyse (Gerçek Kara Kuğu), "Diplerden alım" yapsak bile risk çok yüksektir.
+    if signal.indicators and action_clean in ["BUY", "LONG"]:
+        daily_change = float(signal.indicators.get("change_pct") or 0.0)
+        if daily_change <= -15.0:
+            logger.warning(f"[GUARDIAN DROP MODE] {signal.symbol} gunluk dususu %{daily_change:.1f}. Serbest dususte olan bir bicak (Falling Knife) alinamaz!")
+            return _strict_rejection(signal, "GUARDIAN_DROP_KNIFE")
 
     # 0.5 PİYASA SAATİ KORUMASI (Market Hours Check)
     # KULLANICI TALEBİ: Piyasa kapalıyken (Örn. NASDAQ Pre-Market) işlemler reddedilmeli
@@ -103,11 +190,11 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
                 signal.macro_tags.append("REGIME_BEAR_TREND")
                 
             if action_clean in ["BUY", "LONG"] and signal.price < ema200:
-                logger.warning(f"[STRICT FILTER] {signal.symbol} BUY rejected. Price ({signal.price}) < EMA200 ({ema200}).")
-                return _strict_rejection(signal, "STRICT_FILTER_EMA200_DOWNTREND")
+                logger.warning(f"[SOFT FILTER] {signal.symbol} BUY: Price ({signal.price}) < EMA200 ({ema200}). Fiyat trendin altında ama fırsat tespiti için engellenmiyor.")
+                signal.macro_tags.append("EMA200_DOWNTREND_WARNING")
             elif action_clean in ["SELL", "SHORT"] and signal.price > ema200:
-                logger.warning(f"[STRICT FILTER] {signal.symbol} SELL rejected. Price ({signal.price}) > EMA200 ({ema200}).")
-                return _strict_rejection(signal, "STRICT_FILTER_EMA200_UPTREND")
+                logger.warning(f"[SOFT FILTER] {signal.symbol} SELL: Price ({signal.price}) > EMA200 ({ema200}). Fiyat trendin üstünde ama engellenmiyor.")
+                signal.macro_tags.append("EMA200_UPTREND_WARNING")
 
         # Aşırı Bölge Katmanı: RSI
         rsi = ind.get("rsi")
@@ -243,8 +330,16 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
                 sl_pct = RISK_PARAMS.get("crypto_dynamic_sl_base", 2.0)
                 logger.info(f"[LLM/ML SCALP] {signal.symbol} Skor:{ml_score}/100 → SOTA Makas TP %{tp_pct} SL %{sl_pct}")
         
-        # Güvenlik: SL asla %1.5'in altına inmez
-        sl_pct = max(1.5, sl_pct)
+        # Broker Commission & Fees (Alpaca Round-Trip)
+        # Kripto: ~0.50% (alım/satım toplam). Hisse/NASDAQ: ~0.05% (Regülatör kesintileri)
+        is_crypto = signal.symbol.endswith("USDT") or signal.symbol in ["BTC", "ETH", "SOL", "BNB"]
+        commission_buffer_pct = 0.50 if is_crypto else 0.05
+        
+        # NET Kâr ve NET Zarar koruması için komisyonları SL ve TP'ye yansıtıyoruz
+        # Stop'u komisyon kadar erken koyuyoruz ki SL patladığında komisyonla beraber zarar limitimizi aşmasın!
+        # TP'yi komisyon kadar uzağa koyuyoruz ki hedefe vardığımızda komisyon düşünce net kâr cebimize kalsın!
+        tp_pct = tp_pct + commission_buffer_pct
+        sl_pct = max(1.0, sl_pct - commission_buffer_pct) # Güvenlik: SL sıfıra inmesin
 
         # Get actual ATR value if sent, else calculate from atr_pct
         actual_atr = signal.indicators.get("atr") if signal.indicators else None
@@ -255,34 +350,89 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
             calculated_atr = signal.price * (atr_pct / 100.0)
 
         # Dynamic Stop Loss via ATR (Hisse: 1.5x, Kripto: 2.0x)
-        atr_multiplier = 2.0 if (signal.symbol.endswith("USDT") or signal.symbol in ["BTC", "ETH", "SOL", "BNB"]) else 1.5
+        atr_multiplier = 2.0 if is_crypto else 1.5
         if signal.price > 0 and calculated_atr > 0:
             sl_from_atr = round(((calculated_atr * atr_multiplier) / signal.price) * 100.0, 2)
             sl_pct = max(sl_from_atr, sl_pct) # Güvenlik: Asla mevcut min SL'den aşağı inme (ATR çok düşükse patlamasın)
 
-        # Risk Based Qty Sizing (%1 Kasa Riski)
-        risk_pct = 1.0
+        # Risk Based Qty Sizing (%1 Kasa Riski veya Otonom Kelly Kriteri Override'ı)
+        risk_pct = risk_override * 100.0 if risk_override is not None else 1.0
+        
         # GECE GAP RİSKİ: NASDAQ kapanışına 30 dk kaldıysa riski yarıya indir (Overnight Shield)
         from services.risk_engine.market_hours import market_hours_validator
         if market_hours_validator.is_nasdaq_closing_soon(signal.symbol):
-            risk_pct = 0.5
+            risk_pct = risk_pct * 0.5
             logger.info(f"[OVERNIGHT SHIELD] {signal.symbol} piyasa kapanışına yaklaşıldığı için (Overnight Gap Risk) risk katsayısı %{risk_pct}'ye düşürüldü.")
 
         account_equity = live_trade_manager.total_account_equity
         risk_amount = account_equity * (risk_pct / 100.0)
         per_share_risk = signal.price * (sl_pct / 100.0)
         
+        # PORTFÖY BÜTÇE YÖNETİMİ (Kullanıcı Talebi: Max 10.000$ Toplam Risk, Varlık Başına Serbest İnsiyatif)
+        total_exposure = sum(p.nominal_value for p in getattr(live_trade_manager, "positions", {}).values() if p.status in ["OPEN", "PENDING_BROKER"])
+        max_global_exposure = 10000.0
+        available_budget = max_global_exposure - total_exposure
+        
         qty_override = None
+        allowed_capital = capital_used
         if per_share_risk > 0:
-            qty_override = risk_amount / per_share_risk
-            # KULLANICI TALEBİ: Genel bütçe üst sınırı kuralı ($500 KESİN LİMİT)
-            max_allowed_capital = account_equity * (settings.max_capital_per_trade_pct / 100.0)
-            max_allowed_capital = min(max_allowed_capital, 500.0) # KESİN $500 LİMİTİ!
-            if qty_override * signal.price > max_allowed_capital:
-                qty_override = max_allowed_capital / signal.price
-                logger.info(f"[RISK SIZING] {signal.symbol} Risk lot hesabı, kesin bütçe limitine (${max_allowed_capital}) takıldı.")
+            raw_qty = risk_amount / per_share_risk
+            desired_capital = raw_qty * signal.price
+            
+            # 1. Bireysel Varlık Tavanı (Kelly Kriteri max ne kadar basabilir?)
+            desired_capital = min(desired_capital, 1400.0)  # Max $1400 per trade
+            
+            # 2. Global Portföy Tavanı ($10.000)
+            allowed_capital = min(desired_capital, available_budget)
+            
+            if allowed_capital < 10.0:  # 10$ altı anlamsızdır
+                logger.warning(f"[BUDGET REJECT] {signal.symbol} için bütçe kalmadı. (Açık Toplam: ${total_exposure:.2f} / Limit: ${max_global_exposure:.2f})")
+                return _strict_rejection(signal, "INSUFFICIENT_GLOBAL_BUDGET")
+                
+            qty_override = allowed_capital / signal.price
+            
+            if allowed_capital < desired_capital:
+                logger.warning(f"[BUDGET CAPPED] {signal.symbol} için kalan bütçe (${allowed_capital:.2f}) kullanılıyor. (Normalde ${desired_capital:.2f} basılacaktı)")
             else:
-                logger.info(f"[RISK SIZING] {signal.symbol} %{risk_pct} Risk bazlı lot hesaplandı: {qty_override:.4f} (Risk Amount: ${risk_amount:.2f})")
+                logger.info(f"[RISK SIZING] {signal.symbol} %{risk_pct} Risk bazlı lot hesaplandı: {qty_override:.4f} (Capital: ${allowed_capital:.2f})")
+
+        # MOSS BOT FACTORY ENTEGRASYONU: Yüksek riskli (agresif) tahtalarda iğnelerden korunmak için ATR genişlet (sl_atr_mult >= 2.5)
+        if is_crypto and risk_pct >= 1.5:
+            atr_multiplier = 2.5
+            sl_from_atr = round(((calculated_atr * atr_multiplier) / signal.price) * 100.0, 2)
+            sl_pct = max(sl_from_atr, sl_pct)
+            logger.info(f"[MOSS SHIELD] {signal.symbol} için agresif risk tespit edildi. ATR Çarpanı 2.5'e çıkarıldı. Yeni SL: %{sl_pct}")
+
+        # MOSS BOT FACTORY ENTEGRASYONU: Çift Dilli Gerekçe (Bilingual Reasoning) Logu
+        # Makine öğrenimi için her işlemin (120+ kelimelik) detaylı gerekçesi arşivlenir.
+        import json, os
+        reasoning_dir = os.path.join("data", "reasoning_logs")
+        os.makedirs(reasoning_dir, exist_ok=True)
+        reasoning_data = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "symbol": signal.symbol,
+            "action": action_clean,
+            "reasoning_tr": f"Yüce Divan ve Otonom Motor, {signal.symbol} tahtasında {action_clean} kararı almıştır. "
+                            f"İşlem bütçesi {allowed_capital:.2f}$ (Global 10.000$ limitine uyumlu) olarak belirlendi. "
+                            f"Kasa risk oranı %{risk_pct:.2f} seviyesindedir. "
+                            f"Volatilite ve iğnelerden korunmak adına Dinamik ATR çarpanı {atr_multiplier} kullanılmış, "
+                            f"Zarar-Kes (SL) %{sl_pct} ve Kâr-Al (TP) %{tp_pct} olarak komisyon payları (Spread) düşülerek net hesaplanmıştır. "
+                            f"Piyasa saatleri, hacimsizlik kalkanları (Dead Zone) ve anomali filtreleri başarılı şekilde geçilmiştir. "
+                            f"Yapay Zeka güven skoru: {confidence_score*100}/100.",
+            "reasoning_en": f"The Council and Autonomous Engine initiated a {action_clean} on {signal.symbol}. "
+                            f"Allocated budget is ${allowed_capital:.2f} strictly following the $10,000 global portfolio cap. "
+                            f"Account risk factor is {risk_pct:.2f}%. "
+                            f"To prevent whale fakeouts and stop-hunts, the Dynamic ATR multiplier is set to {atr_multiplier}, "
+                            f"placing SL at {sl_pct}% and TP at {tp_pct}% (commission and spread adjusted). "
+                            f"All market hour constraints, dead-zone volume filters, and anomaly gates have been cleared. "
+                            f"AI Confidence Score: {confidence_score*100}/100."
+        }
+        try:
+            with open(os.path.join(reasoning_dir, f"{signal.symbol}_{int(datetime.now().timestamp())}.json"), "w", encoding="utf-8") as rf:
+                json.dump(reasoning_data, rf, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
 
         pos = live_trade_manager.open_position(
             symbol=signal.symbol,
@@ -344,6 +494,12 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
         # Canlı Borsa / Broker API Entegrasyonu (Alpaca)
         # PAPER modunda paper=True, LIVE modunda paper=False
         is_paper_mode = settings.trading_mode.upper() != "LIVE"
+        
+        # BIST Koruması: BIST varlıkları sadece analiz edilir, Alpaca'ya gönderilmez!
+        if signal.symbol.startswith("BIST:") or signal.symbol.endswith(".IS"):
+            logger.info(f"[BIST KORUMASI] {signal.symbol} Borsa Istanbul varlığıdır. Alpaca (ABD) yönlendirmesi iptal edildi. Sadece analiz edildi.")
+            return {"status": "success", "mode": "BIST_ANALYSIS_ONLY", "message": f"BIST Analyzed: {signal.symbol}", "decision": decision}
+            
         broker = get_broker(settings.active_broker, paper=is_paper_mode)
         logger.info(f"[BROKER] Mode: {'PAPER' if is_paper_mode else 'LIVE'} | Broker: {settings.active_broker}")
         
@@ -353,10 +509,56 @@ def process_order(signal: WebhookSignal) -> Dict[str, Any]:
                     res = {"status": "success", "order_id": pos.broker_order_id, "details": "Already routed by position manager"}
                     logger.info(f"[BROKER] {signal.symbol} zaten pozisyon yöneticisi tarafından iletildi; ikinci emir atlanıyor.")
                 else:
-                    # Sadece pozisyon yöneticisinin broker'a göndermediği piyasa türleri için yönlendir.
-                    tp_price = signal.take_profit if signal.take_profit else round(signal.price * 1.03, 4)
-                    sl_price = signal.stop_loss if signal.stop_loss else round(signal.price * 0.985, 4)
-                    res = broker.place_bracket_order(signal.symbol, "BUY", final_qty, tp_price, sl_price, limit_price=signal.price)
+                    # Matematiksel Zaafların Giderilmesi (Dinamik ATR Hedefleme)
+                    # Sabit %3 TP ve %1.5 SL yerine, varlığın anlık gerçek hareket kapasitesine (ATR) göre oransal hedefleme yapılır.
+                    # Bu sayede düşük volatiliteli Asya piyasasında hedef küçültülür, yüksek volatilitede hedef büyütülür.
+                    if signal.take_profit:
+                        tp_price = signal.take_profit
+                    else:
+                        atr = float(signal.indicators.get("atr_pct", 3.0)) if signal.indicators else 3.0
+                        # Hedef = Günlük ATR'nin %70'i (Çok daralan piyasada bile min %0.8, max %5)
+                        dynamic_tp_pct = max(0.8, min(5.0, atr * 0.70))
+                        tp_price = round(signal.price * (1 + (dynamic_tp_pct / 100)), 4)
+                        logger.info(f"[ATR DYNAMIC TARGET] {signal.symbol} ATR: %{atr:.2f} -> Matematiksel Hedef (TP): %{dynamic_tp_pct:.2f}")
+
+                    if signal.stop_loss:
+                        sl_price = signal.stop_loss
+                    else:
+                        atr = float(signal.indicators.get("atr_pct", 3.0)) if signal.indicators else 3.0
+                        # Zarar Kes = Günlük ATR'nin %40'ı (Min %0.5, Max %2.5) -> Hedefe göre Risk/Ödül oranı ~ 1:1.75
+                        dynamic_sl_pct = max(0.5, min(2.5, atr * 0.40))
+                        sl_price = round(signal.price * (1 - (dynamic_sl_pct / 100)), 4)
+                        logger.info(f"[ATR DYNAMIC TARGET] {signal.symbol} ATR: %{atr:.2f} -> Matematiksel Stop (SL): -%{dynamic_sl_pct:.2f}")
+                    
+                    # --- TIER-1 STEALTH TWAP (Zaman Ağırlıklı Gizli İnfaz) ---
+                    # Büyük emirleri (Örn > $500) tek seferde tahtaya vurup Slippage yememek için emri böler.
+                    # Eğer Alpaca Elite VWAP API'si olsaydı doğrudan parametre geçilirdi. Burada kendi Stealth motorumuzu kullanıyoruz.
+                    import random, threading, time
+                    
+                    def stealth_twap_execution(b, sym, q, tp, sl, lim):
+                        try:
+                            slices = 3 if q * lim > 500 else 1
+                            slice_qty = q / slices
+                            for i in range(slices):
+                                jitter_ms = random.uniform(0.1, 0.5)
+                                time.sleep(jitter_ms)
+                                
+                                # Slippage'dan korunmak için küçük lokmalarla (Market Maker'a görünmeden) emri iletiyoruz.
+                                logger.info(f"[STEALTH TWAP] {sym} -> Parça {i+1}/{slices} İletiliyor (Miktar: {slice_qty:.4f})")
+                                b.place_bracket_order(sym, "BUY", slice_qty, tp, sl, limit_price=lim)
+                                
+                                if slices > 1 and i < slices - 1:
+                                    # Hacimsiz tahtada fiyatın oturması için 3 saniye bekle
+                                    time.sleep(3.0) 
+                        except Exception as e:
+                            logger.error(f"[TWAP ERROR] {sym} İnfazı sırasında hata: {e}")
+                            
+                    # Thread ile arka plana gönder (API çağrısını bloklamasın)
+                    twap_thread = threading.Thread(target=stealth_twap_execution, args=(broker, signal.symbol, final_qty, tp_price, sl_price, signal.price))
+                    twap_thread.start()
+                    
+                    res = {"status": "success", "message": f"TWAP Stealth Execution başlatıldı (Total Qty: {final_qty})"}
+                    
                 if res.get("status") == "error":
                     logger.error(f"[BROKER REJECTED] Alpaca API error: {res.get('message')}")
                     return {"status": "rejected", "reason": "BROKER_ORDER_FAILED", "message": res.get("message", "Broker order failed"), "decision": decision}

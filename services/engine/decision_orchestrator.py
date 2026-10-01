@@ -56,15 +56,17 @@ def evaluate_fast_gate(signal: Any) -> Dict[str, Any]:
         }
 
     if missing_fields:
-        warnings.append("Eksik indikatörler teyit gerektiriyor.")
+        warnings.append("Eksik indikatörler tespit edildi (Yüce Divan puan kırabilir).")
 
     if action in ("BUY", "LONG") and symbol.endswith("USDT"):
         volume_ratio = indicators.get("volume_ratio")
         if volume_ratio is not None and float(volume_ratio) < 1.2:
-            warnings.append("Kripto hacim teyidi minimum eşiğin altında.")
+            warnings.append("Kripto hacim teyidi zayıf (Konseye iletildi).")
 
+    # Mükemmeliyetçiliği (WAIT felci) kaldırıyoruz. 
+    # Sadece kritik veriler (fiyat, tazelik) tamsa, gerisini Ağırlıklı Puanlama Divanı halleder.
     return {
-        "decision_gate": "WAIT" if missing_fields else "PASS",
+        "decision_gate": "PASS", 
         "hard_block": False,
         "reason": "FAST_PREFLIGHT_COMPLETE",
         "missing_fields": missing_fields,

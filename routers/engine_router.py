@@ -13,13 +13,13 @@ class AutoRunnerToggleRequest(BaseModel):
     capital_per_trade: float = Field(100.0, description="İşlem başına kullanılacak bakiye")
 
 @router.post("/auto-runner/toggle")
-def toggle_auto_runner(req: AutoRunnerToggleRequest):
+async def toggle_auto_runner(req: AutoRunnerToggleRequest):
     """
     TradingView ücretli alarmına gerek kalmadan otonom 12-indikatör tarayıcısını başlatır/durdurur.
     """
     tv_auto_runner.is_running = req.enabled
     tv_auto_runner.trade_capital = req.capital_per_trade
-    triggers = tv_auto_runner.evaluate_live_market_and_trigger() if req.enabled else []
+    triggers = await tv_auto_runner.evaluate_live_market_and_trigger() if req.enabled else []
     return {
         "status": "success",
         "is_running": tv_auto_runner.is_running,

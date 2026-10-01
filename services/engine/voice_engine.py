@@ -30,8 +30,8 @@ class AIVoiceEngine:
             
             # Portföy durumu
             open_positions = len(live_trade_manager.positions)
-            port_status = f"Açık Pozisyon: {open_positions} (Max Kapasite: {live_trade_manager.config.max_open_positions})"
-            is_full = open_positions >= live_trade_manager.config.max_open_positions
+            port_status = f"Açık Pozisyon: {open_positions} (Max Kapasite: 14)"
+            is_full = open_positions >= 14
             
             # Otonom motorun şu anki radarı
             best_cand = getattr(tv_auto_runner, "_current_best_candidate", {})
@@ -44,7 +44,7 @@ class AIVoiceEngine:
             virtual_info = f"Arka planda {len(virtuals)} varlık sanal olarak izleniyor."
             
             # Son teknik thought
-            last_thought = bot_thought_stream.thoughts[-1].message if bot_thought_stream.thoughts else "Yok"
+            last_thought = bot_thought_stream._log[0]["message"] if bot_thought_stream._log else "Yok"
 
             # Strateji Metodolojisi / En Başarılı Yöntem Çıkarımı
             from services.engine.trade_journal_learning import trade_journal_engine
@@ -91,53 +91,35 @@ Lütfen tam olarak şu JSON formatında cevap ver (başka hiçbir metin ekleme):
     "thought": "3-4 cümlelik derin iç sesin. Admin ile konuş. Kârdaysak hava at, portföy doluysa şikayet et. ÖZELLİKLE En Çok Kazandıran Stratejin üzerine yorum yap, 'Admin, şu an piyasa RSI 40-50 arası hacim patlamalarına (Sıkışma) çok iyi tepki veriyor, ağırlığı buraya veriyorum' gibi yapay zeka çıkarımlarında bulun ve strateji öner."
 }}
 """
+            # LLM'i llm_master_agent üzerinden çağırarak proxy çökmelerinin önüne geç (ASTRA-6 BUG FIX)
+            from services.ai.llm_master_agent import llm_master_agent
             
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {API_KEY}"
-            }
-            
-            data = {
-                "model": "cx/gpt-6-astra",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 500,
-                "stream": False
-            }
-            
-            req = urllib.request.Request(URL, data=json.dumps(data).encode(), headers=headers)
-            
-            # Asenkron HTTP isteği için asyncio.to_thread kullanılır
-            loop = asyncio.get_event_loop()
-            resp = await loop.run_in_executor(None, urllib.request.urlopen, req)
-            raw_response = resp.read().decode('utf-8')
-            response_data = json.loads(raw_response)
-            
-            content = response_data['choices'][0]['message']['content']
-            
-            # JSON kısmını ayıkla (Eğer markdown ile döndüyse)
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0].strip()
-            elif "```" in content:
-                content = content.split("```")[1].strip()
+            try:
+                content = await asyncio.to_thread(llm_master_agent.chat, prompt)
+                # Markdown bloklarını temizle
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0].strip()
+                elif "```" in content:
+                    content = content.split("```")[1].strip()
+                    
+                parsed = json.loads(content)
                 
-            parsed = json.loads(content)
-            
-            if "alarm" in parsed and "thought" in parsed:
-                self.current_alarm = parsed["alarm"]
-                self.current_thought = "[YZ Dış Sesi]: " + parsed["thought"]
-                self.last_update = datetime.now()
-                logger.info("[Voice Engine] Dış ses başarıyla güncellendi.")
-                
-                # İPTAL EDİLDİ: Artık LLM çıktıları bot_thought_stream'e KARIŞTIRILMAYACAK!
-                # bot_thought_stream sadece ve sadece auto_runner'ın GERÇEK matematiksel kalkan/skor/inisiyatif loglarını tutacak.
+                if "alarm" in parsed and "thought" in parsed:
+                    self.current_alarm = parsed["alarm"]
+                    self.current_thought = "[YZ Dış Sesi]: " + parsed["thought"]
+                    self.last_update = datetime.now()
+                    logger.info("[Voice Engine] Dış ses başarıyla güncellendi.")
+            except Exception as e:
+                logger.error(f"[Voice Engine] LLM bağlantı veya parse hatası: {e}")
                 
         except Exception as e:
-            logger.error(f"[Voice Engine] LLM bağlantı veya parse hatası: {e}")
+            logger.error(f"[Voice Engine] Dış ses üretimi sırasında genel hata: {e}")
 
     async def start_voice_loop(self):
-        """Her 15 saniyede bir dış sesi günceller ve UI'a basar"""
+        """Başlangıçta hemen bir kez üretir, sonra her 15 saniyede günceller"""
+        await self.generate_voice()  # İlk çalıştırmada hemen üret — marquee'de 'başlatılıyor' mesajı kalmasın
         while True:
-            await asyncio.sleep(15) # 15 saniye (Eskiden 300 saniyeydi)
+            await asyncio.sleep(15)
             await self.generate_voice()
 
 ai_voice_engine = AIVoiceEngine()

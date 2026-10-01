@@ -48,6 +48,19 @@ def _number(value, default: float) -> float:
     except (TypeError, ValueError):
         return default
 
+def _rsi_contribution(rsi: float) -> float:
+    """RSI için tek, birleşik puan katkısı — çift sayımı önler.
+    Adil yarış: RSI 25-40 (aşırı satım dip) en yüksek potansiyel alır,
+    RSI 40-55 (dipten dönüş) ikinci, RSI 55-65 (trend güçlü) üçüncü,
+    RSI 65-75 (olgun trend) nötr, RSI>=75 (aşırı alım) ceza alır.
+    """
+    if rsi >= 75.0:  return -10.0  # Aşırı alım / zirve riski
+    elif rsi >= 65.0: return +2.0  # Güçlü ama olgunlaşmış trend
+    elif rsi >= 55.0: return +3.0  # İdeal trend bölgesi (altın bölge)
+    elif rsi >= 40.0: return +5.0  # Dipten dönüş / erken trend potansiyeli
+    elif rsi >= 25.0: return +8.0  # Aşırı satım — dip fırsat
+    else:             return -5.0  # Serbest düşüş paniği
+
 @router.get("/live-matrix")
 async def get_live_buy_sell_wait_matrix():
     """
@@ -127,29 +140,48 @@ async def get_live_buy_sell_wait_matrix():
         # OTONOM ML & YÜKSELİŞ POTANSİYELİ PUANLAMASI (Standart Yarış Modu)
         score = 0
         
-        # 1. Temel İndikatörler (Tüm algoritmik değerler standart yarışır)
-        if rsi >= 60.0: score += 2 # Güçlü trend
-        elif rsi >= 50.0: score += 1 # Pozitif bölge
-        
-        if macd >= 0.0: score += 1
-        if data.get("ema_golden_cross", False): score += 2 # Güçlü sinyal
-        if data.get("vwap_bullish", False): score += 1
-        
-        if vol_ratio >= 1.5: score += 3 # Hacim patlaması (Balina)
-        elif vol_ratio >= 0.80: score += 1
-        
         stoch_k_value = _number(data.get("stoch_k"), 50.0)
         adx_value = _number(data.get("adx"), 25.0)
         cmf_value = _number(data.get("cmf"), 0.0)
-        if 20.0 <= stoch_k_value <= 80.0: score += 1
-        if adx_value >= 20.0: score += 1 # Trend yeni başlıyor/güçleniyor
-        if cmf_value > 0.10: score += 2 # Yüksek Kurumsal Giriş
-        if chg >= 0.5 and vol_ratio >= 1.2: score += 2 # Momentum Impulse
+        atr_pct_value = _number(data.get("atr_pct"), 1.5)
+        supertrend_bullish_value = bool(data.get("supertrend_bullish", False))
         
+        candle_high = _number(data.get("candle_high"), price)
+        candle_low = _number(data.get("candle_low"), price)
+        candle_open = _number(data.get("candle_open"), price)
+        
+        # 1. RSI Katkısı — BİRLEŞİK FONKSİYON (eski çift sayım kaldırıldı)
+        score += _rsi_contribution(rsi)
+        
+        # 2. Diğer Temel İndikatörler
+        if macd >= 0.0: score += 1
+        if data.get("ema_golden_cross", False): score += 2  # Güçlü sinyal
+        if data.get("vwap_bullish", False): score += 1
+        
+        if vol_ratio >= 1.5: score += 3  # Hacim patlaması (Balina)
+        elif vol_ratio >= 0.80: score += 1
+        
+        if 20.0 <= stoch_k_value <= 80.0: score += 1
+        if adx_value >= 20.0: score += 1  # Trend yeni başlıyor/güçleniyor
+        if cmf_value > 0.10: score += 2   # Yüksek Kurumsal Para Girişi
+        elif cmf_value < -0.10: score -= 2  # Kurumsal çıkış — ceza
+        if chg >= 0.5 and vol_ratio >= 1.2: score += 2  # Momentum Impulse
+        
+        # 2.5 Nyao Scalper - Wick Rejection Penalty (Üst Fitil Reddi)
+        candle_range = candle_high - candle_low
+        if candle_range > (price * 0.001): # Çok küçük dalgalanmaları yoksay (en az binde 1)
+            upper_wick = candle_high - price
+            upper_wick_ratio = upper_wick / candle_range
+            # Eğer üst fitil mumun yarısından (%50) büyükse, sert satış baskısı var demektir
+            if upper_wick_ratio > 0.5:
+                penalty = 4.0 * upper_wick_ratio  # 0.5 ile 1.0 arası oran -> 2.0 ile 4.0 arası puan cezası
+                score -= penalty
+        
+        # 3. Momentum Fazı — Hacim + RSI kombinasyonu
         momentum_phase = "NEUTRAL"
         if vol_ratio >= 2.0:
             if chg < -1.5:
-                score -= 5 # Çöküş Panik Satışı
+                score -= 5  # Çöküş Panik Satışı
                 momentum_phase = "PANIC_DUMP"
             else:
                 score += 4
@@ -160,6 +192,8 @@ async def get_live_buy_sell_wait_matrix():
         elif rsi > 72.0 and chg > 3.0:
             score -= 3
             momentum_phase = "PEAK_RISK"
+        elif rsi < 35.0 and vol_ratio >= 1.3:
+            momentum_phase = "EARLY_EXPLOSION"  # Aşırı satım + yükselen hacim = dip toparlanması
         
         # 2. ML Otonom Hafıza Katkısı (Geçmiş başarıya göre ekstra puan)
         from services.engine.experience_memory_engine import experience_memory_engine
@@ -185,22 +219,27 @@ async def get_live_buy_sell_wait_matrix():
         )
         
         risk_block_reason = None
-        if fakeout_res.is_fakeout:
+        if vol_ratio < 0.5:
+            score -= 10
+            momentum_phase = "DEAD_VOLUME"
+            risk_block_reason = f"💀 Ölü Tahta (Hacim Yok: {vol_ratio}x)"
+        elif fakeout_res.is_fakeout:
             score -= 10
             momentum_phase = "FAKEOUT_RISK"
-            risk_block_reason = f"Sahte Kırılım (Fakeout) Tespit Edildi: {fakeout_res.reason}"
-        elif vol_ratio < 0.75:
-            score -= 3
+            short_reason = fakeout_res.reason.split(":")[-1].strip() if ":" in fakeout_res.reason else fakeout_res.reason
+            risk_block_reason = f"🚨 Sahte Kırılım ({short_reason})"
+        elif vol_ratio < 0.9:
+            score -= 5
             momentum_phase = "VOLUME_RISK"
-            risk_block_reason = "Aşırı Hacimsizlik (Vol < 0.75)"
+            risk_block_reason = f"💤 Hacimsiz (Vol: {vol_ratio}x)"
         elif adx < 20.0 and chg > 0.5 and not ema_golden and vol_ratio < 1.2:
             score -= 2
-            momentum_phase = "TREND_RISK"
-            risk_block_reason = "Yatay Piyasada Sahte Yükseliş (ADX < 20)"
+            momentum_phase = "WEAK_TREND"
+            # risk_block_reason = ... (İptal edildi, analiz felcine yol açıyordu)
         elif ema_golden and not supertrend_bullish:
-            score -= 5
-            momentum_phase = "TREND_RISK"
-            risk_block_reason = "Çelişen Trend Sinyali (EMA Boğa, Supertrend Ayı)"
+            score -= 3
+            momentum_phase = "MIXED_TREND"
+            # risk_block_reason = ... (İptal edildi, erken trendleri blokluyordu)
             
         # ==========================================
         # KASA VE BÜTÇE DİSİPLİNİ (14 LİMİT & 9 YAVAŞLATMA EŞİĞİ)
@@ -234,7 +273,11 @@ async def get_live_buy_sell_wait_matrix():
             except Exception:
                 pass
 
-        if open_pos:
+        if not is_open:
+            decision = "WAIT"
+            badge = "🔴 PİYASA KAPALI"
+            reason = "Seans saatleri dışında olduğu için işlem yapılamaz."
+        elif open_pos:
             decision = "HOLD"
             badge = "🟢 POSITION_OPEN"
             reason = f"Açık Pozisyon Aktif (Giriş: ${open_pos.entry_price}, PnL: ${open_pos.unrealized_pnl})"
@@ -248,8 +291,8 @@ async def get_live_buy_sell_wait_matrix():
             badge = "🚧 RISK_BLOCK"
             reason = risk_block_reason
             
-            # GÖLGE İŞLEM ENJEKSİYONU (Manuel Trade İçin)
-            if score >= 5 and vol_ratio >= 1.5:
+            # GÖLGE İŞLEM ENJEKSİYONU (Manuel Trade İçin) - SADECE PİYASA AÇIKSA!
+            if is_open and score >= 5 and vol_ratio >= 1.5:
                 try:
                     from services.engine.bot_thought_stream import bot_thought_stream
                     sl_level = price * (1 - (atr_pct / 100))
@@ -269,7 +312,7 @@ async def get_live_buy_sell_wait_matrix():
             badge = "⏳ DATA_BLOCKED"
             missing_text = ", ".join(critical_missing) if critical_missing else "snapshot_timestamp"
             age_text = f"{data_age_seconds:.1f}s" if data_age_seconds is not None else "bilinmiyor"
-            reason = f"Yeni işlem bekletildi: veri yaşı {age_text}, eksik/geçersiz alanlar: {missing_text}"
+            reason = f"⚠️ Eksik Veri Bekletildi (Yaş: {age_text})"
         elif not is_open:
             decision = "WAIT"
             badge = "💤 SEANS_DISI"
@@ -278,9 +321,9 @@ async def get_live_buy_sell_wait_matrix():
             decision = "SELL"
             badge = "🔴 SELL_SIGNAL"
             if rsi > 85.0:
-                reason = f"Kritik Aşırı Şişkinlik (RSI={rsi:.1f})"
+                reason = f"🔥 Aşırı Şişkinlik (RSI={rsi:.1f})"
             else:
-                reason = "Negatif MACD kesişimi ve satıcı baskısı"
+                reason = "📉 Negatif MACD (Satıcı Baskısı)"
         elif score >= 6 and vol_ratio >= 2.5:
             decision = "BUY"
             badge = "🟢 EXPLOSIVE_BREAKOUT"
@@ -301,9 +344,9 @@ async def get_live_buy_sell_wait_matrix():
             decision = "WAIT"
             badge = "🟡 WAIT_PATIENT"
             if 40 <= rsi <= 60:
-                reason = "Piyasa yatay konsolidasyon evresinde (Kırılım bekleniyor)"
+                reason = "⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)"
             else:
-                reason = "İndikatörler uyumsuz, net teyit bekleniyor"
+                reason = "⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)"
             
         high = round(float(data.get("high", price * 1.015)), 4 if price < 1.0 else 2)
         low = round(float(data.get("low", price * 0.985)), 4 if price < 1.0 else 2)
@@ -321,6 +364,10 @@ async def get_live_buy_sell_wait_matrix():
             "rsi": rsi,
             "volume_ratio": vol_ratio,
             "adx": adx_value,
+            "cmf": cmf_value,                    # ← YENİ: Kurumsal para akışı
+            "atr_pct": atr_pct_value,             # ← YENİ: Dinamik TP için ATR
+            "stoch_k": stoch_k_value,             # ← YENİ: Stochastic K
+            "supertrend_bullish": supertrend_bullish_value,  # ← YENİ: Trend onayı
             "indicator_coverage": indicator_coverage,
             "data_quality": data_quality,
             "data_age_seconds": data_age_seconds,
@@ -342,131 +389,239 @@ async def get_live_buy_sell_wait_matrix():
     for m in matrix_results:
         sym = m["symbol"].upper()
         ai_data = confidence_map.get(sym, {})
-        
-        # KULLANICI İSTEĞİ: Yüksekten (zaten patlamış) varlıkları değil, dipten toparlanan veya yeni harekete başlayan (RSI 25-50) varlıkları yarıştır!
-        chg_val = m.get("change_pct", 0.0)
-        rsi_val = m.get("rsi", 50.0)
-        
-        chg_bonus = 0.0
-        if chg_val > 6.0:
-            chg_bonus = -10.0 # Zaten patlamış, trene sondan binme cezası
-        elif 0.5 <= chg_val <= 3.5:
-            chg_bonus = +5.0  # Yeni uyanıyor, patlamaya hazır (Erken trend)
-            
-        rsi_bonus = 0.0
-        if 25.0 <= rsi_val <= 35.0:
-            rsi_bonus = +8.0  # Aşırı satım, dip fiyat!
-        elif 35.0 < rsi_val <= 50.0:
-            rsi_bonus = +4.0  # Dipten dönüş, yükseliş potansiyeli
-        elif rsi_val >= 75.0:
-            rsi_bonus = -10.0 # Şişmiş, riskli bölge
-            
-        # Temel indikatör skoru + Kullanıcı felsefesine (Erken Keşif) uygun bonuslar
-        # Eskiden burası (score * 2.5) ile aşırı şişiyordu. Şimdi 2.0 yaptık.
-        base_ind_score = min(40.0, (m.get("score", 0) * 2.0) + chg_bonus + rsi_bonus)
-        
-        m["expertise_level"] = ai_data.get("expertise_level", "🟡 NÖTR / DENGELİ")
-        m["ai_action"] = ai_data.get("action_recommendation", "🟡 Standart İnceleme")
-        
-        # Teknik yarış taban skoru (Eskiden 35'ti. Şişmeyi önlemek için 25'e çektik)
-        final_dynamic_score = 25.0 + base_ind_score
-        
-        # ML / AI Geçmiş Deneyimi (Experience Memory Engine)
         historical_sample = int(ai_data.get("total_trades", 0) or 0) if ai_data else 0
+
+        # ══════════════════════════════════════════════════════════════════════
+        # ADİL YARIŞ: AĞIRLIKLI DİLİM (WEIGHTED SLICE) GÜVEN SKORU MİMARİSİ
+        # Her sinyal grubu sabit bir pasta dilimine sahip (toplam = 100 puan).
+        # Her grup kendi dilimi içinde 0.0 → 1.0 arası normalize edilmiş performans
+        # gösterir. Çift sayım, bonus yığılması ve yapay şişirme tamamen ortadan
+        # kalktı. Yalnızca gerçek sinyal gücü sıralamayı belirler.
+        #
+        # DİLİM AĞIRLIKLARI (toplam = 100):
+        #   RSI Momentum      : %20  → Fiyat gücü ve dönüş ivmesi
+        #   Hacim/CMF         : %25  → Kurumsal para akışı ve katılım
+        #   Teknik İndikatörler: %20 → ADX, Stoch, SuperTrend, pozisyon
+        #   Fiyat Değişimi    : %10  → Gün içi erken/geç trend tespiti
+        #   ML Geçmişi        : %15  → Deneyim hafızası, geçmiş başarı oranı
+        #   Veri Kalitesi     : %10  → İndikatör kapsama ve veri tazeliği
+        # ══════════════════════════════════════════════════════════════════════
+
+        price     = m.get("price", 0.0)
+        rsi       = float(m.get("rsi") or 50.0)
+        vol_ratio = float(m.get("volume_ratio") or 1.0)
+        cmf       = float(m.get("cmf") or 0.0)
+        adx       = float(m.get("adx") or 0.0)
+        stoch_k   = float(m.get("stoch_k") or 50.0)
+        supertrend_b = bool(m.get("supertrend_bullish", False))
+        chg_pct   = float(m.get("change_pct") or 0.0)
+        ind_cov   = float(m.get("indicator_coverage") or 0.0)
+        data_age  = float(m.get("data_age_seconds") or 999.0)
+        high      = float(m.get("high") or price * 1.02)
+        low       = float(m.get("low") or price * 0.98)
+
+        # ── DİLİM 1: RSI MOMENTUM (%20) ──────────────────────────────────────
+        # 30-45: dipten dönüş (güçlü)
+        # 45-65: trend bölgesi (güçlü)
+        # 65-75: ivme devam (orta)
+        # <30 veya >75: uç bölge (düşük)
+        if   rsi < 25:   rsi_raw = 0.1  # Serbest düşüş
+        elif rsi < 35:   rsi_raw = 0.5  # Aşırı satım / dip olasılığı
+        elif rsi < 45:   rsi_raw = 0.85 # Dipten toparlanma (erken sinyal)
+        elif rsi < 60:   rsi_raw = 1.0  # Trend bölgesi (ideal)
+        elif rsi < 70:   rsi_raw = 0.8  # Güçlü trend, yavaşlama başlar
+        elif rsi < 78:   rsi_raw = 0.5  # Aşırı alım yaklaşıyor
+        else:            rsi_raw = 0.1  # Aşırı alım, düzeltme riski
+        slice_rsi = rsi_raw * 20.0
+
+        # ── DİLİM 2: HACİM & KURUMSAL PARA AKIŞI (%25) ───────────────────────
+        # Hacim: 1x normal, 2x güçlü, 3x+ balina. CMF: -1→+1 kurumsal net akış.
+        if   vol_ratio >= 3.0:  vol_raw = 1.0
+        elif vol_ratio >= 2.0:  vol_raw = 0.85
+        elif vol_ratio >= 1.5:  vol_raw = 0.70
+        elif vol_ratio >= 1.0:  vol_raw = 0.50
+        elif vol_ratio >= 0.6:  vol_raw = 0.20
+        else:                   vol_raw = 0.0   # Ölü hacim — elensin
+
+        # CMF bonusu: kurumsal net pozitif akış ek sinyal güç katkısı
+        if   cmf > 0.20:  cmf_raw = 1.0
+        elif cmf > 0.10:  cmf_raw = 0.75
+        elif cmf > 0.0:   cmf_raw = 0.50
+        elif cmf > -0.10: cmf_raw = 0.25
+        else:             cmf_raw = 0.0
+
+        # ── PİYASA BAZLI HACİM AĞIRLANDIRMASI ────────────────────────────────
+        # NASDAQ ve CRYPTO için hacim farklı anlam taşır.
+        market_type = m.get("market", "CRYPTO")
+
+        if market_type == "NASDAQ":
+            # NASDAQ: RTH (16:30-23:00 TRT) dışında (pre/post market) hacim
+            # güvenilmez. Pre-market düşük hacimde büyük fiyat hareketi = yanıltıcı.
+            # Session bilgisi market_router'da m["session"] olarak taşınır.
+            session = m.get("session", "RTH")
+            if session in ("PRE_MARKET", "POST_MARKET"):
+                # Pre/post market: hacim ağırlığını %60 düşür, CMF'e ağırlık ver
+                # Kurumsal yönü (CMF) RTH açılışını tahmin eder, ham hacim değil.
+                vol_weight = 0.40   # Hacim güvenilirlik düşük
+                cmf_weight = 0.60   # CMF yön bilgisi daha değerli
+                # Pre-market hacim spike'larını cezalandır (stop hunt riski)
+                if vol_ratio > 2.0:
+                    vol_raw = min(vol_raw, 0.55)  # 2x+ spike'ları sınırla
+            else:
+                # RTH: Standart ağırlık — kurumsal blok alımları burada okunur
+                vol_weight = 0.65
+                cmf_weight = 0.35
+            m["volume_session_note"] = f"NASDAQ {session}: Hac%{int(vol_weight*100)} CMF%{int(cmf_weight*100)}"
+
+        elif market_type == "CRYPTO":
+            # CRYPTO 7/24 açık. Salt hacim balina yönünü vermez.
+            # CMF burada daha kritik — negatif CMF ile yükselen hacim = dağıtım.
+            # ABD seansı (16:30-23:00 TRT) aktifse hacim daha güvenilir.
+            import datetime as _dt
+            from zoneinfo import ZoneInfo as _ZI
+            _now_tr = _dt.datetime.now(_ZI("Europe/Istanbul"))
+            _hour_tr = _now_tr.hour
+            is_us_session = (16 <= _hour_tr < 23)
+
+            if is_us_session:
+                # ABD seansı: Hacim + CMF eşit önemde
+                vol_weight = 0.60
+                cmf_weight = 0.40
+                # Negatif CMF + yüksek hacim = dağıtım cezası
+                if cmf_raw == 0.0 and vol_raw >= 0.70:
+                    vol_raw *= 0.65   # Yüksek hacim + negatif CMF → güvenilmez
+            else:
+                # Asia/Avrupa seansı: CMF daha baskın (hacim düşük, manipülasyon riski)
+                vol_weight = 0.45
+                cmf_weight = 0.55
+                # Düşük seans + aşırı hacim spike'ı = wash trading şüphesi
+                if vol_ratio > 3.0:
+                    vol_raw = min(vol_raw, 0.70)
+            m["volume_session_note"] = f"CRYPTO {'ABD' if is_us_session else 'ASYA/EU'}: Hac%{int(vol_weight*100)} CMF%{int(cmf_weight*100)}"
+
+        else:
+            # BIST veya diğer: Standart ağırlık
+            vol_weight = 0.70
+            cmf_weight = 0.30
+
+        # Nihai Hacim+CMF dilim skoru (piyasaya özel ağırlıklar ile)
+        slice_volume = ((vol_raw * vol_weight) + (cmf_raw * cmf_weight)) * 25.0
+
+
+        # ── DİLİM 3: TEKNİK İNDİKATÖRLER (%20) ──────────────────────────────
+        # ADX, Stoch K, SuperTrend, Gün içi fiyat pozisyonu
+        tech_score = 0.0
+
+        # ADX: Trend gücü (0-40 normalize)
+        if   adx >= 40: adx_raw = 1.0
+        elif adx >= 25: adx_raw = (adx - 25) / 15.0
+        else:           adx_raw = adx / 50.0  # Zayıf trend
+        tech_score += adx_raw * 0.35  # ADX dilim içi %35
+
+        # Stoch K: Aşırı satımdan çıkış ve ideal bölge
+        if   stoch_k < 20:  stoch_raw = 0.7  # Aşırı satım (fırsat)
+        elif stoch_k < 50:  stoch_raw = 1.0  # İdeal bölge
+        elif stoch_k < 70:  stoch_raw = 0.7  # Normal
+        else:               stoch_raw = 0.2  # Aşırı alım
+        tech_score += stoch_raw * 0.30  # Stoch dilim içi %30
+
+        # SuperTrend: Trend yönü onayı
+        tech_score += (1.0 if supertrend_b else 0.2) * 0.20  # SuperTrend dilim içi %20
+
+        # Gün içi fiyat pozisyonu: Alt %30 = fırsat, Üst %70+ = riskli
+        if high > low:
+            pos_range = (price - low) / (high - low)
+            if   pos_range <= 0.25: pos_raw = 1.0   # Dibe yakın = fırsat
+            elif pos_range <= 0.50: pos_raw = 0.75
+            elif pos_range <= 0.75: pos_raw = 0.50
+            else:                   pos_raw = 0.15  # Zirveye yakın = riskli
+        else:
+            pos_raw = 0.5
+        tech_score += pos_raw * 0.15  # Pozisyon dilim içi %15
+
+        slice_technical = tech_score * 20.0
+
+        # ── DİLİM 4: GÜNLÜK FİYAT DEĞİŞİMİ (%10) ────────────────────────────
+        # 0.5%-3.5%: Uyanış sinyali (ideal erken giriş)
+        # >6%: Trene sondan binme (olumsuz)
+        # <-3%: Satış baskısı (olumsuz)
+        if   0.5 <= chg_pct <= 1.5:  chg_raw = 1.0   # Taze uyanış
+        elif 1.5 < chg_pct <= 3.5:   chg_raw = 0.85  # Momentum var
+        elif 3.5 < chg_pct <= 6.0:   chg_raw = 0.55  # Zaten ısındı
+        elif chg_pct > 6.0:          chg_raw = 0.15  # Geç kalındı
+        elif -1.0 <= chg_pct < 0.5:  chg_raw = 0.55  # Nötr/hafif düşüş
+        elif -3.0 <= chg_pct < -1.0: chg_raw = 0.30  # Satış var
+        else:                        chg_raw = 0.05  # Sert düşüş
+        slice_change = chg_raw * 10.0
+
+        # ── DİLİM 5: ML GEÇMİŞİ / DENEYİM HAFIZASI (%15) ────────────────────
+        # Gerçek geçmiş işlem başarısını yansıtır. Veri yoksa nötr (0.5).
+        ai_bonus = 0.0
         if ai_data and "confidence_score" in ai_data:
             raw_conf = float(ai_data["confidence_score"])
+            # Deneyim olgunluğu: 10 işlemden sonra tam ağırlık
             sample_factor = min(1.0, historical_sample / 10.0)
-            
-            # ML'in Geçmiş Tecrübe Skoru
-            ai_bonus = (raw_conf - 50.0) * 0.3 * sample_factor 
-            
-            if raw_conf >= 75.0 and sample_factor >= 0.5:
-                ai_bonus += 5.0 # Eskiden 10'du, şişmeyi önlemek için düşürüldü
-            
-            ai_bonus = min(15.0, max(-15.0, ai_bonus))
-            final_dynamic_score += ai_bonus
-            
-            if ai_bonus > 3.0:
-                m["reason"] += f" | 🧠 ML Geçmişi Parlak (+{ai_bonus:.1f} Puan)"
-            elif ai_bonus < -3.0:
-                m["reason"] += f" | 🧠 ML Sabıkalı Varlık ({ai_bonus:.1f} Puan)"
-            
-        # Aksiyon Boost KALDIRILDI (Çünkü zaten "BUY" kararı Score üzerinden alınıyordu, çifte puanlama yapıyordu)
-        
-        # Hacim Boost: Maksimum +8, Minimum -3
-        vol_ratio_val = m.get("volume_ratio", 1.0) or 1.0
-        volume_boost = min(8.0, max(-3.0, (vol_ratio_val - 1.0) * 3.5))
-        
-        # 💣 Ticking Time Bomb (Patlamaya Hazır Bomba) Sıkışma Bonusu
+            # ML başarısını 0→1 arası normalize et (50% nötr, 100% tam)
+            ml_raw = ((raw_conf - 50.0) / 50.0) * sample_factor  # -1.0 → +1.0
+            # 0.0→1.0 arası dönüştür
+            ml_normalized = max(0.0, min(1.0, 0.5 + ml_raw * 0.5))
+            ai_bonus = ml_normalized
+            if ml_normalized > 0.7:
+                m["reason"] += f" | 🧠 ML:✅ ({historical_sample} geçmiş)"
+            elif ml_normalized < 0.3:
+                m["reason"] += f" | 🧠 ML:⚠️ ({historical_sample} geçmiş)"
+        else:
+            ai_bonus = 0.5  # Veri yoksa nötr
+        slice_ml = ai_bonus * 15.0
+
+        # ── DİLİM 6: VERİ KALİTESİ (%10) ────────────────────────────────────
+        # İndikatör kapsama oranı + veri tazeliği
+        # Kapsama: ne kadar indikatör dolu (0→1)
+        # Tazelik: son 30s mükemmel, 90s kabul edilebilir, üstü zayıf
+        if   data_age <= 30:  freshness_raw = 1.0
+        elif data_age <= 60:  freshness_raw = 0.85
+        elif data_age <= 90:  freshness_raw = 0.65
+        else:                 freshness_raw = 0.20
+
+        # Kapsama %60, Tazelik %40 (dilim içi ağırlık)
+        slice_quality = ((ind_cov * 0.60) + (freshness_raw * 0.40)) * 10.0
+
+        # ── NİHAİ SKOR: 6 DİLİMİN ORANSAL TOPLAMI ───────────────────────────
+        raw_score = (
+            slice_rsi        +  # %20
+            slice_volume     +  # %25
+            slice_technical  +  # %20
+            slice_change     +  # %10
+            slice_ml         +  # %15
+            slice_quality       # %10
+        )  # MAX = 100.0
+
+        # Sıkışma Kırılımı: Ek sinyal — eğer hacim+CMF+RSI tüm dilimleri
+        # birlikte güçlüyse, bu gerçek bir kırılım olasılığı demektir.
+        is_consolidating = (40.0 <= rsi <= 55.0) and (adx < 25.0)
         squeeze_bonus = 0.0
-        current_rsi = m.get("rsi", 50.0)
-        current_adx = float(m.get("adx", 0.0) or 0.0)
-        # Sıkışma (Konsolidasyon) Şartları: RSI 40-55 arası (ne aşırı satım ne aşırı alım), trend yatay (ADX < 25)
-        is_consolidating = (40.0 <= current_rsi <= 55.0) and (current_adx < 25.0)
-        
-        if is_consolidating and vol_ratio_val > 1.8:
-            # Sıkışan bir tahtaya aniden devasa hacim (1.8x) girdiyse, bu bir patlama sinyalidir!
-            squeeze_bonus = 15.0
-            m["reason"] = f"🧨 SIKIŞMA KIRILIMI: Patlamaya hazır bomba! Hacim {vol_ratio_val:.1f}x"
-            m["badge"] = "🧨 BOMBA"
-        elif is_consolidating and vol_ratio_val > 1.3:
-            # Hafif uyanış
-            squeeze_bonus = 7.0
-            m["reason"] += " | 🧨 Uyanış (Hacim artıyor)"
-        
-        # Adil Değer (Fair Value) Hesaplaması
-        fair_value_boost = 0.0
-        session_high = m.get("high", price * 1.02)
-        session_low = m.get("low", price * 0.98)
-        
-        if session_high > session_low:
-            position_in_range = (price - session_low) / (session_high - session_low)
-            
-            if position_in_range <= 0.30:
-                fair_value_boost = 6.0
-                dist_from_low = max(0, ((price - session_low) / session_low) * 100)
-                m["reason"] += f" | 📉 Adil Değer Altı (Dibe %{dist_from_low:.1f} Yakın)"
-            elif position_in_range >= 0.75:
-                fair_value_boost = -5.0
-                dist_from_high = max(0, ((session_high - price) / price) * 100)
-                if dist_from_high < 0.05:
-                    m["reason"] += f" | 📈 Zirve Testi"
-                else:
-                    m["reason"] += f" | 📈 Zirve Fiyatlama"
-                
-        final_dynamic_score += (volume_boost + squeeze_bonus + fair_value_boost)
-        
-        # --- SAF MATEMATİKSEL HACİM VE MOMENTUM ÇARPANLARI ---
-        current_rsi = m.get("rsi", 50.0)
-        current_vol = m.get("volume_ratio", 1.0) or 1.0
-        
-        # Hacim artışına göre orantısal puan (Maksimum +5 puan) - Sadece hacim > 2.0 ise etki eder.
-        if current_vol >= 2.0:
-            vol_bonus = min(5.0, (current_vol - 1.0) * 1.5)
-            final_dynamic_score += vol_bonus
-            
-        # Düşük hacim ve yataylık cezası
-        if 45.0 <= current_rsi <= 55.0 and current_vol < 0.8:
-            final_dynamic_score -= 5.0
-        
-        # ─── GÜVEN SKORU: Geniş Marjlı Doğal Dağılım ───────────────────────────
-        quality_factor = 0.90 + (0.10 * float(m.get("indicator_coverage", 0.0)))
-        
-        # Otonom Konsey Kararı: Yarış dinamiklerini yansıtmak için taban skor (baseline) 30'dan 45'e çekildi.
-        ranking_score = min(99.0, max(1.0, round(final_dynamic_score, 1)))
-        confidence_score = round(45.0 + (ranking_score - 30.0) * quality_factor, 1)
-        
-        # Sadece KESİN ve ÇOK GÜÇLÜ hisseler 90 üzerine çıkabilsin diye hafif bir ceza (eskisi kadar pısırık değil):
-        if confidence_score > 85.0:
-            confidence_score = 85.0 + ((confidence_score - 85.0) * 0.8) # 85'ten sonrasını hafif frenle
-            
-        # Son 30 dk yarış verisi çarpanı (Simülasyon/Geçmiş ağırlığı)
-        # Hacim ve Trend güçlü olan varlıklar doğrudan zirve yarışına girer.
-        confidence_score = min(99.9, max(0.0, round(confidence_score, 1)))
-        
+        if is_consolidating and vol_ratio > 1.8 and cmf > 0.05:
+            squeeze_bonus = 5.0  # Küçük ama gerçek — dilim dışı tek bonus
+            m["reason"] = f"🧨 SIKIŞMA KIRILIMI: Hacim {vol_ratio:.1f}x | CMF {cmf:.2f}"
+            m["badge"]  = "🧨 BOMBA"
+
+        ranking_score    = round(max(0.0, min(99.9, raw_score + squeeze_bonus)), 1)
+        confidence_score = ranking_score
+
+        # Veri kalitesi yetersizse skoru bloke et
         if m.get("decision_gate") != "ALLOW_ENTRY":
-            ranking_score = 0.0
+            ranking_score    = 0.0
             confidence_score = 0.0
+
+        # Dilim dağılımını debug için sakla
+        m["score_breakdown"] = {
+            "rsi_momentum":  round(slice_rsi, 2),
+            "volume_cmf":    round(slice_volume, 2),
+            "technical":     round(slice_technical, 2),
+            "price_change":  round(slice_change, 2),
+            "ml_history":    round(slice_ml, 2),
+            "data_quality":  round(slice_quality, 2),
+        }
             
         # === Puan Yumuşatma (Smoothing / EMA) ===
         now_ts = time.time()
@@ -482,9 +637,9 @@ async def get_live_buy_sell_wait_matrix():
             weighted_conf = 0
             weighted_rank = 0
             for t_ts, t_conf, t_rank in _score_history[sym]:
-                # Yeni verilere daha fazla ağırlık ver (zaman farkı 0 ise weight 1, 180s ise weight 1/2)
-                # Bu sayede 1 dakikalık sahte balina iğneleri listeyi darmadağın edemez, istikrar gerekir.
-                weight = 1.0 / (1.0 + (now_ts - t_ts) / 180.0)
+                # Yarı ömür: 60 saniye (eskisi 180s — ani hacim patlamaları artık hızlı yansır)
+                # 1 dakika önce: ağırlık 0.5, 3 dakika önce: ağırlık 0.167
+                weight = 1.0 / (1.0 + (now_ts - t_ts) / 60.0)
                 weighted_conf += t_conf * weight
                 weighted_rank += t_rank * weight
                 total_weight += weight

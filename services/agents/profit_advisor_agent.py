@@ -47,7 +47,7 @@ class ProfitAdvisorAgent:
         learned_rules = experience_memory_engine.learned_rules
         open_positions = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
 
-        # 2. Bölümlü analizler
+        # 2. Bölümlü analizler (Kantitatif Analiz)
         parity_report   = self._analyze_parities(trade_history)
         strategy_report = self._analyze_strategies(trade_history)
         timing_report   = self._analyze_timing(trade_history)
@@ -55,12 +55,31 @@ class ProfitAdvisorAgent:
         skill_report    = self._analyze_skill_weaknesses(learned_rules)
         next_actions    = self._generate_next_actions(parity_report, strategy_report, sizing_report)
 
+        # 3. Yüce Divan ML Nedensellik (Causality) & Post-Market AI Özeti
+        ml_learning_summary = "Henüz yeterli işlem verisi yok."
+        try:
+            from services.ai.llm_master_agent import llm_master_agent
+            if llm_master_agent.is_ready() and len(trade_history) > 0:
+                recent_trades = [{"symbol": t.symbol, "net_pnl": t.pnl_amount, "win": t.is_win} for t in trade_history[-10:]]
+                prompt = (
+                    f"Son işlemler: {recent_trades}. Bu işlemlere dayanarak bugünkü piyasa volatilitesi, "
+                    "bölgesel haber etkileri ve genel pazar reaksiyonlarını çıkar (Post-Market Review). "
+                    "Yarın için oransal pozisyon büyüklüğü (Lot sizing) ve İz Sürücü Stop (Trailing Stop) stratejisi öner."
+                )
+                ml_learning_summary = llm_master_agent.chat(
+                    user_message=prompt, 
+                    system_prompt="Sen Yüce Divan'ın Post-Market (Piyasa Kapanışı) Makro Analistisin. Maksimum 3 cümleyle ML Nedenselliğini açıkla."
+                )
+        except Exception as e:
+            logger.warning(f"[PROFIT ADVISOR] ML Causality çağrısı başarısız: {e}")
+
         report = {
             "status": "success",
             "agent": "ProfitAdvisorAgent",
             "version": self.VERSION,
             "generated_at": self._last_report_time,
             "summary": self._build_executive_summary(trade_history, open_positions),
+            "ml_causality_learning": ml_learning_summary,
             "parity_optimization": parity_report,
             "strategy_rotation": strategy_report,
             "timing_analysis": timing_report,
@@ -68,7 +87,7 @@ class ProfitAdvisorAgent:
             "skill_weakness_report": skill_report,
             "actionable_next_steps": next_actions,
         }
-        logger.info(f"[PROFIT ADVISOR] Rapor tamamlandı. {len(next_actions)} aksiyonel öneri üretildi.")
+        logger.info(f"[PROFIT ADVISOR] Rapor tamamlandı. ML Post-Market Öğrenimi devrede. {len(next_actions)} aksiyonel öneri üretildi.")
         return report
 
     # ─────────────────────────────────────────────────────────────

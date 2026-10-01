@@ -1,0 +1,98 @@
+{
+  "btcturk_crypto_tl": {
+    "ACTIVE": [
+      {
+        "symbol": "SUSHI/TRY",
+        "entry_price": 13.42,
+        "total_cost": 13360.0,
+        "note": "8 saat TP1 hedefi verildi. Beklemede."
+      },
+      {
+        "symbol": "SOL/TRY",
+        "entry_price": 5839.0,
+        "total_cost": 6700.0,
+        "note": "Aktif tutuluyor."
+      },
+      {
+        "symbol": "FIL/TRY",
+        "entry_price": 52.65,
+        "total_cost": 27507.0,
+        "note": "Aktif tutuluyor."
+      },
+      {
+        "symbol": "SUI/TRY",
+        "entry_price": 58.91,
+        "total_cost": 43936.0,
+        "note": "LTC satilarak agresif rotasyonla girildi."
+      }
+    ],
+    "CLOSED_HISTORY": [
+      {
+        "symbol": "NEAR",
+        "entry_price": 236.3,
+        "total_cost": 31629.0,
+        "loss": -1300.0,
+        "reason": "Yanl\u00c4\u00b1\u00c5\u0178 (dar) SL hesaplamas\u00c4\u00b1 y\u00c3\u00bcz\u00c3\u00bcnden piyasa yap\u00c4\u00b1c\u00c4\u00b1 algoritmalar\u00c4\u00b1 likidite avlad\u00c4\u00b1. Erken stop olundu."
+      },
+      {
+        "symbol": "RENDER",
+        "entry_price": 94.34,
+        "total_cost": 13560.0,
+        "reason": "Sat\u00c4\u00b1ld\u00c4\u00b1, komisyona gitti, s\u00c4\u00b1f\u00c4\u00b1r k\u00c3\u00a2r."
+      },
+      {
+        "symbol": "CRV",
+        "entry_price_avg": 19.38,
+        "total_cost": 46308.0,
+        "exit_price": 18.65,
+        "reason": "Yapay zeka zay\u00c4\u00b1f SL koydu\u00c4\u0178u i\u00c3\u00a7in \u00c3\u00bcst algoritmalar taraf\u00c4\u00b1ndan stop patlat\u00c4\u00b1ld\u00c4\u00b1. A\u00c4\u0178\u00c4\u00b1r kay\u00c4\u00b1p."
+      },
+      {
+        "symbol": "LTC/TRY",
+        "entry_price": 3284.0,
+        "total_cost": 43831.0,
+        "note": "CRV stop patlamas\u00c4\u00b1ndan sonra telafi ama\u00c3\u00a7l\u00c4\u00b1 eklendi. Y\u00c3\u00bckl\u00c3\u00bc al\u00c4\u00b1m.",
+        "reason": "SUI rotasyonu icin satildi."
+      }
+    ]
+  },
+  "midas_stocks_usd": {
+    "ACTIVE": [
+      {
+        "symbol": "PLTR",
+        "entry_price": 187.0,
+        "total_cost": 490.14,
+        "date": "2026-09-28"
+      },
+      {
+        "symbol": "CDNS",
+        "entry_price": 323.75,
+        "total_cost": 246.22,
+        "date": "2026-09-28"
+      },
+      {
+        "symbol": "ANET",
+        "entry_price": 201.23,
+        "total_cost": 408.41,
+        "date": "2026-09-18"
+      },
+      {
+        "symbol": "NVDA",
+        "entry_price": 222.02,
+        "total_cost": 210.0,
+        "date": "2026-09-24"
+      }
+    ],
+    "CLOSED_HISTORY": [
+      {
+        "symbol": "DIA",
+        "entry_price": 514.5,
+        "total_cost": 493.54,
+        "loss": -3.0,
+        "date": "2026-09-28",
+        "reason": "Zararla sat\u00c4\u00b1ld\u00c4\u00b1, komisyona yem oldu."
+      }
+    ]
+  },
+  "agent_instructions": "This file is the permanent memory of the user's manual portfolio. NEVER forget this. Always refer to these entry prices when the user asks about their portfolio in new chats. Acknowledge past mistakes (NEAR and CRV tight stop-loss failures)."
+}
