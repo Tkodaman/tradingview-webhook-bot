@@ -5251,7 +5251,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     <div style="font-size: 18px; line-height: 1; filter: drop-shadow(0 0 4px ${levelColor});">${emoji}</div>
                     <div style="flex:1;">
                         <b style="color: #f1f5f9; font-size: 13px; text-shadow: 0 0 10px rgba(255,255,255,0.1); display: block; margin-bottom: 3px;">
-                            ${symText ? \`<span style="color: #fbbf24;">[\${symText}]</span>\` : ''} İşlem Düşüncesi
+                            ${symText ? '<span style="color: #fbbf24;">[' + symText + ']</span>' : ''} İşlem Düşüncesi
                         </b>
                         <span style="color: ${levelColor}; font-size: 12px; line-height: 1.5; display: inline-block;">
                             ${msgText.replace(/([0-9]+\.?[0-9]*%?)/g, '<b style="color:#fff;">$1</b>')} 
