@@ -556,20 +556,20 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             return {"status": "success", "mode": "BIST_ANALYSIS_ONLY", "message": f"BIST Analyzed: {signal.symbol}", "decision": decision}
             
         # === AKILLI BROKER ROTASYONU (DİNAMİK YÖNLENDİRME) ===
-        # Kripto varlıklar LIVE modda BINANCE'e, PAPER (Gölge Arena) modunda ALPACA'ya gönderilir.
+        # KULLANICI TALEBİ (HYBRID MOD): Kripto varlıklar GERÇEK (LIVE) olarak BINANCE'e, Hisse senetleri SANAL (PAPER) olarak ALPACA'ya gönderilir.
         symbol_upper = signal.symbol.upper()
         is_crypto = "USDT" in symbol_upper or "/" in symbol_upper or symbol_upper.endswith("USD") or "BTC" in symbol_upper
 
         if is_crypto:
-            target_broker_name = "ALPACA" if is_paper_mode else "BINANCE"
-            logger.info(f"🔄 [AKILLI ROTASYON] {signal.symbol} Kripto varlığı tespit edildi. Mod: {settings.trading_mode}. İnfaz için {target_broker_name}'e yönlendiriliyor.")
-            broker = get_broker(target_broker_name, paper=is_paper_mode)
-            logger.info(f"[BROKER] Mode: {'PAPER' if is_paper_mode else 'LIVE'} | Active Routed Broker: {target_broker_name}")
+            target_broker_name = "BINANCE"
+            logger.info(f"🔄 [HYBRID ROTASYON] {signal.symbol} Kripto varlığı tespit edildi. İnfaz için {target_broker_name} (GERÇEK/LIVE) yönlendiriliyor.")
+            broker = get_broker(target_broker_name, paper=False)  # Kripto Kesinlikle GERÇEK (Live)
+            logger.info(f"[BROKER] Mode: LIVE (HYBRID) | Active Routed Broker: {target_broker_name}")
         else:
             target_broker_name = "ALPACA"
-            logger.info(f"🔄 [AKILLI ROTASYON] {signal.symbol} Hisse Senedi tespit edildi. İnfaz için ALPACA'ya yönlendiriliyor.")
-            broker = get_broker("ALPACA", paper=is_paper_mode)
-            logger.info(f"[BROKER] Mode: {'PAPER' if is_paper_mode else 'LIVE'} | Active Routed Broker: {target_broker_name}")
+            logger.info(f"🔄 [HYBRID ROTASYON] {signal.symbol} Hisse Senedi tespit edildi. İnfaz için {target_broker_name} (SANAL/PAPER) yönlendiriliyor.")
+            broker = get_broker(target_broker_name, paper=True)   # Hisse Kesinlikle SANAL (Paper)
+            logger.info(f"[BROKER] Mode: PAPER (HYBRID) | Active Routed Broker: {target_broker_name}")
         
         if broker:
             if action_clean in ["BUY", "LONG"]:

@@ -302,12 +302,12 @@ async def startup_event():
         logger.error(f"[STARTUP] Alpaca WS Başlatılamadı: {e}")
 
     # Start Alpaca Market Data WebSocket (Real-time Prices & Dynamic AI SL/TP)
-    # try:
-    #     from services.broker.alpaca_data_stream import start_alpaca_data_stream
-    #     asyncio.create_task(start_alpaca_data_stream())
-    #     logger.info("[STARTUP] Alpaca Data Stream (Canlı Fiyat & Dinamik Makas) Dinleyicisi Başlatıldı.")
-    # except Exception as e:
-    #     logger.error(f"[STARTUP] Alpaca Data Stream Başlatılamadı: {e}")
+    try:
+        from services.broker.alpaca_data_stream import start_alpaca_data_stream
+        asyncio.create_task(start_alpaca_data_stream())
+        logger.info("[STARTUP] Alpaca Data Stream (Canlı Fiyat & Dinamik Makas) Dinleyicisi Başlatıldı.")
+    except Exception as e:
+        logger.error(f"[STARTUP] Alpaca Data Stream Başlatılamadı: {e}")
 
     # 4. TIER-1 Otonom Motor (Astra-6 V2.0 SOTA)
     try:

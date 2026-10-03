@@ -1084,6 +1084,7 @@ class TradingViewAutoStrategyRunner:
                         "rsi": rsi,
                         "volatility": atr_pct,
                         "atr_pct": atr_pct,
+                        "atr_value": atr_absolute,
                         "volume_ratio": vol_ratio,
                         "cmf": cmf,
                         "rs_score": rs_score,

@@ -153,9 +153,20 @@ class DynamicRiskManager:
         if matched_pos.side == "BUY":
             # === Chandelier Exit (ATR bazlı) ===
             if getattr(matched_pos, "use_chandelier_exit", False) and getattr(matched_pos, "atr_value", 0.0) > 0:
-                new_sl = history["high_water_mark"] - (matched_pos.atr_value * 3.0)
+                try:
+                    from services.engine.risk_engine import RiskEngine
+                    new_sl = RiskEngine.calculate_atr_trailing_stop(
+                        current_price=history["high_water_mark"],
+                        atr=matched_pos.atr_value,
+                        direction="LONG",
+                        asset_type="CRYPTO" if matched_pos.market == "CRYPTO" else "STOCK",
+                        ticker=symbol
+                    )
+                except Exception as e:
+                    new_sl = history["high_water_mark"] - (matched_pos.atr_value * 3.0)
+
                 if new_sl > current_sl:
-                    logger.info(f"[CHANDELIER] {symbol} SL {current_sl:.4f} -> {new_sl:.4f} (ATR bazli)")
+                    logger.info(f"[CHANDELIER ML-WICK] {symbol} SL {current_sl:.4f} -> {new_sl:.4f} (Dinamik Zırh)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
                     await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
                     await self._notify_ui(symbol, matched_pos)
@@ -186,9 +197,21 @@ class DynamicRiskManager:
         elif matched_pos.side == "SELL":
             # === Chandelier Exit (ATR bazlı) ===
             if getattr(matched_pos, "use_chandelier_exit", False) and getattr(matched_pos, "atr_value", 0.0) > 0:
-                new_sl = history.get("low_water_mark", current_price) + (matched_pos.atr_value * 3.0)
+                try:
+                    from services.engine.risk_engine import RiskEngine
+                    low_mark = history.get("low_water_mark", current_price)
+                    new_sl = RiskEngine.calculate_atr_trailing_stop(
+                        current_price=low_mark,
+                        atr=matched_pos.atr_value,
+                        direction="SHORT",
+                        asset_type="CRYPTO" if matched_pos.market == "CRYPTO" else "STOCK",
+                        ticker=symbol
+                    )
+                except Exception as e:
+                    new_sl = history.get("low_water_mark", current_price) + (matched_pos.atr_value * 3.0)
+
                 if new_sl < current_sl:
-                    logger.info(f"[CHANDELIER] {symbol} SELL SL {current_sl:.4f} -> {new_sl:.4f} (ATR bazli)")
+                    logger.info(f"[CHANDELIER ML-WICK] {symbol} SELL SL {current_sl:.4f} -> {new_sl:.4f} (Dinamik Zırh)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
                     await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
                     await self._notify_ui(symbol, matched_pos)
