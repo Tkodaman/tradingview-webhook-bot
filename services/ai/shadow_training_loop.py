@@ -37,7 +37,7 @@ class ShadowTrainingLoop:
         if not llm_master_agent.is_ready():
             return
             
-        history = experience_memory_engine.get_relevant_experiences("market", k=3)
+        history = experience_memory_engine.get_recent_trades_safe()
         if not history:
             logger.debug("[SHADOW TRAINING] Eğitilecek yeterli geçmiş işlem bulunamadı.")
             return

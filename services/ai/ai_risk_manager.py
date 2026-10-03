@@ -31,7 +31,7 @@ class AIRiskManager:
     async def scan_open_positions_and_manage(self):
         """Açık pozisyonları tarar ve kritik durumlarda YZ'ye müdahale yetkisi verir."""
         try:
-            positions = await asyncio.to_thread(self.broker.get_positions)
+            positions = await asyncio.to_thread(self.broker.get_open_positions)
             if not positions:
                 return
 
