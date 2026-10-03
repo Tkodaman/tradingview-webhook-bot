@@ -3,6 +3,7 @@ Otonom TradingView Canli Strateji ve Tetikleyici Motoru
 Ders Cikarimli Olasilik Odakli Kendini Kalibre Eden Islem Algoritmasi (Self-Learning Execution Engine)
 """
 
+
 import time
 import asyncio
 from typing import Dict, Any, List
@@ -68,7 +69,7 @@ class TradingViewAutoStrategyRunner:
         Hunter Mode v3: Hard Block'lar kaldırıldı, puan cezasına dönüştürüldü.
         Sadece 3 gerçek HARD STOP: (1) Toxic Asset, (2) Piyasa kapalı, (3) Fiyat=0
         """
-        import time
+
         # is_running False bile olsa (otonom al-sat kapalı olsa bile) piyasayı izlemeye devam et!
         # Çünkü kullanıcı botun düşünce akışını ve neyi fırsat gördüğünü bilmek istiyor.
             
@@ -104,12 +105,13 @@ class TradingViewAutoStrategyRunner:
         }
 
         # F&G: Block yerine lot cezası
-        fg_assessment = fear_greed_client.get_assessment()
+        import asyncio
+        fg_assessment = await asyncio.to_thread(fear_greed_client.get_assessment)
         fg_lot_penalty = 0.5 if fg_assessment.should_block else 1.0
         if fg_assessment.should_block:
             logger.warning(f"[F&G SOFT] Aşırı açgözlülük — lot x0.5, alım devam ediyor.")
 
-        market_data_raw_unfiltered = tradingview_live_client.fetch_live_market_data()
+        market_data_raw_unfiltered = await asyncio.to_thread(tradingview_live_client.fetch_live_market_data)
         
         # === OTC & JUNK STOCK FILTER (Kullanıcı Koruması) ===
         # TradingView'dan gelen anlamsız (Alpaca'da olmayan) OTC hisselerini engeller.
@@ -379,6 +381,21 @@ class TradingViewAutoStrategyRunner:
             # Geçiş eşiği: required_score (mod'a göre 3–8 arası)
             # ============================================================
             score = 0
+            
+            # ÖNERİ 1: MTF (Multi-Timeframe) Makro Trend Filtresi / Kalkanı
+            # Not: Sinyaldeki 200 EMA ile fiyatı kıyaslayıp makro (büyük) trendi buluyoruz
+            is_crypto = sym.endswith("USDT") or sym in ["BTC", "ETH", "SOL", "BNB"]
+            if is_crypto:
+                ema_200 = float(data.get("ema200") or 0.0)
+                if ema_200 > 0.0:
+                    dist_to_ema200 = ((price - ema_200) / ema_200) * 100.0
+                    if dist_to_ema200 < -3.0:
+                        score -= 4.0
+                        logger.warning(f"📉 [MTF MAKRO TREND] {sym} Ana Trend Çok Kötü (200-EMA'nın %{abs(dist_to_ema200):.1f} altında). Düşen Bıçak Kalkanı -> -4 Puan Cezası")
+                    elif dist_to_ema200 > 1.5:
+                        score += 3.0
+                        logger.info(f"📈 [MTF MAKRO TREND] {sym} Ana Trend Çok Güçlü (200-EMA'nın %{dist_to_ema200:.1f} üstünde). Rüzgar Arkamızda -> +3 Puan Bonusu")
+
 
             # === ATR BAZLI DINAMIK TP/SL + REJIM MATRISI ===
             is_crypto = sym.endswith("USDT") or sym in ["BTC", "ETH", "SOL", "BNB"]
@@ -387,8 +404,8 @@ class TradingViewAutoStrategyRunner:
             atr_absolute = price * (atr_pct / 100.0)
 
             # Rejim Motorunu guncelle (sadece her 60s'de bir tam hesapla)
-            import time as _rtime
-            if _rtime.time() - regime_engine._last_update > 60:
+
+            if time.time() - regime_engine._last_update > 60:
                 try:
                     regime_engine.compute_regime(live_trade_manager.market_prices)
                 except Exception as _re:
@@ -423,11 +440,17 @@ class TradingViewAutoStrategyRunner:
             elif 50.0 < rsi <= 65.0:
                 score += weights["rsi_mid"]
                 logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} trend devam ediyor -> +{weights['rsi_mid']}")
-            elif rsi >= 70.0:
-                # KULLANICI EMRİ: Yüksek düzeltme (pullback) yeme ihtimali olan varlıklara girme! (Önden düşün)
-                # Kural: RSI 70 üzeri kesinlikle alım yapılmaz, elde varsa otonom dinamik makas (TRL) daraltılır.
-                score -= 5.0
-                logger.warning(f"[I1 RSI - ÖNDEN DÜŞÜN] {sym} RSI={rsi:.1f} YORGUN/ŞİŞKİN! Yüksek düzeltme riski. Otonom reddedildi -> -5.0")
+            elif 65.0 < rsi < 75.0:
+                score += weights["rsi_mid"] * 0.5
+                logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} güçlü trend bandı -> +{weights['rsi_mid']*0.5}")
+            elif rsi >= 75.0:
+                # ÖNERİ 1: Momentum Kırılımı vs Şişkinlik Ayrımı
+                if adx >= 30.0 and vol_ratio >= 1.5:
+                    score += 2.0
+                    logger.info(f"🔥 [I1 RSI MOMENTUM] {sym} RSI={rsi:.1f} ama ADX({adx:.1f}) ve Hacim({vol_ratio:.1f}) coşmuş! Güçlü Momentum Kırılımı -> +2.0")
+                else:
+                    score -= 5.0
+                    logger.warning(f"[I1 RSI - ÖNDEN DÜŞÜN] {sym} RSI={rsi:.1f} YORGUN/ŞİŞKİN! Yüksek düzeltme riski -> -5.0")
 
             # ----------------------------------------------------------
             # İ2 — MACD (Moving Average Convergence/Divergence)
@@ -657,19 +680,47 @@ class TradingViewAutoStrategyRunner:
 
             # TAM OTONOM CÜRETKAR MOD: Skor, Hacim ve Kapasite eşikleri esnetildi
             required_score    = _rp["min_score"] - 2
+            
+            # Dinamik Volatilite Barajı (Volatility Adaptive Threshold)
+            if is_crypto:
+                if atr_pct > 3.5:
+                    required_score += 1.5
+                    logger.debug(f"[VIX/ATR KORUMASI] {sym} Volatilite çok yüksek (ATR: %{atr_pct:.2f}). Fiyatın oturması bekleniyor. Baraj zorlaştırıldı: {required_score}")
+                elif atr_pct < 1.5:
+                    required_score -= 1.0
+                    logger.debug(f"[VIX/ATR FIRSATI] {sym} Piyasa sakin (ATR: %{atr_pct:.2f}). Kırılımlar daha temiz. Baraj esnetildi: {required_score}")
+
             min_vol           = max(0.1, _rp["min_vol"] * 0.5)
             global_max_pos    = 10 # Normal kapasite 10
             max_pos_for_market_regime = _rp["max_market_pos"] + 1
             
             # Temporal sl_tighten_pct ile stop-loss mesafesini dinamik olarak daralt
+            # Kâr-Al Hedefi (Dinamik İz Sürücü ve ML'e bırakıldı)
             base_tp = _rp["tp_pct"]
             try:
                 base_sl = _rp["sl_pct"] * temp_mods.get("sl_tighten_pct", 1.0)
             except:
                 base_sl = _rp["sl_pct"]
 
+            # =========================================================
+            # 🥷 SESSİZLİK PATLAMASI (VCP - Squeeze) TESPİTİ
+            # =========================================================
+            is_vcp = False
+            if vol_ratio < 0.6 and 40.0 <= rsi <= 60.0 and abs(chg_pct) <= 1.0:
+                is_vcp = True
+                score += 30.0  # VCP Avcı Bonusu (Hacimsizlik cezalarını silip uçurur)
+                logger.info(f"🥷 [VCP HUNTER] {sym} Sessizlik Patlaması (Squeeze) hazırlığı algılandı! Pusuya yatılıyor (+30 Puan).")
+                bot_thought_stream.add(
+                    "🥷 VCP Patlama Pususu", sym, 
+                    f"Hacim kurumuş (Vol: {vol_ratio:.2f}) ama fiyat düşmüyor. Sessizlik patlaması öncesi pozisyon alınıyor.", 
+                    "SUCCESS"
+                )
+
             # Soft ceza toplamını skora ekle
-            score += stale_penalty + memory_penalty + fakeout_penalty + pullback_penalty
+            if is_vcp:
+                score += fakeout_penalty + pullback_penalty # stale ve memory cezaları VCP'de yok sayılır
+            else:
+                score += stale_penalty + memory_penalty + fakeout_penalty + pullback_penalty
 
             # DEEP ANALYSIS: Trap Guard artık sadece uyarı (-1 skor cezası)
             if score >= (required_score - 5):  # Deep analysis'i çok daha erken çalıştır
@@ -740,13 +791,17 @@ class TradingViewAutoStrategyRunner:
                 if alpha_impact != 0:
                     logger.info(f"🔬 [TIER-1 ALPHA ANALYST] {sym} Alpha Skoru: {alpha_val:+.2f} -> Güven Skoruna Etkisi: {alpha_impact:+.1f} Puan")
                 
-                if alpha_val <= -0.6:
-                    msg = f"🚫 [ALPHA REJECT] {sym} Kurumsal Analist motoru bu harekette 'Fakeout/Spoofing' tespit etti. İşlem engellendi."
+                if alpha_val <= -0.80 and not is_vcp:
+                    msg = f"🚫 [ALPHA REJECT] {sym} Kurumsal Analist motoru bu harekette 'Fakeout/Spoofing' tespit etti (Alpha: {alpha_val:.2f}). İşlem engellendi."
                     logger.warning(msg)
                     try:
                         experience_memory_engine.add_live_log(_mtype_local, "BLOCK", msg)
                     except: pass
                     continue
+                elif alpha_val <= -0.60 and not is_vcp:
+                    # Orta risk: skoru düşür ama engelleme
+                    score += (alpha_val * 3.0)  # -0.6*3 = -1.8 ceza, işlem devam eder
+                    logger.info(f"⚠️ [ALPHA SOFT WARN] {sym} Alpha zayıf ({alpha_val:.2f}). Skor düşürüldü, işlem devam ediyor.")
             except Exception as alpha_err:
                 pass
 
@@ -759,6 +814,11 @@ class TradingViewAutoStrategyRunner:
                 kelly_mult = kelly_engine.calculate_multiplier(live_trade_manager.trade_history)
                 # Kelly 1.0 normaldir. 1.0 altı defansif (zarar serisi), üstü agresiftir (kazanç serisi).
                 # Score üzerindeki oransal etki: (Kelly - 1.0) * 3.0
+                # 3X ŞARJÖR AKTİF: ML skoru > %85 ise Kelly Kriterini agresif ez!
+                if _mtype_local == "CRYPTO" and ml_prob >= 0.85:
+                    kelly_mult = 3.0
+                    logger.info(f"🔫 [3X ŞARJÖR AKTİF] {sym} için ML Kazanma İhtimali olağanüstü yüksek (>%85). Kelly Çarpanı 3'e katlandı!")
+
                 kelly_impact = (kelly_mult - 1.0) * 3.0
                 score += kelly_impact
                 
@@ -771,12 +831,16 @@ class TradingViewAutoStrategyRunner:
                 pass
 
 
-            # Tam Otonom Cüretkar Mod: Alım sinyali şartları iyice esnetildi
-            is_buy_signal = (score >= (required_score - 2)) or (ml_prob >= 0.60)
+            # ÖNERİ 2: ML ve Alpha VIP Bypass (Eşik %60 -> %55'e çekildi, Alpha Bypass eklendi)
+            alpha_bypass = ('alpha_val' in locals() and alpha_val >= 0.70)
+            is_buy_signal = (score >= (required_score - 2)) or (ml_prob >= 0.55) or alpha_bypass
+            
+            if alpha_bypass and not (score >= (required_score - 2)):
+                logger.info(f"💎 [VIP BYPASS] {sym} Kurumsal Alpha çok yüksek ({alpha_val:.2f}). Teknik baraj (Skor: {score:.1f}) aşıldı!")
 
             # Hacim filtresi (Korku Zinciri Kırıldı)
             vol_penalty = 1.0
-            if vol_ratio < min_vol:
+            if vol_ratio < min_vol and not is_vcp:
                 if is_buy_signal:
                     vol_penalty = 0.8
                     bot_thought_stream.add_throttled(
@@ -837,8 +901,11 @@ class TradingViewAutoStrategyRunner:
                     pass
                 continue
 
-            # BÜTÇE LİMİT KONTROLÜ
-            total_invested = sum(p.nominal_value for p in live_trade_manager.positions.values() if p.status == "OPEN")
+            # BÜTÇE LİMİT KONTROLÜ — Sadece broker onaylı pozisyonlar sayılır
+            total_invested = sum(
+                p.nominal_value for p in live_trade_manager.positions.values()
+                if p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)
+            )
             if total_invested >= settings.base_portfolio_size:
                 if score >= required_score + 3.0:
                     logger.info(f"💎 [BUDGET OVERRIDE] {sym} Bütçe sınırında ancak efsanevi fırsat (Skor {score}). Minimal lot (x0.3) ile dahil olunuyor.")
@@ -857,21 +924,25 @@ class TradingViewAutoStrategyRunner:
             # Mevcut açık pozisyon kontrolü
             open_pos = next((p for p in live_trade_manager.positions.values() if p.symbol.upper() == sym.upper() and p.status == "OPEN"), None)
             if open_pos:
-                # AKILLI ERKEN ÇIKIŞ (Smart Exit) - DÜZELTİLDİ: Kısır Döngü Kırıldı
-                # Eski koddaki %0.5 kârdayken ufak RSI düşüşünde satma (Erken satma) hatası silindi.
-                # Kazanmaya sadık (Loyal to winning): Sadece gerçekten trend terse dönerse (RSI < 40) erken çık.
-                if open_pos.unrealized_pnl_pct >= 2.0: # En az %2 kârı cebe almadan akıllı çıkış arama
-                    if rsi < 40.0 and cmf < -0.10:
-                        logger.info(f"[SMART EXIT] {sym} %{open_pos.unrealized_pnl_pct} kârda, trend tamamen kırıldı (RSI < 40). Erken kâr alımı (CLOSED_EARLY).")
-                        live_trade_manager.close_position(open_pos.id, "CLOSED_EARLY")
+                # 🧠 ML DESTEKLİ DİNAMİK AKILLI ÇIKIŞ (Smart Exit)
+                if open_pos.unrealized_pnl_pct >= 1.0:
+                    # Kâr %3'ü geçtiyse ML'in en ufak şüphesinde (Win: < %50) karı cebe al
+                    if open_pos.unrealized_pnl_pct >= 3.0 and ml_prob < 0.50:
+                        logger.info(f"🧠 [ML SMART EXIT] {sym} %{open_pos.unrealized_pnl_pct:.2f} kârda. ML kazanma ihtimalini %{ml_prob*100:.1f} hesapladı (Trend Soğuması). Kâr güvenceye alınıyor.")
+                        live_trade_manager.close_position(open_pos.id, "CLOSED_EARLY_ML")
+                    # Kâr %1-3 arasıysa sadece sert kırılımlarda (Win < %35) veya RSI göçtüğünde çık
+                    elif ml_prob < 0.35 or (rsi < 45.0 and cmf < -0.10):
+                        logger.info(f"🧠 [ML SMART EXIT] {sym} %{open_pos.unrealized_pnl_pct:.2f} kârda. Sert trend kırılımı tespit edildi (ML Win: %{ml_prob*100:.1f}, RSI: {rsi}).")
+                        live_trade_manager.close_position(open_pos.id, "CLOSED_EARLY_ML")
                 continue
 
             # ==========================================
             # MARKET REGIME NO-TRADE KALKANI (Tier-1 Skill)
             # ==========================================
+            current_regime = regime_engine.current_regimes.get(_mtype_local, "SIDEWAYS")
             if _mtype_local == "CRYPTO" and current_regime in ["SIDEWAYS", "BEAR", "CRASH"]:
-                if score < 8.0:
-                    msg = f"🛡️ [REGIME GUARD] Kripto {current_regime} rejiminde. Skor ({score}) 8'in altında olduğu için ALIM REDDEDİLDİ. (Yatay piyasa testere koruması)"
+                if score < (required_score + 0.5):
+                    msg = f"🛡️ [REGIME GUARD] Kripto {current_regime} rejiminde. Skor ({score}) yetersiz olduğu için ALIM REDDEDİLDİ."
                     logger.info(msg)
                     try:
                         experience_memory_engine.add_live_log(_mtype_local, "BLOCK", msg)

@@ -270,18 +270,22 @@ class AssetUniverseManager:
         if is_bist_open:
             sorted_bist = sort_by_early_entry(self.master_bist_universe)
             self.active_bist_targets = sorted_bist[:self.target_bist_count]
-            if "BIST:XU100" not in self.active_bist_targets: self.active_bist_targets.append("BIST:XU100")
         else:
-            self.active_bist_targets = [] # Ölü borsa, kaynak israfı yapma
+            # PİYASA KAPALI: Sadece izleme için listeyi sabit tut, boş array gönderme (TradingView tüm borsayı çeker yoksa)
+            self.active_bist_targets = self.master_bist_universe[:self.target_bist_count]
+            
+        if "BIST:XU100" not in self.active_bist_targets: self.active_bist_targets.append("BIST:XU100")
             
         # NASDAQ: 16:30 - 23:00 arası açıktır (Kış saati 17:30)
         is_nasdaq_open = 16 <= hour < 23
         if is_nasdaq_open:
             sorted_nasdaq = sort_by_early_entry(self.master_nasdaq_universe)
             self.active_nasdaq_targets = sorted_nasdaq[:self.target_nasdaq_count]
-            if "NASDAQ:QQQ" not in self.active_nasdaq_targets: self.active_nasdaq_targets.append("NASDAQ:QQQ")
         else:
-            self.active_nasdaq_targets = [] # Kapalı borsa, sahte hareketleri filtrele
+            # PİYASA KAPALI: Listeyi sabit tut, boş array gönderme
+            self.active_nasdaq_targets = self.master_nasdaq_universe[:self.target_nasdaq_count]
+            
+        if "NASDAQ:QQQ" not in self.active_nasdaq_targets: self.active_nasdaq_targets.append("NASDAQ:QQQ")
 
         # Benchmark'larin her zaman izlenmesi
         if "BINANCE:BTCUSDT" not in self.active_crypto_targets:

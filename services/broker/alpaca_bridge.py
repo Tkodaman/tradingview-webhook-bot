@@ -80,6 +80,18 @@ class AlpacaBroker(BaseBroker):
             is_crypto = "USD" in alpaca_sym or "/" in alpaca_sym
             tif = "gtc" if is_crypto else "day"
             
+            from core.config import settings
+            ext_hours = getattr(settings, "alpaca_extended_hours", True)
+            
+            # GAP FIX (+2 Adım): Pre-market'te Market order atılamaz.
+            if limit_price is None and not is_crypto and ext_hours:
+                rt_prices = self.get_realtime_prices([alpaca_sym])
+                if alpaca_sym in rt_prices and rt_prices[alpaca_sym].get("price", 0) > 0:
+                    current_p = rt_prices[alpaca_sym]["price"]
+                    limit_price = current_p * 1.005 if side.lower() == "buy" else current_p * 0.995
+                    limit_price = round(limit_price, 2)
+                    logger.info(f"🚀 [ALPACA EXT-HOURS GAP FIX] Market emri (Düz) Limit emre çevrildi: {alpaca_sym} @ {limit_price}")
+
             kwargs = {
                 "symbol": alpaca_sym,
                 "qty": qty,
@@ -115,6 +127,17 @@ class AlpacaBroker(BaseBroker):
             
             from core.config import settings
             ext_hours = getattr(settings, "alpaca_extended_hours", True)
+            
+            # GAP FIX (+1 Adım): Piyasa öncesi/sonrası Market Emirler (Market Order) Alpaca tarafından REDDEDİLİR.
+            # Eğer limit fiyat verilmemişse ve kripto değilse, güncel canlı fiyatı çekip emir tipini Limit'e çeviriyoruz.
+            if limit_price is None and not is_crypto and ext_hours:
+                rt_prices = self.get_realtime_prices([alpaca_sym])
+                if alpaca_sym in rt_prices and rt_prices[alpaca_sym].get("price", 0) > 0:
+                    current_p = rt_prices[alpaca_sym]["price"]
+                    # Slippage Payı (Alırken %0.5 daha pahalıya kadar kabul et, satarken %0.5 daha ucuza kadar)
+                    limit_price = current_p * 1.005 if side.lower() == "buy" else current_p * 0.995
+                    limit_price = round(limit_price, 2)
+                    logger.info(f"🚀 [ALPACA EXT-HOURS GAP FIX] Market emri otomatik olarak Limit emre çevrildi: {alpaca_sym} @ {limit_price}")
 
             # Piyasa öncesi/sonrası kesirli lot kullanılamaz!
             if is_fractional and not is_crypto and ext_hours:

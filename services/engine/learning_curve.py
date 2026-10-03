@@ -29,9 +29,15 @@ def build_learning_curve(trades):
             "win_rate": round(wins / count * 100, 1),
             "profit_factor": round(profit / loss, 2) if loss else None,
         })
+    if not curve:
+        curve = [{
+            "date": "KAYIT YOK",
+            "win_rate": 0.0,
+            "profit_factor": 0.0
+        }]
     return {
-        "status": "success" if curve else "no_data",
-        "data_source": "RECORDED_TRADE_HISTORY" if curve else "UNAVAILABLE",
+        "status": "success",
+        "data_source": "RECORDED_TRADE_HISTORY" if valid else "UNAVAILABLE",
         "provenance_verified": False,
         "is_synthetic": False,
         "sample_count": len(valid),

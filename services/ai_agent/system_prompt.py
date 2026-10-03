@@ -118,10 +118,10 @@ RISK_PARAMS = {
 
     # Çeşitlendirme Limitleri
     "max_positions_per_market": {
-        "NASDAQ": 6,
-        "BIST": 3,
-        "CRYPTO": 4,
-        "DEFAULT": 3,
+        "NASDAQ": 8,
+        "BIST": 4,
+        "CRYPTO": 6,
+        "DEFAULT": 4,
     },
 
     # Dönemsel / Sezonluk Dinamik Risk Parametreleri (LLM tarafından güncellenir)

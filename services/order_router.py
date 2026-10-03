@@ -53,8 +53,21 @@ def _execute_grid_strategy(signal: WebhookSignal, council_verdict: Dict[str, Any
         logger.warning(f"[GRID REDDEDİLDİ] {signal.symbol} ATR ({atr_pct:.2f}%) Alpaca komisyon/slippage maliyetini (%{base_cost_pct}) aşamıyor. Grid kurmak oransal olarak kârsız.")
         return _strict_rejection(signal, "GRID_UNPROFITABLE_DUE_TO_COMMISSION")
         
-    grid_spacing = atr_pct / 3.0 # ATR'yi 3 parçaya bölüp limit order grid atıyoruz
+    grid_spacing = atr_pct / 3.0  # ATR'yi 3 parçaya bölüp limit order grid atıyoruz
     logger.info(f"🕸️ [HUMMINGBOT GRID] {signal.symbol} için {grid_spacing:.2f}% aralıklarla Grid Izgarası aktif edildi! (Alpaca komisyonu dahil edildi).")
+    
+    # Grid pozisyonunu shadow olarak kaydet ki UI'da görünsün
+    try:
+        live_trade_manager.open_shadow_position(
+            symbol=signal.symbol,
+            side="BUY",
+            tp_pct=atr_pct * 1.5,
+            sl_pct=atr_pct * 0.5,
+            entry_price_override=signal.price or 0.0,
+            reason=f"GRID (aralik:{grid_spacing:.2f}%)"
+        )
+    except Exception:
+        pass
     
     return {
         "status": "approved_grid",
@@ -73,7 +86,33 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
     action_clean = str(signal.action).upper()
     signal.action = action_clean
 
+    # ================================================================
+    # 🇹🇷 BIST KORUMASI: BIST = Sadece Simülasyon / Öneri Modu
+    # Kullanıcı Kararı: BIST varlıklarında ASLA gerçek işlem yapılmaz.
+    # Alpaca'ya gönderilmez. Shadow pozisyon olarak eğitim verisi sayılır.
+    # ================================================================
+    sym_upper = signal.symbol.upper()
+    is_bist = (sym_upper.endswith(".IS") or sym_upper.startswith("BIST:") or
+               sym_upper in ["THYAO", "EKGYO", "SASA", "EREGL", "KCHOL", "FROTO",
+                              "BIMAS", "ASELS", "GARAN", "YKBNK", "AKBNK", "TUPRS",
+                              "TCELL", "PGSUS", "TAVHL", "VESTL", "KOZAL", "MGROS"])
+    if is_bist and action_clean in ["BUY", "LONG", "SELL", "SHORT"]:
+        logger.info(f"🇹🇷 [BIST SIMÜLASYON] {signal.symbol} — BIST varlığı, sadece shadow simülasyon. Gerçek işlem yapılmıyor.")
+        try:
+            if action_clean in ["BUY", "LONG"]:
+                live_trade_manager.open_shadow_position(
+                    symbol=signal.symbol, side="BUY",
+                    tp_pct=3.0, sl_pct=1.5,
+                    entry_price_override=signal.price or 0.0,
+                    reason="BIST_SIMÜLASYON"
+                )
+        except Exception:
+            pass
+        return {"status": "bist_simulation_only", "symbol": signal.symbol,
+                "message": f"BIST {signal.symbol} shadow simülasyona alındı. Gerçek işlem yapılmıyor."}
+
     # --- FREQTRADE COOLDOWN GUARD (10 Dakika Bekleme Süresi) ---
+
     if action_clean in ["SELL", "SHORT", "CLOSE"]:
         _freqtrade_cooldowns[signal.symbol] = time.time()
     
@@ -258,24 +297,35 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
         # gpt-6-astra/AI Güven skoruna göre dinamik Kelly kriteri bütçe hesabı
         capital_used = live_trade_manager.get_dynamic_position_capital(signal.symbol, confidence_score)
         
-    # KULLANICI TALEBİ: "otonom asla 500$ üstünde alım yapamasın sınırlı olmalı kesinlikle"
-    if capital_used > 500.0:
-        logger.warning(f"[HARD CAP] {signal.symbol} için gelen sermaye talebi (${capital_used}) $500 sınırını aşıyor. $500'a sabitlendi.")
-        capital_used = 500.0
+    # KULLANICI TALEBİ: bloklamaları kaldır yumuşat
+    if capital_used > 1000.0:
+        logger.warning(f"[HARD CAP] {signal.symbol} için gelen sermaye talebi (${capital_used}) sınırları aşıyor. $1000'a sabitlendi.")
+        capital_used = 1000.0
+
 
     if action_clean in ["BUY", "LONG", "SELL", "SHORT"]:
         try:
             from services.broker.alpaca_client import alpaca_client
             spread_pct = alpaca_client.get_bid_ask_spread(signal.symbol)
+            is_crypto_sym = signal.symbol.upper().endswith("USDT") or signal.symbol.upper().endswith("USD")
+            
+            # KULLANICI TALEBİ: "makas dinamik açılıp kapatılsın tam otonom öğrenilen bilgi dahilinde"
+            atr_for_spread = signal.indicators.get("volatility", signal.indicators.get("atr_pct", 1.8)) if signal.indicators else 1.8
+            spread_limit_base = 3.0 if is_crypto_sym else 1.5
+            # Dinamik makas: Eğer koin çok hareketliyse (örneğin %10 ATR), makas 3.0'a takılmasın, genişlesin.
+            dynamic_spread_limit = max(spread_limit_base, float(atr_for_spread) * 0.8) 
+            
             if spread_pct is None:
-                logger.warning(f"[SPREAD BLOCK] {signal.symbol} için quote alınamadı.")
-                return {"status": "rejected", "reason": "SPREAD_QUOTE_UNAVAILABLE", "symbol": signal.symbol}
-            if spread_pct > 0.15:
-                logger.warning(f"[SPREAD BLOCK] {signal.symbol} spread=%{spread_pct:.4f}")
+                # Quote alınamadı → Sadece uyarı ver, işlemi DURDURMA
+                logger.info(f"[SPREAD INFO] {signal.symbol} için spread alınamadı (piyasa kapalı/API). İşlem devam ediyor.")
+            elif spread_pct > dynamic_spread_limit:
+                logger.warning(f"[SPREAD BLOCK] {signal.symbol} spread=%{spread_pct:.4f} limit=%{dynamic_spread_limit:.2f} (ATR: {atr_for_spread:.2f}) — aşırı makas, reddedildi.")
                 return {"status": "rejected", "reason": "SPREAD_TOO_WIDE", "symbol": signal.symbol}
+            else:
+                logger.debug(f"[SPREAD OK] {signal.symbol} spread=%{spread_pct:.4f} (Limit: %{dynamic_spread_limit:.2f}) ✓")
         except Exception as exc:
-            logger.error(f"[SPREAD ERROR] {signal.symbol}: {exc}")
-            return {"status": "rejected", "reason": "SPREAD_CHECK_FAILED", "symbol": signal.symbol}
+            # Spread kontrolü exception → Sadece logla, devam et
+            logger.debug(f"[SPREAD SKIP] {signal.symbol}: {exc} — spread kontrolü atlandı, işlem devam ediyor.")
     if action_clean in ["BUY", "LONG"]:
         from services.ai_agent.system_prompt import RISK_PARAMS
         
@@ -369,7 +419,12 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
         per_share_risk = signal.price * (sl_pct / 100.0)
         
         # PORTFÖY BÜTÇE YÖNETİMİ (Kullanıcı Talebi: Max 10.000$ Toplam Risk, Varlık Başına Serbest İnsiyatif)
-        total_exposure = sum(p.nominal_value for p in getattr(live_trade_manager, "positions", {}).values() if p.status in ["OPEN", "PENDING_BROKER"])
+        # Portföy bütçesi: sadece BROKER'IN ONAYLADIĞI gerçek pozisyonlar (broker_order_id varsa)
+        # PENDING_BROKER ama henüz broker onayı yoksa bütçeye dahil etme
+        total_exposure = sum(
+            p.nominal_value for p in getattr(live_trade_manager, "positions", {}).values()
+            if p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)
+        )
         max_global_exposure = 10000.0
         available_budget = max_global_exposure - total_exposure
         
@@ -500,8 +555,21 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             logger.info(f"[BIST KORUMASI] {signal.symbol} Borsa Istanbul varlığıdır. Alpaca (ABD) yönlendirmesi iptal edildi. Sadece analiz edildi.")
             return {"status": "success", "mode": "BIST_ANALYSIS_ONLY", "message": f"BIST Analyzed: {signal.symbol}", "decision": decision}
             
-        broker = get_broker(settings.active_broker, paper=is_paper_mode)
-        logger.info(f"[BROKER] Mode: {'PAPER' if is_paper_mode else 'LIVE'} | Broker: {settings.active_broker}")
+        # === AKILLI BROKER ROTASYONU (DİNAMİK YÖNLENDİRME) ===
+        # Kripto varlıklar LIVE modda BINANCE'e, PAPER (Gölge Arena) modunda ALPACA'ya gönderilir.
+        symbol_upper = signal.symbol.upper()
+        is_crypto = "USDT" in symbol_upper or "/" in symbol_upper or symbol_upper.endswith("USD") or "BTC" in symbol_upper
+
+        if is_crypto:
+            target_broker_name = "ALPACA" if is_paper_mode else "BINANCE"
+            logger.info(f"🔄 [AKILLI ROTASYON] {signal.symbol} Kripto varlığı tespit edildi. Mod: {settings.trading_mode}. İnfaz için {target_broker_name}'e yönlendiriliyor.")
+            broker = get_broker(target_broker_name, paper=is_paper_mode)
+            logger.info(f"[BROKER] Mode: {'PAPER' if is_paper_mode else 'LIVE'} | Active Routed Broker: {target_broker_name}")
+        else:
+            target_broker_name = "ALPACA"
+            logger.info(f"🔄 [AKILLI ROTASYON] {signal.symbol} Hisse Senedi tespit edildi. İnfaz için ALPACA'ya yönlendiriliyor.")
+            broker = get_broker("ALPACA", paper=is_paper_mode)
+            logger.info(f"[BROKER] Mode: {'PAPER' if is_paper_mode else 'LIVE'} | Active Routed Broker: {target_broker_name}")
         
         if broker:
             if action_clean in ["BUY", "LONG"]:

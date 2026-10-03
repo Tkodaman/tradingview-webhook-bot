@@ -9,6 +9,14 @@ class AlpacaClient:
         self.api_key = getattr(settings, "alpaca_api_key", None)
         self.api_secret = getattr(settings, "alpaca_secret_key", None)
         self.base_url = "https://paper-api.alpaca.markets/v2" if getattr(settings, "trading_mode", "PAPER") == "PAPER" else "https://api.alpaca.markets/v2"
+        import requests
+        self.session = requests.Session()
+        if self.api_key and self.api_secret:
+            self.session.headers.update({
+                "APCA-API-KEY-ID": self.api_key,
+                "APCA-API-SECRET-KEY": self.api_secret,
+                "accept": "application/json"
+            })
 
     def submit_bracket_order(
         self,
@@ -25,13 +33,24 @@ class AlpacaClient:
         the take-profit and stop-loss are still enforced by the broker.
         """
         
+        # Alpaca Crypto Symbol Formatting & Rules
+        alpaca_symbol = symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
+        is_crypto = "USDT" in alpaca_symbol or "USD" in alpaca_symbol or len(alpaca_symbol) > 5
+        
+        if is_crypto:
+            alpaca_symbol = alpaca_symbol.replace("USDT", "/USD")
+            if "/" not in alpaca_symbol and alpaca_symbol.endswith("USD"):
+                alpaca_symbol = alpaca_symbol[:-3] + "/USD"
+                
+        tif = "gtc" if is_crypto else "day"  # Crypto trades 24/7, 'day' is invalid
+        
         # Format the Alpaca order payload
         payload = {
-            "symbol": symbol.upper(),
+            "symbol": alpaca_symbol,
             "qty": str(round(qty, 5)),
             "side": side.lower(),  # 'buy' or 'sell'
             "type": "limit",       # Entry using limit to prevent slippage
-            "time_in_force": "day",  # Alpaca: fractional + extended hours emirler 'day' zorunlu
+            "time_in_force": tif,  
             "limit_price": str(round(limit_price, 2)),
             "order_class": "bracket",
             "take_profit": {
@@ -64,7 +83,7 @@ class AlpacaClient:
                 "APCA-API-SECRET-KEY": self.api_secret,
                 "Content-Type": "application/json"
             }
-            response = requests.post(f"{self.base_url}/orders", json=payload, headers=headers)
+            response = self.session.post(f"{self.base_url}/orders", json=payload, headers=headers)
             
             if response.status_code in [200, 201]:
                 data = response.json()
@@ -87,7 +106,7 @@ class AlpacaClient:
                 "Content-Type": "application/json"
             }
             # Fetch open orders for this symbol
-            response = requests.get(f"{self.base_url}/orders?status=open&symbols={symbol.upper()}", headers=headers)
+            response = self.session.get(f"{self.base_url}/orders?status=open&symbols={symbol.upper()}", headers=headers)
             if response.status_code != 200:
                 return {"status": "error", "reason": "Failed to fetch open orders"}
             
@@ -127,7 +146,7 @@ class AlpacaClient:
                 "APCA-API-SECRET-KEY": self.api_secret,
                 "accept": "application/json"
             }
-            response = requests.get(f"{self.base_url}/positions", headers=headers)
+            response = self.session.get(f"{self.base_url}/positions", headers=headers)
             if response.status_code == 200:
                 data = response.json()
                 logger.info(f"[ALPACA SYNC] Successfully fetched {len(data)} open positions from broker.")
@@ -149,7 +168,7 @@ class AlpacaClient:
                 "APCA-API-SECRET-KEY": self.api_secret,
                 "accept": "application/json"
             }
-            response = requests.get(f"{self.base_url}/account", headers=headers, timeout=10.0)
+            response = self.session.get(f"{self.base_url}/account", headers=headers, timeout=10.0)
             if response.status_code == 200:
                 return response.json()
         except Exception as e:
@@ -200,12 +219,12 @@ class AlpacaClient:
             
             if is_crypto:
                 # Format standard crypto symbol like BTC/USD for Alpaca
-                clean_sym = symbol.upper().replace("USDT", "/USD")
+                clean_sym = symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "").replace("USDT", "/USD")
                 if "/" not in clean_sym and clean_sym.endswith("USD"):
                     clean_sym = clean_sym[:-3] + "/USD"
                 
                 req_url = f"https://data.alpaca.markets/v1beta3/crypto/us/latest/quotes?symbols={clean_sym}"
-                response = requests.get(req_url, headers=headers, timeout=10.0)
+                response = self.session.get(req_url, headers=headers, timeout=10.0)
                 if response.status_code == 200:
                     data = response.json()
                     quotes = data.get("quotes", {})
@@ -219,7 +238,7 @@ class AlpacaClient:
             else:
                 # Stock quote
                 req_url = f"{data_url}/{symbol.upper()}/quotes/latest"
-                response = requests.get(req_url, headers=headers, timeout=10.0)
+                response = self.session.get(req_url, headers=headers, timeout=10.0)
                 if response.status_code == 200:
                     data = response.json()
                     quote = data.get("quote", {})
@@ -251,12 +270,12 @@ class AlpacaClient:
             is_crypto = "USD" in symbol.upper() or len(symbol) > 5
             
             if is_crypto:
-                clean_sym = symbol.upper().replace("USDT", "/USD")
+                clean_sym = symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "").replace("USDT", "/USD")
                 if "/" not in clean_sym and clean_sym.endswith("USD"):
                     clean_sym = clean_sym[:-3] + "/USD"
                 
                 req_url = f"https://data.alpaca.markets/v1beta3/crypto/us/latest/trades?symbols={clean_sym}"
-                response = requests.get(req_url, headers=headers, timeout=10.0)
+                response = self.session.get(req_url, headers=headers, timeout=10.0)
                 if response.status_code == 200:
                     data = response.json()
                     trades = data.get("trades", {})
@@ -265,7 +284,7 @@ class AlpacaClient:
                         return float(trade.get("p", 0.0))
             else:
                 req_url = f"{data_url}/{symbol.upper()}/trades/latest"
-                response = requests.get(req_url, headers=headers, timeout=10.0)
+                response = self.session.get(req_url, headers=headers, timeout=10.0)
                 if response.status_code == 200:
                     data = response.json()
                     trade = data.get("trade", {})

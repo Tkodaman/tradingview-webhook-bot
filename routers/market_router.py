@@ -37,7 +37,7 @@ def speak_turkish(text):
         pass
 # Kisa cache — karar matrix'i dashboard'da stale görünmesin.
 _matrix_cache = {"data": None, "ts": 0}
-_CACHE_TTL = 5  # saniye
+_CACHE_TTL = 1  # saniye
 _matrix_lock = asyncio.Lock()
 _score_history = {}  # { "AAPL": [(timestamp, score), ...], ... }
 
@@ -100,7 +100,7 @@ async def get_live_buy_sell_wait_matrix():
         indicator_coverage = round(len(available_quality_fields) / len(quality_fields), 2)
         source_ts = float(data.get("source_timestamp") or data.get("last_updated_ts") or 0.0)
         data_age_seconds = round(max(0.0, time.time() - source_ts), 1) if source_ts > 0 else None
-        stale_snapshot = data_age_seconds is None or data_age_seconds > 45.0
+        stale_snapshot = data_age_seconds is None or data_age_seconds > 180.0
         critical_missing = [field for field in ("rsi", "macd", "volume_ratio", "adx", "cmf") if field in missing_fields or data.get(field) is None]
         if "atr" in missing_fields or data.get("atr_pct") is None:
             critical_missing.append("atr")
@@ -122,6 +122,65 @@ async def get_live_buy_sell_wait_matrix():
         
         # Gerçek fiyatı kullan (yapay dalgalanma kaldırıldı)
         price = base_price
+        
+        # OTONOM GÖLGE ARENA DİNAMİK FİYAT & PNL GÜNCELLEMESİ (Canlı İz Sürme)
+        if sym in live_trade_manager.shadow_positions:
+            pos = live_trade_manager.shadow_positions[sym]
+            if pos.status == "OPEN" and price > 0:
+                pos.current_price = price
+                pos.unrealized_pnl = (price - pos.entry_price) * pos.quantity
+                pos.unrealized_pnl_pct = ((price - pos.entry_price) / pos.entry_price) * 100
+                
+                # Canlı TP/SL & Vur-Kaç (8 Saat) Kontrolü
+                from datetime import datetime, timezone
+                try:
+                    if getattr(pos, 'opened_at', None):
+                        if 'UTC' in pos.opened_at:
+                            opened_dt = datetime.strptime(pos.opened_at.replace(' UTC', ''), "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+                        else:
+                            opened_dt = datetime.fromisoformat(pos.opened_at)
+                        duration_mins = int((datetime.now(timezone.utc) - opened_dt).total_seconds() / 60)
+                    else:
+                        duration_mins = 5
+                except ValueError:
+                    duration_mins = 5
+                is_timeout = duration_mins >= 480
+                
+                if price >= pos.target_profit_price or price <= pos.stop_loss_price or is_timeout:
+                    from services.engine.experience_memory_engine import experience_memory_engine, TradePostMortem
+                    is_win = price >= pos.entry_price
+                    sim_trade = TradePostMortem(
+                        trade_id=pos.id,
+                        symbol=pos.symbol,
+                        action="BUY",
+                        entry_price=pos.entry_price,
+                        exit_price=price,
+                        pnl_amount=pos.unrealized_pnl,
+                        pnl_pct=pos.unrealized_pnl_pct,
+                        is_win=is_win,
+                        market_regime=pos.entry_indicators.get("market_regime", "DİNAMİK YARIŞ SÜZGECİ"),
+                        indicators_at_entry={"score": pos.confidence_score},
+                        lesson_learned=f"Canlı Gölge Arena: {'Hedef Vurdu' if is_win else 'Stop Patladı'}",
+                        timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                        duration_minutes=duration_mins,
+                        exit_reason="Otonom TP (Test)" if is_win else "Zarar Kes (Test)",
+                        algorithmic_action_plan="Saniyede bir güncellenen Liyakat Süzgeci'nde dinamik çıkış gerçekleşti."
+                    )
+                    experience_memory_engine.trade_history.append(sim_trade)
+                    experience_memory_engine.save_memory()
+                    pos.status = "CLOSED_TEST"
+                    try:
+                        from services.engine.bot_thought_stream import bot_thought_stream
+                        bot_thought_stream.add_throttled(
+                            category="⚔️ GÖLGE KAPANDI", 
+                            symbol=sym, 
+                            message=f"Skor {pos.confidence_score} ile alınan işlem {'KÂR' if is_win else 'ZARAR'} ile kapandı! PnL: %{pos.unrealized_pnl_pct:.2f}", 
+                            level="WARN", 
+                            cooldown_sec=10
+                        )
+                    except Exception:
+                        pass
+
         # RSI Geçmişi Takibi
         if sym not in rsi_history:
             rsi_history[sym] = []
@@ -426,22 +485,22 @@ async def get_live_buy_sell_wait_matrix():
         # 45-65: trend bölgesi (güçlü)
         # 65-75: ivme devam (orta)
         # <30 veya >75: uç bölge (düşük)
-        if   rsi < 25:   rsi_raw = 0.1  # Serbest düşüş
-        elif rsi < 35:   rsi_raw = 0.5  # Aşırı satım / dip olasılığı
-        elif rsi < 45:   rsi_raw = 0.85 # Dipten toparlanma (erken sinyal)
-        elif rsi < 60:   rsi_raw = 1.0  # Trend bölgesi (ideal)
-        elif rsi < 70:   rsi_raw = 0.8  # Güçlü trend, yavaşlama başlar
-        elif rsi < 78:   rsi_raw = 0.5  # Aşırı alım yaklaşıyor
-        else:            rsi_raw = 0.1  # Aşırı alım, düzeltme riski
+        if   rsi < 35:   rsi_raw = 0.0  # Serbest düşüş
+        elif rsi < 45:   rsi_raw = 0.3  # Aşırı satım
+        elif rsi < 55:   rsi_raw = 0.5  # Nötr
+        elif rsi < 65:   rsi_raw = 0.8  # Trend başladı
+        elif rsi < 72:   rsi_raw = 1.0  # İdeal ivme
+        elif rsi < 78:   rsi_raw = 0.4  # Aşırı alım yaklaşıyor
+        else:            rsi_raw = 0.0  # Düzeltme riski
         slice_rsi = rsi_raw * 20.0
 
         # ── DİLİM 2: HACİM & KURUMSAL PARA AKIŞI (%25) ───────────────────────
         # Hacim: 1x normal, 2x güçlü, 3x+ balina. CMF: -1→+1 kurumsal net akış.
-        if   vol_ratio >= 3.0:  vol_raw = 1.0
-        elif vol_ratio >= 2.0:  vol_raw = 0.85
-        elif vol_ratio >= 1.5:  vol_raw = 0.70
-        elif vol_ratio >= 1.0:  vol_raw = 0.50
-        elif vol_ratio >= 0.6:  vol_raw = 0.20
+        if   vol_ratio >= 4.0:  vol_raw = 1.0
+        elif vol_ratio >= 3.0:  vol_raw = 0.8
+        elif vol_ratio >= 2.0:  vol_raw = 0.6
+        elif vol_ratio >= 1.5:  vol_raw = 0.4
+        elif vol_ratio >= 1.0:  vol_raw = 0.2
         else:                   vol_raw = 0.0   # Ölü hacim — elensin
 
         # CMF bonusu: kurumsal net pozitif akış ek sinyal güç katkısı
@@ -572,7 +631,7 @@ async def get_live_buy_sell_wait_matrix():
             elif ml_normalized < 0.3:
                 m["reason"] += f" | 🧠 ML:⚠️ ({historical_sample} geçmiş)"
         else:
-            ai_bonus = 0.5  # Veri yoksa nötr
+            ai_bonus = 0.5  # KESİN KARAR: Veri yoksa asla sahte/cüretkar değer atanmaz. Tamamen Nötr (0.50).
         slice_ml = ai_bonus * 15.0
 
         # ── DİLİM 6: VERİ KALİTESİ (%10) ────────────────────────────────────
@@ -588,25 +647,80 @@ async def get_live_buy_sell_wait_matrix():
         slice_quality = ((ind_cov * 0.60) + (freshness_raw * 0.40)) * 10.0
 
         # ── NİHAİ SKOR: 6 DİLİMİN ORANSAL TOPLAMI ───────────────────────────
-        raw_score = (
+        base_raw_score = (
             slice_rsi        +  # %20
             slice_volume     +  # %25
             slice_technical  +  # %20
             slice_change     +  # %10
             slice_ml         +  # %15
             slice_quality       # %10
-        )  # MAX = 100.0
-
-        # Sıkışma Kırılımı: Ek sinyal — eğer hacim+CMF+RSI tüm dilimleri
-        # birlikte güçlüyse, bu gerçek bir kırılım olasılığı demektir.
+        )
+        
+        # ── KONSEY & AJANLAR: AKILLI CÜRETKÂR FIRSAT SÜZGECİ (AYIRT EDİCİ BÖLÜM) ──
+        # Kullanıcı Geri Bildirimi: Sadece körü körüne skoru şişirme, gerçek fırsatları adil şekilde öne çıkar!
+        agent_bonus = 0.0
+        
+        # Ajan 1: Hacim + Momentum Patlaması (Balina Uyanışı)
+        if vol_ratio > 2.0 and 50 <= rsi <= 68 and cmf > 0.05:
+            agent_bonus += 5.0
+            m["badge"] = "🐋 BALİNA"
+            
+        # Ajan 2: Sıkışma Kırılımı (Squeeze Breakout - Tam patlamaya hazır)
         is_consolidating = (40.0 <= rsi <= 55.0) and (adx < 25.0)
-        squeeze_bonus = 0.0
         if is_consolidating and vol_ratio > 1.8 and cmf > 0.05:
-            squeeze_bonus = 5.0  # Küçük ama gerçek — dilim dışı tek bonus
+            agent_bonus += 5.0
+            m["badge"] = "🧨 BOMBA"
             m["reason"] = f"🧨 SIKIŞMA KIRILIMI: Hacim {vol_ratio:.1f}x | CMF {cmf:.2f}"
-            m["badge"]  = "🧨 BOMBA"
+            
+        # Ajan 3: Yükselen Trendde Düşük Riskli Giriş (Golden Pocket)
+        # Katı EMA Golden Cross şartı esnetildi: Kısa vadeli EMA (12>26 yani MACD>0) pozitifse o da kabul.
+        is_golden_trend = data.get("ema_golden_cross", False) or (macd > 0.0)
+        if is_golden_trend and 45 <= rsi <= 60 and vol_ratio >= 1.2:
+            agent_bonus += 4.0
+            m["badge"] = "🌟 ALTIN"
+            
+        # Ajan 4: Güçlü Trend Destekli Yükseliş
+        if adx >= 25.0 and vol_ratio >= 1.5:
+            agent_bonus += 3.0
+            
+        # Sığ piyasa veya hacimsiz ralli ise bonusları tamamen iptal et (Tuzak Koruması)
+        if vol_ratio < 0.8:
+            agent_bonus = 0.0
+            
+        # Adil Oransal Dağılım: Temel skor + Liyakat Bonusu. Yapay şişirme (1.10x) kaldırıldı!
+        raw_score = base_raw_score + agent_bonus
+        
+        # Geçmiş kayıtlar için ham skoru (raw_score) sakla ki geçmişin potansiyeli korunsun
+        now_ts = time.time()
+        if sym not in _score_history:
+            _score_history[sym] = []
+            
+        # Sadece son 15 dakikadaki (900 saniye) kayıtları tut
+        _score_history[sym].append((now_ts, raw_score))
+        _score_history[sym] = [t for t in _score_history[sym] if now_ts - t[0] <= 900]
+        
+        smoothed_score = raw_score
+        if len(_score_history[sym]) > 1:
+            total_weight = 0
+            weighted_score = 0
+            for t_ts, t_raw in _score_history[sym]:
+                # Yarı ömür: 60 saniye (ani hacim patlamaları artık hızlı yansır)
+                weight = 1.0 / (1.0 + (now_ts - t_ts) / 60.0)
+                weighted_score += t_raw * weight
+                total_weight += weight
+            smoothed_score = weighted_score / total_weight
 
-        ranking_score    = round(max(0.0, min(99.9, raw_score + squeeze_bonus)), 1)
+        # ── KONSEY CEZALARI (ADİL PAYDA ORANI İÇİN ACIMASIZ SÜZGEÇ) ──
+        # Yumuşatılmış skor üzerinden cezaları KESİN ve ANINDA uygula! Geçmişin hatırı cezalarda işlemez.
+        if vol_ratio < 0.5:
+            smoothed_score *= 0.40  # Ölü tahta: Skoru %60 tırpanla anında!
+        elif vol_ratio < 0.8:
+            smoothed_score *= 0.70  # Hacimsiz piyasa: Skoru %30 tırpanla anında!
+            
+        if risk_block_reason and ("Sahte" in risk_block_reason or "Fake" in risk_block_reason):
+            smoothed_score *= 0.50  # Sahte Kırılım tuzağı tespit edildiyse skoru direkt yarıya indir!
+        
+        ranking_score = round(max(0.0, min(99.9, smoothed_score)), 1)
         confidence_score = ranking_score
 
         # Veri kalitesi yetersizse skoru bloke et
@@ -623,32 +737,50 @@ async def get_live_buy_sell_wait_matrix():
             "ml_history":    round(slice_ml, 2),
             "data_quality":  round(slice_quality, 2),
         }
-            
-        # === Puan Yumuşatma (Smoothing / EMA) ===
-        now_ts = time.time()
-        if sym not in _score_history:
-            _score_history[sym] = []
-            
-        # Sadece son 15 dakikadaki (900 saniye) kayıtları tut - TUTARLI VE YUMUŞAK GEÇİŞ
-        _score_history[sym].append((now_ts, confidence_score, ranking_score))
-        _score_history[sym] = [t for t in _score_history[sym] if now_ts - t[0] <= 900]
-        
-        if len(_score_history[sym]) > 1:
-            total_weight = 0
-            weighted_conf = 0
-            weighted_rank = 0
-            for t_ts, t_conf, t_rank in _score_history[sym]:
-                # Yarı ömür: 60 saniye (eskisi 180s — ani hacim patlamaları artık hızlı yansır)
-                # 1 dakika önce: ağırlık 0.5, 3 dakika önce: ağırlık 0.167
-                weight = 1.0 / (1.0 + (now_ts - t_ts) / 60.0)
-                weighted_conf += t_conf * weight
-                weighted_rank += t_rank * weight
-                total_weight += weight
-            confidence_score = round(weighted_conf / total_weight, 1)
-            ranking_score = round(weighted_rank / total_weight, 1)
 
         m["ranking_score"] = ranking_score
         m["confidence_score"] = confidence_score
+        
+        # ── OTONOM GÖLGE ARENA ENJEKSİYONU (Canlı Paper Trading) ──
+        # Eğer liyakat süzgecinden başarıyla geçmiş ve yüksek skor almışsa, Gölge Arena'ya otonom test için at!
+        if ranking_score >= 80.0 and m.get("is_market_open") and m.get("decision_gate") == "ALLOW_ENTRY":
+            if sym not in live_trade_manager.shadow_positions and sym not in live_trade_manager.positions:
+                import uuid
+                from datetime import datetime, timezone
+                from services.market_feed.live_stream import ActivePosition
+                is_open, _, _ = market_hours_validator.is_market_open(sym)
+                if not is_open:
+                    continue
+                
+                new_shadow_pos = ActivePosition(
+                    id=f"SHADOW_{uuid.uuid4().hex[:6].upper()}",
+                    symbol=sym,
+                    market=market,
+                    side="BUY",
+                    entry_price=price,
+                    current_price=price,
+                    quantity=100.0 / price if price > 0 else 0,
+                    nominal_value=100.0,
+                    target_profit_price=price * 1.05,
+                    stop_loss_price=price * 0.97,
+                    break_even_trigger_price=price * 1.015,
+                    opened_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+                    confidence_score=ranking_score,
+                    entry_indicators={"score": ranking_score, "market_regime": "DİNAMİK YARIŞ SÜZGECİ"}
+                )
+                live_trade_manager.shadow_positions[sym] = new_shadow_pos
+                try:
+                    from services.engine.bot_thought_stream import bot_thought_stream
+                    bot_thought_stream.add_throttled(
+                        category="⚔️ GÖLGE ARENA", 
+                        symbol=sym, 
+                        message=f"Skor %{ranking_score:.1f} ile Otonom Test Havuzuna fırlatıldı! (Ajan Onaylı)", 
+                        level="WARN", 
+                        cooldown_sec=300
+                    )
+                except Exception:
+                    pass
+
         m["confidence_label"] = (
             "DATA_BLOCKED" if m.get("decision_gate") != "ALLOW_ENTRY" else
             "HIGH_EVIDENCE" if m["indicator_coverage"] >= 0.83 and historical_sample >= 20

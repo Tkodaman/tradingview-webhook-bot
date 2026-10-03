@@ -18,6 +18,12 @@ class KellyCriterionEngine:
         if not trade_history or len(trade_history) < 5:
             return 1.0  # Yeterli veri yoksa nötr çarpan
             
+        # ADL (Auto-Deleveraging) Intraday Drawdown Soğutması
+        recent_3 = trade_history[-3:]
+        if len(recent_3) == 3 and all(float(t.get("net_pnl", 0.0)) < 0 for t in recent_3):
+            logger.error("[ADL DEVRE KESİCİ] Üst üste 3 zarar! Sistem Soğutma Modunda (Cooldown). İntikam işlemi kalkanı devrede. Lot Çarpanı: 0.25x")
+            return 0.25
+            
         wins = 0
         losses = 0
         total_win_pnl = 0.0

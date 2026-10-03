@@ -167,18 +167,19 @@ class DynamicRiskManager:
             candidate_sl = history["high_water_mark"] * (1.0 - trail_pct)
 
             # SL'yi asla aşağı indirme; her zaman en yüksek olanı kullan
-            new_sl = max(candidate_sl, current_sl)
+            new_sl_rounded = round(max(candidate_sl, current_sl), 4)
+            current_sl_rounded = round(current_sl, 4)
 
             # Değişim varsa güncelle
-            if new_sl > current_sl:
+            if new_sl_rounded > current_sl_rounded:
                 profit_pct = ((current_price - entry_price) / entry_price) * 100.0
                 logger.info(
                     f"[TRAILING SL] {symbol} | Fiyat={current_price:.4f} "
                     f"| HWM={history['high_water_mark']:.4f} "
-                    f"| SL {current_sl:.4f} -> {new_sl:.4f} "
+                    f"| SL {current_sl_rounded:.4f} -> {new_sl_rounded:.4f} "
                     f"| PnL={profit_pct:+.2f}%"
                 )
-                matched_pos.stop_loss_price = round(new_sl, 4)
+                matched_pos.stop_loss_price = new_sl_rounded
                 await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
                 await self._notify_ui(symbol, matched_pos)
 
@@ -198,10 +199,13 @@ class DynamicRiskManager:
             if current_price < history.get("low_water_mark", current_price):
                 history["low_water_mark"] = current_price
             candidate_sl = history.get("low_water_mark", current_price) * (1.0 + trail_pct)
-            new_sl = min(candidate_sl, current_sl)   # SELL'de daha düşük olmalı
-            if new_sl < current_sl:
-                logger.info(f"[TRAILING SL] {symbol} SELL SL {current_sl:.4f} -> {new_sl:.4f}")
-                matched_pos.stop_loss_price = round(new_sl, 4)
+            
+            new_sl_rounded = round(min(candidate_sl, current_sl), 4)
+            current_sl_rounded = round(current_sl, 4)
+            
+            if new_sl_rounded < current_sl_rounded:
+                logger.info(f"[TRAILING SL] {symbol} SELL SL {current_sl_rounded:.4f} -> {new_sl_rounded:.4f}")
+                matched_pos.stop_loss_price = new_sl_rounded
                 await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
                 await self._notify_ui(symbol, matched_pos)
 

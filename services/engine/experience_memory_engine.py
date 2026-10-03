@@ -776,9 +776,8 @@ class ExperienceMemoryEngine:
         # Piyasaların durumuna göre özet cümlesi
         active_markets = [m for m, d in market_status.items() if d["is_open"]]
         
-        # Otonom ML Çarpanları Kuralı (A7 Paneli için)
         dyn_weights = self.get_dynamic_hierarchy_weights()
-        top_indicator = max(dyn_weights.items(), key=lambda x: x[1])
+        top_indicator = max(dyn_weights.items(), key=lambda x: x[1]) if dyn_weights else ("Bilinmiyor", 1.0)
         ml_rule = {
             "rule_id": "ML-DYN-WEIGHTS-1",
             "cluster_key": "MACHINE_LEARNING",

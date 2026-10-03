@@ -108,7 +108,12 @@ Lütfen tam olarak şu JSON formatında cevap ver (başka hiçbir metin ekleme):
                     self.current_alarm = parsed["alarm"]
                     self.current_thought = "[YZ Dış Sesi]: " + parsed["thought"]
                     self.last_update = datetime.now()
-                    logger.info("[Voice Engine] Dış ses başarıyla güncellendi.")
+                    
+                    # YENİ: LLM düşüncelerini (Dış Ses) doğrudan teknik akışın (İç Ses) arasına serpiştir. 
+                    # Böylece hem sade kalmaz hem de diğer otonom ajanların loglarıyla birlikte akar.
+                    bot_thought_stream.add("🤖 Astra-6 (Yapay Zeka)", "SISTEM", parsed["thought"], "INFO")
+                    
+                    logger.info("[Voice Engine] Dış ses başarıyla güncellendi ve akışa eklendi.")
             except Exception as e:
                 logger.error(f"[Voice Engine] LLM bağlantı veya parse hatası: {e}")
                 
@@ -116,10 +121,10 @@ Lütfen tam olarak şu JSON formatında cevap ver (başka hiçbir metin ekleme):
             logger.error(f"[Voice Engine] Dış ses üretimi sırasında genel hata: {e}")
 
     async def start_voice_loop(self):
-        """Başlangıçta hemen bir kez üretir, sonra her 15 saniyede günceller"""
+        """Başlangıçta hemen bir kez üretir, sonra her 300 saniyede günceller"""
         await self.generate_voice()  # İlk çalıştırmada hemen üret — marquee'de 'başlatılıyor' mesajı kalmasın
         while True:
-            await asyncio.sleep(15)
+            await asyncio.sleep(300)
             await self.generate_voice()
 
 ai_voice_engine = AIVoiceEngine()

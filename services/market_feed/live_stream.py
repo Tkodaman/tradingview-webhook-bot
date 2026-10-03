@@ -78,6 +78,7 @@ class LiveTradeManager:
         from services.broker.alpaca_client import alpaca_client
         import time
         from datetime import datetime, timezone
+        from core.logger import logger
         
         try:
             broker_positions = alpaca_client.sync_open_positions()
@@ -143,15 +144,13 @@ class LiveTradeManager:
                             local_pos.nominal_value = real_entry_price * qty
             
             # Hayalet Pozisyon Temizligi (Ghost Position Cleanup)
-            # Eger lokalde acik gorunen bir pozisyon broker'da yoksa, kapatildi/iptal edildi varsay!
-            # KRITIK: Kapatilan pozisyon hemen positions dict'inden cikarilmali.
-            # Aksi halde bir sonraki sync dongusu ayni pozisyonu tekrar "hayalet" olarak bulup
-            # tekrar CLOSED_OFFLINE_SYNC yazar → cift/uclu zarar kaydi virüsü.
+            # PENDING_BROKER dahil: broker'da yoksa temizle
             stale_positions = [
                 p for p in self.positions.values()
-                if p.status == "OPEN" and p.symbol not in active_broker_symbols
+                if p.status in ["OPEN", "PENDING_BROKER"] and p.symbol not in active_broker_symbols
             ]
             for sp in stale_positions:
+                logger.info(f"[GHOST CLEANUP] {sp.symbol} broker'da yok (status={sp.status}). Hayalet pozisyon silindi.")
                 self.close_position(sp.id, "CLOSED_OFFLINE_SYNC")
                 # Hemen sil — bir daha gorunmesin
                 self.positions.pop(sp.id, None)
@@ -160,7 +159,6 @@ class LiveTradeManager:
             # Save the synced state to local db
             self.save_state()
         except Exception as e:
-            from core.logger import logger
             logger.error(f"Failed to sync with broker: {e}")
 
     def load_state(self):
@@ -335,7 +333,7 @@ class LiveTradeManager:
         # Temel tahsis yerine confidence_score ile dinamik Kelly ölçeklemesi
         # Confidence %50 ise %2 tahsis, %100 ise %8 tahsis
         alloc_pct = 0.02 + (confidence_score - 0.5) * 0.12 if confidence_score >= 0.5 else 0.02
-        alloc_pct = max(0.01, min(0.08, alloc_pct)) # %1 ile %8 arası sınırlandır
+        alloc_pct = max(0.01, min(0.07, alloc_pct)) # %1 ile %7 arası sınırlandır (Max 14 pozisyon)
         
         try:
             from services.engine.supervisor_agent import supervisor_agent
@@ -733,6 +731,54 @@ class LiveTradeManager:
         self.save_state()
 
         logger.info(f"💰 [KÂR KİLİDİ] {pos.symbol} TP mesafesinin %33'üne ulaştı. %{int(ratio*100)} kısmi kâr alındı (Net: ${net_pnl}). Kalan {pos.quantity} adet Başa Baş'a kilitlendi.")
+
+    def check_and_cancel_stale_orders(self):
+        """
+        Alpaca'da 'askıda' (pending/open) kalan emirleri kontrol eder.
+        Eğer bir limit emri 5 dakikadan uzun süredir gerçekleşmemişse iptal eder ve vazgeçer.
+        Özellikle Piyasa Öncesi / Sonrası (Pre/Post Market) için çok kritiktir.
+        """
+        try:
+            from services.broker.factory import get_broker
+            from core.config import settings
+            import datetime
+            
+            is_paper = settings.trading_mode.upper() != "LIVE"
+            broker = get_broker("ALPACA", paper=is_paper)
+            
+            if not broker or not broker.api:
+                return
+
+            open_orders = broker.api.list_orders(status="open")
+            if not open_orders:
+                return
+
+            now = datetime.datetime.now(datetime.timezone.utc)
+            for order in open_orders:
+                # Alpaca order.submitted_at is a datetime object
+                try:
+                    if hasattr(order, 'submitted_at') and order.submitted_at:
+                        submitted = order.submitted_at
+                        diff = (now - submitted).total_seconds() / 60.0
+                        if diff >= 5.0:  # 5 dakikadan fazla askıda kaldıysa
+                            logger.info(f"⏳ [STALE ORDER CANCELED] Emir 5 dakikadır dolmadı. İptal ediliyor (Vazgeçildi): {order.symbol} (Süre: {diff:.1f} dk)")
+                            broker.api.cancel_order(order.id)
+                            
+                            # Kapanan emri hafızadan da (memory) kapat / sil
+                            sym = order.symbol.replace('/', '')
+                            matched_pos = None
+                            for pid, p in self.positions.items():
+                                if p.symbol == sym and p.status == "OPEN":
+                                    matched_pos = p
+                                    break
+                            
+                            if matched_pos:
+                                self.close_position(matched_pos.id, "CANCELED_TIMEOUT")
+                except Exception as e:
+                    logger.warning(f"Askıda emir iptalinde hata (ID: {order.id}): {e}")
+
+        except Exception as err:
+            logger.error(f"[Stale Orders Check Error] {err}")
 
     def close_position(self, pos_id: str, reason: str = "MANUAL_CLOSE") -> Optional[Dict[str, Any]]:
         if pos_id not in self.positions:

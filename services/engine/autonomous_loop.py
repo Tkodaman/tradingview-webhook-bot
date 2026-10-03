@@ -98,35 +98,34 @@ class AutonomousEngine:
                 
                 # --- SOTA ZIRHI 1: Hacim Patlaması (Volume Spike) ---
                 volume_ratio = data.get("volume_ratio", 0)
-                if volume_ratio < 2.0 and not is_short_squeeze_setup and session_name != "ÖLÜ BÖLGE (Hacim Boşluğu)":
-                    continue  # Hacim yoksa sahte harekettir (Ölü bölge dip toplaması hariç)
+                # Simüle/Öğrenme modunda hacim şartını esnetiyoruz (Deneyim kazanması için)
+                from core.config import settings
+                min_vol = 1.2 if settings.trading_mode == "PAPER" else 2.0
+                
+                if volume_ratio < min_vol and not is_short_squeeze_setup and session_name != "ÖLÜ BÖLGE (Hacim Boşluğu)":
+                    continue  # Hacim yoksa sahte harekettir
                     
                 # --- SOTA ZIRHI 2: Oynaklık (ATR) ve Düşen Bıçak Kuralı ---
                 adx = data.get("adx", 0)
-                if adx < 20 and session_name != "ÖLÜ BÖLGE (Hacim Boşluğu)":
+                min_adx = 15 if settings.trading_mode == "PAPER" else 20
+                if adx < min_adx and session_name != "ÖLÜ BÖLGE (Hacim Boşluğu)":
                     continue  # Trend gücü (Momentum) zayıf, range piyasası.
                     
                 # --- ENSTRÜMAN 3: Kelly Kriteri (Dinamik Kasa Yönetimi) ---
                 win_rate = 0.55  # Sistem ortalaması
                 risk_reward = 2.0
                 kelly_pct = win_rate - ((1 - win_rate) / risk_reward)
-                suggested_risk_pct = min(max(kelly_pct, 0.01), 0.10) 
+                suggested_risk_pct = min(max(kelly_pct, 0.01), 0.50) # Kullanıcı talebi üzerine %50'ye kadar izin ver
 
-                # --- PORTFÖY ZIRHI: 9 Varlık - 6 Aktif / 3 Yedek Kuralı ---
+                # --- PORTFÖY ZIRHI: Dinamik Limit (LIVE: 2 Koin | PAPER: 14 Koin) ---
                 # live_trade_manager üzerinden o anki açık pozisyon sayısına bakıyoruz
                 open_positions = len(getattr(live_trade_manager, "open_positions", {}))
                 
-                if open_positions >= 9:
-                    logger.warning("Limit 9/9 dolu. Yeni işleme girilmiyor.")
+                max_allowed_positions = 14 if settings.trading_mode == "PAPER" else 2
+                
+                if open_positions >= max_allowed_positions:
+                    logger.warning(f"Limit {max_allowed_positions}/{max_allowed_positions} dolu. Yeni işleme girilmiyor (Mod: {settings.trading_mode}).")
                     continue
-                    
-                if open_positions >= 6:
-                    # Yedek kontenjandayız (Sadece A++ Kusursuz Setuplar için harcanır)
-                    if volume_ratio < 3.0 or not is_short_squeeze_setup:
-                        logger.info(f"⏳ {symbol} reddedildi: 6 Aktif pozisyon dolu. Yedek kontenjan (3 adet) sadece 'Squeeze + Vol>3' fırsatlarına saklanıyor.")
-                        continue
-                    else:
-                        logger.warning(f"🔥 YEDEK KONTENJAN KULLANILIYOR: {symbol} Squeeze yakaladı!")
 
                 # COOLDOWN (Bekleme Süresi) Koruması: Aynı coini art arda AI'a gönderip token yakmasını engelle
                 now = time.time()

@@ -19,6 +19,10 @@ class TradingViewLiveClient:
         self.cached_crypto_data: Dict[str, Any] = {}
         # === YENİ: Higher-High proxy için onceki tick high'lari sakla ===
         self._prev_highs: Dict[str, float] = {}  # sym -> onceki high
+        
+        import httpx
+        # Global ve kalıcı bir HTTP istemcisi (Connection limit & DNS timeout hatalarını engeller)
+        self.http_client = httpx.Client(timeout=20.0, trust_env=False)
 
     @staticmethod
     def _missing_indicator_fields(values: List[Any]) -> List[str]:
@@ -69,8 +73,8 @@ class TradingViewLiveClient:
 
         # 1. ABD / NASDAQ Verilerini Çek
         try:
-            with httpx.Client(timeout=15.0, trust_env=False) as client:
-                res_us = client.post(
+            
+                res_us = self.http_client.post(
                     "https://scanner.tradingview.com/america/scan",
                     json={"symbols": {"tickers": active_tickers["NASDAQ"]}, "columns": columns_15m},
                     headers=headers
@@ -86,7 +90,6 @@ class TradingViewLiveClient:
                             if len(vals) >= 3:
                                 benchmark_change = round(float(vals[2] or 0.0), 2)
                             break
-
                     for item in data:
                         raw_sym = item.get("s", "")
                         clean_sym = raw_sym.split(":")[-1]
@@ -126,7 +129,8 @@ class TradingViewLiveClient:
                                 # 15 dakikalık mum için saniye bazlı kusursuz prorasyon
                                 candle_start = (int(now) // 900) * 900
                                 seconds_in_candle = int(now) - candle_start
-                                effective_seconds = max(seconds_in_candle, 60)
+                                # Matematiksel patlamayı önlemek için ilk 5 dakikayı baz al (Stabilizasyon)
+                                effective_seconds = max(seconds_in_candle, 300)
                                 expected_fraction = effective_seconds / 900.0
                                 adjusted_vol_avg = vol_avg * expected_fraction
                                 if adjusted_vol_avg > 0:
@@ -192,34 +196,45 @@ class TradingViewLiveClient:
                     # KAZAN-KAZAN: ALPACA HİBRİT GERÇEK ZAMANLI (IEX) OVERRIDE
                     # 15 dakika gecikmeli TV NASDAQ fiyatlarını Alpaca'dan canlı ez.
                     # =======================================================
-                    # from core.config import settings
-                    # if getattr(settings, "alpaca_extended_hours", True):
-                    #     try:
-                    #         nasdaq_syms = list(results.keys())
-                    #         if nasdaq_syms:
-                    #             from services.broker.alpaca_bridge import AlpacaBroker
-                    #             temp_broker = AlpacaBroker(paper=True)
-                    #             rt_prices = temp_broker.get_realtime_prices(nasdaq_syms)
-                    #             for sym, rt_data in rt_prices.items():
-                    #                 if sym in results:
-                    #                     new_price = rt_data["price"]
-                    #                     if new_price > 0:
-                    #                         results[sym]["price"] = new_price
-                    #                         results[sym]["change_pct"] = rt_data["change_pct"]
-                    #                         results[sym]["high"] = rt_data["high"]
-                    #                         results[sym]["low"] = rt_data["low"]
-                    #                         results[sym]["source"] = "HYBRID_ALPACA_LIVE"
-                    #     except Exception as override_err:
-                    #         logger.error(f"[ALPACA OVERRIDE ERROR] {override_err}")
+                    try:
+                        nasdaq_syms = list(results.keys())
+                        if nasdaq_syms:
+                            from services.broker.factory import get_broker
+                            temp_broker = get_broker('alpaca', paper=True)
+                            rt_prices = temp_broker.get_realtime_prices(nasdaq_syms)
+                            if rt_prices:
+                                for sym, rt_data in rt_prices.items():
+                                    if sym in results:
+                                        new_price = rt_data.get("price", 0.0)
+                                        if new_price > 0:
+                                            results[sym]["price"] = new_price
+                                            results[sym]["change_pct"] = rt_data.get("change_pct", results[sym]["change_pct"])
+                                            
+                                            # Update high/low only if Alpaca provides them and they are valid
+                                            if rt_data.get("high") and rt_data["high"] > 0:
+                                                results[sym]["high"] = rt_data["high"]
+                                            if rt_data.get("low") and rt_data["low"] > 0:
+                                                results[sym]["low"] = rt_data["low"]
+                                                
+                                            results[sym]["source"] = "HYBRID_ALPACA_LIVE"
+                                            # Override timestamp since it's real-time now
+                                            results[sym]["last_updated_ts"] = time.time()
+                    except Exception as override_err:
+                        import traceback
+                        logger.error(f"[ALPACA OVERRIDE ERROR] {override_err}\n{traceback.format_exc()}")
                             
                     self.cached_us_data = results
+                elif res_us.status_code == 429:
+                    logger.warning("[TRADINGVIEW RATE LIMIT] 429 Too Many Requests (US). Dinlenmeye geçiliyor...")
+                    self.last_fetch_time = time.time() + 15.0
+                    return {**self.cached_us_data, **self.cached_tr_data, **self.cached_crypto_data}
         except Exception as e:
             logger.warning(f"[TRADINGVIEW LIVE FETCH ERROR - US]: {e}")
 
         # 2. BIST / Türkiye Verilerini Çek
         try:
-            with httpx.Client(timeout=15.0, trust_env=False) as client:
-                res_tr = client.post(
+            
+                res_tr = self.http_client.post(
                     "https://scanner.tradingview.com/turkey/scan",
                     json={"symbols": {"tickers": active_tickers["BIST"]}, "columns": columns_15m},
                     headers=headers
@@ -271,7 +286,8 @@ class TradingViewLiveClient:
                                 # 15 dakikalık mum için saniye bazlı kusursuz prorasyon
                                 candle_start = (int(now) // 900) * 900
                                 seconds_in_candle = int(now) - candle_start
-                                effective_seconds = max(seconds_in_candle, 60)
+                                # Matematiksel patlamayı önlemek için ilk 5 dakikayı baz al
+                                effective_seconds = max(seconds_in_candle, 300)
                                 expected_fraction = effective_seconds / 900.0
                                 adjusted_vol_avg = vol_avg * expected_fraction
                                 
@@ -331,13 +347,16 @@ class TradingViewLiveClient:
                                 "missing_fields": self._missing_indicator_fields(vals)
                             }
                     self.cached_tr_data = {k: v for k, v in results.items() if v["market"] == "BIST"}
+                elif res_tr.status_code == 429:
+                    logger.warning("[TRADINGVIEW RATE LIMIT] 429 Too Many Requests (BIST).")
+                    self.last_fetch_time = time.time() + 15.0
         except Exception as e:
             logger.warning(f"[TRADINGVIEW LIVE FETCH ERROR - TR]: {e}")
 
         # 3. KRİPTO / Crypto Verilerini Çek
         try:
-            with httpx.Client(timeout=15.0, trust_env=False) as client:
-                res_crypto = client.post(
+            
+                res_crypto = self.http_client.post(
                     "https://scanner.tradingview.com/crypto/scan",
                     json={"symbols": {"tickers": active_tickers["CRYPTO"]}, "columns": columns_60m},
                     headers=headers
@@ -383,8 +402,8 @@ class TradingViewLiveClient:
                             # 60 dakikalık mum için saniye bazlı kusursuz prorasyon
                             candle_start = (int(now) // 3600) * 3600
                             seconds_in_candle = int(now) - candle_start
-                            # İlk 1 dakikayı 60s gibi say ki sıfıra bölme veya devasa rasyolar çıkmasın
-                            effective_seconds = max(seconds_in_candle, 60)
+                            # Matematiksel patlamayı (5.00x) önlemek için ilk 15 dakikayı taban al
+                            effective_seconds = max(seconds_in_candle, 900)
                             expected_fraction = effective_seconds / 3600.0
                             adjusted_vol_avg = vol_avg * expected_fraction
                             
@@ -444,6 +463,9 @@ class TradingViewLiveClient:
                                 "missing_fields": self._missing_indicator_fields(vals)
                             }
                     self.cached_crypto_data = {k: v for k, v in results.items() if v["market"] == "CRYPTO"}
+                elif res_crypto.status_code == 429:
+                    logger.warning("[TRADINGVIEW RATE LIMIT] 429 Too Many Requests (CRYPTO).")
+                    self.last_fetch_time = time.time() + 15.0
         except Exception as e:
             logger.warning(f"[TRADINGVIEW LIVE FETCH ERROR - CRYPTO]: {e}")
 

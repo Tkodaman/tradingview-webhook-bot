@@ -1,4 +1,4 @@
-﻿"""
+"""
 Crypto Fear & Greed Index Entegrasyonu
 Kaynak: https://alternative.me/crypto/fear-and-greed-index/
 Cache: 10 dakika (API'ye asiri yuk bindirme)
@@ -28,10 +28,12 @@ class FearGreedIndexClient:
         self._cached_score: Optional[int] = None
         self._cached_classification: Optional[str] = None
         self._cache_timestamp: float = 0.0
+        import requests
+        self.session = requests.Session()
 
     def _fetch_from_api(self) -> bool:
         try:
-            resp = requests.get(self.API_URL, timeout=8)
+            resp = self.session.get(self.API_URL, timeout=8)
             resp.raise_for_status()
             data = resp.json()["data"][0]
             self._cached_score = int(data["value"])

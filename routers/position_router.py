@@ -68,6 +68,11 @@ def get_active_positions():
     if _pos_cache["data"] is not None and (now - _pos_cache["ts"]) < _POS_CACHE_TTL:
         return _pos_cache["data"]
 
+    # STAMPEDE KORUMASI (Stale-while-revalidate): 
+    # API yavaşsa diğer isteklerin beklemesi yerine eski veriyi almasını sağla
+    if _pos_cache["data"] is not None:
+        _pos_cache["ts"] = now + 15 # Geçici olarak 15 sn uzat, böylece diğer istekler eski veriyi kullanır
+
     if settings.trading_mode in ["LIVE", "PAPER"]:
         from services.broker.factory import get_broker
         broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
@@ -126,8 +131,16 @@ def get_active_positions():
                     tv_sym = sym
                     if tv_sym.endswith("USD") and tv_sym != "USD":
                         tv_sym = tv_sym.replace("USD", "USDT")
-                        
-                    local_pos = next((lp for lp in live_trade_manager.positions.values() if lp.symbol in [sym, tv_sym] and lp.status == "OPEN"), None)
+                    
+                    # Alpaca symbol could be BTC/USD, tv_sym is BTC/USDT. Local might be BINANCE:BTCUSDT.
+                    # We match if local symbol ends with tv_sym or matches sym.
+                    local_pos = None
+                    for lp in live_trade_manager.positions.values():
+                        if lp.status == "OPEN":
+                            clean_lp = lp.symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
+                            if clean_lp in [sym.upper(), tv_sym.upper()]:
+                                local_pos = lp
+                                break
                     
                     if local_pos and local_pos.opened_at:
                         opened_at_val = local_pos.opened_at
@@ -159,13 +172,14 @@ def get_active_positions():
                         import time as _time
                         tv_is_fresh = (last_ts > 0 and (_time.time() - last_ts) < 90)
 
-                    # Öncelik: Alpaca > TV (TV sadece Alpaca yoksa ve tazeyse)
+                    # YENİ ÖNCELİK: Alpaca API her zaman öncelikli (Web UI ile birebir eşleşmesi için)
+                    # TradingView free plan 15 dakika gecikmeli veri verdiğinden, Alpaca PnL'ini kullan.
                     if alpaca_curr_price > 0:
-                        final_current_price = alpaca_curr_price   # ✅ Her zaman Alpaca önce
+                        final_current_price = alpaca_curr_price   # ✅ Her zaman Alpaca (Gerçek Broker PnL)
                     elif tv_price > 0 and tv_is_fresh:
-                        final_current_price = tv_price            # Fallback: TV taze ise
+                        final_current_price = tv_price            # Fallback: TV taze
                     elif tv_price > 0:
-                        final_current_price = tv_price            # Son çare: TV stale ama Alpaca yok
+                        final_current_price = tv_price            # Son çare: TV stale
                     else:
                         final_current_price = 0.0
 
@@ -348,9 +362,11 @@ def close_live_position(pos_id: str):
             from services.broker.factory import get_broker
             broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
             if broker and broker.api:
-                alpaca_sym = symbol
-                if alpaca_sym.endswith("USDT"):
-                    alpaca_sym = alpaca_sym.replace("USDT", "USD")
+                alpaca_sym = symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
+                if alpaca_sym.endswith("USDT") or alpaca_sym.endswith("USD"):
+                    alpaca_sym = alpaca_sym.replace("USDT", "/USD")
+                    if not alpaca_sym.endswith("/USD"):
+                        alpaca_sym = alpaca_sym[:-3] + "/USD"
                 res = broker.close_position(alpaca_sym)
                 if res.get("status") == "success":
                     alpaca_ok = True

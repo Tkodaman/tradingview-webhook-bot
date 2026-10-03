@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     passphrase: str
     trading_mode: str = "PAPER" # PAPER or LIVE (Alpaca Sandbox vs Real)
     active_broker: str = "ALPACA" # ALPACA, INTERACTIVE_BROKERS, MIDAS
-    allowed_ips: str = "127.0.0.1,localhost,testclient,52.89.214.238,34.212.75.30,54.218.53.128,52.32.178.7"
-    trusted_proxy_ips: str = "127.0.0.1,localhost"
+    allowed_ips: str = "127.0.0.1,localhost,testclient,52.89.214.238,34.212.75.30,54.218.53.128,52.32.178.7,192.168.49.1"
+    trusted_proxy_ips: str = "127.0.0.1,localhost,192.168.49.1"
     webhook_security_token: str = ""
     
     # Alpaca API Credentials
@@ -19,15 +19,20 @@ class Settings(BaseSettings):
     alpaca_secret_key: str = ""
     alpaca_extended_hours: bool = True # Piyasa öncesi ve sonrası işlemler aktif
     
+    # Binance API Credentials
+    binance_api_key: str = ""
+    binance_secret_key: str = ""
+    outbound_proxy: str = "http://192.168.49.1:8000" # Cloudflare/Proxy entegrasyonu
+    
     # Risk Parameters (Esnetilmiş Aktif İşlem Modu)
     max_risk_score_allowed: float = 88.0 # Tavan risk skoru esnetildi
     high_risk_threshold: float = 65.0 # Pozisyon küçültme eşiği yükseltildi
     moderate_risk_threshold: float = 45.0
     
-    # Position Sizing
-    max_capital_per_trade_pct: float = 25.0 # Max 25% of portfolio per trade for aggressive attacks
-    base_portfolio_size: float = 5000.0 # Başlangıç Kasa: $5,000.00 (Kesin Taban)
-    dynamic_capital_allocation_pct: float = 25.0  # YENİ: Arayüzden değiştirilebilir işlem büyüklüğü (%)
+    # Position Sizing (Kullanıcı Talebi: Toplam $350 Kasa, Maksimum 2 Koin)
+    max_capital_per_trade_pct: float = 50.0 # Bütçe ikiye bölünecek (Her koin için %50)
+    base_portfolio_size: float = 350.0 # Başlangıç Kasa: $350 (Binance)
+    dynamic_capital_allocation_pct: float = 50.0  # İşlem başına kullanılacak bütçe (%)
     
     # Circuit Breakers & Hard Rules
     flash_crash_volatility_limit: float = 8.0 # Volatilite kilidi %8.0

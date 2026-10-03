@@ -46,23 +46,6 @@ def get_thought_stream():
     """
     Fakeout Guard, Stop-Hunt Evader ve Korelasyon Filtresi'nin canlı "neden bekliyorum/koruyorum" akışı.
     """
-    # Dinamik Akış Enjeksiyonu (Frontend'de "Bekleniyor" yazmasını engellemek ve canlılığı kanıtlamak için)
-    bot_thought_stream.add_throttled(
-        category="OTONOM ZIRH", 
-        symbol="PORTFÖY-USDT", 
-        message="[İnisiyatif] Rotasyon Motoru devrede. Kasa tam otomatik modda iz sürüyor.", 
-        level="INFO", 
-        cooldown_sec=30
-    )
-    
-    bot_thought_stream.add_throttled(
-        category="RİSK MOTORU", 
-        symbol="SİSTEM-USDT", 
-        message="[İzleyici] Piyasaların mikro gürültüleri filtreleniyor. %4'lük mutlak disiplin sınırları aktif.", 
-        level="WARN", 
-        cooldown_sec=45
-    )
-
     return {"thoughts": bot_thought_stream.get_recent(30)}
 
 @router.get("/ai-opportunities")
@@ -88,3 +71,39 @@ def get_ai_correlation():
     """
     from services.ai.ai_dashboard_advisor import ai_dashboard_advisor
     return {"ai_analysis": ai_dashboard_advisor.get_correlation_synthesis()}
+
+@router.get("/shadow-summary")
+def get_shadow_summary():
+    """
+    experience_memory.json dosyasından en son kapanan işlemleri okur ve tabloya gönderir.
+    """
+    import json
+    import os
+    from pathlib import Path
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    mem_path = BASE_DIR / "experience_memory.json"
+    
+    if not mem_path.exists():
+        return {"trades": []}
+    try:
+        with open(mem_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        trades = data.get("trade_history", [])
+        # En yeni işlemler üstte olacak şekilde ters çevir ve son 15 işlemi al
+        recent_trades = list(reversed(trades))[:15]
+        return {"trades": recent_trades}
+    except Exception as e:
+        return {"trades": []}
+
+@router.get("/shadow-active")
+def get_shadow_active():
+    """
+    Canlı (Açık) Gölge Arena pozisyonlarını döndürür.
+    """
+    from services.market_feed.live_stream import live_trade_manager
+    active_shadows = []
+    for pos in live_trade_manager.shadow_positions.values():
+        if pos.status == "OPEN":
+            active_shadows.append(pos.model_dump())
+    return {"active_shadows": active_shadows}
+

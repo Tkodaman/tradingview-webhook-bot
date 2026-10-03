@@ -47,28 +47,18 @@ class WhaleReactionAgent:
             return {"approved": True, "score": 100, "reason": f"Güçlü Balina Alımı (CMF: {cmf})."}
         return {"approved": True, "score": 75, "reason": "Balina tepkisi nötr."}
 
-class NewsSentimentAgent:
-    """Anlık Genel Piyasa ve Haber Akışı Dedektifi"""
+class SocialFomoAgent:
+    """Anlık Sosyal Medya FOMO ve Haber Akışı Dedektifi (Yürütme Birimi)"""
     def evaluate(self, signal: Any) -> Dict[str, Any]:
-        symbol = getattr(signal, 'symbol', 'UNKNOWN')
-        sentiment_score = 50 
-        reason = "Haber akışı stabil / nötr."
-        try:
-            from services.ai.llm_master_agent import llm_master_agent
-            if llm_master_agent.is_ready():
-                prompt = f"{symbol} için anlık piyasa duyarlılığı nedir? Sadece 0-100 arası sayı ve tek kelime neden dön."
-                raw = llm_master_agent.chat(user_message=prompt, system_prompt="Sadece 'SKOR - KELİME' dön.", max_tokens=20)
-                import re
-                match = re.search(r'(\d+)', raw)
-                if match:
-                    sentiment_score = int(match.group(1))
-                    reason = f"YZ Haber Analizi: {raw.strip()}"
-        except Exception as e:
-            logger.warning(f"[NEWS AGENT] Hata: {e}")
-            
-        if sentiment_score < 30:
-            return {"approved": True, "score": sentiment_score, "reason": f"RİSK: Kötü Haber (Skor: {sentiment_score})"}
-        return {"approved": True, "score": sentiment_score, "reason": reason}
+        indicators = getattr(signal, 'indicators', {}) or {}
+        # Yavaş LLM sorguları (Donukluk) yerine anlık hesaplanmış kantitatif FOMO verisi kullanılır
+        fomo_score = int(indicators.get("fomo_score", indicators.get("fear_greed", 50)))
+        
+        if fomo_score > 80:
+            return {"approved": True, "score": 100, "reason": f"AŞIRI FOMO! Sosyal Medya Coşkusu (Skor: {fomo_score}) - Bütçe Esnetilebilir."}
+        elif fomo_score < 30:
+            return {"approved": False, "score": 10, "reason": f"RİSK: Toksik Akış / Kötü Haber Korkusu (Skor: {fomo_score})"}
+        return {"approved": True, "score": fomo_score, "reason": f"Sosyal Duyarlılık Nötr (Skor: {fomo_score})"}
 
 class MarketRegimeAgent:
     """Piyasa Trendi ve Rejim Analisti (Hummingbot Konsepti Entegreli)"""
@@ -134,7 +124,7 @@ class AutonomousCouncil:
             "OBI": OBIAgent(),
             "MACRO": MacroAgent(),
             "WHALE": WhaleReactionAgent(),
-            "NEWS": NewsSentimentAgent(),
+            "NEWS": SocialFomoAgent(),
             "REGIME": MarketRegimeAgent(),
             "FLASH": FlashKeyFigureAgent(),
             "CHIEF_JUSTICE": LLMChiefJusticeAgent()
@@ -178,20 +168,25 @@ class AutonomousCouncil:
             
             # TRUMP2CASH FLASH OVERRIDE MANTIĞI
             if name == "FLASH" and res.get("override"):
+                logger.info(f"🏛️ [YASAMA/YÜRÜTME BYPASS] Olağanüstü Durum! {res['reason']}")
                 return {"approved": res["approved"], "reason": res["reason"], "score": res["score"], "mode": "FLASH"}
             
             total_score += res.get("score", 0) * weights[name]
         
+        logger.info(f"📜 [YASAMA BİRİMİ] Kurallar ve sınırlar belirlendi. Ajanlar piyasayı taradı.")
+        logger.info(f"⚙️ [DERİN ANALİZ & YÜRÜTME] Fonksiyonel ve Kantitatif Veri Toplandı. (Skor: {total_score:.1f})")
+        logger.info(f"⚖️ [YARGI BİRİMİ] Baş Yargıç ve Konsey son kararı veriyor...")
+
         # HUMMINGBOT GRID MODE KONTROLÜ
         if results["REGIME"].get("mode") == "GRID":
-            return {"approved": True, "reason": f"GRAND COUNCIL ONAYI - YATAY PİYASA (GRID MODU) ({total_score:.1f}/100)", "score": total_score, "mode": "GRID"}
+            return {"approved": True, "reason": f"YARGI KARARI: YATAY PİYASA (GRID MODU ONAYLANDI) ({total_score:.1f}/100)", "score": total_score, "mode": "GRID"}
         
-        # Gece/Gündüz Cüretkar Mod (Geçer Not: 45)
-        if total_score >= 45:
+        # Tam Otonom Cüretkar Mod (Geçer Not: 35'e düşürüldü - Korku Zincirleri Kırıldı!)
+        if total_score >= 35:
             reason_str = " | ".join([f"{k}: {v['reason']}" for k,v in results.items() if v.get("score",0) > 60])
-            return {"approved": True, "reason": f"GRAND COUNCIL ONAYI ({total_score:.1f}/100) - {reason_str}", "score": total_score, "mode": "DIRECTIONAL"}
+            return {"approved": True, "reason": f"YARGI KARARI (ONAY - CÜRETKAR) ({total_score:.1f}/100) - {reason_str}", "score": total_score, "mode": "DIRECTIONAL"}
         else:
             reason_str = " | ".join([f"{k}: {v['reason']}" for k,v in results.items() if v.get("score",100) <= 50])
-            return {"approved": False, "reason": f"GRAND COUNCIL REDDİ ({total_score:.1f}/100). Riskler: {reason_str}", "score": total_score, "mode": "NONE"}
+            return {"approved": False, "reason": f"YARGI KARARI (RED - RİSKLİ) ({total_score:.1f}/100). Sebepler: {reason_str}", "score": total_score, "mode": "NONE"}
 
 council_engine = AutonomousCouncil()

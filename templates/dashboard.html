@@ -1694,32 +1694,6 @@ The following code has been modified to include a line number before every line,
     </div>
     <!-- END MAIN DASHBOARD GRID -->
 
-    <!-- AKTİF PORTFÖY / OTONOM YÖNETİLEN VARLIKLAR -->
-    <div class="panel" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(15,18,26,0.95), rgba(20,25,35,0.9)); border: 1px solid rgba(52, 211, 153, 0.4); box-shadow: 0 0 15px rgba(52, 211, 153, 0.1);">
-        <div class="panel-header">
-            <div class="panel-header-title">
-                <span style="color:#34d399; animation: pulse 2s infinite;">🟢</span> Aktif Kripto Portföyü <span style="font-size:11px; color:var(--text-secondary);">(Otonom Yönetimde)</span>
-            </div>
-            <div style="font-size: 11px; color: #94a3b8; font-weight: bold;">[YALNIZCA ONAYLI İŞLEMLER]</div>
-        </div>
-        <div class="table-container" style="max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px;">
-          <table class="positions-table dashboard-output-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
-                <thead style="background: rgba(0,0,0,0.6); position: sticky; top: 0; z-index: 1;">
-                    <tr>
-                        <th style="padding: 10px; text-align:left; color:#cbd5e1;">Sembol</th>
-                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Statü</th>
-                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Strateji / Plan</th>
-                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Maliyet</th>
-                        <th style="padding: 10px; text-align:right; color:#cbd5e1;">Yatırım Büyüklüğü</th>
-                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Alış Tarihi</th>
-                    </tr>
-                </thead>
-                <tbody id="activePortfolioTableBody">
-                    <tr><td colspan="6" style="text-align:center; padding: 16px; color:#6b7280;">Aktif portföy verisi aranıyor...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
 
     <!-- GEÇMİŞ KAPATILAN VARLIKLARIN ÖZET RAPORU (ASSET CONFIDENCE INDEX) -->
     <div class="panel" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(15,18,26,0.95), rgba(28,33,48,0.9)); border: 1px solid rgba(168, 85, 247, 0.2);">
@@ -1745,6 +1719,57 @@ The following code has been modified to include a line number before every line,
                 </thead>
                 <tbody id="assetSummaryTableBody">
                     <tr><td colspan="9" style="text-align:center; padding: 16px; color:#6b7280;">Geçmiş işlem verisi yükleniyor...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- GÖLGE ARENA: OTONOM ZEKA & CESARET TESTİ -->
+    <div class="panel" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(10,12,18,0.95), rgba(20,25,35,0.9)); border: 1px solid rgba(139, 92, 246, 0.5); box-shadow: 0 0 15px rgba(139, 92, 246, 0.1);">
+        <div class="panel-header">
+            <div class="panel-header-title">
+                <span style="color:#8b5cf6;">🥷</span> Gölge Arena: Otonom Zeka & Cesaret Testi (Canlı)
+            </div>
+            <div style="font-size: 11px; color: #a78bfa; font-weight: bold; border: 1px solid rgba(139,92,246,0.3); padding: 2px 6px; border-radius: 4px; background: rgba(139,92,246,0.1);">
+                [MAKS. 8 SAAT KURALI - VUR KAÇ / BALİNA SÖRFÜ]
+            </div>
+        </div>
+        
+        <div style="font-size: 13px; font-weight: bold; color: #cbd5e1; margin-bottom: 8px; margin-top: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">🎯 AKTİF OPERASYONLAR (Sörf Modu)</div>
+        <div class="table-container" style="max-height: 250px; overflow-y: auto; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 6px; margin-bottom: 20px;">
+          <table class="positions-table dashboard-output-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
+                <thead style="background: rgba(139, 92, 246, 0.1); position: sticky; top: 0; z-index: 1;">
+                    <tr>
+                        <th style="padding: 12px; text-align:left; color:#e2e8f0; width:15%;">Hedef (Varlık)</th>
+                        <th style="padding: 12px; text-align:center; color:#e2e8f0; width:10%;">Yön</th>
+                        <th style="padding: 12px; text-align:left; color:#e2e8f0; width:10%;">Giriş Fiyatı</th>
+                        <th style="padding: 12px; text-align:left; color:#e2e8f0; width:10%;">Anlık Fiyat</th>
+                        <th style="padding: 12px; text-align:center; color:#e2e8f0; width:15%;">Anlık PnL (%)</th>
+                        <th style="padding: 12px; text-align:center; color:#e2e8f0; width:20%;">Hedefler (TP / SL)</th>
+                        <th style="padding: 12px; text-align:center; color:#e2e8f0; width:10%;">Süre</th>
+                        <th style="padding: 12px; text-align:right; color:#e2e8f0; width:10%;">Tarih / Saat</th>
+                    </tr>
+                </thead>
+                <tbody id="shadowArenaActiveTableBody">
+                    <tr><td colspan="8" style="text-align:center; padding: 16px; color:#6b7280;">Aktif otonom sörf işlemi bulunmuyor...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="font-size: 13px; font-weight: bold; color: #cbd5e1; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">📖 SEYİR DEFTERİ (Geçmiş Deneyimler)</div>
+        <div class="table-container" style="max-height: 350px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px;">
+          <table class="positions-table dashboard-output-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
+                <thead style="background: rgba(0,0,0,0.8); position: sticky; top: 0; z-index: 1;">
+                    <tr>
+                        <th style="padding: 12px; text-align:left; color:#e2e8f0; width:15%;">Hedef (Varlık)</th>
+                        <th style="padding: 12px; text-align:left; color:#e2e8f0; width:45%;">Botun İç Sesi & Cüretkâr Hamle Özeti</th>
+                        <th style="padding: 12px; text-align:center; color:#e2e8f0; width:15%;">Operasyon Süresi</th>
+                        <th style="padding: 12px; text-align:right; color:#e2e8f0; width:15%;">Kâr/Zarar Sonucu</th>
+                        <th style="padding: 12px; text-align:center; color:#e2e8f0; width:10%;">Tarih</th>
+                    </tr>
+                </thead>
+                <tbody id="shadowArenaSummaryTableBody">
+                    <tr><td colspan="5" style="text-align:center; padding: 16px; color:#6b7280;">Geçmiş kapanan gölge işlemler bekleniyor...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -4194,21 +4219,20 @@ The following code has been modified to include a line number before every line,
         setInterval(() => {
             fetchSummary();
             fetchPositions();
-        }, 5000); // Trailing stop güncellemelerini hızlı yansıtmak için 5 saniyeye düşürüldü
+        }, 1000); // Hızlı yansıtmak için 1 saniyeye düşürüldü (sahte veri olmadan saf API hızı)
 
         setInterval(() => {
             fetchAlgorithmicStats();
             fetchHistorySummary();
             fetchAssetConfidenceIndex();
-        }, 30000);
+        }, 5000); // Hızlandırıldı
 
-        // Not: Backend 5sn cache kullaniyor (_CACHE_TTL); 8sn'de bir cekmek
         // Top15 yaris siralamasini WebSocket grid'leriyle uyumlu, gercekten canli tutar.
-        setInterval(fetchLiveMatrix, 8000);
+        setInterval(fetchLiveMatrix, 1500);
 
-        // Piyasa Rejimi guncelleme (her 30s)
+        // Piyasa Rejimi guncelleme (her 5s)
         fetchMarketRegime();
-        setInterval(fetchMarketRegime, 30000);
+        setInterval(fetchMarketRegime, 5000);
 
         async function fetchMarketRegime() {
             try {
@@ -5046,7 +5070,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // İlk yüklemede ve periyodik olarak çağır
     fetchAdvancedMetrics();
-    setInterval(fetchAdvancedMetrics, 120000); // 2 dakikada bir
+    setInterval(fetchAdvancedMetrics, 45000); // Performans optimizasyonu: 45 saniyeye cikarildi
 
     // ================================================================
     // 🎯 UZMAN ANALİTİK PANELİ: Expectancy/Kelly + Korelasyon + Strateji Router (Kayan Pencere)
@@ -5149,9 +5173,9 @@ document.addEventListener("DOMContentLoaded", function() {
     fetchExpectancy();
     fetchCorrelation();
     fetchStrategyMap();
-    setInterval(fetchExpectancy, 60000);
-    setInterval(fetchCorrelation, 20000); // korelasyon zaman serisini biriktirmek icin daha sik
-    setInterval(fetchStrategyMap, 30000);
+    setInterval(fetchExpectancy, 45000);
+    setInterval(fetchCorrelation, 30000); // korelasyon zaman serisini biriktirmek icin daha sik
+    setInterval(fetchStrategyMap, 20000); // Performans optimizasyonu yapildi.
 
     // ================================================================
     // 🧠 BOT DÜŞÜNCE AKIŞI: Fakeout Guard / Stop-Hunt Evader / Korelasyon Filtresi canlı gerekçeleri
@@ -5169,15 +5193,25 @@ document.addEventListener("DOMContentLoaded", function() {
         
         if (d.thoughts && d.thoughts.length > 0) {
             d.thoughts.forEach(t => {
-                let isCrypto = (t.symbol || '').toUpperCase().endsWith('USDT') || (t.symbol || '').toUpperCase().endsWith('USD');
-                if (isCrypto) cryptoThoughts.push(t);
-                else stockThoughts.push(t);
+                const sym = (t.symbol || '').toUpperCase();
+                // Kripto: USDT/USD ile biter veya BTC/ETH/SOL gibi major coin adları
+                const isCrypto = sym.endsWith('USDT') || sym.endsWith('USD') || 
+                    ['BTC','ETH','SOL','BNB','XRP','ADA','AVAX','DOGE','TIA','INJ'].some(c => sym.startsWith(c));
+                // Boş / SİSTEM düşünceler her iki kutuya da gitsin
+                if (!sym || sym === 'SİSTEM' || sym === 'SISTEM' || sym === 'GLOBAL') {
+                    cryptoThoughts.push(t);
+                    stockThoughts.push(t);
+                } else if (isCrypto) {
+                    cryptoThoughts.push(t);
+                } else {
+                    stockThoughts.push(t);
+                }
             });
         }
         
         const renderThought = (t) => {
             let levelColor = 'var(--text-secondary)';
-            if (t.level === 'WARN') levelColor = 'var(--accent-yellow)';
+            if (t.level === 'WARN' || t.level === 'WARNING') levelColor = 'var(--accent-yellow)';
             if (t.level === 'SUCCESS') levelColor = 'var(--up-color)';
             if (t.level === 'ERROR') levelColor = 'var(--down-color)';
             if (t.level === 'INFO') levelColor = 'var(--accent-blue)';
@@ -5192,14 +5226,37 @@ document.addEventListener("DOMContentLoaded", function() {
             if (msgLower.includes('limit')) emoji = '🚧';
             if (msgLower.includes('momentum')) emoji = '🚀';
             
-            let catText = t.category.replace('ASTRA-6 AI', 'Yapay Zeka').trim();
+            let catText = (t.category || 'Sistem').replace('ASTRA-6 AI', 'Yapay Zeka').trim();
             let symText = (t.symbol || '').replace('ANALİZ', 'Değerlendirme').trim();
+            let msgText = (t.message || '');
             
-            return `<div class="inner-box-item" style="display:flex; gap:8px; align-items:flex-start;">
-                <span style="font-size: 16px;">${emoji}</span>
-                <div style="flex:1;">
-                    <b style="color:var(--accent-blue); font-size:11px;">${catText} [${symText}]</b>: <span style="color:${levelColor};">${t.message}</span>
-                    <span style="font-size:10px; color:#64748b; font-family:'JetBrains Mono'; margin-left:6px;">🕒 ${t.timestamp}</span>
+            // Premium AI Brain UI Styling
+            let bgGradient = 'rgba(0, 0, 0, 0.2)';
+            let borderColor = 'rgba(255, 255, 255, 0.05)';
+            if (t.level === 'WARN' || t.level === 'WARNING') { bgGradient = 'linear-gradient(90deg, rgba(234, 179, 8, 0.1) 0%, transparent 100%)'; borderColor = 'rgba(234, 179, 8, 0.2)'; }
+            else if (t.level === 'SUCCESS') { bgGradient = 'linear-gradient(90deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%)'; borderColor = 'rgba(34, 197, 94, 0.2)'; }
+            else if (t.level === 'ERROR') { bgGradient = 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)'; borderColor = 'rgba(239, 68, 68, 0.2)'; }
+            
+            return `
+            <div style="background: ${bgGradient}; border-left: 3px solid ${borderColor}; margin-bottom: 8px; padding: 10px 12px; border-radius: 0 6px 6px 0; transition: all 0.3s ease; animation: fadeIn 0.4s ease-out;">
+                <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #64748b; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">
+                        <i class="fas fa-clock"></i> ${(t.timestamp || '').slice(11, 19) || t.timestamp}
+                    </span>
+                    <span style="font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.1); color: var(--accent-blue);">
+                        <i class="fas fa-microchip"></i> ${catText}
+                    </span>
+                </div>
+                <div style="display:flex; gap: 10px; align-items: flex-start;">
+                    <div style="font-size: 18px; line-height: 1; filter: drop-shadow(0 0 4px ${levelColor});">${emoji}</div>
+                    <div style="flex:1;">
+                        <b style="color: #f1f5f9; font-size: 13px; text-shadow: 0 0 10px rgba(255,255,255,0.1); display: block; margin-bottom: 3px;">
+                            ${symText ? \`<span style="color: #fbbf24;">[\${symText}]</span>\` : ''} İşlem Düşüncesi
+                        </b>
+                        <span style="color: ${levelColor}; font-size: 12px; line-height: 1.5; display: inline-block;">
+                            ${msgText.replace(/([0-9]+\.?[0-9]*%?)/g, '<b style="color:#fff;">$1</b>')} 
+                        </span>
+                    </div>
                 </div>
             </div>`;
         };
@@ -5213,7 +5270,7 @@ document.addEventListener("DOMContentLoaded", function() {
     } catch (e) { console.error("fetchThoughtStream error:", e); }
     }
     fetchThoughtStream();
-    setInterval(fetchThoughtStream, 5000); // canli karar akisi, hizli yenilenir
+    setInterval(fetchThoughtStream, 15000); // Performans optimizasyonu: 15 saniyeye cikarildi
 
     // ASTRA AI OTONOM SENTEZLEYİCİLERİ
     async function fetchAiSynthesis() {
@@ -5256,50 +5313,195 @@ document.addEventListener("DOMContentLoaded", function() {
     fetchAiSynthesis();
     setInterval(fetchAiSynthesis, 60000); // 1 dakikada bir güncelle (AI thread'i arka planda cache tutuyor)
 
-    // OTONOM DIŞ SES (LLM) GÜNCELLEYİCİ
+    // GÖLGE ARENA SEYİR DEFTERİ GÜNCELLEYİCİ (Yeni Eklenen Tablo İçin)
+    async function fetchShadowSummary() {
+        const tbody = document.getElementById('shadowArenaSummaryTableBody');
+        if (!tbody) return;
+        try {
+            const res = await fetch('/api/analytics/shadow-summary');
+            const data = await res.json();
+            
+            if (!data.trades || data.trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 16px; color:#6b7280;">Henüz öğrenim verisi bulunamadı.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            data.trades.forEach(t => {
+                const isWin = t.pnl_amount > 0;
+                const pnlColor = isWin ? 'var(--up-color)' : 'var(--down-color)';
+                const pnlSign = isWin ? '+' : '';
+                
+                const exitReason = t.exit_reason || 'Bilinmiyor';
+                const ts = t.timestamp || '2000-01-01 00:00:00';
+                const datePart = ts.split(' ')[0] || '';
+                const timePart = ts.split(' ')[1] || '';
+                const pnlPct = t.pnl_pct != null ? t.pnl_pct.toFixed(2) : '0.00';
+                const pnlAmount = t.pnl_amount != null ? t.pnl_amount.toFixed(2) : '0.00';
+                const entryP = t.entry_price != null ? t.entry_price.toFixed(4) : '0.0000';
+                const exitP = t.exit_price != null ? t.exit_price.toFixed(4) : '0.0000';
+                const lesson = t.algorithmic_action_plan || t.lesson_learned || 'Rutin işlem.';
+                const dur = t.duration_minutes || 0;
+
+                html += `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); transition: all 0.3s ease;">
+                    <td style="padding: 12px; font-weight:bold; color:#fff; vertical-align: top;">
+                        <span style="font-size: 14px;">${t.symbol}</span><br>
+                        <span style="font-size: 10px; color: #94a3b8; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px;">${t.market_regime || 'BİLİNMİYOR'}</span>
+                    </td>
+                    <td style="padding: 12px; font-size:11px; color:#cbd5e1; line-height: 1.5; vertical-align: top;">
+                        <div style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
+                            <span style="color:#38bdf8; font-weight:600;">🤖 İç Ses (Hedef):</span> "Piyasanın mevcut rejiminde bu varlıkta kısa süreli bir dalgalanma (Squeeze/Whale flow) saptadım. <b>$${entryP}</b> seviyesinden cesurca pozisyon aldım."
+                        </div>
+                        <div style="margin-bottom: 6px;">
+                            <span style="color:#fbbf24; font-weight:600;">⚠️ Çıkış Gerekçesi (${exitReason}):</span> İşlem <b>$${exitP}</b> fiyatından sonlandırıldı.
+                        </div>
+                        <div>
+                            <span style="color:#a78bfa; font-weight:600;">🧠 Kazanılan Tecrübe (Öz Eleştiri):</span> <i>"${lesson}"</i>
+                        </div>
+                    </td>
+                    <td style="padding: 12px; text-align:center; color:#94a3b8; vertical-align: middle;">
+                        <span style="font-size: 14px; font-weight: bold; color: #e2e8f0;">${dur}</span> dk<br>
+                        <span style="font-size: 9px; color: #64748b;">(Max 8s Kuralı)</span>
+                    </td>
+                    <td style="padding: 12px; text-align:right; font-weight:bold; color:${pnlColor}; font-family:'JetBrains Mono', monospace; vertical-align: middle;">
+                        <span style="font-size: 14px;">${pnlSign}${pnlPct}%</span><br>
+                        <span style="font-size:11px; opacity: 0.8;">($${pnlAmount})</span>
+                    </td>
+                    <td style="padding: 12px; text-align:center; font-size:10px; color:#64748b; vertical-align: middle;">
+                        ${datePart}<br>
+                        <span style="color:#cbd5e1; font-weight:bold;">${timePart}</span>
+                    </td>
+                </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        } catch (e) {
+            console.error("fetchShadowSummary error:", e);
+        }
+    }
+    fetchShadowSummary();
+    setInterval(fetchShadowSummary, 30000); // 30 saniyede bir kontrol et
+
+    // YENİ: AKTİF GÖLGE POZİSYONLARI ÇEK
+    async function fetchShadowActive() {
+        const tbody = document.getElementById('shadowArenaActiveTableBody');
+        if (!tbody) return;
+        try {
+            const res = await fetch('/api/analytics/shadow-active');
+            const data = await res.json();
+            
+            if (!data.active_shadows || data.active_shadows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 16px; color:#6b7280;">Şu an aktif otonom sörf işlemi bulunmuyor... Yeni av bekleniyor.</td></tr>';
+                return;
+            }
+
+            // En güncel olanın (en son açılanın) en üstte çıkması için tarihe göre azalan (descending) sıralama
+            data.active_shadows.sort((a, b) => new Date(b.opened_at) - new Date(a.opened_at));
+
+            let html = '';
+            data.active_shadows.forEach(t => {
+                const isWin = t.unrealized_pnl > 0;
+                const pnlColor = isWin ? 'var(--up-color)' : 'var(--down-color)';
+                const pnlSign = isWin ? '+' : '';
+                
+                // Calculate duration
+                const openDate = new Date(t.opened_at);
+                const now = new Date();
+                const diffMs = now - openDate;
+                const diffMins = Math.floor(diffMs / 60000);
+                const hours = Math.floor(diffMins / 60);
+                const mins = diffMins % 60;
+                const durationStr = hours > 0 ? `${hours}s ${mins}d` : `${mins}dk`;
+
+                const sideColor = t.side === 'BUY' ? 'var(--up-color)' : 'var(--down-color)';
+
+                html += `
+                <tr style="border-bottom: 1px solid rgba(139,92,246,0.1); background: rgba(0,0,0,0.3); transition: all 0.3s ease;">
+                    <td style="padding: 12px; font-weight:bold; color:#fff;">
+                        <span style="font-size: 14px;">${t.symbol}</span>
+                    </td>
+                    <td style="padding: 12px; text-align:center; font-weight:bold; color:${sideColor};">
+                        ${t.side}
+                    </td>
+                    <td style="padding: 12px; color:#cbd5e1; font-family:'JetBrains Mono', monospace;">
+                        $${t.entry_price.toFixed(4)}
+                    </td>
+                    <td style="padding: 12px; color:#cbd5e1; font-family:'JetBrains Mono', monospace;">
+                        $${t.current_price.toFixed(4)}
+                    </td>
+                    <td style="padding: 12px; text-align:center; font-weight:bold; color:${pnlColor}; font-family:'JetBrains Mono', monospace;">
+                        <span style="font-size: 14px;">${pnlSign}${t.unrealized_pnl_pct.toFixed(2)}%</span><br>
+                        <span style="font-size:11px; opacity: 0.8;">($${t.unrealized_pnl.toFixed(2)})</span>
+                    </td>
+                    <td style="padding: 12px; text-align:center; color:#94a3b8; font-family:'JetBrains Mono', monospace; font-size: 11px;">
+                        <span style="color:var(--up-color)">TP: $${t.target_profit_price.toFixed(4)}</span> | 
+                        <span style="color:var(--down-color)">SL: $${t.stop_loss_price.toFixed(4)}</span>
+                    </td>
+                    <td style="padding: 12px; text-align:center; color:#cbd5e1; font-size:11px; font-weight:bold;">
+                        ⏳ ${durationStr}
+                    </td>
+                    <td style="padding: 12px; text-align:right; color:#94a3b8; font-size:11px;">
+                        ${t.opened_at.split(' ')[0]}<br>
+                        <span style="color:#fff">${t.opened_at.split(' ')[1]}</span>
+                    </td>
+                </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        } catch (e) {
+            console.error("fetchShadowActive error:", e);
+        }
+    }
+    fetchShadowActive();
+    setInterval(fetchShadowActive, 5000); // 5 saniyede bir canlı PnL güncelle
+
+
+    // OTONOM İÇ SES (TEKNİK + LLM KARIŞIK) SÜREKLİ AKAN ŞERİT
+    async function fetchThoughtStream() {
+        try {
+            const thoughtMarquee = document.getElementById('aiThoughtMarquee');
+            if (!thoughtMarquee) return;
+            
+            const tsResp = await fetch('/api/analytics/thought-stream');
+            const tsData = await tsResp.json();
+            const thoughts = tsData.thoughts || [];
+            
+            if (thoughts.length > 0) {
+                const msgs = thoughts
+                    .slice(0, 10)
+                    .map(t => {
+                        // Eğer LLM düşüncesi ise özel renk veya ikonla belirginleştirilebilir
+                        const prefix = t.category.includes('Yapay Zeka') ? '🔮' : '⚡';
+                        return `[${t.timestamp?.slice(11,16)||''}] ${prefix} ${t.category||''}: ${t.message||''}`;
+                    })
+                    .join('  ·  ');
+                thoughtMarquee.innerHTML = `${msgs}`;
+            } else {
+                thoughtMarquee.innerHTML = `🧠 Piyasa izleniyor... Zeka Motoru tetikte.`;
+            }
+        } catch(e) {
+            // sessiz geç
+        }
+    }
+    fetchThoughtStream();
+    setInterval(fetchThoughtStream, 3000); // 3 saniyede bir hızlı ve akıcı şekilde güncelle!
+
+    // OTONOM DIŞ SES (LLM) TETİKLEYİCİ
     async function fetchDynamicVoice() {
         try {
-            const resp = await fetch('/api/memory/dynamic-voice');
-            const data = await resp.json();
-            const thoughtMarquee = document.getElementById('aiThoughtMarquee');
-            
-            if (data.status === 'success') {
-                const alarmEl = document.getElementById('liveTickerText');
-                if (alarmEl && data.alarm) {
-                    alarmEl.innerHTML = `[${data.last_update}] ${data.alarm}`;
-                }
-                // LLM cevabı varsa ve hala başlangıç metni değilse göster
-                const isDefault = !data.thought || data.thought.includes('Zeka Motoru') || data.thought.includes('taranıyor');
-                if (thoughtMarquee && data.thought && !isDefault) {
-                    thoughtMarquee.innerHTML = `💬 ${data.thought}`;
-                    return;
-                }
-            }
-            
-            // LLM yanıt vermediyse veya hala başlangıç metni varsa:
-            // Gerçek bot_thought_stream'i çek ve göster
-            try {
-                const tsResp = await fetch('/api/analytics/thought-stream');
-                const tsData = await tsResp.json();
-                const thoughts = tsData.thoughts || [];
-                if (thoughtMarquee && thoughts.length > 0) {
-                    const msgs = thoughts
-                        .slice(0, 5)
-                        .map(t => `[${t.timestamp?.slice(11,16)||''}] ${t.category||''}: ${t.message||''}`)
-                        .join('  ·  ');
-                    thoughtMarquee.innerHTML = `🧠 ${msgs}`;
-                } else if (thoughtMarquee) {
-                    thoughtMarquee.innerHTML = `🧠 Piyasa izleniyor... Henüz teknik sinyal üretilmedi.`;
-                }
-            } catch(e2) {
-                // sessiz geç
-            }
+            // Arka plandaki LLM'i uyandırıp yeni düşünce üretmesini sağlar
+            await fetch('/api/memory/dynamic-voice');
+            // Gelen veri backend'de bot_thought_stream'e enjekte edildiği için
+            // marquee'yi manuel değiştirmemize gerek yok!
         } catch (e) {
-            console.error("Dış ses güncellenemedi:", e);
+            console.error("Dış ses tetiklenemedi:", e);
         }
     }
     fetchDynamicVoice();
-    setInterval(fetchDynamicVoice, 30000); // 30 saniyede bir kontrol et
+    setInterval(fetchDynamicVoice, 30000); // 30 saniyede bir LLM'i dürt
+
+    setInterval(fetchShadowActive, 10000); // Aktif işlemleri 10 saniyede bir hızlı güncelle
 
     let mlFullChart = null;
     window.openMLModal = function() {
@@ -5450,17 +5652,6 @@ function closeForecastModal() {
     </div>
 </div>
 
-
-        <!-- TIER-1 SHADOW ARENA PANEL INTEGRATION -->
-        <div class="mt-12 mb-12">
-            <div class="flex items-center space-x-3 mb-4">
-                <div class="w-2 h-8 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
-                <h2 class="text-2xl font-bold text-white tracking-wide uppercase">GÖLGE ARENA <span class="text-slate-500 text-lg">(Paper Trading & ML Eğitim Modülü)</span></h2>
-            </div>
-            <div class="w-full bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl" style="height: 800px;">
-                <iframe src="/shadow" width="100%" height="100%" frameborder="0"></iframe>
-            </div>
-        </div>
 
 </body>
 </html>

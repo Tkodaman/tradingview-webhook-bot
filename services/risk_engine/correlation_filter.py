@@ -1,4 +1,4 @@
-﻿"""
+"""
 Korelasyon Filtresi — Portfoy Korelasyon Yonetimi
 Kripto gibi yuksek korelasyonlu varliklarda ayni anda birden fazla pozisyon acilmasini engeller.
 Kural: Ayni korelasyon grubundan max 1 pozisyon (kripto) veya max 2 pozisyon (hisse) acik olabilir.
@@ -11,27 +11,27 @@ from core.logger import logger
 CORRELATION_GROUPS = {
     "CRYPTO_MAJOR": {
         "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "AVAXUSDT", "BTCUSD", "ETHUSD", "SOLUSD", "BNBUSD"],
-        "max_positions": 1,
+        "max_positions": 3,
         "description": "Buyuk Kripto (BTC/ETH/SOL/BNB) — Korelasyon >0.85"
     },
     "CRYPTO_ALT": {
         "symbols": ["XRPUSDT", "ADAUSDT", "DOTUSDT", "LINKUSDT", "MATICUSDT", "LTCUSDT", "XRPUSD", "ADAUSD"],
-        "max_positions": 1,
+        "max_positions": 3,
         "description": "Alternatif Kripto — Korelasyon ~0.75"
     },
     "US_TECH": {
         "symbols": ["AAPL", "MSFT", "NVDA", "AMD", "GOOGL", "GOOG", "META", "AMZN", "TSLA"],
-        "max_positions": 2,
+        "max_positions": 5,
         "description": "ABD Buyuk Teknoloji — Korelasyon ~0.70"
     },
     "US_FINANCE": {
         "symbols": ["JPM", "BAC", "GS", "MS", "C", "WFC", "V", "MA"],
-        "max_positions": 1,
+        "max_positions": 2,
         "description": "ABD Finans Sektoru — Korelasyon ~0.65"
     },
     "US_SEMI": {
         "symbols": ["NVDA", "AMD", "INTC", "QCOM", "MU", "TSM", "AMAT", "LRCX"],
-        "max_positions": 1,
+        "max_positions": 3,
         "description": "Yari Iletken Sektoru — Korelasyon ~0.80"
     },
 }
