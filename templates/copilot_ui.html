@@ -1,0 +1,400 @@
+<!-- AI CO-PILOT (DERİN MASA) ARAYÜZÜ -->
+<style>
+#copilotWidget {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999999;
+    font-family: inherit;
+}
+
+#copilotButton {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border: 2px solid rgba(255,255,255,0.2);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 15px rgba(139, 92, 246, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    transition: all 0.3s ease;
+}
+
+#copilotButton:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 25px rgba(0,0,0,0.5), 0 0 20px rgba(139, 92, 246, 0.8);
+}
+
+#copilotWindow {
+    display: none;
+    position: absolute;
+    bottom: 80px;
+    right: 0;
+    width: 380px;
+    height: 550px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    flex-direction: column;
+    overflow: hidden;
+    transform-origin: bottom right;
+    animation: scaleIn 0.2s ease-out forwards;
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.copilot-header {
+    background: rgba(255,255,255,0.05);
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.copilot-header-title {
+    color: #f8fafc;
+    font-weight: bold;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.copilot-settings {
+    background: rgba(0,0,0,0.2);
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.copilot-input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.copilot-input-row input, .copilot-input-row select {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    outline: none;
+}
+.copilot-input-row input { flex: 1; }
+
+.copilot-input-row select option {
+    background: #1e293b;
+    color: #fff;
+}
+
+.copilot-quick-prompts {
+    display: flex;
+    gap: 6px;
+    padding: 10px 16px;
+    overflow-x: auto;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.copilot-quick-prompts::-webkit-scrollbar { display: none; }
+
+.quick-prompt-btn {
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.quick-prompt-btn:hover {
+    background: rgba(59, 130, 246, 0.3);
+    color: #fff;
+}
+
+.copilot-messages {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.chat-bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+.chat-user {
+    align-self: flex-end;
+    background: #3b82f6;
+    color: #fff;
+    border-bottom-right-radius: 2px;
+}
+
+.chat-bot {
+    align-self: flex-start;
+    background: rgba(255,255,255,0.1);
+    color: #e2e8f0;
+    border-bottom-left-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.copilot-input-area {
+    padding: 12px;
+    background: rgba(0,0,0,0.2);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    gap: 8px;
+}
+
+.copilot-input-area input {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 10px 16px;
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+}
+.copilot-input-area input:focus {
+    border-color: #3b82f6;
+}
+
+.copilot-send-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #3b82f6;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+.copilot-send-btn:hover {
+    background: #2563eb;
+}
+</style>
+
+<div id="copilotWidget">
+    <div id="copilotWindow">
+        <div class="copilot-header">
+            <div class="copilot-header-title">
+                🧠 Derin Masa Co-Pilot
+            </div>
+            <button onclick="toggleCopilot()" style="background:none; border:none; color:#94a3b8; cursor:pointer; font-size:18px;">&times;</button>
+        </div>
+        
+        <div class="copilot-settings">
+            <div class="copilot-input-row">
+                <div style="flex:1; display:flex; align-items:center; font-size:11px; color:#4ade80;">
+                    <span style="margin-right:5px;">✅</span> Pro API Key Aktif
+                </div>
+                <select id="copilotModel">
+                    <option value="gemini-3.8-flash">3.8 Flash (Hızlı - Limit: 20)</option>
+                    <option value="gemini-3.5-flash" selected>3.5 Flash (Yedek - Kota Dostu)</option>
+                    <option value="gemini-3.1-pro-preview">3.1 Pro (Ücretli API Gerektirir)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="copilot-quick-prompts">
+            <button class="quick-prompt-btn" onclick="sendQuickPrompt('Portföyüme bakarak anlık bir değerlendirme yap.')">💼 Portföyü İncele</button>
+            <button class="quick-prompt-btn" onclick="sendQuickPrompt('Şu anki piyasada en iyi fırsat rotasyonu nerede?')">🎯 Fırsat Tarama</button>
+            <button class="quick-prompt-btn" onclick="sendQuickPrompt('Açık pozisyonlarım için risk durumu nedir?')">⚠️ Risk Analizi</button>
+        </div>
+
+        <div class="copilot-messages" id="copilotMessages">
+            <div class="chat-bubble chat-bot">
+                Komutanım, Derin Masa Co-Pilot emrinizde. Sizin yerinize piyasayı izliyor ve kasanızı koruyorum. Nasıl yardımcı olabilirim?
+            </div>
+        </div>
+
+        <div class="copilot-input-area">
+            <input type="text" id="copilotTextInput" placeholder="Co-Pilot'a danışın..." onkeypress="handleCopilotKeyPress(event)">
+            <button class="copilot-send-btn" onclick="sendCopilotMessage()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm-2.846-1.77L9.932 4.4 2.19 7.64 3.79 8.3Z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div id="copilotButton" onclick="toggleCopilot()">
+        🧠
+    </div>
+</div>
+
+<script>
+let copilotChatHistory = [];
+let isCopilotResponding = false;
+
+// Load model preference if needed
+document.addEventListener("DOMContentLoaded", () => {
+    // API key check removed. Using server-side Pro key.
+});
+
+function toggleCopilot() {
+    const win = document.getElementById('copilotWindow');
+    if (win.style.display === 'flex') {
+        win.style.display = 'none';
+    } else {
+        win.style.display = 'flex';
+        document.getElementById('copilotTextInput').focus();
+    }
+}
+
+function handleCopilotKeyPress(e) {
+    if (e.key === 'Enter') {
+        sendCopilotMessage();
+    }
+}
+
+function sendQuickPrompt(text) {
+    document.getElementById('copilotTextInput').value = text;
+    sendCopilotMessage();
+}
+
+async function sendCopilotMessage() {
+    if(isCopilotResponding) return;
+    
+    const inputEl = document.getElementById('copilotTextInput');
+    const text = inputEl.value.trim();
+    if(!text) return;
+
+    const apiKey = ""; // API Key artik backend'den okunuyor
+    const modelName = document.getElementById('copilotModel').value;
+
+    appendMessage('user', text);
+    inputEl.value = '';
+    
+    copilotChatHistory.push({role: "user", content: text});
+    
+    isCopilotResponding = true;
+    
+    // Yükleniyor baloncuğu
+    const msgId = "msg_" + Date.now();
+    appendMessage('model', '<span class="typing-dots">...</span>', msgId);
+    
+    try {
+        const response = await fetch('/api/copilot/stream', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                messages: copilotChatHistory,
+                model_name: modelName,
+                api_key: apiKey,
+                include_context: true
+            })
+        });
+
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.detail || "Sunucu hatası");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        
+        let fullResponse = "";
+        const el = document.getElementById(msgId);
+        if(el) el.innerHTML = ""; // Clear dots
+        
+        let buffer = "";
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line in buffer
+            
+            for (let line of lines) {
+                if (line.startsWith("data: ")) {
+                    const dataStr = line.substring(6).trim();
+                    if (dataStr === "[DONE]") {
+                        break;
+                    }
+                    if (!dataStr) continue;
+                    
+                    try {
+                        const dataObj = JSON.parse(dataStr);
+                        if(dataObj.error) {
+                            throw new Error(dataObj.error);
+                        }
+                        if (dataObj.text) {
+                            fullResponse += dataObj.text;
+                            if(el) {
+                                // Basic markdown formatting
+                                el.innerHTML = formatCopilotText(fullResponse);
+                                scrollCopilotToBottom();
+                            }
+                        }
+                    } catch (e) {
+                        // Eğer backend hata döndürdüyse (örn. dataObj.error), dışarı fırlat!
+                        if (e.message && e.message !== "Unexpected end of JSON input" && !e.message.includes("is not valid JSON")) {
+                            throw e;
+                        }
+                        console.error("Stream parse error:", e, dataStr);
+                    }
+                }
+            }
+        } // <--- Added closing brace for while(true) loop
+        
+        if (fullResponse === "") {
+            throw new Error("API boş yanıt döndürdü veya bağlantı koptu.");
+        }
+        
+        copilotChatHistory.push({role: "model", content: fullResponse});
+        
+    } catch (error) {
+        const el = document.getElementById(msgId);
+        if(el) el.innerHTML = `<span style="color:#ef4444;">Hata: ${error.message}</span>`;
+    } finally {
+        isCopilotResponding = false;
+    }
+}
+
+function appendMessage(role, htmlContent, id = null) {
+    const container = document.getElementById('copilotMessages');
+    const div = document.createElement('div');
+    div.className = `chat-bubble ${role === 'user' ? 'chat-user' : 'chat-bot'}`;
+    if (id) div.id = id;
+    div.innerHTML = htmlContent;
+    container.appendChild(div);
+    scrollCopilotToBottom();
+}
+
+function scrollCopilotToBottom() {
+    const container = document.getElementById('copilotMessages');
+    container.scrollTop = container.scrollHeight;
+}
+
+function formatCopilotText(text) {
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+}
+</script>

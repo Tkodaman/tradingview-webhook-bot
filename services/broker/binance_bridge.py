@@ -240,6 +240,71 @@ class BinanceBroker(BaseBroker):
         except Exception as e:
             logger.error(f"[BINANCE BRACKET] Hata: {sym} - {e}")
             return {"status": "error", "message": str(e)}
+
+    def update_bracket_orders(self, symbol: str, take_profit_price: float = None, stop_loss_price: float = None) -> Dict[str, Any]:
+        if not self.client:
+            return {"status": "error", "message": "Client not initialized"}
+        
+        sym = self._format_symbol(symbol)
+        try:
+            # Get open orders to find the qty and side
+            open_orders = self.client.get_open_orders(symbol=sym)
+            if not open_orders:
+                return {"status": "error", "message": "No open orders found to update"}
+                
+            qty = 0.0
+            side = None
+            # Find the stop loss or take profit order to get quantity
+            for order in open_orders:
+                if order.get('type') in ['STOP_LOSS_LIMIT', 'LIMIT_MAKER']:
+                    qty = float(order.get('origQty', 0))
+                    side = order.get('side')
+                    break
+                    
+            if qty == 0.0 or not side:
+                return {"status": "error", "message": "Could not determine order quantity or side"}
+                
+            # Cancel existing open orders (the old OCO)
+            for order in open_orders:
+                self.client.cancel_order(symbol=sym, orderId=order['orderId'])
+                
+            # Format new prices
+            info = self.client.get_symbol_info(sym)
+            tick_size = 0.01
+            step_size = 1.0
+            for f in info['filters']:
+                if f['filterType'] == 'PRICE_FILTER':
+                    tick_size = float(f['tickSize'])
+                elif f['filterType'] == 'LOT_SIZE':
+                    step_size = float(f['stepSize'])
+            
+            price_precision = 0
+            if tick_size < 1.0:
+                price_precision = int(round(-math.log(tick_size, 10), 0))
+                
+            qty_precision = 0
+            if step_size < 1.0:
+                qty_precision = int(round(-math.log(step_size, 10), 0))
+                
+            fmt_tp = f"{round(take_profit_price, price_precision):.{price_precision}f}"
+            fmt_sl = f"{round(stop_loss_price, price_precision):.{price_precision}f}"
+            fmt_qty = f"{round(qty - (qty % step_size), qty_precision):.{qty_precision}f}" if qty_precision > 0 else f"{int(qty)}"
+
+            oco_order = self.client.create_oco_order(
+                symbol=sym,
+                side=side,
+                quantity=fmt_qty,
+                price=fmt_tp,
+                stopPrice=fmt_sl,
+                stopLimitPrice=fmt_sl,
+                stopLimitTimeInForce='GTC'
+            )
+            logger.info(f"[BINANCE BRACKET UPDATE] OCO Emri başarıyla güncellendi. Yeni TP: {fmt_tp}, Yeni SL: {fmt_sl}")
+            return {"status": "success", "details": oco_order}
+            
+        except Exception as e:
+            logger.error(f"[BINANCE BRACKET UPDATE ERROR] {sym}: {e}")
+            return {"status": "error", "message": str(e)}
             
     def get_realtime_prices(self, symbols: List[str]) -> Dict[str, float]:
         if not self.client:

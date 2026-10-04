@@ -855,11 +855,11 @@ class TradingViewAutoStrategyRunner:
                 pass
 
 
-            # ÖNERİ 2: ML ve Alpha VIP Bypass (Eşik %60 -> %55'e çekildi, Alpha Bypass eklendi)
-            alpha_bypass = ('alpha_val' in locals() and alpha_val >= 0.70)
-            is_buy_signal = (score >= (required_score - 2)) or (ml_prob >= 0.55) or alpha_bypass
+            # ÖNERİ 1: ML ve Alpha VIP Bypass Sıkılaştırıldı
+            alpha_bypass = ('alpha_val' in locals() and alpha_val >= 0.75)
+            is_buy_signal = (score >= required_score) or (ml_prob >= 0.70) or alpha_bypass
             
-            if alpha_bypass and not (score >= (required_score - 2)):
+            if alpha_bypass and not (score >= required_score):
                 logger.info(f"💎 [VIP BYPASS] {sym} Kurumsal Alpha çok yüksek ({alpha_val:.2f}). Teknik baraj (Skor: {score:.1f}) aşıldı!")
 
             # Hacim filtresi (Korku Zinciri Kırıldı)
@@ -893,7 +893,7 @@ class TradingViewAutoStrategyRunner:
             max_pos_for_market = 8 if _mtype_local == "CRYPTO" else 12
             
             # YEDEK İNSİYATİF (8+2 Kripto Kuralı): Eğer fırsat kusursuzsa (score >= 35 veya ai_confidence > 0.85) +2 kapasite tanınır.
-            is_perfect_opportunity = score >= 35.0 or (hasattr(ai_result, 'confidence') and ai_result.confidence > 0.85)
+            is_perfect_opportunity = score >= 35.0 or ml_prob > 0.85
             if is_perfect_opportunity and _mtype_local == "CRYPTO":
                 max_pos_for_market += 2
                 
@@ -1029,6 +1029,28 @@ class TradingViewAutoStrategyRunner:
             # ==========================================
             if (is_buy_signal or is_mean_reversion_buy or is_arbitrage_buy) and not open_pos:
                 
+                # ==========================================
+                # ŞARJÖR SOĞUTMA (COOLDOWN) KALKANI
+                # ==========================================
+                import time
+                current_time = time.time()
+                if not hasattr(self, "_last_trade_time"):
+                    self._last_trade_time = 0
+
+                # 3 dakika = 180 saniye
+                if (current_time - self._last_trade_time) < 180:
+                    remaining = int(180 - (current_time - self._last_trade_time))
+                    msg = f"⏳ [COOLDOWN] {sym} sinyal üretti ancak şarjör soğuma süresinde (Kalan: {remaining}sn)."
+                    logger.info(msg)
+                    bot_thought_stream.add_throttled("⏳ Şarjör Soğutuluyor", "SYSTEM", f"Piyasanın son işlemime tepkisini ölçüyorum. {sym} fırsatı var ancak {remaining} saniye bekleyeceğim.", "WARNING", cooldown_sec=180)
+                    try:
+                        live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Cooldown")
+                    except Exception:
+                        pass
+                    continue
+                else:
+                    self._last_trade_time = current_time
+
                 dyn_cap = live_trade_manager.get_dynamic_position_capital(sym)
                 qty_mult = mem_check.get("qty_multiplier", 1.0)
 

@@ -12,7 +12,7 @@ class HAManager:
         self.running = False
         self._thread = None
         self.heartbeat_interval = 10
-        self.takeover_timeout = 30
+        self.takeover_timeout = 90
         
         # Local is preferred leader, VPS is secondary
         self.is_preferred_leader = "vps" not in self.node_id.lower() and "instance" not in self.node_id.lower()
@@ -48,10 +48,11 @@ class HAManager:
         active_nodes = []
         for hb in heartbeats:
             node = hb['node_id']
-            last_seen = hb['last_seen']
+            last_seen = float(hb['last_seen'])
             preferred = hb['is_preferred_leader']
+            db_time = float(hb.get('db_time', now))
             
-            if now - last_seen < self.takeover_timeout:
+            if db_time - last_seen < self.takeover_timeout:
                 active_nodes.append((node, preferred, last_seen))
 
         if not active_nodes:

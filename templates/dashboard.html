@@ -1312,6 +1312,11 @@ The following code has been modified to include a line number before every line,
                     <span>🔄</span> Kalibre Et
                 </button>
 
+                <!-- LIDERLİK BAYRAĞI (HA STATUS) -->
+                <div id="haStatusFlag" style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:6px; font-size:12px; font-weight:bold; color:var(--text-muted); margin-left:8px;">
+                    <span>⏳</span> Yükleniyor...
+                </div>
+
                 <!-- SAG UST KOSE: Kodaman Studio Gumus Logo -->
                 {% if kodaman_logo2_b64 %}
                 <img src="{{ kodaman_logo2_b64 }}"
@@ -2727,7 +2732,11 @@ The following code has been modified to include a line number before every line,
                                 <span style="color:#cbd5e1;">Subm/Fill:</span> ${formatOpenedAt(p.opened_at)} &nbsp;|&nbsp; <span style="color:#cbd5e1;">Exp:</span> GTC
                             </div>
                         </td>
-                        <td><span style="font-size:11px; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05);">${p.market}</span></td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:6px; font-size:11px; padding:4px 8px; border-radius:6px; background:rgba(255,255,255,0.05); width:fit-content;">
+                                ${(p.market === 'CRYPTO' && (p.symbol.includes('USDT') || p.symbol.endsWith('USDT'))) ? '<span style="font-size:14px;">🟡</span> Binance' : '<span style="font-size:14px;">🦙</span> Alpaca'}
+                            </div>
+                        </td>
                         <td><span style="color:${p.side === 'BUY' ? 'var(--up-color)' : 'var(--down-color)'}; font-weight:700;">${p.side}</span></td>
                         <td>$${formatDyn(p.entry_price)}</td>
                         <td>$${formatDyn(p.current_price)}</td>
@@ -2749,7 +2758,9 @@ The following code has been modified to include a line number before every line,
                             </div>
                         </td>
                         <td>
-                            <div class="duration-timer" data-time="${p.opened_at}" style="display:flex; align-items:center; justify-content:center; gap:4px; font-family: 'JetBrains Mono', monospace; font-size:11px; color:#94a3b8; background:rgba(0,0,0,0.3); padding:4px; border-radius:4px;">--</div>
+                            <div style="font-family: 'JetBrains Mono', monospace; font-size:12px; color:#fff; font-weight: 500; background:rgba(255,255,255,0.05); padding:4px 8px; border-radius:4px; text-align:center;">
+                                ${formatOpenedAt(p.opened_at)}
+                            </div>
                         </td>
                         <td>
                             <button class="btn btn-close" style="padding:3px 8px; font-size:11px;" onclick="quickClosePosition('${p.id}')">Kapat</button>
@@ -2774,46 +2785,11 @@ The following code has been modified to include a line number before every line,
                 }
                 const d = new Date(cleanStr);
                 if (isNaN(d.getTime())) return isoString;
-                return d.toLocaleTimeString('tr-TR', { hour12: false });
+                return d.toLocaleString('tr-TR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             } catch(e) { return isoString; }
         }
 
-        function updateDurations() {
-            document.querySelectorAll('.duration-timer').forEach(el => {
-                let openedAt = el.getAttribute('data-time');
-                if (!openedAt || openedAt === 'undefined') return;
-                
-                if (openedAt.includes("TRT")) {
-                    openedAt = openedAt.replace("TRT", "").trim().replace(" ", "T") + "+03:00";
-                } else if (openedAt.includes("UTC")) {
-                    openedAt = openedAt.replace("UTC", "").trim().replace(" ", "T") + "Z";
-                }
-                
-                const start = new Date(openedAt).getTime();
-                if (isNaN(start)) return;
-                
-                const now = new Date().getTime();
-                let diff = Math.floor((now - start) / 1000);
-                if (diff < 0) diff = 0;
-                
-                const h = Math.floor(diff / 3600);
-                const m = Math.floor((diff % 3600) / 60);
-                const s = diff % 60;
-                
-                let out = '<span>';
-                if (h > 0) {
-                    out += h + 's ';
-                    out += m + 'd';
-                } else {
-                    if (m > 0) out += m + 'd ';
-                    out += s + 'sn';
-                }
-                out += '</span>';
-                
-                el.innerHTML = out;
-            });
-        }
-        setInterval(updateDurations, 1000);
+
 
         // 3. FETCH LIVE MATRIX & 3-MARKET SEPARATED WINDOWS
         window.isUIFrozen = false;
@@ -4171,6 +4147,20 @@ The following code has been modified to include a line number before every line,
                         }
                         if (lastScanEl && summary.last_scan) {
                             lastScanEl.innerText = summary.last_scan + ' UTC';
+                        }
+
+                        // LİDERLİK BAYRAĞI (HA STATUS) GÜNCELLEMESİ
+                        const haFlagEl = document.getElementById('haStatusFlag');
+                        if (haFlagEl && summary.is_leader !== undefined) {
+                            if (summary.is_leader === true) {
+                                haFlagEl.innerHTML = '<span style="color:#ef4444; font-size:14px;">🚩</span> <span style="color:#f8fafc;">LİDER</span>';
+                                haFlagEl.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                                haFlagEl.style.background = 'rgba(239, 68, 68, 0.1)';
+                            } else {
+                                haFlagEl.innerHTML = '<span style="color:#3b82f6; font-size:14px;">💤</span> <span style="color:#93c5fd;">YEDEK</span>';
+                                haFlagEl.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+                                haFlagEl.style.background = 'rgba(59, 130, 246, 0.05)';
+                            }
                         }
 
                         // Makro Duzeltme On Sezisi (gercek zamanli, ek istek gerektirmez)
@@ -5724,6 +5714,7 @@ function closeForecastModal() {
     </div>
 </div>
 
+{% include 'copilot_ui.html' %}
 
 </body>
 </html>

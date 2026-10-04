@@ -45,6 +45,33 @@ from routers.profit_advisor_router import router as profit_advisor_router
 from routers.ide_router import router as ide_router
 from routers.analytics_router import router as analytics_router
 from routers.ai_chat_router import router as ai_chat_router
+from routers.copilot_router import router as copilot_router
+
+from routers.webhook_router import webhook_queue
+from services.order_router import process_order
+
+async def process_webhook_queue():
+    """
+    Tier-1 Message Queue Worker
+    Kuyruktaki sinyalleri arkaplanda isleyerek TradingView'i asla bekletmez.
+    """
+    logger.info("[QUEUE WORKER] Webhook isci thread'i baslatildi. Sinyaller bekleniyor...")
+    while True:
+        try:
+            signal = await webhook_queue.get()
+            
+            from services.engine.ha_manager import ha_manager
+            if not ha_manager.is_leader:
+                logger.info(f"💤 [HA FOLLOWER] Sinyal ({signal.symbol}) yoksayıldı. Lider başka bir node (ör. VPS).")
+                webhook_queue.task_done()
+                continue
+                
+            logger.info(f"⚡ [QUEUE WORKER] Sinyal kuyruktan alindi: {signal.symbol}. Isleniyor...")
+            await asyncio.to_thread(process_order, signal)
+            webhook_queue.task_done()
+        except Exception as e:
+            logger.error(f"[QUEUE WORKER ERROR] {e}")
+        await asyncio.sleep(0.01)
 
 async def start_shadow_scanner():
     """
@@ -196,6 +223,9 @@ async def startup_event():
     ha_manager.start()
     
     asyncio.create_task(tv_auto_runner.start_continuous_background_loop())
+    
+    # Tier-1 Webhook Queue Worker
+    asyncio.create_task(process_webhook_queue())
     
     # Shadow AI (Gölge Zeka) Cache Tarayıcısını Başlat
     asyncio.create_task(start_shadow_scanner())
@@ -483,6 +513,7 @@ app.include_router(profit_advisor_router, prefix="/api/profit-advisor")
 app.include_router(ide_router, prefix="/api/ide")
 app.include_router(analytics_router, prefix="/api/analytics")
 app.include_router(ai_chat_router)
+app.include_router(copilot_router)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

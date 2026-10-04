@@ -1,0 +1,1 @@
+gcloud compute ssh instance-20261003-182635 --zone=europe-west4-a --project=tolgakodaman --command="cd ~/tradingview-webhook-bot && pip3 install -r requirements.txt --break-system-packages && pip3 install yfinance psycopg2-binary websockets==13.0 --break-system-packages && pm2 restart tv-bot"

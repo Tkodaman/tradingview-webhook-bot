@@ -42,6 +42,10 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
     while True:
         try:
             if manager.active_connections:
+                from services.engine.ha_manager import ha_manager
+                if not ha_manager.is_leader:
+                    live_trade_manager.load_state()
+                    
                 # UI shouldn't fetch, just use the data fetched by auto_runner.py to keep it extremely fast
                 prices = await asyncio.to_thread(live_trade_manager.get_live_prices, fetch_new=False)
                 
@@ -68,6 +72,12 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                 positions_for_dashboard = [
                     p.model_dump() for p in live_trade_manager.positions.values() if p.status in ["OPEN", "SHADOW_OPEN"]
                 ]
+                import json
+                try:
+                    with open("debug_positions.json", "w") as f:
+                        json.dump(positions_for_dashboard, f)
+                except Exception:
+                    pass
 
 
                 # Bot uptime hesapla
@@ -83,9 +93,15 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                 crypto_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 alpaca_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") != "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 from core.config import settings
-                binance_budget_limit = float(settings.base_portfolio_size) + crypto_realized - crypto_comm
+                binance_budget_limit = live_trade_manager.initial_capital + crypto_realized - crypto_comm
                 crypto_invested = sum(p.nominal_value for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO")
                 binance_cash = max(0.0, binance_budget_limit - crypto_invested)
+
+                try:
+                    from services.engine.ha_manager import ha_manager
+                    leader_status = ha_manager.is_leader
+                except Exception:
+                    leader_status = False
 
                 summary = {
                     "account_balance": round(effective_balance, 2),
@@ -97,7 +113,8 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                     "binance_budget_limit": round(binance_budget_limit, 2),
                     "active_positions": positions_for_dashboard,
                     "bot_uptime": bot_uptime_str,
-                    "last_scan": last_scan_str
+                    "last_scan": last_scan_str,
+                    "is_leader": leader_status
                 }
                 
                 payload = {

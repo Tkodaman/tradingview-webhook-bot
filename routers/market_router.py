@@ -302,12 +302,12 @@ async def get_live_buy_sell_wait_matrix():
             
         # === YALITILMIŞ BÜÜE VE KAPASITE DİSİPLİNİ ===
         # Kripto (Binance) ve Hisse Senedi (Alpaca) birbirinden ÜzelÜ tutulur.
-        # Kripto: maks 8 pozisyon, Hisse: maks 12 pozisyon.
+        # Kripto: maks 10 pozisyon, Hisse: maks 12 pozisyon.
         is_crypto_sym = ("USDT" in sym.upper() or sym.upper().endswith("BTC") or "/" in sym)
         if is_crypto_sym:
             crypto_open = [p for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO"]
             crypto_invested = sum(p.nominal_value for p in crypto_open)
-            market_limit = 8
+            market_limit = 10
             market_open_count = len(crypto_open)
             budget_used = crypto_invested
             budget_limit = 1200.0  # Binance tarafı
@@ -365,13 +365,22 @@ async def get_live_buy_sell_wait_matrix():
                     from services.engine.bot_thought_stream import bot_thought_stream
                     sl_level = price * (1 - (atr_pct / 100))
                     tp_level = price * (1 + (atr_pct * 2 / 100))
-                    msg = f"GÖLGE İŞLEM (Manuel Fırsat): {sym} tetiklendi. Skor: {score}, Hacim: {vol_ratio:.2f}x. Kasa kilitli olduğu için girilemedi. Manuel giriş Pivot: ${price:.4f} | Hedef: ${tp_level:.4f} | Stop: ${sl_level:.4f}"
+                    msg = f"GÖLGE İŞLEM (Manuel Fırsat): {sym} tetiklendi. Skor: {score}, Hacim: {vol_ratio:.2f}x. Engel Nedeni: {risk_block_reason}. Manuel giriş Pivot: ${price:.6f} | Hedef: ${tp_level:.6f} | Stop: ${sl_level:.6f}"
                     bot_thought_stream.add_throttled(
                         category="⚡ GÖLGE İŞLEM", 
                         symbol=sym, 
                         message=msg, 
                         level="WARN", 
                         cooldown_sec=120
+                    )
+                    # Sınır Tanımayan Gölge İşlem Ataması (Gölge Arena için)
+                    live_trade_manager.open_shadow_position(
+                        symbol=sym,
+                        side="BUY",
+                        tp_pct=atr_pct * 2,
+                        sl_pct=atr_pct,
+                        entry_price_override=price,
+                        reason=risk_block_reason
                     )
                 except Exception:
                     pass

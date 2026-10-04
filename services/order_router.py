@@ -441,14 +441,30 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             )
             base_budget = float(settings.base_portfolio_size)
             max_global_exposure = base_budget + crypto_realized - crypto_comm  # Binance Testnet Dinamik (örn: 1200$)
-            max_per_trade = max_global_exposure * (settings.max_capital_per_trade_pct / 100.0) # Kripto için %12.5 (150$)
+            
+            # TIER-1 YÜKSELTMESİ: KELLY CRITERION DİNAMİK BÜTÇELEME
+            try:
+                from services.risk_engine.kelly_criterion import kelly_engine
+                recent_trades = getattr(live_trade_manager, "trade_history", [])[-20:] # Son 20 işlem
+                kelly_pct = kelly_engine.calculate_allocation_pct(recent_trades, ai_score=signal.ai_score if hasattr(signal, "ai_score") else 5.0)
+                max_per_trade = max_global_exposure * kelly_pct
+            except Exception as e:
+                max_per_trade = max_global_exposure * (settings.max_capital_per_trade_pct / 100.0) # Fallback
+                
         else:
             total_exposure = sum(
                 p.nominal_value for p in getattr(live_trade_manager, "positions", {}).values()
                 if (p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)) and p.market != "CRYPTO"
             )
             max_global_exposure = 8000.0  # Alpaca (Hisse) Kesin Bütçe Sınırı (8 Bin Dolar)
-            max_per_trade = 8000.0 / 12.0  # 12 pozisyon kuralına göre pozisyon başı ~666.66$ tavan
+            
+            try:
+                from services.risk_engine.kelly_criterion import kelly_engine
+                recent_trades = getattr(live_trade_manager, "trade_history", [])[-20:]
+                kelly_pct = kelly_engine.calculate_allocation_pct(recent_trades, ai_score=signal.ai_score if hasattr(signal, "ai_score") else 5.0)
+                max_per_trade = max_global_exposure * kelly_pct
+            except Exception as e:
+                max_per_trade = 8000.0 / 12.0  # Fallback
 
         available_budget = max_global_exposure - total_exposure
         

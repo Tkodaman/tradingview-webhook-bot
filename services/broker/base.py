@@ -30,6 +30,11 @@ class BaseBroker(ABC):
         pass
         
     @abstractmethod
+    def update_bracket_orders(self, symbol: str, take_profit_price: float = None, stop_loss_price: float = None) -> Dict[str, Any]:
+        """Dynamically updates the TP and SL for an existing open position."""
+        pass
+        
+    @abstractmethod
     def close_position(self, symbol: str) -> Dict[str, Any]:
         """Closes an open position entirely."""
         pass

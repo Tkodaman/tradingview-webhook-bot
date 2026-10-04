@@ -53,7 +53,11 @@ class AutonomousEngine:
                     except Exception:
                         pass
 
-                await self._run_cycle()
+                from services.engine.ha_manager import ha_manager
+                if ha_manager.is_leader:
+                    await self._run_cycle()
+                else:
+                    logger.debug("💤 [HA FOLLOWER] Otonom Avcı döngüsü atlandı, lider takip ediliyor.")
             except Exception as e:
                 logger.error(f"❌ [AUTONOMOUS ENGINE] Dongu Hatasi: {e}")
             
@@ -70,6 +74,19 @@ class AutonomousEngine:
         # AŞAMA 1: Otonom Veri Toplama (1h, 4h, 1D Taraması)
         live_data = await asyncio.to_thread(tradingview_live_client.fetch_live_market_data)
         
+        # TIER-1 YÜKSELTMESİ: OTONOM RİSK KALKANI (FLASH CRASH HEDGE)
+        try:
+            from services.risk_engine.hedge_manager import hedge_manager
+            from services.market_feed.live_stream import live_trade_manager
+            btc_data = live_data.get("BTCUSDT", {})
+            # Basit bir düşüş metrik simülasyonu (Gerçek RSI ve EMA'dan)
+            btc_rsi = btc_data.get("RSI", 50)
+            btc_drop_pct = -3.5 if btc_rsi < 25 else 0.0 # Aşırı satım varsa drop simülasyonu
+            is_vix_high = False # Gelişmiş VIX entegrasyonu ileride eklenebilir
+            hedge_manager.evaluate_flash_crash_and_hedge(live_trade_manager, btc_drop_pct, is_vix_high)
+        except Exception as e:
+            logger.error(f"[HEDGE MANAGER ERROR] {e}")
+
         for symbol, data in live_data.items():
             try:
                 # --- ENSTRÜMAN 1: Açık Pozisyon & Fonlama Oranı (Short Squeeze Radarı) ---

@@ -8,10 +8,12 @@ from services.order_router import process_order
 from core.config import settings
 from services.broker.alpaca_client import alpaca_client
 
+import asyncio
 router = APIRouter()
 
 # Debounce cache: { "SIGNAL_ID": timestamp_of_insertion }
 processed_signals = {}
+webhook_queue = asyncio.Queue()
 
 @router.get("/health")
 async def health_check():

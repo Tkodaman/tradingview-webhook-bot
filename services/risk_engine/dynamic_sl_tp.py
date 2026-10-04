@@ -168,7 +168,7 @@ class DynamicRiskManager:
                 if new_sl > current_sl:
                     logger.info(f"[CHANDELIER ML-WICK] {symbol} SL {current_sl:.4f} -> {new_sl:.4f} (Dinamik Zırh)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
-                    await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
+                    await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price, matched_pos.market)
                     await self._notify_ui(symbol, matched_pos)
                 return
 
@@ -191,7 +191,7 @@ class DynamicRiskManager:
                     f"| PnL={profit_pct:+.2f}%"
                 )
                 matched_pos.stop_loss_price = new_sl_rounded
-                await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
+                await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price, matched_pos.market)
                 await self._notify_ui(symbol, matched_pos)
 
         elif matched_pos.side == "SELL":
@@ -213,7 +213,7 @@ class DynamicRiskManager:
                 if new_sl < current_sl:
                     logger.info(f"[CHANDELIER ML-WICK] {symbol} SELL SL {current_sl:.4f} -> {new_sl:.4f} (Dinamik Zırh)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
-                    await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
+                    await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price, matched_pos.market)
                     await self._notify_ui(symbol, matched_pos)
                 return
 
@@ -229,20 +229,19 @@ class DynamicRiskManager:
             if new_sl_rounded < current_sl_rounded:
                 logger.info(f"[TRAILING SL] {symbol} SELL SL {current_sl_rounded:.4f} -> {new_sl_rounded:.4f}")
                 matched_pos.stop_loss_price = new_sl_rounded
-                await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price)
+                await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price, matched_pos.market)
                 await self._notify_ui(symbol, matched_pos)
 
-    async def _update_broker_sl(self, symbol: str, tp_price: float, sl_price: float):
+    async def _update_broker_sl(self, symbol: str, tp_price: float, sl_price: float, market: str):
         if settings.trading_mode in ["LIVE", "PAPER"]:
-            is_paper_mode = settings.trading_mode.upper() != "LIVE"
             from services.broker.factory import get_broker
-            broker = get_broker(settings.active_broker, paper=is_paper_mode)
+            broker = get_broker(market)
             if broker and hasattr(broker, 'update_bracket_orders'):
                 res = broker.update_bracket_orders(symbol, take_profit_price=tp_price, stop_loss_price=sl_price)
                 if res.get("status") == "success":
-                    logger.info(f"✅ [BROKER SYNC] {symbol} yeni makas (TP/SL) Alpaca'ya islendi.")
+                    logger.info(f"✅ [BROKER SYNC] {symbol} yeni makas (TP/SL) borsaya ({market}) islendi.")
                 else:
-                    logger.warning(f"⚠️ [BROKER SYNC ERROR] {symbol} Alpaca'ya islenemedi: {res}")
+                    logger.warning(f"⚠️ [BROKER SYNC ERROR] {symbol} borsaya islenemedi: {res}")
 
     async def _notify_ui(self, symbol: str, position):
         from routers.websocket_router import manager

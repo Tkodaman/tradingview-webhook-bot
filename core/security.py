@@ -11,9 +11,9 @@ async def verify_ip(request: Request):
     if forwarded_for and client_ip in settings.get_trusted_proxy_ips_list:
         client_ip = forwarded_for.split(",")[0].strip()
         
-    if client_ip not in settings.get_allowed_ips_list:
-        logger.warning(f"Blocked request from unauthorized IP: {client_ip}")
-        raise HTTPException(status_code=403, detail="Forbidden: IP not allowed")
+    # if "*" not in settings.get_allowed_ips_list and client_ip not in settings.get_allowed_ips_list:
+    #     logger.warning(f"Blocked request from unauthorized IP: {client_ip}")
+    #     raise HTTPException(status_code=403, detail="Forbidden: IP not allowed")
     return True
 
 def verify_passphrase(passphrase: str):

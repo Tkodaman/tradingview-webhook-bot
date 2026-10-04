@@ -1,0 +1,1 @@
+gcloud compute ssh instance-20261003-182635 --zone=europe-west4-a --project=tolgakodaman --command="cd ~/tradingview-webhook-bot && .venv/bin/pip install google-generativeai websockets==16.1.1 yfinance==0.2.40 psycopg2-binary && pm2 restart tv-bot"

@@ -84,6 +84,33 @@ class LiveTradeManager:
         import time
         from datetime import datetime, timezone
         from core.logger import logger
+    def sync_with_db(self):
+        # 0. SİSTEM KORUMASI: VPS'e gelen webhookların Leader tarafından anında fark edilmesi için DB'den eksik pozisyonları çek (Anti-Fragile HA Sync)
+        try:
+            from core.database import db_manager
+            from core.logger import logger
+            from schemas.position import ActivePosition
+            data = db_manager.get_store("wallet_state")
+            if data and "positions" in data:
+                db_positions = data["positions"]
+                for pid, pdict in db_positions.items():
+                    if pid not in self.positions:
+                        self.positions[pid] = ActivePosition(**pdict)
+                        logger.info(f"[HA-SYNC] Başka bir node (örn. VPS) tarafından eklenen pozisyon Leader hafızasına çekildi: {pid}")
+        except Exception as e:
+            from core.logger import logger
+            logger.error(f"[HA-SYNC] Leader pozisyon senkronizasyon hatası: {e}")
+
+    def sync_with_broker(self):
+        from services.engine.ha_manager import ha_manager
+        if not ha_manager.is_leader:
+            self.load_state()
+            return
+            
+        self.sync_with_db()
+
+        from services.broker.alpaca_client import alpaca_client
+        import time
         
         try:
             broker_positions = alpaca_client.sync_open_positions()
@@ -172,7 +199,7 @@ class LiveTradeManager:
         try:
             data = db_manager.get_store("wallet_state")
             if data:
-                self.initial_capital = float(settings.base_portfolio_size) # Bütçe ayardan gelir
+                self.initial_capital = data.get("initial_capital", float(settings.base_portfolio_size))
                 self.realized_pnl = data.get("realized_pnl", 0.0)
                 self.total_commissions_paid = data.get("total_commissions_paid", 0.0)
                 self.daily_stats = data.get("daily_stats", {})
@@ -275,8 +302,11 @@ class LiveTradeManager:
         from core.config import settings
         if settings.trading_mode in ["PAPER", "LIVE"]:
             try:
-                from services.broker.alpaca_client import alpaca_client
-                return round(alpaca_client.get_available_cash(), 2)
+                from services.broker.factory import get_broker
+                is_paper = settings.trading_mode.upper() != "LIVE"
+                broker = get_broker(settings.active_broker, paper=is_paper)
+                if broker:
+                    return round(broker.get_cash_balance(), 2)
             except Exception as e:
                 from core.logger import logger
                 logger.error(f"[CASH FETCH ERROR] {e}")
@@ -290,8 +320,11 @@ class LiveTradeManager:
         from core.config import settings
         if settings.trading_mode in ["PAPER", "LIVE"]:
             try:
-                from services.broker.alpaca_client import alpaca_client
-                return round(alpaca_client.get_account_balance(), 2)
+                from services.broker.factory import get_broker
+                is_paper = settings.trading_mode.upper() != "LIVE"
+                broker = get_broker(settings.active_broker, paper=is_paper)
+                if broker:
+                    return round(broker.get_account_balance(), 2)
             except Exception as e:
                 from core.logger import logger
                 logger.error(f"[EQUITY FETCH ERROR] {e}")
@@ -761,10 +794,12 @@ class LiveTradeManager:
             moved = True
         if moved:
             try:
-                from services.broker.alpaca_client import alpaca_client
-                alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=pos.stop_loss_price)
-            except Exception:
-                pass
+                from services.broker.factory import get_broker
+                b_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
+                broker = get_broker(b_name)
+                broker.update_bracket_orders(pos.symbol, take_profit_price=pos.target_profit_price, stop_loss_price=pos.stop_loss_price)
+            except Exception as e:
+                logger.error(f"[BRACKET UPDATE ERROR] {e}")
 
         today = datetime.now(TRT).strftime("%Y-%m-%d")
         if today not in self.daily_stats:
@@ -916,14 +951,25 @@ class LiveTradeManager:
         pos.unrealized_pnl = net_pnl
         pos.commission_fees = total_comm
         
-        # 🔔 SESLİ UYARI ALARMI (10 saniye) 🔔
+        # 🔔 SESLİ UYARI ALARMI (VICTORY / FAIL) 🔔
         if reason in ["CLOSED_TP", "CLOSED_SL", "CLOSED_TRAILING"]:
             def _play_alarm():
                 try:
                     import winsound, time
-                    for _ in range(10):
-                        winsound.Beep(1500 if "TP" in reason else 500, 500)
-                        time.sleep(0.5)
+                    if "TP" in reason or "TRAILING" in reason:
+                        # 🎺 ZAFER MÜZİĞİ (Super Mario 1-UP Stili)
+                        winsound.Beep(1000, 150)
+                        winsound.Beep(1200, 150)
+                        winsound.Beep(1500, 150)
+                        winsound.Beep(2000, 500)
+                        time.sleep(0.3)
+                        winsound.Beep(2000, 500)
+                    else:
+                        # 📉 HÜZÜN MÜZİĞİ (Başarısızlık / Stop Loss Stili)
+                        winsound.Beep(600, 300)
+                        winsound.Beep(500, 300)
+                        winsound.Beep(400, 300)
+                        winsound.Beep(300, 1000)
                 except Exception:
                     pass
             import threading
@@ -1013,6 +1059,7 @@ class LiveTradeManager:
 
 
     def _evaluate_open_positions(self):
+        self.sync_with_db()
         for pos_id, pos in list(self.positions.items()):
             if pos.status != "OPEN":
                 continue
@@ -1119,10 +1166,12 @@ class LiveTradeManager:
                         pos.stop_loss_price = new_sl
                         logger.info(f"🤖 [AI-TRAILING] {pos.symbol} için Kademeli İzleyen Stop makası (Mesafe: %{round((1-trailing_dist)*100, 1)}) daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
                         try:
-                            from services.broker.alpaca_client import alpaca_client
-                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
-                        except Exception:
-                            pass
+                            from services.broker.factory import get_broker
+                            b_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
+                            broker = get_broker(b_name)
+                            broker.update_bracket_orders(pos.symbol, take_profit_price=pos.target_profit_price, stop_loss_price=new_sl)
+                        except Exception as e:
+                            logger.error(f"[BRACKET UPDATE ERROR] {e}")
 
                 # 1. Başa Baş (Break-Even) Kontrolü (+%2.50 kârda)
                 if not pos.break_even_activated and curr_price >= pos.break_even_trigger_price:
@@ -1132,22 +1181,26 @@ class LiveTradeManager:
                         pos.stop_loss_price = round(pos.entry_price * 1.002, 5)
                         logger.info(f"🛡️ [AI-RISK] {pos.symbol} kâra geçti. Başabaş (Break-Even) noktasına çekildi: ${old_sl} -> ${pos.stop_loss_price}")
                         try:
-                            from services.broker.alpaca_client import alpaca_client
-                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=pos.stop_loss_price)
-                        except Exception:
-                            pass
+                            from services.broker.factory import get_broker
+                            b_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
+                            broker = get_broker(b_name)
+                            broker.update_bracket_orders(pos.symbol, take_profit_price=pos.target_profit_price, stop_loss_price=pos.stop_loss_price)
+                        except Exception as e:
+                            logger.error(f"[BRACKET UPDATE ERROR] {e}")
 
-                # 1.5 KÂR KİLİDİ (Cüretkar Kısmi Kâr Alımı): TP mesafesinin %33'üne ulaşılınca %50 kısmi kâr al, kalanı BE'ye kilitle
-                if is_open and not pos.partial_profit_taken:
-                    tp_dist_pct = ((pos.target_profit_price - pos.entry_price) / pos.entry_price) * 100.0
-                    if tp_dist_pct > 0 and (pct / tp_dist_pct) >= 0.33:
-                        self._take_partial_profit(pos_id, ratio=0.50)
-
-                # 2. TP Kontrolü (+%3.0)
+                # 2. TP KONTROLÜ VE MOONBAG STRATEJİSİ (Parçalı Kâr)
                 if curr_price >= pos.target_profit_price:
                     if is_open:
-                        self.close_position(pos_id, "CLOSED_TP")
-                        continue
+                        if not pos.partial_profit_taken:
+                            logger.info(f"🚀 [MOONBAG] {pos.symbol} Ana hedefe (TP: ${pos.target_profit_price}) ulaştı! %50 Kâr cebe atılıyor, kalanı trendin sonuna kadar (Moonbag) iz sürücüye bırakılıyor.")
+                            self._take_partial_profit(pos_id, ratio=0.50)
+                            # Kalanı uzaya bırak (Sanal TP'yi çok uzağa taşı ki sadece iz sürücü stop çıkarsın)
+                            pos.target_profit_price = round(pos.entry_price * 1.50, 4) # %50 daha yukarı
+                            continue
+                        else:
+                            # Zaten partial aldıysa ve "uzay" TP'sine de çarptıysa komple kapat
+                            self.close_position(pos_id, "CLOSED_TP")
+                            continue
 
                 # 3. SL / Trailing Stop Kontrolü
                 if curr_price <= pos.stop_loss_price:
@@ -1156,6 +1209,35 @@ class LiveTradeManager:
                         logger.info(f"🛑 [DYNAMIC SL HIT] {pos.symbol} Stop seviyesine (${pos.stop_loss_price:.4f}) ulaştı (Güncel: ${curr_price:.4f}, Kayıp: %{pct:.2f}). Kestirip atılıyor.")
                         self.close_position(pos_id, reason)
                         continue
+
+                # 4. TIME-STOP (ÖLÜ PARA) KESİCİSİ - YZ (AI) İNSİYATİFLİ
+                if is_open and pos.opened_at:
+                    try:
+                        from core.config import TRT
+                        from datetime import datetime
+                        now_time = datetime.now(TRT).replace(tzinfo=None)
+                        pos_open_time = datetime.strptime(pos.opened_at, "%Y-%m-%d %H:%M:%S")
+                        diff_hours = (now_time - pos_open_time).total_seconds() / 3600.0
+                        
+                        if diff_hours >= 12.0 and not getattr(pos, 'time_stop_evaluated', False):
+                            pos.time_stop_evaluated = True
+                            if pct < 1.0: # %1 bile kâr vermediyse
+                                ml_prob = 0.50
+                                try:
+                                    from services.trainer.ml_signal_predictor import ml_predictor
+                                    _, prob = ml_predictor.predict(pos.symbol, pos.entry_indicators or {})
+                                    ml_prob = prob
+                                except:
+                                    pass
+                                
+                                if ml_prob >= 0.65:
+                                    logger.info(f"⏳ [TIME-STOP UZATMASI] {pos.symbol} 12 saattir yatayda (Kâr: %{pct:.2f}) ama Yapay Zeka (Win: %{ml_prob*100:.1f}) patlama bekliyor. Süre 12 saat uzatıldı!")
+                                else:
+                                    logger.info(f"💀 [DEAD MONEY] {pos.symbol} 12 saattir yatayda (Kâr: %{pct:.2f}) ve Yapay Zeka umutsuz (Win: %{ml_prob*100:.1f}). Ölü para kesicisi ipini çekiyor!")
+                                    self.close_position(pos_id, "CLOSED_TIME_STOP")
+                                    continue
+                    except Exception as e:
+                        pass
             else:
                 # SHORT (Açığa Satış) için Trailing Stop
                 if pos.highest_price_seen == 0.0 or curr_price < pos.highest_price_seen:
@@ -1201,10 +1283,12 @@ class LiveTradeManager:
                     pos.stop_loss_price = new_sl
                     logger.info(f"🤖 [AI-TRAILING SHORT] {pos.symbol} için İzleyen Stop daraltıldı! Eski: ${old_sl} -> Yeni: ${new_sl}")
                     try:
-                        from services.broker.alpaca_client import alpaca_client
-                        alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=new_sl)
-                    except Exception:
-                        pass
+                        from services.broker.factory import get_broker
+                        b_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
+                        broker = get_broker(b_name)
+                        broker.update_bracket_orders(pos.symbol, take_profit_price=pos.target_profit_price, stop_loss_price=new_sl)
+                    except Exception as e:
+                        logger.error(f"[BRACKET UPDATE ERROR] {e}")
 
                 if not pos.break_even_activated and curr_price <= pos.break_even_trigger_price:
                     pos.break_even_activated = True
@@ -1213,27 +1297,59 @@ class LiveTradeManager:
                         pos.stop_loss_price = round(pos.entry_price * 0.998, 5)
                         logger.info(f"🛡️ [AI-RISK SHORT] {pos.symbol} kâra geçti. Başabaş noktasına çekildi: ${old_sl} -> ${pos.stop_loss_price}")
                         try:
-                            from services.broker.alpaca_client import alpaca_client
-                            alpaca_client.update_bracket_orders(pos.symbol, stop_loss_price=pos.stop_loss_price)
-                        except Exception:
-                            pass
+                            from services.broker.factory import get_broker
+                            b_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
+                            broker = get_broker(b_name)
+                            broker.update_bracket_orders(pos.symbol, take_profit_price=pos.target_profit_price, stop_loss_price=pos.stop_loss_price)
+                        except Exception as e:
+                            logger.error(f"[BRACKET UPDATE ERROR] {e}")
 
-                # 1.5 KÂR KİLİDİ (Cüretkar Kısmi Kâr Alımı): TP mesafesinin %33'üne ulaşılınca %50 kısmi kâr al, kalanı BE'ye kilitle
-                if is_open and not pos.partial_profit_taken:
-                    tp_dist_pct = ((pos.entry_price - pos.target_profit_price) / pos.entry_price) * 100.0
-                    if tp_dist_pct > 0 and (pct / tp_dist_pct) >= 0.33:
-                        self._take_partial_profit(pos_id, ratio=0.50)
-
+                # 2. TP KONTROLÜ VE MOONBAG STRATEJİSİ (Parçalı Kâr)
                 if curr_price <= pos.target_profit_price:
                     if is_open:
-                        self.close_position(pos_id, "CLOSED_TP")
-                        continue
+                        if not pos.partial_profit_taken:
+                            logger.info(f"🚀 [MOONBAG SHORT] {pos.symbol} Ana hedefe (TP: ${pos.target_profit_price}) ulaştı! %50 Kâr cebe atılıyor, kalanı iz sürücüye bırakılıyor.")
+                            self._take_partial_profit(pos_id, ratio=0.50)
+                            pos.target_profit_price = round(pos.entry_price * 0.50, 4) # %50 daha aşağı
+                            continue
+                        else:
+                            self.close_position(pos_id, "CLOSED_TP")
+                            continue
 
                 if curr_price >= pos.stop_loss_price:
                     if is_open:
                         reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
                         self.close_position(pos_id, reason)
                         continue
+
+                # 4. TIME-STOP (ÖLÜ PARA) KESİCİSİ - YZ (AI) İNSİYATİFLİ
+                if is_open and pos.opened_at:
+                    try:
+                        from core.config import TRT
+                        from datetime import datetime
+                        now_time = datetime.now(TRT).replace(tzinfo=None)
+                        pos_open_time = datetime.strptime(pos.opened_at, "%Y-%m-%d %H:%M:%S")
+                        diff_hours = (now_time - pos_open_time).total_seconds() / 3600.0
+                        
+                        if diff_hours >= 12.0 and not getattr(pos, 'time_stop_evaluated', False):
+                            pos.time_stop_evaluated = True
+                            if pct < 1.0:
+                                ml_prob = 0.50
+                                try:
+                                    from services.trainer.ml_signal_predictor import ml_predictor
+                                    _, prob = ml_predictor.predict(pos.symbol, pos.entry_indicators or {})
+                                    ml_prob = prob
+                                except:
+                                    pass
+                                
+                                if ml_prob >= 0.65:
+                                    logger.info(f"⏳ [TIME-STOP UZATMASI SHORT] {pos.symbol} 12 saattir yatayda (Kâr: %{pct:.2f}) ama Yapay Zeka patlama bekliyor. Süre uzatıldı!")
+                                else:
+                                    logger.info(f"💀 [DEAD MONEY SHORT] {pos.symbol} 12 saattir yatayda (Kâr: %{pct:.2f}) ve Yapay Zeka umutsuz. İpi çekiliyor!")
+                                    self.close_position(pos_id, "CLOSED_TIME_STOP")
+                                    continue
+                    except Exception as e:
+                        pass
 
             # CANLI KOKPİT GERÇEK ZAMANLI PNL HESABI (Tüm Modlar İçin)
             # Kullanıcı talebi: Gerçek al-sat için komisyon totalden çıkarılsın, simülasyon hesaplanmasın.

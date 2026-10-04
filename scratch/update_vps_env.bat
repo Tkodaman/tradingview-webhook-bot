@@ -1,0 +1,1 @@
+gcloud compute ssh instance-20261003-182635 --zone=europe-west4-a --project=tolgakodaman --command="echo 'DATABASE_URL=postgresql://bot_user:BotStrongPass123!@34.34.50.3:5432/trading_bot' >> ~/tradingview-webhook-bot/.env && pm2 restart tv-bot"

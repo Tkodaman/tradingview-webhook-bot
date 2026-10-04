@@ -68,6 +68,10 @@ def get_active_positions():
     if _pos_cache["data"] is not None and (now - _pos_cache["ts"]) < _POS_CACHE_TTL:
         return _pos_cache["data"]
 
+    from services.engine.ha_manager import ha_manager
+    if not ha_manager.is_leader:
+        live_trade_manager.load_state()
+
     # STAMPEDE KORUMASI (Stale-while-revalidate): 
     # API yavaşsa diğer isteklerin beklemesi yerine eski veriyi almasını sağla
     if _pos_cache["data"] is not None:
@@ -108,11 +112,12 @@ def get_active_positions():
                 # BİNANCE BAKİYESİNİ ÇEK (Artık API'den ham bakiye değil, 1200$'lık izole bütçeden kalanı dinamik göstereceğiz)
                 # (API çağrısı kaldırılarak hızlandırıldı)
                 
-                added_local_symbols = set()
                 for pos_id, lp in live_trade_manager.positions.items():
                     local_sym = (lp.symbol or "").upper()
-                    if lp.status == "OPEN" and local_sym not in alpaca_symbols and local_sym not in added_local_symbols:
-                        added_local_symbols.add(local_sym)
+                    # Tüm pozisyonları göster, sembol bazlı filtreleme (tekilleştirme) yapma.
+                    # Ayrıca Alpaca'da aynı sembol var diye Binance (CRYPTO) pozisyonunu gizleme.
+                    is_alpaca_overlap = (lp.market != "CRYPTO") and (local_sym in alpaca_symbols)
+                    if lp.status == "OPEN" and not is_alpaca_overlap:
                         # Yerel pozisyonu Alpaca formatında hazırla (Paper Trading)
                         local_p = {
                             "id": lp.id,
@@ -262,7 +267,7 @@ def get_active_positions():
                 crypto_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 alpaca_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") != "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 
-                binance_budget_limit = float(settings.base_portfolio_size) + crypto_realized - crypto_comm
+                binance_budget_limit = live_trade_manager.initial_capital + crypto_realized - crypto_comm
                 crypto_invested = sum(p.nominal_value for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO")
                 binance_cash = max(0.0, binance_budget_limit - crypto_invested)
                 

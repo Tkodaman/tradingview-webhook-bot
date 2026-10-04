@@ -11,6 +11,10 @@ class DatabaseManager:
         self.use_postgres = os.environ.get("USE_POSTGRES", "false").lower() == "true"
         self.pg_dsn = os.environ.get("DATABASE_URL", "")
         
+        import socket
+        if "instance" in socket.gethostname().lower():
+            self.pg_dsn = self.pg_dsn.replace("34.34.50.3", "localhost")
+            
         self.init_db()
 
     def get_connection(self):
@@ -48,7 +52,7 @@ class DatabaseManager:
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS heartbeats (
                         node_id TEXT PRIMARY KEY,
-                        last_seen REAL,
+                        last_seen DOUBLE PRECISION,
                         is_preferred_leader BOOLEAN
                     )
                 ''')
@@ -89,9 +93,9 @@ class DatabaseManager:
             if self.use_postgres:
                 cursor.execute('''
                     INSERT INTO heartbeats (node_id, last_seen, is_preferred_leader) 
-                    VALUES (%s, %s, %s)
-                    ON CONFLICT (node_id) DO UPDATE SET last_seen = EXCLUDED.last_seen, is_preferred_leader = EXCLUDED.is_preferred_leader
-                ''', (node_id, last_seen, is_preferred))
+                    VALUES (%s, EXTRACT(EPOCH FROM NOW()), %s)
+                    ON CONFLICT (node_id) DO UPDATE SET last_seen = EXTRACT(EPOCH FROM NOW()), is_preferred_leader = EXCLUDED.is_preferred_leader
+                ''', (node_id, is_preferred))
             else:
                 cursor.execute('''
                     INSERT INTO heartbeats (node_id, last_seen, is_preferred_leader) 
@@ -99,13 +103,20 @@ class DatabaseManager:
                     ON CONFLICT(node_id) DO UPDATE SET last_seen=excluded.last_seen, is_preferred_leader=excluded.is_preferred_leader
                 ''', (node_id, last_seen, is_preferred))
             conn.commit()
+            conn.commit()
 
     def get_all_heartbeats(self) -> List[Dict[str, Any]]:
         with self.get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT node_id, last_seen, is_preferred_leader FROM heartbeats')
-            rows = cursor.fetchall()
-            return [{'node_id': r[0], 'last_seen': r[1], 'is_preferred_leader': bool(r[2])} for r in rows]
+            if self.use_postgres:
+                cursor.execute('SELECT node_id, last_seen, is_preferred_leader, EXTRACT(EPOCH FROM NOW()) FROM heartbeats')
+                rows = cursor.fetchall()
+                return [{'node_id': r[0], 'last_seen': r[1], 'is_preferred_leader': bool(r[2]), 'db_time': r[3]} for r in rows]
+            else:
+                import time
+                cursor.execute('SELECT node_id, last_seen, is_preferred_leader FROM heartbeats')
+                rows = cursor.fetchall()
+                return [{'node_id': r[0], 'last_seen': r[1], 'is_preferred_leader': bool(r[2]), 'db_time': time.time()} for r in rows]
 
     def set_store(self, key: str, value: Dict[str, Any]):
         with self.get_connection() as conn:

@@ -33,12 +33,19 @@ def get_auto_runner_status():
     """
     7/24 Kesintisiz Otonom Motorun Çalışma Durumu
     """
+    try:
+        from services.engine.ha_manager import ha_manager
+        leader_status = ha_manager.is_leader
+    except:
+        leader_status = False
+
     return {
         "status": "success",
         "is_running": tv_auto_runner.is_running,
         "scan_interval_seconds": getattr(tv_auto_runner, "scan_interval_seconds", 3.0),
         "capital_per_trade": tv_auto_runner.trade_capital if hasattr(tv_auto_runner, 'trade_capital') else 100.0,
-        "recent_triggers": []
+        "recent_triggers": [],
+        "is_leader": leader_status
     }
 
 class AutonomousLabRequest(BaseModel):
