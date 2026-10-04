@@ -350,10 +350,16 @@ async def login_get(request: Request):
 
 @app.post("/login", response_class=HTMLResponse)
 async def login_post(request: Request, username: str = Form(...), password: str = Form(...), remember: str = Form(None)):
+    valid_token = None
     if username == "kodaman" and password == settings.passphrase:
+        valid_token = settings.passphrase
+    elif username == "guest" and password == "1907":
+        valid_token = "guest_token_1907"
+        
+    if valid_token:
         response = RedirectResponse(url="/", status_code=303)
         max_age = 2592000 if remember else None  # 30 days
-        response.set_cookie(key="auth_token", value=settings.passphrase, max_age=max_age, httponly=True)
+        response.set_cookie(key="auth_token", value=valid_token, max_age=max_age, httponly=True)
         return response
     return templates.TemplateResponse("login.html", {"request": request, "error": True})
 
@@ -363,7 +369,7 @@ async def get_dashboard(request: Request):
     Gerçek zamanlı web kokpiti, risk analiz göstergesi ve 10-Skill AI Analist Hub.
     """
     token = request.cookies.get("auth_token")
-    if not token or token != settings.passphrase:
+    if not token or token not in [settings.passphrase, "guest_token_1907"]:
         return RedirectResponse(url="/login", status_code=303)
         
     return templates.TemplateResponse(
@@ -386,7 +392,7 @@ async def get_shadow_dashboard(request: Request):
     Tier-1 Gölge Arena ve ML İç Ses (Monologue) Dashboard
     """
     token = request.cookies.get("auth_token")
-    if not token or token != settings.passphrase:
+    if not token or token not in [settings.passphrase, "guest_token_1907"]:
         return RedirectResponse(url="/login", status_code=303)
         
     return templates.TemplateResponse(
