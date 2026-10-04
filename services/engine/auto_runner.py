@@ -14,6 +14,7 @@ from services.engine.trade_journal_learning import trade_journal_engine
 from services.ai_agent.system_prompt import RISK_PARAMS
 from schemas.webhook import WebhookSignal
 from services.order_router import process_order
+from services.engine.ha_manager import ha_manager
 from services.risk_engine.market_hours import market_hours_validator
 from core.config import settings
 from core.logger import logger
@@ -1140,7 +1141,10 @@ class TradingViewAutoStrategyRunner:
                     macro_tags=[f"STRATEGY_{strategy_tag}", f"SCORE_{score}_OF_8", f"MODE_{current_mode}"]
                 )
                 if self.is_running:
-                    res = await asyncio.to_thread(process_order, signal)
+                    if not ha_manager.is_leader:
+                        logger.warning(f"💤 [HA STANDBY] {sym} fırsatı yakalandı (Puan: {score}/8) ancak bu Node LİDER olmadığı için işleme girilmiyor.")
+                    else:
+                        res = await asyncio.to_thread(process_order, signal)
                     # Y1 AUTO-RUNNER için journal kaydı (process_order içinde de yapılıyor, burada ek log)
                     logger.info(f"[AUTO-RUNNER EXECUTED] {sym} BUY @ ${price:.2f} | Score: {score}/8 | Result: {res.get('status')}")
                     executed_triggers.append({

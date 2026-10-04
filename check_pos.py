@@ -1,15 +1,16 @@
-﻿import sqlite3, json
+import sqlite3
+import json
+import pprint
+
 conn = sqlite3.connect('bot_database.db')
-cursor = conn.cursor()
-cursor.execute("SELECT value FROM store WHERE key='wallet_state'")
-res = cursor.fetchone()
-if res:
-    data = json.loads(res[0])
-    total = 0
-    for sym, p in data.get('positions', {}).items():
-        print(f'{sym}: {p.get("status")} - {p.get("nominal_value")}')
-        if p.get('status') in ['OPEN', 'PENDING_BROKER']:
-            total += p.get('nominal_value', 0)
-    print(f'Total: {total}')
+cursor = conn.execute("SELECT value FROM store WHERE key='wallet_state'")
+row = cursor.fetchone()
+
+if row:
+    data = json.loads(row[0])
+    positions = data.get("positions", {})
+    for k, v in positions.items():
+        print(k)
+        pprint.pprint(v)
 else:
-    print('NO WALLET STATE')
+    print("No wallet_state found")

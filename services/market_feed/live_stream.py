@@ -75,6 +75,11 @@ class LiveTradeManager:
         self.sync_with_broker()
 
     def sync_with_broker(self):
+        from services.engine.ha_manager import ha_manager
+        if not ha_manager.is_leader:
+            self.load_state()
+            return
+            
         from services.broker.alpaca_client import alpaca_client
         import time
         from datetime import datetime, timezone
@@ -195,6 +200,10 @@ class LiveTradeManager:
             logger.error(f"Auto-trade flag save error: {e}")
 
     def save_state(self):
+        from services.engine.ha_manager import ha_manager
+        if not ha_manager.is_leader:
+            return
+            
         try:
             # KOMISYON GUVENCESI: Kaydetmeden once CLOSED_OFFLINE_SYNC ve simülasyon
             # kaynaklı komisyonlari otomatik temizle — gercek olmayan islem komisyon sayilmaz.
@@ -681,6 +690,11 @@ class LiveTradeManager:
         kalan pozisyonu Başa Baş (Break-Even) noktasına kilitleyerek cüretkar şekilde
         kalan kârı büyütmeye devam eder (sermaye asla tekrar zarara dönmez).
         """
+        from services.engine.ha_manager import ha_manager
+        if not ha_manager.is_leader:
+            logger.warning(f"💤 [HA STANDBY] Kısmi kâr alma kararı verildi (pos_id: {pos_id}), ancak bu Node LİDER olmadığı için broker emri gönderilmiyor.")
+            return
+
         pos = self.positions.get(pos_id)
         if not pos or pos.status != "OPEN" or pos.partial_profit_taken:
             return
@@ -690,7 +704,8 @@ class LiveTradeManager:
             return
 
         close_qty = round(pos.quantity * ratio, 4)
-        if close_qty <= 0:
+        if close_qty <= 0 or close_qty >= pos.quantity:
+            logger.warning(f"[BUG FIX] Kısmi kâr iptal edildi. close_qty ({close_qty}) mantıksız. Mevcut qty: {pos.quantity}")
             return
 
         if pos.side == "BUY":
@@ -827,6 +842,11 @@ class LiveTradeManager:
             logger.error(f"[Stale Orders Check Error] {err}")
 
     def close_position(self, pos_id: str, reason: str = "MANUAL_CLOSE") -> Optional[Dict[str, Any]]:
+        from services.engine.ha_manager import ha_manager
+        if not ha_manager.is_leader:
+            logger.warning(f"💤 [HA STANDBY] Pozisyon kapatma kararı verildi ({reason}), ancak bu Node LİDER olmadığı için işlem uygulanmıyor.")
+            return None
+
         if pos_id not in self.positions:
             return None
         pos = self.positions[pos_id]

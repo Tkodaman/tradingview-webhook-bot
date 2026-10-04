@@ -191,6 +191,10 @@ from services.market_feed.live_stream import live_trade_manager
 @app.on_event("startup")
 async def startup_event():
     logger.info("[STARTUP] Başlatılıyor: 7/24 Kesintisiz Otonom Strateji Motoru Arka Planda Aktif Edildi.")
+    
+    from services.engine.ha_manager import ha_manager
+    ha_manager.start()
+    
     asyncio.create_task(tv_auto_runner.start_continuous_background_loop())
     
     # Shadow AI (Gölge Zeka) Cache Tarayıcısını Başlat
@@ -438,6 +442,11 @@ async def simulate_trade_lifecycle(req: TradeLifecycleRequest):
         "lifecycle_steps": steps
     }
 
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    from services.engine.ha_manager import ha_manager
+    ha_manager.stop()
 
 @app.on_event("startup")
 async def startup_accountability_check():

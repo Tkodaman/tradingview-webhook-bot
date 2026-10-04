@@ -96,8 +96,12 @@ class AlpacaClient:
             logger.error(f"❌ [ALPACA NETWORK ERROR] {e}")
             return None
 
-    def update_bracket_orders(self, symbol: str, take_profit_price: float, stop_loss_price: float) -> dict:
+    def update_bracket_orders(self, symbol: str, take_profit_price: float = None, stop_loss_price: float = None) -> dict:
         """Dynamically update TP and SL for an open position to enforce trailing stop at the broker level."""
+        from services.engine.ha_manager import ha_manager
+        if not ha_manager.is_leader:
+            return {"status": "skipped", "message": "Node is not leader"}
+            
         try:
             import requests
             headers = {
