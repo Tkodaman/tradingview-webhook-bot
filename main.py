@@ -346,7 +346,11 @@ except Exception:
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_get(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": False})
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"error": False}
+    )
 
 @app.post("/login", response_class=HTMLResponse)
 async def login_post(request: Request, username: str = Form(...), password: str = Form(...), remember: str = Form(None)):
@@ -361,7 +365,11 @@ async def login_post(request: Request, username: str = Form(...), password: str 
         max_age = 2592000 if remember else None  # 30 days
         response.set_cookie(key="auth_token", value=valid_token, max_age=max_age, httponly=True)
         return response
-    return templates.TemplateResponse("login.html", {"request": request, "error": True})
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"error": True}
+    )
 
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard(request: Request):
