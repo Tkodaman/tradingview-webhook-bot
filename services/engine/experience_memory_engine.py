@@ -359,7 +359,7 @@ class ExperienceMemoryEngine:
             recent_stops = sum(
                 1 for t in self.trade_logs
                 if t.symbol == symbol and t.pnl_pct < 0 and 
-                (datetime.now(ZoneInfo("Europe/Istanbul")) - datetime.fromtimestamp(t.timestamp, ZoneInfo("Europe/Istanbul"))).total_seconds() < 86400
+                (datetime.now(ZoneInfo("Europe/Istanbul")) - datetime.strptime(t.timestamp, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Europe/Istanbul"))).total_seconds() < 86400
             )
             if recent_stops >= 2:
                 logger.warning(f"🛡️ [UTANÇ PROTOKOLÜ] {symbol} son 24 saatte {recent_stops} kez stop yedi! Güven skoru -20 puan cezalandırılıyor.")
