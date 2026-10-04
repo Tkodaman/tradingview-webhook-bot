@@ -306,6 +306,14 @@ async def startup_event():
     except Exception as e:
         logger.error(f"[STARTUP] Otonom Motor Başlatılamadı: {e}")
 
+    # --- TIER-2 OTONOM KONSEY (THE ANALYTICAL COUNCIL) ---
+    try:
+        from services.engine.autonomous_council import autonomous_council
+        asyncio.create_task(autonomous_council.council_loop())
+        logger.info("🏛️ [STARTUP] Tier-2 Otonom YZ Konseyi (The Analytical Council) masaya oturdu.")
+    except Exception as e:
+        logger.error(f"🔴 [STARTUP] Tier-2 Konsey Başlatılamadı: {e}")
+
     # Scheduler (BIST ve NASDAQ Zamanlanmış Görevleri)
     start_scheduler()
 

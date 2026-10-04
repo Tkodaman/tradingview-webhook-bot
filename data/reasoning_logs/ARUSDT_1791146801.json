@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-10-04T20:46:41.035872+00:00",
+  "symbol": "ARUSDT",
+  "action": "BUY",
+  "reasoning_tr": "Yüce Divan ve Otonom Motor, ARUSDT tahtasında BUY kararı almıştır. İşlem bütçesi 59.90$ (Global 10.000$ limitine uyumlu) olarak belirlendi. Kasa risk oranı %1.00 seviyesindedir. Volatilite ve iğnelerden korunmak adına Dinamik ATR çarpanı 2.0 kullanılmış, Zarar-Kes (SL) %3.0 ve Kâr-Al (TP) %0.75 olarak komisyon payları (Spread) düşülerek net hesaplanmıştır. Piyasa saatleri, hacimsizlik kalkanları (Dead Zone) ve anomali filtreleri başarılı şekilde geçilmiştir. Yapay Zeka güven skoru: 100.0/100.",
+  "reasoning_en": "The Council and Autonomous Engine initiated a BUY on ARUSDT. Allocated budget is $59.90 strictly following the $10,000 global portfolio cap. Account risk factor is 1.00%. To prevent whale fakeouts and stop-hunts, the Dynamic ATR multiplier is set to 2.0, placing SL at 3.0% and TP at 0.75% (commission and spread adjusted). All market hour constraints, dead-zone volume filters, and anomaly gates have been cleared. AI Confidence Score: 100.0/100."
+}

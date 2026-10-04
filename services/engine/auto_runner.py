@@ -683,8 +683,13 @@ class TradingViewAutoStrategyRunner:
             if not _rp["entry_allowed"]:
                 logger.info(f"[REGIME-SOFT] {sym} ({_mtype_local}) {_rp['regime']} rejiminde aslında giriş yasak ancak otonom mod aktif. Sinyal gücüne güvenerek devam edilecek.")
 
-            # TAM OTONOM CÜRETKAR MOD: Skor, Hacim ve Kapasite eşikleri esnetildi
-            required_score    = _rp["min_score"] - 2
+            # --- TIER-2 OTONOM KONSEY (DYNAMIC THRESHOLDS) ---
+            from services.engine.autonomous_council import autonomous_council
+            dyn_conf = autonomous_council.current_state.get("min_confidence", 65)
+            dyn_vol_adj = autonomous_council.current_state.get("min_volume_ratio", 1.0)
+
+            # TAM OTONOM CÜRETKAR MOD: Skor, Hacim ve Kapasite eşikleri Konsey kararına göre güncellendi
+            required_score    = max(_rp["min_score"] - 2, dyn_conf)
             
             # Dinamik Volatilite Barajı (Volatility Adaptive Threshold)
             if is_crypto:
@@ -695,7 +700,7 @@ class TradingViewAutoStrategyRunner:
                     required_score -= 1.0
                     logger.debug(f"[VIX/ATR FIRSATI] {sym} Piyasa sakin (ATR: %{atr_pct:.2f}). Kırılımlar daha temiz. Baraj esnetildi: {required_score}")
 
-            min_vol           = max(0.1, _rp["min_vol"] * 0.5)
+            min_vol           = max(0.1, _rp["min_vol"] * 0.5) * dyn_vol_adj
             global_max_pos    = 10 # Normal kapasite 10
             max_pos_for_market_regime = _rp["max_market_pos"] + 1
             
