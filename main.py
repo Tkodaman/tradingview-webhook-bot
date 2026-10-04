@@ -19,9 +19,9 @@ BASE_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR_PATH not in sys.path:
     sys.path.insert(0, BASE_DIR_PATH)
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Form, Depends
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -344,11 +344,28 @@ try:
 except Exception:
     pass
 
+@app.get("/login", response_class=HTMLResponse)
+async def login_get(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request, "error": False})
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_post(request: Request, username: str = Form(...), password: str = Form(...), remember: str = Form(None)):
+    if username == "kodaman" and password == settings.passphrase:
+        response = RedirectResponse(url="/", status_code=303)
+        max_age = 2592000 if remember else None  # 30 days
+        response.set_cookie(key="auth_token", value=settings.passphrase, max_age=max_age, httponly=True)
+        return response
+    return templates.TemplateResponse("login.html", {"request": request, "error": True})
+
 @app.get("/", response_class=HTMLResponse)
 async def get_dashboard(request: Request):
     """
     Gerçek zamanlı web kokpiti, risk analiz göstergesi ve 10-Skill AI Analist Hub.
     """
+    token = request.cookies.get("auth_token")
+    if not token or token != settings.passphrase:
+        return RedirectResponse(url="/login", status_code=303)
+        
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -368,6 +385,10 @@ async def get_shadow_dashboard(request: Request):
     """
     Tier-1 Gölge Arena ve ML İç Ses (Monologue) Dashboard
     """
+    token = request.cookies.get("auth_token")
+    if not token or token != settings.passphrase:
+        return RedirectResponse(url="/login", status_code=303)
+        
     return templates.TemplateResponse(
         request=request,
         name="shadow_dashboard.html",

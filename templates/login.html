@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Girişi | Otonom Trading</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0f172a;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: #f8fafc;
+        }
+        .login-box {
+            background: rgba(30, 41, 59, 0.7);
+            padding: 40px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+        }
+        .login-box h2 {
+            margin-top: 0;
+            font-weight: 800;
+            margin-bottom: 24px;
+            color: #3b82f6;
+        }
+        .input-group {
+            margin-bottom: 16px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        .input-group input[type="text"],
+        .input-group input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            outline: none;
+            box-sizing: border-box;
+            transition: all 0.3s;
+        }
+        .input-group input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            font-size: 13px;
+            color: #cbd5e1;
+            text-align: left;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .login-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        .error-msg {
+            color: #ef4444;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: {{ 'block' if error else 'none' }};
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-box">
+        <h2>🚀 Komuta Merkezi</h2>
+        
+        <div class="error-msg">
+            Geçersiz kullanıcı adı veya şifre!
+        </div>
+
+        <form action="/login" method="POST">
+            <div class="input-group">
+                <label>Kullanıcı Adı</label>
+                <input type="text" name="username" required autocomplete="off">
+            </div>
+            <div class="input-group">
+                <label>Güvenlik Şifresi</label>
+                <input type="password" name="password" required>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="remember" name="remember" value="true" checked>
+                <label for="remember" style="margin:0; cursor:pointer;">Beni Hatırla (30 Gün)</label>
+            </div>
+            
+            <button type="submit" class="login-btn">Sisteme Giriş Yap</button>
+        </form>
+    </div>
+
+</body>
+</html>
