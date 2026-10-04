@@ -166,4 +166,32 @@ class TradeJournalLearningEngine:
             self.shadow_journal_entries.pop(0)
         logger.info(f"[SHADOW AUTOPSY] {symbol} {status_text} -> {lesson}")
 
+    def darwinian_mutation_engine(self):
+        """
+        === DARWİNCİ PARALEL EVRİM (WALK-FORWARD MUTATION) ===
+        Gölge (Shadow) ve Gerçek (Live) işlemleri analiz eder. 
+        Kâr eden (Win) işlemlerin ATR ve RSI strateji genlerini (parametrelerini) ödüllendirip saklarken,
+        Zarar eden (Loss) işlemlerin genlerini mutasyona uğratarak cezalandırır.
+        """
+        logger.info("[DARWINIAN ENGINE] Walk-Forward Mutation protokolü başlatıldı. Strateji genleri optimize ediliyor...")
+        if len(self.journal_entries) < 5:
+            logger.info("[DARWINIAN ENGINE] Yeterli işlem kaydı yok (Min: 5). Mutasyon atlandı.")
+            return
+
+        wins = [j for j in self.journal_entries if j.get("net_pnl", 0) > 0]
+        losses = [j for j in self.journal_entries if j.get("net_pnl", 0) < 0]
+        
+        # Eğer sürekli kaybediyorsak risk parametrelerini radikal şekilde mutasyona uğrat
+        if len(losses) > len(wins) * 2:
+            logger.warning("🧬 [MUTASYON - DOĞAL SEÇİLİM] Negatif işlem döngüsü! RSI eşikleri daraltılıyor, ATR risk çarpanı düşürülüyor.")
+            from core.config import settings
+            settings.max_risk_score_allowed = max(75.0, settings.max_risk_score_allowed - 2.0)
+            settings.volume_anomaly_ratio_threshold = min(2.0, settings.volume_anomaly_ratio_threshold + 0.1)
+        elif len(wins) > len(losses) * 2:
+            logger.info("🧬 [MUTASYON - POZİTİF EVRİM] Başarılı avlanma döngüsü! Makaslar hafif genişletilerek kâr potansiyeli artırılıyor.")
+            from core.config import settings
+            settings.max_risk_score_allowed = min(92.0, settings.max_risk_score_allowed + 1.0)
+            
+        logger.info("[DARWINIAN ENGINE] Strateji genomu güncellendi.")
+
 trade_journal_engine = TradeJournalLearningEngine()

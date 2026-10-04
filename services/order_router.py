@@ -442,14 +442,13 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             base_budget = float(settings.base_portfolio_size)
             max_global_exposure = base_budget + crypto_realized - crypto_comm  # Binance Testnet Dinamik (örn: 1200$)
             
-            # TIER-1 YÜKSELTMESİ: KELLY CRITERION DİNAMİK BÜTÇELEME
+            # TIER-1 YÜKSELTMESİ: KELLY CRITERION DİNAMİK BÜTÇELEME (SADECE HİSSELER/ALPACA İÇİN - Kullanıcı talebi üzerine Kriptoda kapatıldı)
             try:
-                from services.risk_engine.kelly_criterion import kelly_engine
-                recent_trades = getattr(live_trade_manager, "trade_history", [])[-20:] # Son 20 işlem
-                kelly_pct = kelly_engine.calculate_allocation_pct(recent_trades, ai_score=signal.ai_score if hasattr(signal, "ai_score") else 5.0)
-                max_per_trade = max_global_exposure * kelly_pct
+                # KULLANICI EMRİ: Kesinlikle Binance (Kripto) için 4 coin, 1600$ limitine uyulacak.
+                # Bu yüzden Kelly formülünü iptal edip, config'den gelen net yüzdeliği kullanıyoruz (Örn: %25).
+                max_per_trade = max_global_exposure * (settings.max_capital_per_trade_pct / 100.0) 
             except Exception as e:
-                max_per_trade = max_global_exposure * (settings.max_capital_per_trade_pct / 100.0) # Fallback
+                max_per_trade = max_global_exposure * (25.0 / 100.0) # Fallback (Kesin %25)
                 
         else:
             total_exposure = sum(
@@ -690,8 +689,18 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
                                 live_trade_manager.close_position(pos.id, "NETWORK_ERROR_ROLLBACK")
                                 live_trade_manager.positions.pop(pos.id, None)
                                 live_trade_manager.save_state()
+                    # === YIRTICI LİKİDİTE AVCISI (PREDATORY LIQUIDITY LIMIT PUSU) ===
+                    # Market fiyatından almak yerine likidite iğnelerini avlamak için fiyatı aşağı çek (BUY)
+                    limit_pusu_price = signal.price
+                    if action_clean in ["BUY", "LONG"] and is_crypto:
+                        atr_pusu_pct = float(signal.indicators.get("atr_pct", 1.5)) if signal.indicators else 1.5
+                        # Fiyatı ATR'nin %30'u kadar aşağı çekip Limit Pusu kur (Örn: Fiyat 100, ATR %2 -> %0.6 aşağıdan pusu kur: 99.4)
+                        pusu_discount = atr_pusu_pct * 0.30
+                        limit_pusu_price = round(signal.price * (1 - (pusu_discount / 100.0)), 6)
+                        logger.info(f"🕸️ [PREDATORY LIQUIDITY] {signal.symbol} için {signal.price} yerine {limit_pusu_price} seviyesine LİMİT PUSU kuruluyor! (%{pusu_discount:.2f} dipten yakalama)")
+
                     # Thread ile arka plana gönder (API çağrısını bloklamasın)
-                    twap_thread = threading.Thread(target=stealth_twap_execution, args=(broker, signal.symbol, final_qty, tp_price, sl_price, signal.price))
+                    twap_thread = threading.Thread(target=stealth_twap_execution, args=(broker, signal.symbol, final_qty, tp_price, sl_price, limit_pusu_price))
                     twap_thread.start()
                     
                     res = {"status": "success", "message": f"TWAP Stealth Execution başlatıldı (Total Qty: {final_qty})"}

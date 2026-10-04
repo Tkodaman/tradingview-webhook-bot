@@ -897,9 +897,9 @@ class TradingViewAutoStrategyRunner:
             # Piyasa bazında maksimum pozisyon limiti: Kripto için 4 (Konsey kararı: Az ama öz), NASDAQ için 12
             max_pos_for_market = 4 if _mtype_local == "CRYPTO" else 12
             
-            # YEDEK İNİSİYATİF (4+2 Kripto Kuralı): Eğer fırsat kusursuzsa (score >= 35 veya ai_confidence > 0.85) +2 kapasite tanınır.
+            # YEDEK İNİSİYATİF (İPTAL): Kullanıcı emirlerine göre Kripto kotası ASLA aşılmayacak (Max 4).
             is_perfect_opportunity = score >= 35.0 or ml_prob > 0.85
-            if is_perfect_opportunity and _mtype_local == "CRYPTO":
+            if is_perfect_opportunity and _mtype_local == "STOCK":
                 max_pos_for_market += 2
                 
             if open_pos_in_market >= max_pos_for_market:
@@ -1037,7 +1037,6 @@ class TradingViewAutoStrategyRunner:
                 # ==========================================
                 # ŞARJÖR SOĞUTMA (COOLDOWN) KALKANI
                 # ==========================================
-                import time
                 current_time = time.time()
                 if not hasattr(self, "_last_trade_time"):
                     self._last_trade_time = 0

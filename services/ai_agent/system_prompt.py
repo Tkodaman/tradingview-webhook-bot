@@ -120,7 +120,7 @@ RISK_PARAMS = {
     "max_positions_per_market": {
         "NASDAQ": 8,
         "BIST": 4,
-        "CRYPTO": 6,
+        "CRYPTO": 4,
         "DEFAULT": 4,
     },
 

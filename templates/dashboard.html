@@ -4004,6 +4004,14 @@ The following code has been modified to include a line number before every line,
                     return;
                 }
                 
+                // En güncel olanlar (son kapatılanlar) en üstte çıkması için sıralama ekliyoruz
+                data.rankings.sort((a, b) => {
+                    const dateA = a.last_closed_at ? new Date(a.last_closed_at.replace(' ', 'T')).getTime() : 0;
+                    const dateB = b.last_closed_at ? new Date(b.last_closed_at.replace(' ', 'T')).getTime() : 0;
+                    // Eğer geçerli bir tarih yoksa (NaN ise), 0 olarak varsay. 
+                    return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
+                });
+
                 data.rankings.forEach(asset => {
                     const tr = document.createElement('tr');
                     tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";

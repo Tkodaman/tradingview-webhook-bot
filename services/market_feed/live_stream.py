@@ -89,7 +89,6 @@ class LiveTradeManager:
         try:
             from core.database import db_manager
             from core.logger import logger
-            from schemas.position import ActivePosition
             data = db_manager.get_store("wallet_state")
             if data and "positions" in data:
                 db_positions = data["positions"]

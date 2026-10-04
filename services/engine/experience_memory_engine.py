@@ -9,8 +9,10 @@ import time
 import random
 import math
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
+from core.logger import logger
 
 class TradePostMortem(BaseModel):
     trade_id: str
@@ -357,7 +359,7 @@ class ExperienceMemoryEngine:
             # ===== TIER-1 UTANÇ PROTOKOLÜ (SHAME PROTOCOL) =====
             # Son 24 saat içinde 2 veya daha fazla kez stop olmuş sabıkalı varlık
             recent_stops = sum(
-                1 for t in self.trade_logs
+                1 for t in self.trade_history
                 if t.symbol == symbol and t.pnl_pct < 0 and 
                 (datetime.now(ZoneInfo("Europe/Istanbul")) - datetime.strptime(t.timestamp, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Europe/Istanbul"))).total_seconds() < 86400
             )

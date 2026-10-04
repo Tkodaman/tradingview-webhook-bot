@@ -9,7 +9,7 @@ class OpportunityRotationEngine:
     """
     
     def __init__(self):
-        self.PORTFOLIO_LIMIT = 5 # Maksimum tutulacak varlık sayısı
+        self.PORTFOLIO_LIMIT = 4 # Maksimum tutulacak varlık sayısı
         self.MIN_SCORE_GAP_FOR_ROTATION = 8 # Yeni varlığın eskiden en az 8 puan üstün olması gerekir
         self.MIN_VOLUME_FOR_ROTATION = 1.5 # Yeni varlıkta en az 1.5x hacim patlaması olmalı
         
