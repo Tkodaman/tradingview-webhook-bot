@@ -354,6 +354,22 @@ class ExperienceMemoryEngine:
         for rule in self.learned_rules:
             matched_key = rule["cluster_key"]
 
+            # ===== TIER-1 UTANÇ PROTOKOLÜ (SHAME PROTOCOL) =====
+            # Son 24 saat içinde 2 veya daha fazla kez stop olmuş sabıkalı varlık
+            recent_stops = sum(
+                1 for t in self.trade_logs
+                if t.symbol == symbol and t.pnl_pct < 0 and 
+                (datetime.now(ZoneInfo("Europe/Istanbul")) - datetime.fromtimestamp(t.timestamp, ZoneInfo("Europe/Istanbul"))).total_seconds() < 86400
+            )
+            if recent_stops >= 2:
+                logger.warning(f"🛡️ [UTANÇ PROTOKOLÜ] {symbol} son 24 saatte {recent_stops} kez stop yedi! Güven skoru -20 puan cezalandırılıyor.")
+                return {
+                    "is_safe": True, # İşlem yasağı değil, çok ağır puan cezası veriyoruz
+                    "confidence_modifier": -20.0, 
+                    "qty_multiplier": 0.5, # Bütçeyi de yarıya kes
+                    "reason": f"Utanç Protokolü (Son 24 saatte {recent_stops} stop)"
+                }
+
             # ===== VAR LIK-ÖZGÜ TOKSİK BLOK (HARD BLOCK) =====
             if matched_key == toxic_key and rule["type"] == "BLOCK":
                 return {

@@ -29,10 +29,10 @@ class Settings(BaseSettings):
     high_risk_threshold: float = 65.0 # Pozisyon küçültme eşiği yükseltildi
     moderate_risk_threshold: float = 45.0
     
-    # Position Sizing (Kullanıcı Talebi: Toplam $1200 Kasa, Maksimum 8 Koin)
-    max_capital_per_trade_pct: float = 12.5 # Bütçe 8'e bölünecek (Her koin için %12.5)
-    base_portfolio_size: float = 1200.0 # Başlangıç Kasa: $1200 (Binance)
-    dynamic_capital_allocation_pct: float = 12.5  # İşlem başına kullanılacak bütçe (%)
+    # Position Sizing (Kullanıcı Talebi: Toplam $1600 Kasa, Maksimum 4 Koin)
+    max_capital_per_trade_pct: float = 25.0 # Bütçe 4'e bölünecek (Her koin için %25)
+    base_portfolio_size: float = 1600.0 # Başlangıç Kasa: $1600 (Binance)
+    dynamic_capital_allocation_pct: float = 25.0  # İşlem başına kullanılacak bütçe (%)
     
     # Circuit Breakers & Hard Rules
     flash_crash_volatility_limit: float = 8.0 # Volatilite kilidi %8.0

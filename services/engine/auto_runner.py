@@ -894,10 +894,10 @@ class TradingViewAutoStrategyRunner:
                 1 for p in live_trade_manager.positions.values()
                 if p.status == "OPEN" and p.market == _mtype_local
             )
-            # Piyasa bazında maksimum pozisyon limiti: Kripto için 8, NASDAQ için 12
-            max_pos_for_market = 8 if _mtype_local == "CRYPTO" else 12
+            # Piyasa bazında maksimum pozisyon limiti: Kripto için 4 (Konsey kararı: Az ama öz), NASDAQ için 12
+            max_pos_for_market = 4 if _mtype_local == "CRYPTO" else 12
             
-            # YEDEK İNSİYATİF (8+2 Kripto Kuralı): Eğer fırsat kusursuzsa (score >= 35 veya ai_confidence > 0.85) +2 kapasite tanınır.
+            # YEDEK İNİSİYATİF (4+2 Kripto Kuralı): Eğer fırsat kusursuzsa (score >= 35 veya ai_confidence > 0.85) +2 kapasite tanınır.
             is_perfect_opportunity = score >= 35.0 or ml_prob > 0.85
             if is_perfect_opportunity and _mtype_local == "CRYPTO":
                 max_pos_for_market += 2
