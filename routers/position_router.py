@@ -105,16 +105,8 @@ def get_active_positions():
                 # Eğer yerel (PAPER) açık pozisyonlar varsa ve Alpaca'da yoksa, onları raw_positions'a ekle
                 # live_trade_manager.positions dictionary'sinde key pos_id'dir.
                 
-                # BİNANCE BAKİYESİNİ ÇEK
-                binance_cash = 0.0
-                try:
-                    b_broker = get_broker("BINANCE", paper=True)
-                    if b_broker and getattr(b_broker, 'client', None):
-                        b_bal = b_broker.client.get_asset_balance('USDT')
-                        if b_bal and b_bal.get('free'):
-                            binance_cash = float(b_bal['free'])
-                except Exception:
-                    pass
+                # BİNANCE BAKİYESİNİ ÇEK (Artık API'den ham bakiye değil, 1200$'lık izole bütçeden kalanı dinamik göstereceğiz)
+                # (API çağrısı kaldırılarak hızlandırıldı)
                 
                 added_local_symbols = set()
                 for pos_id, lp in live_trade_manager.positions.items():
@@ -271,6 +263,8 @@ def get_active_positions():
                 alpaca_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") != "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 
                 binance_budget_limit = float(settings.base_portfolio_size) + crypto_realized - crypto_comm
+                crypto_invested = sum(p.nominal_value for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO")
+                binance_cash = max(0.0, binance_budget_limit - crypto_invested)
                 
                 result = {
                     "account_balance": round(effective_balance, 2),

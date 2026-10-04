@@ -890,6 +890,12 @@ class TradingViewAutoStrategyRunner:
             )
             # Piyasa bazında maksimum pozisyon limiti: Kripto için 8, NASDAQ için 12
             max_pos_for_market = 8 if _mtype_local == "CRYPTO" else 12
+            
+            # YEDEK İNSİYATİF (8+2 Kripto Kuralı): Eğer fırsat kusursuzsa (score >= 35 veya ai_confidence > 0.85) +2 kapasite tanınır.
+            is_perfect_opportunity = score >= 35.0 or (hasattr(ai_result, 'confidence') and ai_result.confidence > 0.85)
+            if is_perfect_opportunity and _mtype_local == "CRYPTO":
+                max_pos_for_market += 2
+                
             if open_pos_in_market >= max_pos_for_market:
                 msg = f"[MARKET LIMIT BLOCK] {sym} reddedildi. {_mtype_local} için maksimum ({open_pos_in_market}/{max_pos_for_market}) açık pozisyon limitine ulaşıldı."
                 logger.info(msg)

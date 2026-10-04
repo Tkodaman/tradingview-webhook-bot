@@ -15,16 +15,22 @@ class MLWickDetector:
         Fetches the last 5 days of 1-minute data to learn the 'normal' volatility and volume profile.
         """
         try:
-            data = yf.download(ticker, period='5d', interval='1m', progress=False)
+            yf_ticker = ticker
+            if yf_ticker.endswith("USDT"):
+                yf_ticker = yf_ticker.replace("USDT", "-USD")
+            elif yf_ticker.endswith("USD") and not yf_ticker.endswith("-USD"):
+                yf_ticker = yf_ticker.replace("USD", "-USD")
+                
+            data = yf.download(yf_ticker, period='5d', interval='1m', progress=False)
             if data.empty:
                 return False
                 
             # Extract underlying series from multi-index columns if they exist
             if isinstance(data.columns, pd.MultiIndex):
-                close = data['Close'][ticker]
-                high = data['High'][ticker]
-                low = data['Low'][ticker]
-                volume = data['Volume'][ticker]
+                close = data['Close'][yf_ticker]
+                high = data['High'][yf_ticker]
+                low = data['Low'][yf_ticker]
+                volume = data['Volume'][yf_ticker]
             else:
                 close = data['Close']
                 high = data['High']

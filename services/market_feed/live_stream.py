@@ -174,8 +174,6 @@ class LiveTradeManager:
                 
                 pos_data = data.get("positions", {})
                 for pid, pdict in pos_data.items():
-                    if pdict.get("market") == "CRYPTO":
-                        continue
                     self.positions[pid] = ActivePosition(**pdict)
             
             # Trade history is managed in DB separately but cached for API usage (last 100)
@@ -567,7 +565,7 @@ class LiveTradeManager:
         from core.config import settings
         if market == "CRYPTO":
             # Binance (Kripto) Bütçesi
-            max_pos = 8  # Binance için maksimum 8 pozisyon
+            max_pos = 10  # 8 Normal + 2 Yapay Zeka İnsiyatifi (Bomba Fırsatlar İçin)
             crypto_positions = [p for p in self.positions.values() if p.status in ["OPEN", "PENDING_BROKER"] and p.market == "CRYPTO"]
             open_count = len([p for p in crypto_positions if p.status == "OPEN"])
             allocated = sum(p.nominal_value for p in crypto_positions)
@@ -1031,9 +1029,8 @@ class LiveTradeManager:
             if curr_price <= 0.0:
                 continue
 
-            # Sadece simülasyon modunda yerel fiyatı arayüze yansıt (LIVE modda Alpaca senkronizasyonu devralır)
-            if settings.trading_mode == "SIMULATION":
-                pos.current_price = curr_price
+            # Her zaman yerel fiyatı güncelle (Kripto için zorunludur çünkü Alpaca Sync Kripto verisini beslemez)
+            pos.current_price = curr_price
 
             if pos.side == "BUY":
                 # En yüksek fiyat güncellemesi (Trailing Stop İçin)
@@ -1042,6 +1039,10 @@ class LiveTradeManager:
 
                 gross = (curr_price - pos.entry_price) * pos.quantity
                 pct = ((curr_price - pos.entry_price) / pos.entry_price) * 100.0
+                
+                # Arayüz (Dashboard) Dinamikliği İçin PnL'i Anlık Güncelle
+                pos.unrealized_pnl = gross
+                pos.unrealized_pnl_pct = pct
 
                 # === KURUMLARIN GEMİYİ TERK ETMESİ (SMART MONEY DUMP / INSTITUTIONAL EXIT) ===
                 cmf = self.market_prices.get(search_sym, {}).get("cmf")

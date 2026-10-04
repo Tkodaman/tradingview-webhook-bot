@@ -94,6 +94,10 @@ async def start_shadow_scanner():
                 _results = {}
                 from services.risk_engine.market_hours import market_hours_validator as _mh
                 for _symbol in _watchlist:
+                    is_open, _, _ = _mh.is_market_open(_symbol)
+                    if not is_open:
+                        continue # Piyasa kapalıysa gölge analizine sokup yorma
+
                     _market_item = _market_data.get(_symbol)
                     if not _market_item or float(_market_item.get("price", 0.0) or 0.0) <= 0:
                         continue

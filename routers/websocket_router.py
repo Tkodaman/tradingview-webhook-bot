@@ -84,18 +84,8 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                 alpaca_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") != "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 from core.config import settings
                 binance_budget_limit = float(settings.base_portfolio_size) + crypto_realized - crypto_comm
-                
-                # Fetch Binance Cash (cached/optimistic or empty for websocket)
-                binance_cash = 0.0
-                try:
-                    from services.broker.factory import get_broker
-                    b_broker = get_broker("BINANCE", paper=True)
-                    if b_broker and getattr(b_broker, 'client', None):
-                        b_bal = b_broker.client.get_asset_balance('USDT')
-                        if b_bal and b_bal.get('free'):
-                            binance_cash = float(b_bal['free'])
-                except Exception:
-                    pass
+                crypto_invested = sum(p.nominal_value for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO")
+                binance_cash = max(0.0, binance_budget_limit - crypto_invested)
 
                 summary = {
                     "account_balance": round(effective_balance, 2),
