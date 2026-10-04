@@ -2695,7 +2695,7 @@ The following code has been modified to include a line number before every line,
                 }
                 
                 if (binBudgetEl && data.binance_budget_limit !== undefined) {
-                    binBudgetEl.innerText = `LİMİT $${parseFloat(data.binance_budget_limit).toFixed(2)}`;
+                    binBudgetEl.innerText = `LİMİT $${parseFloat(data.binance_budget_limit).toFixed(2)} (MAKS 4 KOİN)`;
                 }
                 if (binCashEl && data.binance_cash !== undefined) {
                     binCashEl.innerText = `(Mevcut: $${parseFloat(data.binance_cash).toFixed(2)})`;
@@ -4130,7 +4130,7 @@ The following code has been modified to include a line number before every line,
                         }
                         
                         if (binBudgetEl && summary.binance_budget_limit !== undefined) {
-                            binBudgetEl.innerText = `LİMİT $${parseFloat(summary.binance_budget_limit).toFixed(2)}`;
+                            binBudgetEl.innerText = `LİMİT $${parseFloat(summary.binance_budget_limit).toFixed(2)} (MAKS 4 KOİN)`;
                         }
                         if (binCashEl && summary.binance_cash !== undefined) {
                             binCashEl.innerText = `(Mevcut: $${parseFloat(summary.binance_cash).toFixed(2)})`;
