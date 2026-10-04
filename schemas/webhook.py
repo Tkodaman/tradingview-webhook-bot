@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, Dict, Any, List
 
 class WebhookSignal(BaseModel):
-    passphrase: str
+    passphrase: Optional[str] = None
     security_token: Optional[str] = None
     timestamp_ms: int = Field(..., description="Milisaniye cinsinden TradingView çıkış zamanı")
     action: str = Field(..., description="BUY, SELL, CLOSE, HOLD")

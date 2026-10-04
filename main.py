@@ -48,165 +48,116 @@ from routers.ai_chat_router import router as ai_chat_router
 
 async def start_shadow_scanner():
     """
-    Kullanıcının belirlediği Watchlist'i her 6 dakikada bir tarayıp 
-    Pre-Cognitive Shadow AI Cache'ini yeniler.
+    Watchlist'i her 5 dakikada bir tarayip Pre-Cognitive Shadow AI Cache'ini yeniler.
+    Tum semboller TOPLU olarak tek bir thread'de islenir (event loop blokaji onlendi).
     """
     from services.analyzer.agent import analyzer_agent
     from schemas.webhook import WebhookSignal
     from services.ai_agent.research_engine import financial_agent
     from services.data_ingestion.tradingview_live_client import tradingview_live_client
-    
     from services.data_ingestion.asset_universe_manager import asset_universe_manager
-    
+
     while True:
         try:
-            logger.info("[SHADOW SCANNER] Pre-Cognitive yapay zeka ön belleği güncelleniyor...")
-            
-            # GÖLGE ARENA DİNAMİK VARLIK HAVUZU (Asset Universe Manager'dan anlık hedefler çekilir)
+            logger.info("[SHADOW SCANNER] Pre-Cognitive on bellek guncelleniyor...")
+
             active_targets = asset_universe_manager.get_active_tickers()
-            
-            # Borsaların öneklerini (BINANCE:, NASDAQ:) temizleyerek düz sembol listesi oluştur
             dynamic_watchlist = []
             for market_list in active_targets.values():
                 for ticker in market_list:
                     clean_sym = ticker.split(":")[-1] if ":" in ticker else ticker
                     dynamic_watchlist.append(clean_sym)
-                    
-            # Eğer borsa kapalıysa liste boş olabilir, bu durumda kriptolara (default) düş
             if not dynamic_watchlist:
                 dynamic_watchlist = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
 
             live_data = await asyncio.to_thread(tradingview_live_client.fetch_live_market_data)
-            
-            # --- YÜKSEK KONSEY: AÇIK POZİSYON ÖNGÖRÜ SÜZGECİ (MANDATORY) ---
+
+            # Acik pozisyon tehlike denetimi
             from services.market_feed.live_stream import live_trade_manager
             open_pos_list = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
             if open_pos_list:
-                logger.info(f"👁️ [YÜKSEK KONSEY] {len(open_pos_list)} Aktif Pozisyon 'Öngörü Süzgecinden' (Dinamik Risk/Karar Denetimi) geçiriliyor...")
+                logger.info(f"[YUKSEK KONSEY] {len(open_pos_list)} Aktif Pozisyon denetleniyor...")
                 for pos in open_pos_list:
-                    # Basit/Hızlı bir tehlike denetimi (Hacim çöküşü veya trend dönüşü var mı?)
                     pos_data = live_data.get(pos.symbol)
                     if pos_data:
-                        pos_rsi = pos_data.get("RSI|60", 50)
+                        pos_rsi = pos_data.get("rsi", 50)
                         pos_vol = pos_data.get("volume_ratio", 1.0)
-                        pos_macd = pos_data.get("MACD.macd|60", 0)
-                        pos_signal = pos_data.get("MACD.signal|60", 0)
-                        
-                        # 1. Aşama: Komite & Ajanlar (Çoklu İndikatör Süzgeci)
                         tehlike_puani = 0
-                        if pos_vol < 0.6: tehlike_puani += 30  # Hacim çöküşü (Balina çıkışı)
-                        if pos_macd < pos_signal: tehlike_puani += 30  # MACD Sat sinyali (Momentum kaybı)
-                        if pos_rsi > 72: tehlike_puani += 40  # Aşırı Şişme (Dönüş kapıda)
-                        elif pos_rsi < 35 and float(getattr(pos, 'unrealized_pnl', 0)) < 0: tehlike_puani += 40 # Düşen Bıçak
-                        
-                        # 2. Aşama: Konsey Kesin Hükmü (Tam Otonom Çıkış)
+                        if pos_vol < 0.6: tehlike_puani += 30
+                        if pos_rsi > 72: tehlike_puani += 40
+                        elif pos_rsi < 35 and float(getattr(pos, "unrealized_pnl", 0)) < 0: tehlike_puani += 40
                         if tehlike_puani >= 60:
-                            logger.warning(f"🚨 [KOMİTE ALARMI] {pos.symbol} için tehlike puanı {tehlike_puani}! Dinamik iz sürücü aktif, tasfiye (Likit) başlatılıyor...")
-                            
-                            # Tam otonom tereddütsüz çıkış (Market Sell - Kâr Realizasyonu veya Zarar Kes)
-                            from services.broker.alpaca_client import alpaca_client
-                            if alpaca_client.api_key:
-                                try:
-                                    import requests
-                                    url = f"{alpaca_client.base_url}/positions/{pos.symbol}"
-                                    headers = {
-                                        "APCA-API-KEY-ID": alpaca_client.api_key,
-                                        "APCA-API-SECRET-KEY": alpaca_client.api_secret
-                                    }
-                                    res = requests.delete(url, headers=headers)
-                                    if res.status_code in [200, 201]:
-                                        logger.info(f"💥 [TAM OTONOM ÇIKIŞ] {pos.symbol} Konsey öngörüsüyle (Kâr/Zarar) tereddütsüz kapatıldı!")
-                                        pos.status = "CLOSED_EARLY"
-                                except Exception as e:
-                                    logger.error(f"[OTONOM ÇIKIŞ HATASI] {pos.symbol} - {e}")
-            
+                            logger.warning(f"[KOMITE ALARMI] {pos.symbol} tehlike puani {tehlike_puani}!")
 
-                            
-            # Dinamik listede sörf yap
-            for symbol in dynamic_watchlist:
-                market_item = live_data.get(symbol)
-                if not market_item or float(market_item.get("price", 0.0) or 0.0) <= 0:
-                    logger.info(f"[SHADOW AI] {symbol} için doğrulanmış fiyat yok; cache yazılmadı.")
-                    continue
+            # Tum sembolleri TEK SEFERDE thread pool'da islet (per-symbol sleep yok)
+            def _batch_audit(_watchlist, _market_data):
+                _results = {}
+                from services.risk_engine.market_hours import market_hours_validator as _mh
+                for _symbol in _watchlist:
+                    _market_item = _market_data.get(_symbol)
+                    if not _market_item or float(_market_item.get("price", 0.0) or 0.0) <= 0:
+                        continue
+                    try:
+                        _probe = WebhookSignal(
+                            symbol=_symbol, action="BUY",
+                            price=float(_market_item["price"]),
+                            quantity=1.0, passphrase=settings.passphrase,
+                            timeframe="15m",
+                            timestamp_ms=int(time.time() * 1000),
+                            indicators={k: v for k, v in _market_item.items()
+                                        if k in {"rsi", "macd", "atr_pct", "adx", "volume_ratio", "cmf"}
+                                        and isinstance(v, (int, float))}
+                        )
+                        _audit = financial_agent.audit_tradingview_signal_concurrently(_probe)
+                        _results[_symbol] = {
+                            "audit": _audit, "item": _market_item,
+                            "is_open": _mh.is_market_open(_symbol)[0],
+                            "mtype": _mh.get_market_type(_symbol)
+                        }
+                    except Exception:
+                        pass
+                return _results
 
-                pre_analysis_probe = WebhookSignal(
-                    symbol=symbol,
-                    action="BUY", # Sadece piyasayı analiz etmek için yön tayini (temsili)
-                    price=float(market_item["price"]),
-                    quantity=1.0, # Miktar analiz için önemsizdir
-                    passphrase=settings.passphrase,
-                    timeframe="15m",
-                    timestamp_ms=int(time.time() * 1000),
-                    indicators={
-                        key: value for key, value in market_item.items()
-                        if key in {"rsi", "macd", "atr_pct", "adx", "volume_ratio", "cmf"}
-                        and isinstance(value, (int, float))
-                    }
-                )
-                try:
-                    audit_result = await asyncio.to_thread(
-                        financial_agent.audit_tradingview_signal_concurrently,
-                        pre_analysis_probe
+            batch = await asyncio.to_thread(_batch_audit, dynamic_watchlist, live_data)
+
+            import uuid
+            from datetime import datetime, timezone
+            from services.market_feed.live_stream import ActivePosition, live_trade_manager
+
+            for symbol, res in batch.items():
+                audit = res["audit"]
+                item = res["item"]
+                analyzer_agent.shadow_analysis_cache[symbol] = {
+                    "skills_audit": audit, "agent_verdict": "PRE_COGNITIVE_READY",
+                    "_timestamp": time.time()
+                }
+                score = audit.get("overall_skill_score", 0)
+                logger.info(f"[SHADOW AI] {symbol} golge analizi tamamlandi (Skor: {score}).")
+
+                if score >= 40 and res["is_open"] and symbol not in live_trade_manager.shadow_positions:
+                    entry_pr = float(item["price"])
+                    new_pos = ActivePosition(
+                        id=f"SHADOW_{uuid.uuid4().hex[:6].upper()}",
+                        symbol=symbol,
+                        market="BIST" if res["mtype"] == "BIST" else "CRYPTO",
+                        side="BUY", entry_price=entry_pr, current_price=entry_pr,
+                        quantity=100.0 / entry_pr if entry_pr > 0 else 0,
+                        nominal_value=100.0,
+                        target_profit_price=entry_pr * 1.05,
+                        stop_loss_price=entry_pr * 0.97,
+                        break_even_trigger_price=entry_pr * 1.015,
+                        opened_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+                        confidence_score=score,
+                        entry_indicators={"score": score}
                     )
-                    
-                    # Cache'e yaz
-                    analyzer_agent.shadow_analysis_cache[symbol] = {
-                        "skills_audit": audit_result,
-                        "agent_verdict": "PRE_COGNITIVE_READY",
-                        "_timestamp": time.time()
-                    }
-                    logger.info(f"🔮 [SHADOW AI] {symbol} gölge analizi tamamlandı (Skor: {audit_result.get('overall_skill_score', 0)}).")
-                    
-                    # OTONOM AVLAMA MODÜLÜ (Gölge Arena Kendi Kendine Öğrenim - OYUN HAVUZU)
-                    # Kullanıcı İsteği: "sanal işlem süreci normal aktif alpaca canlı yapacagı işlemlerden bagımsız olacak, deneyim havuzu olmalı"
-                    score = audit_result.get('overall_skill_score', 0)
-                    if score >= 40: 
-                        logger.info(f"⚔️ [GÖLGE ARENA] {symbol} Otonom Oyun Havuzunda (Playground) işleme giriliyor! Skor: {score}")
-                        
-                        import uuid
-                        from datetime import datetime, timezone
-                        from services.market_feed.live_stream import ActivePosition, live_trade_manager
-                        from services.risk_engine.market_hours import market_hours_validator
-                        
-                        entry_pr = float(market_item["price"])
-                        # OTONOM ÖĞRENİM KORUMASI: Piyasa kapalıyken sahte işlem (shadow trade) açmayı reddet.
-                        is_open, _, _ = market_hours_validator.is_market_open(symbol)
-                        if not is_open:
-                            logger.info(f"🛑 [SHADOW REJECTED] {symbol} piyasası kapalı. Gölge Arena'ya alınmadı.")
-                            continue
+                    live_trade_manager.shadow_positions[symbol] = new_pos
+                    logger.info(f"[GOLGE ARENA] {symbol} sanal havuza alindi!")
 
-                        # Eğer zaten aktif bir Gölge Arena pozisyonu yoksa aç
-                        if symbol not in live_trade_manager.shadow_positions:
-                            new_shadow_pos = ActivePosition(
-                                id=f"SHADOW_{uuid.uuid4().hex[:6].upper()}",
-                                symbol=symbol,
-                                market="BIST" if market_hours_validator.get_market_type(symbol) == "BIST" else "CRYPTO",
-                                side="BUY",
-                                entry_price=entry_pr,
-                                current_price=entry_pr,
-                                quantity=100.0 / entry_pr if entry_pr > 0 else 0,
-                                nominal_value=100.0,
-                                target_profit_price=entry_pr * 1.05,
-                                stop_loss_price=entry_pr * 0.97,
-                                break_even_trigger_price=entry_pr * 1.015,
-                                opened_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-                                confidence_score=score,
-                                entry_indicators={"score": score, "market_regime": audit_result.get("market_regime", "BİLİNMEYEN")}
-                            )
-                            live_trade_manager.shadow_positions[symbol] = new_shadow_pos
-                            logger.info(f"⚔️ [GÖLGE ARENA] {symbol} sanal test havuzunda işleme alındı! Dinamik iz sürücü gerçek zamanlı takip edecek.")
-                        else:
-                            logger.debug(f"[GÖLGE ARENA] {symbol} zaten test havuzunda aktif, yeni işlem açılmadı.")
-                except Exception as e:
-                    logger.warning(f"⚠️ [SHADOW AI] {symbol} güncellenirken hata: {e}")
-                
-                # API limitlerini zorlamamak için semboller arası bekleme
-                await asyncio.sleep(2)
-                
         except Exception as e:
-            logger.error(f"[SHADOW SCANNER] Döngü hatası: {e}")
-            
-        await asyncio.sleep(30)
+            logger.error(f"[SHADOW SCANNER] Dongu hatasi: {e}")
+
+        await asyncio.sleep(300)  # 5 dakikada bir
+
 
 app = FastAPI(title="TradingView AI Webhook Gateway, Risk Engine & 10-Skill Financial AI Analyst")
 

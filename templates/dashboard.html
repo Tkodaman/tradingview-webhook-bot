@@ -1503,13 +1503,29 @@ The following code has been modified to include a line number before every line,
 
     <!-- WALLET & QUICK ACTION TOOLBAR -->
     <div class="wallet-bar">
-        <div class="wallet-info">
-            <span class="live-dot"></span>
-            <span>BÜTÇE (LİMİT ${{ '{:.0f}'.format(settings.base_portfolio_size) }}):</span>
-            <span class="wallet-val" id="walletBalance">$0.00</span>
-            <span id="freeCash" style="color: var(--text-secondary); font-weight:400;">(Serbest Nakit: ${{ '{:.2f}'.format(settings.base_portfolio_size) }})</span>
-            <span id="alpacaCommission" style="color: #fca5a5; font-weight:400; font-size: 11px; margin-left: 8px;">(Alpaca Komisyon Gideri: -$0.00)</span>
-            <span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">(Updated 1.5s)</span>
+        <div class="wallet-info" style="display: flex; gap: 20px; align-items: center; width: 100%; justify-content: space-between;">
+            
+            <div style="display: flex; gap: 20px;">
+                <!-- ALPACA SECTION -->
+                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
+                    <span class="live-dot" style="background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+                    <span style="color: #10b981; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;">ALPACA (HİSSE):</span>
+                    <span class="wallet-val" id="walletBalance" style="color: #fff; font-size: 14px; font-weight: 700;">$0.00</span>
+                    <span id="freeCash" style="color: var(--text-secondary); font-size: 11px;">(Serbest: $0.00)</span>
+                    <span id="alpacaCommission" style="color: #fca5a5; font-size: 11px;">(Komisyon: -$0.00)</span>
+                </div>
+
+                <!-- BINANCE SECTION -->
+                <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
+                    <span class="live-dot" style="background: #f59e0b; box-shadow: 0 0 8px #f59e0b;"></span>
+                    <span style="color: #f59e0b; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;">BINANCE (KRİPTO):</span>
+                    <span id="binanceBudgetDisplay" class="wallet-val" style="color: #fff; font-size: 14px; font-weight: 700;">LİMİT $1200.00</span>
+                    <span id="binanceCash" style="color: var(--text-secondary); font-size: 11px;">(Mevcut: $0.00)</span>
+                    <span id="binanceCommission" style="color: #fca5a5; font-size: 11px;">(Komisyon: -$0.00)</span>
+                </div>
+            </div>
+
+            <span style="color: var(--text-muted); font-size: 11px;">(Updated 1.5s)</span>
         </div>
 
         <button onclick="resetAccountWallet()" class="btn-primary" style="margin-left:8px; padding: 6px 12px; font-size: 12px; border-radius: 4px; border: none; background: #ef4444; color: white; font-weight: bold; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#f87171'" onmouseout="this.style.background='#ef4444'">🗑️ KASAYI SIFIRLA</button>
@@ -2655,6 +2671,11 @@ The following code has been modified to include a line number before every line,
                 
                 const balEl = document.getElementById('walletBalance');
                 const freeCashEl = document.getElementById('freeCash');
+                const alpCommEl = document.getElementById('alpacaCommission');
+                const binBudgetEl = document.getElementById('binanceBudgetDisplay');
+                const binCashEl = document.getElementById('binanceCash');
+                const binCommEl = document.getElementById('binanceCommission');
+                
                 if (balEl && data.account_balance !== undefined) {
                     lastAlpacaBalance = parseFloat(data.account_balance);
                     balEl.innerText = `$${parseFloat(data.account_balance).toFixed(2)}`;
@@ -2662,11 +2683,20 @@ The following code has been modified to include a line number before every line,
                     if (ce) ce.innerText = `$${lastAlpacaBalance.toFixed(2)}`;
                 }
                 if (freeCashEl && data.available_cash !== undefined) {
-                    freeCashEl.innerText = `(Serbest Nakit: $${parseFloat(data.available_cash).toFixed(2)})`;
+                    freeCashEl.innerText = `(Serbest: $${parseFloat(data.available_cash).toFixed(2)})`;
                 }
-                const commEl = document.getElementById('alpacaCommission');
-                if (commEl && data.total_commissions_paid !== undefined) {
-                    commEl.innerText = `(Alpaca Komisyon Gideri: -$${parseFloat(data.total_commissions_paid).toFixed(2)})`;
+                if (alpCommEl && data.alpaca_commission !== undefined) {
+                    alpCommEl.innerText = `(Komisyon: -$${parseFloat(data.alpaca_commission).toFixed(2)})`;
+                }
+                
+                if (binBudgetEl && data.binance_budget_limit !== undefined) {
+                    binBudgetEl.innerText = `LİMİT $${parseFloat(data.binance_budget_limit).toFixed(2)}`;
+                }
+                if (binCashEl && data.binance_cash !== undefined) {
+                    binCashEl.innerText = `(Mevcut: $${parseFloat(data.binance_cash).toFixed(2)})`;
+                }
+                if (binCommEl && data.binance_commission !== undefined) {
+                    binCommEl.innerText = `(Komisyon: -$${parseFloat(data.binance_commission).toFixed(2)})`;
                 }
 
                 const tbody = document.getElementById('positionsTableBody');
@@ -4105,19 +4135,32 @@ The following code has been modified to include a line number before every line,
                         const prices = msg.data.live_prices;
                         const summary = msg.data.summary;
                         
-                        // Kasa ve Bakiye Güncellemesi
+                        // Kasa ve Bakiye Güncellemesi (Ayrıştırılmış Alpaca ve Binance)
                         const balEl = document.getElementById('walletBalance');
                         const freeCashEl = document.getElementById('freeCash');
-                        const commEl = document.getElementById('alpacaCommission');
+                        const alpCommEl = document.getElementById('alpacaCommission');
+                        const binBudgetEl = document.getElementById('binanceBudgetDisplay');
+                        const binCashEl = document.getElementById('binanceCash');
+                        const binCommEl = document.getElementById('binanceCommission');
                         
                         if (balEl && summary.account_balance !== undefined) {
                             balEl.innerText = `$${parseFloat(summary.account_balance).toFixed(2)}`;
                         }
                         if (freeCashEl && summary.available_cash !== undefined) {
-                            freeCashEl.innerText = `(Serbest Nakit: $${parseFloat(summary.available_cash).toFixed(2)})`;
+                            freeCashEl.innerText = `(Serbest: $${parseFloat(summary.available_cash).toFixed(2)})`;
                         }
-                        if (commEl && summary.total_commissions_paid !== undefined) {
-                            commEl.innerText = `(Alpaca Komisyon Gideri: -$${parseFloat(summary.total_commissions_paid).toFixed(2)})`;
+                        if (alpCommEl && summary.alpaca_commission !== undefined) {
+                            alpCommEl.innerText = `(Komisyon: -$${parseFloat(summary.alpaca_commission).toFixed(2)})`;
+                        }
+                        
+                        if (binBudgetEl && summary.binance_budget_limit !== undefined) {
+                            binBudgetEl.innerText = `LİMİT $${parseFloat(summary.binance_budget_limit).toFixed(2)}`;
+                        }
+                        if (binCashEl && summary.binance_cash !== undefined) {
+                            binCashEl.innerText = `(Mevcut: $${parseFloat(summary.binance_cash).toFixed(2)})`;
+                        }
+                        if (binCommEl && summary.binance_commission !== undefined) {
+                            binCommEl.innerText = `(Komisyon: -$${parseFloat(summary.binance_commission).toFixed(2)})`;
                         }
 
                         // Bot Uptime & Son Scan Guncelle
@@ -4257,10 +4300,14 @@ The following code has been modified to include a line number before every line,
                     updEl.textContent = now.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'}) + ' güncellendi';
                 }
 
+                const marketIsOpen = data.market_is_open || {};
+                window.stockMarketIsOpen = (marketIsOpen['BIST'] !== false) || (marketIsOpen['NASDAQ'] !== false);
+                
                 const marketMap = { 'CRYPTO': 'CRYPTO', 'NASDAQ': 'NASDAQ', 'BIST': 'BIST' };
                 for (const [market, key] of Object.entries(marketMap)) {
                     const info = regimes[market];
                     const profile = profiles[market];
+                    const isOpen = marketIsOpen[market] !== false;
                     if (!info) continue;
 
                     const box = document.getElementById(`regimeBox_${key}`);
@@ -4270,15 +4317,32 @@ The following code has been modified to include a line number before every line,
                     if (box) {
                         box.style.background = info.bg;
                         box.style.border = `1px solid ${info.color}55`;
+                        if (!isOpen) {
+                             box.style.opacity = '0.35';
+                             box.style.filter = 'grayscale(100%)';
+                        } else {
+                             box.style.opacity = '1';
+                             box.style.filter = 'none';
+                        }
                     }
                     if (lbl) {
-                        lbl.style.color = info.color;
-                        lbl.textContent = `${info.label} ${info.emoji}`;
+                        if (!isOpen) {
+                            lbl.style.color = '#ef4444';
+                            lbl.textContent = 'PİYASA KAPALI 🔴';
+                        } else {
+                            lbl.style.color = info.color;
+                            lbl.textContent = `${info.label} ${info.emoji}`;
+                        }
                     }
                     if (prf && profile) {
-                        const entryStr = profile.entry_allowed ? '✅ Giriş AÇIK' : '🚫 Giriş KAPALI';
-                        prf.textContent = `${entryStr} | TP:%${profile.tp_pct} SL:%${profile.sl_pct} | Max:${profile.max_global_pos} pos`;
-                        prf.style.color = profile.entry_allowed ? '#22c55e' : '#ef4444';
+                        if (!isOpen) {
+                            prf.textContent = '🚫 İşleme Kapalı (Seans Dışı)';
+                            prf.style.color = '#64748b';
+                        } else {
+                            const entryStr = profile.entry_allowed ? '✅ Giriş AÇIK' : '🚫 Giriş KAPALI';
+                            prf.textContent = `${entryStr} | TP:%${profile.tp_pct} SL:%${profile.sl_pct} | Max:${profile.max_global_pos} pos`;
+                            prf.style.color = profile.entry_allowed ? '#22c55e' : '#ef4444';
+                        }
                     }
                 }
             } catch(e) {
@@ -5240,7 +5304,7 @@ document.addEventListener("DOMContentLoaded", function() {
             return `
             <div style="background: ${bgGradient}; border-left: 3px solid ${borderColor}; margin-bottom: 8px; padding: 10px 12px; border-radius: 0 6px 6px 0; transition: all 0.3s ease; animation: fadeIn 0.4s ease-out;">
                 <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #64748b; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #ffffff; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">
                         <i class="fas fa-clock"></i> ${(t.timestamp || '').slice(11, 19) || t.timestamp}
                     </span>
                     <span style="font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.1); color: var(--accent-blue);">
@@ -5264,8 +5328,16 @@ document.addEventListener("DOMContentLoaded", function() {
         if (cryptoThoughts.length === 0) boxCrypto.innerHTML = '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Kripto akışı bekleniyor.</div>';
         else boxCrypto.innerHTML = cryptoThoughts.map(renderThought).join('');
         
-        if (stockThoughts.length === 0) boxStock.innerHTML = '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Hisse senedi akışı bekleniyor.</div>';
-        else boxStock.innerHTML = stockThoughts.map(renderThought).join('');
+        if (window.stockMarketIsOpen === false) {
+            boxStock.innerHTML = '<div style="padding: 12px; color: #64748b; font-size: 13px; text-align: center; border: 1px dashed rgba(255,255,255,0.1); border-radius: 6px; margin: 10px;">😴 BIST ve NASDAQ piyasaları şu an seans dışı (Kapalı).<br><br><span style="font-size:11px;">Astra-6 yapay zeka motoru, piyasalar açılana kadar bu varlıklar için işlem düşüncelerini duraklattı.</span></div>';
+            boxStock.style.opacity = '0.4';
+            boxStock.style.filter = 'grayscale(100%)';
+        } else {
+            boxStock.style.opacity = '1';
+            boxStock.style.filter = 'none';
+            if (stockThoughts.length === 0) boxStock.innerHTML = '<div style="padding:8px; color: var(--text-secondary); font-size:12px;">Hisse senedi akışı bekleniyor.</div>';
+            else boxStock.innerHTML = stockThoughts.map(renderThought).join('');
+        }
         
     } catch (e) { console.error("fetchThoughtStream error:", e); }
     }
@@ -5458,7 +5530,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 
     // OTONOM İÇ SES (TEKNİK + LLM KARIŞIK) SÜREKLİ AKAN ŞERİT
-    async function fetchThoughtStream() {
+    async function fetchThoughtMarquee() {
         try {
             const thoughtMarquee = document.getElementById('aiThoughtMarquee');
             if (!thoughtMarquee) return;
@@ -5484,8 +5556,8 @@ document.addEventListener("DOMContentLoaded", function() {
             // sessiz geç
         }
     }
-    fetchThoughtStream();
-    setInterval(fetchThoughtStream, 3000); // 3 saniyede bir hızlı ve akıcı şekilde güncelle!
+    fetchThoughtMarquee();
+    setInterval(fetchThoughtMarquee, 3000); // 3 saniyede bir hızlı ve akıcı şekilde güncelle!
 
     // OTONOM DIŞ SES (LLM) TETİKLEYİCİ
     async function fetchDynamicVoice() {

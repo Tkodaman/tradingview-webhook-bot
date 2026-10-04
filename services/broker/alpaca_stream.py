@@ -163,7 +163,7 @@ class AlpacaTradeStream:
                     closed_locally = []
                     import datetime
                     for pos_id, pos in live_trade_manager.positions.items():
-                        if pos.status == "OPEN":
+                        if pos.status == "OPEN" and pos.market != "CRYPTO":
                             formatted_sym = broker._format_symbol(pos.symbol) if hasattr(broker, "_format_symbol") else pos.symbol
                             if formatted_sym not in active_symbols:
                                 # GRACE PERIOD (2 dk): Yeni açılan emirler Alpaca'da henüz PENDING (bekleyen/kuyrukta) olabilir.

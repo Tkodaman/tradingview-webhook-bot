@@ -95,7 +95,11 @@ class TradingViewAutoStrategyRunner:
         blackout_active, blackout_reason = macro_fundamental_engine.is_blackout_window_active()
         if blackout_active:
             logger.warning(f"🛑 [BLACKOUT] İşlem Alımları DONDURULDU: {blackout_reason}")
-            bot_thought_stream.add("🔥 MAKRO KARARTMA", "GLOBAL", blackout_reason, "WARNING")
+            bot_thought_stream.add_throttled(
+                "🔥 MAKRO KARARTMA KİLİDİ", "GLOBAL", 
+                f"Admin, FED toplantısı veya kritik makroekonomik veri açıklaması var. Piyasa yapıcıların manipülasyonundan (Whipsaw) korunmak için tüm alımları geçici olarak durdurdum. Sadece açık pozisyonların TP/SL süreçlerini yönetiyorum. Neden: {blackout_reason}", 
+                "WARNING", cooldown_sec=600
+            )
             return []
 
         now_ts = time.time()
@@ -323,7 +327,7 @@ class TradingViewAutoStrategyRunner:
                 logger.info(f"[MEMORY-SOFT] {sym} hafıza cezası -1 (cüretkar mod, devam ediyor)")
 
             # (PORTFOLIO CAP KONTROLÜ AŞAĞIYA TAŞINDI - DÜŞÜNCE AKIŞI KESİLMESİN DİYE)
-            open_positions_list = list(live_trade_manager.positions.values())
+            open_positions_list = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
 
             # KORELASYON KALKANI (Kullanıcı İsteği: Kesin 2 Limit Sınırı)
             corr_ok, corr_reason = correlation_filter.check(sym, open_positions_list)
@@ -710,15 +714,34 @@ class TradingViewAutoStrategyRunner:
                 is_vcp = True
                 score += 30.0  # VCP Avcı Bonusu (Hacimsizlik cezalarını silip uçurur)
                 logger.info(f"🥷 [VCP HUNTER] {sym} Sessizlik Patlaması (Squeeze) hazırlığı algılandı! Pusuya yatılıyor (+30 Puan).")
-                bot_thought_stream.add(
+                bot_thought_stream.add_throttled(
                     "🥷 VCP Patlama Pususu", sym, 
-                    f"Hacim kurumuş (Vol: {vol_ratio:.2f}) ama fiyat düşmüyor. Sessizlik patlaması öncesi pozisyon alınıyor.", 
-                    "SUCCESS"
+                    f"Admin, VCP (Volatilite Daralması) formasyonu saptadım. Hacim {vol_ratio:.2f} seviyesine kadar kurumuş fakat fiyatın altına inilmiyor. Sessizlik patlaması bekliyorum, radarıma alıp pusuya yatıyorum.", 
+                    "SUCCESS", cooldown_sec=300
+                )
+
+            # =========================================================
+            # 🔮 ÖNGÖRÜ (FORESIGHT) & GİZLİ BALİNA TESPİTİ (Erken Atlayış)
+            # =========================================================
+            is_foresight_early_jump = False
+            # [KONSEY REVİZYONU]: Hacim şişmesi (vol_ratio) tek başına yeterli değil, bu bir satış hacmi olabilir (Dump).
+            # Güvenlik Kontrolleri:
+            # 1. 0 <= chg_pct < 1.5 -> Fiyat eksiye düşmemiş, yatay veya hafif yeşil.
+            # 2. bid_ask_ratio >= 0.55 -> Giren devasa hacim, ALICI (Buy Wall) baskısı. Satış değil!
+            # 3. 55 <= rsi <= 68 -> Trend momentumu boğa tarafında tırmanışa geçmiş.
+            if 0.0 <= chg_pct < 1.5 and vol_ratio >= 1.5 and 55.0 <= rsi <= 68.0 and bid_ask_ratio >= 0.55:
+                is_foresight_early_jump = True
+                score += 15.0  # +15 çok güçlü bir itici güçtür ama ML veya Direnç bloklarını (Trap) tamamen körü körüne delmez.
+                logger.info(f"🔮 [FORESIGHT PRE-BREAKOUT] {sym} Piyasadan önce balina ALIMI saptandı (Bid/Ask: %{bid_ask_ratio*100:.1f})! Erkenden atlanıyor (+15 Puan).")
+                bot_thought_stream.add_throttled(
+                    "🔮 Öngörü & Gizli Balina", sym, 
+                    f"Admin, {sym} tahtasında fiyat henüz hareket etmemiş (Chg: %{chg_pct:.2f}) ancak derinlikte balina alımları seziyorum (Bid:%{bid_ask_ratio*100:.0f}). Gerçek kırılım gelmeden önce ön saflarda yerimi alıyorum.", 
+                    "SUCCESS", cooldown_sec=300
                 )
 
             # Soft ceza toplamını skora ekle
-            if is_vcp:
-                score += fakeout_penalty + pullback_penalty # stale ve memory cezaları VCP'de yok sayılır
+            if is_vcp or is_foresight_early_jump:
+                score += fakeout_penalty + pullback_penalty # stale ve memory cezaları VCP ve Öngörü'de yok sayılır
             else:
                 score += stale_penalty + memory_penalty + fakeout_penalty + pullback_penalty
 
@@ -774,7 +797,7 @@ class TradingViewAutoStrategyRunner:
                     continue
                 
                 if ml_prob >= 0.70: 
-                    bot_thought_stream.add("🧠 Otonom Onay (Tier-1)", sym, f"Makine Öğrenimi (Win: %{ml_prob*100:.0f}) güvenliği onayladı. Fırsat geçerli.", "SUCCESS")
+                    bot_thought_stream.add_throttled("🧠 Otonom Onay (Tier-1)", sym, f"Admin, temel filtreleri geçtik. Makine Öğrenimi (ML) motorum bu setup'ı inceledi ve kazanma ihtimalimizi %{ml_prob*100:.0f} olarak onayladı. Kasa yönetimine (Router) aktarıyorum.", "SUCCESS", cooldown_sec=180)
             except Exception as ml_err:
                 pass
 
@@ -865,7 +888,8 @@ class TradingViewAutoStrategyRunner:
                 1 for p in live_trade_manager.positions.values()
                 if p.status == "OPEN" and p.market == _mtype_local
             )
-            max_pos_for_market = max_pos_for_market_regime
+            # Piyasa bazında maksimum pozisyon limiti: Kripto için 8, NASDAQ için 12
+            max_pos_for_market = 8 if _mtype_local == "CRYPTO" else 12
             if open_pos_in_market >= max_pos_for_market:
                 msg = f"[MARKET LIMIT BLOCK] {sym} reddedildi. {_mtype_local} için maksimum ({open_pos_in_market}/{max_pos_for_market}) açık pozisyon limitine ulaşıldı."
                 logger.info(msg)
@@ -901,18 +925,32 @@ class TradingViewAutoStrategyRunner:
                     pass
                 continue
 
-            # BÜTÇE LİMİT KONTROLÜ — Sadece broker onaylı pozisyonlar sayılır
-            total_invested = sum(
-                p.nominal_value for p in live_trade_manager.positions.values()
-                if p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)
-            )
-            if total_invested >= settings.base_portfolio_size:
+            # BÜTÇE LİMİT KONTROLÜ (Yalıtılmış Bütçe Mimarisi)
+            is_crypto = _mtype_local == "CRYPTO"
+            if is_crypto:
+                total_invested = sum(
+                    p.nominal_value for p in live_trade_manager.positions.values()
+                    if (p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)) and p.market == "CRYPTO"
+                )
+                active_budget_limit = float(settings.base_portfolio_size)
+            else:
+                total_invested = sum(
+                    p.nominal_value for p in live_trade_manager.positions.values()
+                    if (p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)) and p.market != "CRYPTO"
+                )
+                active_budget_limit = 8000.0  # Alpaca (Hisse) bütçesi
+
+            if total_invested >= active_budget_limit:
                 if score >= required_score + 3.0:
                     logger.info(f"💎 [BUDGET OVERRIDE] {sym} Bütçe sınırında ancak efsanevi fırsat (Skor {score}). Minimal lot (x0.3) ile dahil olunuyor.")
-                    bot_thought_stream.add("💎 Bütçe Kısıtlı Ama Fırsat Büyük", sym, "Ana bütçe doldu fakat küçük risk alınarak (x0.3) işleme giriliyor.", "SUCCESS")
+                    bot_thought_stream.add_throttled(
+                        "💎 Bütçe Kısıtlı Ama Fırsat Büyük", sym, 
+                        f"Admin, {active_budget_limit}$ yalıtılmış bütçe tavanına ulaştık ama sistem nadir görülen {score:.1f} puanlık bir volatilite yakaladı. Güvenlik kurallarını esnetip riski x0.3'e düşürerek bu fırsatı portföye sızdırıyorum.", 
+                        "SUCCESS", cooldown_sec=300
+                    )
                     vol_penalty *= 0.3
                 else:
-                    msg = f"[BUDGET LIMIT BLOCK] {sym} reddedildi. {settings.base_portfolio_size}$ bütçe limitine ulaşıldı."
+                    msg = f"[BUDGET LIMIT BLOCK] {sym} reddedildi. {active_budget_limit}$ bütçe limitine ulaşıldı."
                     logger.info(msg)
                     try:
                         experience_memory_engine.add_live_log(_mtype_local, "BLOCK", msg)
@@ -1096,7 +1134,7 @@ class TradingViewAutoStrategyRunner:
                     macro_tags=[f"STRATEGY_{strategy_tag}", f"SCORE_{score}_OF_8", f"MODE_{current_mode}"]
                 )
                 if self.is_running:
-                    res = process_order(signal)
+                    res = await asyncio.to_thread(process_order, signal)
                     # Y1 AUTO-RUNNER için journal kaydı (process_order içinde de yapılıyor, burada ek log)
                     logger.info(f"[AUTO-RUNNER EXECUTED] {sym} BUY @ ${price:.2f} | Score: {score}/8 | Result: {res.get('status')}")
                     executed_triggers.append({
@@ -1157,10 +1195,45 @@ class TradingViewAutoStrategyRunner:
             if block_r:
                 reason_str += f", ancak şu an {block_r} olduğu için eyleme geçemiyorum"
             
-            # LLM / Astra-6 formatında samimi, net ve teknik öngörü
+            import random
+            
+            # Rastgele cümle kalıpları ile zenginleştirilmiş dil yapısı
+            intros_high_score = [
+                "Selam Admin. Piyasa taramamda en çok dikkatimi çeken varlık",
+                "Admin, algoritmalarım alarm veriyor. Şu an odaklandığım ana hedef",
+                "Tüm piyasayı taradım ve şu an en olgunlaşmış kurulum",
+                "Admin, radarıma çok güçlü bir sinyal takıldı:"
+            ]
+            
+            intros_low_score = [
+                "Admin, fırsat havuzunda izlemeye aldığım varlıklardan biri",
+                "Şu an arka planda sessizce takip ettiğim tahta",
+                "Piyasada henüz net bir kırılım yok ancak potansiyel gördüğüm varlık",
+                "Admin, henüz tetiğe basmak için erken ama gözüm üzerinde:"
+            ]
+            
+            outros_high_score = [
+                "Sahte kırılıma (fakeout) düşmemek için 'Golden Setup' onayı bekliyorum.",
+                "Hacim teyidi geldiği an affetmeyip tetiğe basacağım.",
+                "Risk/Ödül oranı şu an tam istediğim gibi. Karar aşamasındayım.",
+                "Makine Öğrenimi motorumdan son teyidi bekliyorum, sonrasında işleme gireceğim."
+            ]
+            
+            outros_low_score = [
+                "Tam bir güvenli kırılım (breakout) teyidi alamadığım için eyleme geçmeden beklemedeyim.",
+                "Piyasa yapıcıların (Smart Money) ayak izlerini daha net görmem gerekiyor.",
+                "Volatility düşük, bu yüzden sermayeyi riske atmak yerine izlemeyi tercih ediyorum.",
+                "Şartların biraz daha olgunlaşmasını beklemek en mantıklısı."
+            ]
+            
+            intro = random.choice(intros_high_score if sc >= 2.0 else intros_low_score)
+            outro = random.choice(outros_high_score if sc >= 2.0 else outros_low_score)
+            styled_sym = f"<span style='color:var(--accent-yellow); font-weight:bold;'>{sym}</span>" if sc >= 2.0 else f"<span style='color:var(--text-secondary); font-weight:bold;'>{sym}</span>"
+            
+            # Dinamik düşünce metni oluştur
+            thought = f"{intro} {styled_sym} (YZ Skoru: {sc:.1f}/8). Bu varlıkta {reason_str}. {outro}"
+            
             if sc >= 2.0:
-                thought = f"Selam Admin. Piyasayı tararken radarıma takılan en güçlü fırsat şu an <span style='color:var(--accent-yellow); font-weight:bold;'>{sym}</span> (Yapay Zeka Skoru: {sc:.1f}/8). Bu varlığın {reason_str}. Fırsatı kaçırmamak ama sahte kırılıma (fakeout) da düşmemek için kusursuz bir 'Golden Setup' onayı bekliyorum. Tetiğe basmak üzereyim."
-                
                 if sym not in self.virtual_paper_trades and sym not in live_trade_manager.positions:
                     self.virtual_paper_trades[sym] = {
                         "entry_price": best.get("price", 0.0),
@@ -1169,15 +1242,19 @@ class TradingViewAutoStrategyRunner:
                         "block_reason": block_r or "teyit beklemesi",
                         "indicators": {"rsi": rsi, "volume_ratio": vol}
                     }
-            else:
-                thought = f"Admin, şu an fırsat havuzunda <span style='color:var(--text-secondary); font-weight:bold;'>{sym}</span> tahtasını yakın markaja aldım (Skor: {sc:.1f}). Varlıkta {reason_str}. Ancak henüz tam bir güvenli kırılım (breakout) teyidi alamadığım için eyleme geçmeden beklemedeyim."
             
-            # Cooldown 15 saniyeye düşürüldü, akış sürekli devam edecek.
+            # Sadece sembol değiştiğinde veya 120 sn geçtiğinde logla (Tekrarı önlemek için)
+            if getattr(self, "_last_thought_symbol", "") != sym:
+                cooldown = 15 # Sembol değiştiyse hızlı bildir
+                self._last_thought_symbol = sym
+            else:
+                cooldown = 120 # Aynı sembolse spam yapma
+            
             logger.info(f"[THOUGHT STREAM] Adding thought for {sym} to bot_thought_stream. Score: {sc}")
-            bot_thought_stream.add_throttled("🧠 Astra-6 Analitiği", sym, thought, "INFO", cooldown_sec=15)
+            bot_thought_stream.add_throttled("🧠 Astra-6 Analitiği", sym, thought, "INFO", cooldown_sec=cooldown)
         else:
             # En iyi aday bulunamadı (Tüm varlıklar kalkanlara takıldı veya fırsat yok)
-            open_pos_count = len(live_trade_manager.positions)
+            open_pos_count = len([p for p in live_trade_manager.positions.values() if p.status == "OPEN"])
             if open_pos_count >= 12:
                 bot_thought_stream.add_throttled("🤖 ASTRA AI (Portföy Dolu)", "SİSTEM", f"Portföy kapasitesi tam dolu ({open_pos_count}). Yeni sinyal aramıyorum, mevcut kârları maksimize etmeye ve yönetmeye odaklandım.", "INFO", cooldown_sec=60)
             else:

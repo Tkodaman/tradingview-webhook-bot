@@ -37,7 +37,7 @@ class LLMMasterAgentService:
 
         # -- Gemini (Yedek/Ana Motor) --
         self._api_key  = os.getenv('GEMINI_API_KEY', '')
-        self._model_gemini = os.getenv('GEMINI_MODEL_NAME', 'gemini-3.1-pro-preview')
+        self._model_gemini = os.getenv('GEMINI_MODEL_NAME', 'gemini-3.8-flash')
         self._generative_model = None
         self._gemini_ready  = False
 

@@ -300,31 +300,39 @@ async def get_live_buy_sell_wait_matrix():
             momentum_phase = "MIXED_TREND"
             # risk_block_reason = ... (İptal edildi, erken trendleri blokluyordu)
             
-        # ==========================================
-        # KASA VE BÜTÇE DİSİPLİNİ (10 MAX + 4 BOT İNSİYATİFİ YEDEK = 14 MAX)
-        # BIST Alpaca'da işlem görmediği için portföy kapasitesi sadece NASDAQ+Kripto hesaplanır.
-        # ==========================================
-        active_positions_list = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
-        total_active_count = len(active_positions_list)
+        # === YALITILMIŞ BÜÜE VE KAPASITE DİSİPLİNİ ===
+        # Kripto (Binance) ve Hisse Senedi (Alpaca) birbirinden ÜzelÜ tutulur.
+        # Kripto: maks 8 pozisyon, Hisse: maks 12 pozisyon.
+        is_crypto_sym = ("USDT" in sym.upper() or sym.upper().endswith("BTC") or "/" in sym)
+        if is_crypto_sym:
+            crypto_open = [p for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO"]
+            crypto_invested = sum(p.nominal_value for p in crypto_open)
+            market_limit = 8
+            market_open_count = len(crypto_open)
+            budget_used = crypto_invested
+            budget_limit = 1200.0  # Binance tarafı
+        else:
+            stock_open = [p for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market != "CRYPTO"]
+            stock_invested = sum(p.nominal_value for p in stock_open)
+            market_limit = 12
+            market_open_count = len(stock_open)
+            budget_used = stock_invested
+            budget_limit = 8000.0  # Alpaca tarafı
         
+        if not open_pos and not risk_block_reason:
+            if market_open_count >= market_limit:
+                risk_block_reason = f"Bütçe Dolu ({market_open_count}/{market_limit} pozisyon). Nadir fırsatlar için rotasyon modu bekleniyor."
+            elif budget_limit > 0 and budget_used >= (budget_limit * 0.92):
+                # Bütüenin %92'si dolysa sadece çok güçlü fırsatlar girebilir
+                if score < 6:
+                    risk_block_reason = f"Bütçe Esneme Bölgesinde (${budget_used:.0f}/${budget_limit:.0f}). Güçlü fırsatlar için saklanıyor (Skor: {score})."
+            
+        active_positions_list = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
         try:
             from services.risk_engine.rotation_engine import rotation_engine
         except ImportError:
             rotation_engine = None
-        
-        if not open_pos and not risk_block_reason: # Eğer halihazırda sahte sinyal engeli yoksa, bütçe engelini kontrol et
-            if total_active_count >= 14:
-                # Kasa yedeklerle birlikte tamamen dolu (14 max), SADECE ROTASYON yapılabilir.
-                rotate_ok = False
-                if rotation_engine:
-                    rotate_ok = rotation_engine.evaluate_rotation(sym, score, data, active_positions_list).get("rotate", False)
-                if not rotate_ok:
-                    risk_block_reason = f"Bütçe Dolu (Kapasite: {total_active_count}/14). Nakit bitti, sadece devasa fırsatlar için rotasyon izni var."
-            elif total_active_count >= 10:
-                # 10 Varlıktan sonra sadece bot insiyatifi devreye girer (çok güçlü fırsatlar)
-                if score < 6:
-                    risk_block_reason = f"Kasa Esneme Bölgesinde ({total_active_count}/10). Yedek 4 kapasite sadece çok güçlü fırsatlara saklanıyor. Bu fırsat elendi (Skor: {score})."
-            
+
         rotation_check = {"rotate": False}
         if not open_pos and not risk_block_reason and not data_gate_blocked:
             try:

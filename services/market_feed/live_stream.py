@@ -10,7 +10,7 @@ import time
 import random
 import json
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -47,7 +47,7 @@ class ActivePosition(BaseModel):
     atr_value: float = 0.0
     use_chandelier_exit: bool = False
     capital_allocated: float = 0.0  # Pozisyon için ayrılan sermaye ($)
-    broker_order_id: Optional[str] = None
+    broker_order_id: Optional[Union[str, int]] = None
     confidence_score: Optional[float] = None
     entry_indicators: Dict[str, Any] = Field(default_factory=dict)
 
@@ -92,8 +92,8 @@ class LiveTradeManager:
                     
                     possible_symbols = [raw_sym]
                     if asset_class == "crypto" or (raw_sym.endswith("USD") and raw_sym != "USD"):
-                        if raw_sym.endswith("USD"):
-                            possible_symbols.append(raw_sym + "T")
+                        logger.debug(f"[ALPACA SYNC] Ignoring crypto position {raw_sym} from Alpaca to prevent mixing with Binance.")
+                        continue
                             
                     active_broker_symbols.update(possible_symbols)
                     
@@ -148,6 +148,8 @@ class LiveTradeManager:
             stale_positions = [
                 p for p in self.positions.values()
                 if p.status in ["OPEN", "PENDING_BROKER"] and p.symbol not in active_broker_symbols
+                # Kripto (Spot) pozisyonları yerel hafızada tutulur (Broker 'pozisyon' klasöründe görünmez), Hayalet sayma!
+                and not ("USDT" in p.symbol or "/" in p.symbol or p.symbol.endswith("USD") or "BTC" in p.symbol)
             ]
             for sp in stale_positions:
                 logger.info(f"[GHOST CLEANUP] {sp.symbol} broker'da yok (status={sp.status}). Hayalet pozisyon silindi.")
@@ -172,6 +174,8 @@ class LiveTradeManager:
                 
                 pos_data = data.get("positions", {})
                 for pid, pdict in pos_data.items():
+                    if pdict.get("market") == "CRYPTO":
+                        continue
                     self.positions[pid] = ActivePosition(**pdict)
             
             # Trade history is managed in DB separately but cached for API usage (last 100)
@@ -330,10 +334,33 @@ class LiveTradeManager:
         Kasa Bakiyesine Göre Dinamik Pozisyon Bütçesi + Süpervizör Risk Çarpanı + Kelly Kriteri
         """
         from core.config import settings
-        # Temel tahsis yerine confidence_score ile dinamik Kelly ölçeklemesi
-        # Confidence %50 ise %2 tahsis, %100 ise %8 tahsis
-        alloc_pct = 0.02 + (confidence_score - 0.5) * 0.12 if confidence_score >= 0.5 else 0.02
-        alloc_pct = max(0.01, min(0.07, alloc_pct)) # %1 ile %7 arası sınırlandır (Max 14 pozisyon)
+        
+        sym_upper = symbol.upper()
+        is_crypto = "USDT" in sym_upper or "/" in sym_upper or sym_upper.endswith("USD") or "BTC" in sym_upper
+        
+        if is_crypto:
+            # Kullanıcı talebi: Kripto aktif bütçe 1200$, Maksimum 8 pozisyon. 
+            active_budget_limit = float(settings.base_portfolio_size)
+            
+            allocated_crypto = sum(
+                p.nominal_value for p in self.positions.values() 
+                if p.status in ["OPEN", "PENDING_BROKER"] and p.market == "CRYPTO"
+            )
+            available = active_budget_limit - allocated_crypto
+        else:
+            # Alpaca (Hisse Senedi) Kesin Bütçesi: 8 Bin Dolar (12 Pozisyon)
+            active_budget_limit = 8000.0
+            
+            allocated_stock = sum(
+                p.nominal_value for p in self.positions.values()
+                if p.status in ["OPEN", "PENDING_BROKER"] and p.market != "CRYPTO"
+            )
+            available = active_budget_limit - allocated_stock
+        
+        # Ortalama tahsis 1/8 (%12.5)
+        # Güvene (Confidence) göre %8 ile %16 arası değişebilir.
+        alloc_pct = 0.125 + (confidence_score - 0.5) * 0.10
+        alloc_pct = max(0.08, min(0.16, alloc_pct))
         
         try:
             from services.engine.supervisor_agent import supervisor_agent
@@ -341,17 +368,14 @@ class LiveTradeManager:
         except ImportError:
             multiplier = 1.0
             
-        base_capital = round(self.total_account_equity * alloc_pct, 2)
+        base_capital = round(active_budget_limit * alloc_pct, 2)
         adjusted_capital = base_capital * multiplier
         
-        # En az 10$, en fazla bakiyenin %99'u kadar
-        cap = max(10.0, min(adjusted_capital, self.total_account_equity * 0.99))
+        # Limitler (Bir işleme kasa bütçesinin en fazla %20'si basılabilir)
+        cap = max(10.0, min(adjusted_capital, active_budget_limit * 0.20)) 
         
-        # KULLANICI TALEBİ: Kesinlikle 500$ üzerinde alım yapılamaz (Hard Limit)
-        cap = min(cap, 500.0)
-        
-        # Kesin Alpaca bütçe uyumluluğu: Serbest nakitin %95'ini geçemez
-        return min(cap, max(10.0, self.available_cash * 0.95))
+        # Kalan serbest nakitten (available) fazla alınamaz
+        return min(cap, max(10.0, available * 0.95))
 
     def get_live_prices(self, fetch_new: bool = True) -> Dict[str, Any]:
         """
@@ -537,9 +561,27 @@ class LiveTradeManager:
         except Exception as e:
             logger.warning(f"[EVADER ERROR] {e}")
 
-        open_count = len([p for p in self.positions.values() if p.status == "OPEN"])
-        if open_count >= 15 or self.available_cash < 10.0 or capital > self.available_cash:
-            logger.warning(f"BÜTÇE LİMİTİ AŞILDI (Alpaca uyumlu): {sym} İşlemi reddedildi. İstenen: ${capital}, Serbest Nakit: ${self.available_cash}")
+        open_count_all = len([p for p in self.positions.values() if p.status == "OPEN"])
+        
+        # YALITILMIŞ BÜTÇE KONTROLÜ (Binance Kripto ve Alpaca Hisse birbirine karıştırılamaz)
+        from core.config import settings
+        if market == "CRYPTO":
+            # Binance (Kripto) Bütçesi
+            max_pos = 8  # Binance için maksimum 8 pozisyon
+            crypto_positions = [p for p in self.positions.values() if p.status in ["OPEN", "PENDING_BROKER"] and p.market == "CRYPTO"]
+            open_count = len([p for p in crypto_positions if p.status == "OPEN"])
+            allocated = sum(p.nominal_value for p in crypto_positions)
+            available = float(settings.base_portfolio_size) - allocated
+        else:
+            # Alpaca (Hisse) Bütçesi: Sınır 8 Bin Dolar ve Max 12 Pozisyon
+            max_pos = 12
+            stock_positions = [p for p in self.positions.values() if p.status in ["OPEN", "PENDING_BROKER"] and p.market != "CRYPTO"]
+            open_count = len([p for p in stock_positions if p.status == "OPEN"])
+            allocated = sum(p.nominal_value for p in stock_positions)
+            available = 8000.0 - allocated
+        
+        if open_count >= max_pos or available < 10.0 or capital > available:
+            logger.warning(f"BÜTÇE LİMİTİ AŞILDI ({market} Yalıtılmış Bütçe): {sym} İşlemi reddedildi. İstenen: ${capital}, Serbest Nakit: ${available} (Açık Pozisyonlar: {open_count}/{max_pos})")
             return None
 
         # %0.08 Slippage ile gerçek giriş fiyatı
@@ -587,47 +629,49 @@ class LiveTradeManager:
             entry_indicators=entry_indicators or {}
         )
 
-        # Broker emri: Alpaca basarisiz olsa bile PAPER modda lokal pozisyon her zaman acilir.
-        # LIVE modda Alpaca reddi = pozisyon acilmaz (gercek para riski).
-        if market in ["NASDAQ", "CRYPTO"]:
+        # Broker emri: Kripto (CRYPTO) işlemleri order_router.py TWAP motoru tarafından yönetilir.
+        # Hisse senetleri (NASDAQ) için Alpaca'ya lokal olarak emir iletilir.
+        # Çift emir (ghost trade) önlemek için kripto broker çağrısı buradan yapılmaz.
+        is_crypto_pos = ("USDT" in sym.upper() or "/" in sym or sym.upper().endswith("USD") or "BTC" in sym.upper())
+        if market in ["NASDAQ"] and not is_crypto_pos:
             try:
                 from services.broker.factory import get_broker
                 from core.config import settings
                 is_paper = settings.trading_mode.upper() != "LIVE"
                 broker = get_broker("ALPACA", paper=is_paper)
-                if broker and broker.api:
-                    if market in ["NASDAQ", "CRYPTO"]:
-                        res = broker.place_bracket_order(
-                            symbol=sym,
-                            side=side,
-                            qty=qty,
-                            take_profit_price=tp_price,
-                            stop_loss_price=sl_price,
-                            limit_price=entry_price
-                        )
                     
+                if broker and getattr(broker, 'api', None):
+                    res = broker.place_bracket_order(
+                        symbol=sym,
+                        side=side,
+                        qty=qty,
+                        take_profit_price=tp_price,
+                        stop_loss_price=sl_price,
+                        limit_price=entry_price
+                    )
                     if res.get("status") == "success":
                         pos.broker_order_id = res.get("order_id")
-                        logger.info(f"[ALPACA BRACKET] {sym} emir basariyla iletildi. OrderID: {res.get('order_id')}")
+                        pos.status = "OPEN"
+                        logger.info(f"[BROKER ALPACA] {sym} emir başarıyla iletildi. OrderID: {res.get('order_id')}. Statü OPEN olarak güncellendi.")
                     else:
                         err_msg = res.get("message", "?")
                         if not is_paper:
-                            # LIVE modda Alpaca reddederse pozisyon acma
-                            logger.error(f"[ALPACA REJECTED - LIVE] {sym}: {err_msg}. Pozisyon acilmadi.")
+                            logger.error(f"[ALPACA REJECTED - LIVE] {sym}: {err_msg}. Pozisyon açılmadı.")
                             return None
                         else:
-                            # PAPER / simulasyon modda lokal olarak ac (manuel islemler icin)
-                            logger.warning(f"[ALPACA REJECTED - PAPER] {sym}: {err_msg}. Lokal (sanal) pozisyon aciliyor.")
+                            logger.warning(f"[BROKER REJECTED - PAPER] {sym}: {err_msg}. Lokal (sanal) pozisyon açılıyor.")
                 else:
-                    logger.warning(f"[SIMULATION] {sym}: Alpaca API yok. Lokal (sanal) pozisyon aciliyor.")
+                    logger.warning(f"[SIMULATION] {sym}: Alpaca API bağlantısı yok. Lokal pozisyon açılıyor.")
             except Exception as e:
                 from core.config import settings
                 is_paper = settings.trading_mode.upper() != "LIVE"
                 if not is_paper:
-                    logger.error(f"[ALPACA HATA - LIVE] {sym} broker iletimi basarisiz: {e}. Pozisyon acilmadi.")
+                    logger.error(f"[BROKER HATA - LIVE] {sym} Alpaca iletimi başarısız: {e}. Pozisyon açılmadı.")
                     return None
                 else:
-                    logger.warning(f"[ALPACA HATA - PAPER] {sym} broker baglantisi basarisiz: {e}. Lokal pozisyon aciliyor.")
+                    logger.warning(f"[BROKER HATA - PAPER] {sym} Alpaca bağlantısı başarısız: {e}. Lokal pozisyon açılıyor.")
+        elif is_crypto_pos:
+            logger.info(f"[CRYPTO BROKER] {sym}: Broker emri order_router TWAP motoruna devredildi (Çift Emir Koruması AKTİF).")
 
         self.positions[pos_id] = pos
         self.save_state()
@@ -669,9 +713,13 @@ class LiveTradeManager:
             try:
                 from services.broker.factory import get_broker
                 is_paper = settings.trading_mode.upper() != "LIVE"
-                broker = get_broker("ALPACA", paper=is_paper)
-                if broker and broker.api:
-                    tif = "gtc" if pos.market == "CRYPTO" else "day"
+                target_broker_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
+                broker = get_broker(target_broker_name, paper=is_paper if target_broker_name == "ALPACA" else True)
+                
+                if target_broker_name == "BINANCE" and broker and getattr(broker, 'client', None):
+                    broker.place_market_order(pos.symbol, "SELL" if pos.side == "BUY" else "BUY", close_qty)
+                elif target_broker_name == "ALPACA" and broker and getattr(broker, 'api', None):
+                    tif = "day"
                     broker.api.submit_order(
                         symbol=broker._format_symbol(pos.symbol),
                         qty=str(close_qty),
@@ -794,14 +842,17 @@ class LiveTradeManager:
             gross_pnl = round(pos.quantity * (pos.entry_price - curr_price), 2)
 
         # 🚨 BROKER-SIDE LIQUIDATION 🚨
-        if pos.market in ["NASDAQ", "CRYPTO"]:
+        if pos.market in ["NASDAQ", "CRYPTO"] and not pos.id.startswith("SHADOW"):
             try:
                 from services.broker.factory import get_broker
                 from core.config import settings
                 is_paper = settings.trading_mode.upper() != "LIVE"
-                broker = get_broker("ALPACA", paper=is_paper)
-                if broker and broker.api:
-                    # Liquidation cancels attached bracket orders automatically in Alpaca
+                
+                target_broker_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
+                broker = get_broker(target_broker_name, paper=is_paper if target_broker_name == "ALPACA" else True) # Binance is always Testnet (Paper) for now
+                
+                if broker and getattr(broker, 'api', None) or (target_broker_name == "BINANCE" and getattr(broker, 'client', None)):
+                    # Liquidation cancels attached bracket orders automatically
                     close_res = broker.close_position(pos.symbol)
                     from core.logger import logger
                     if close_res.get("status") == "success":
@@ -810,15 +861,16 @@ class LiveTradeManager:
                         logger.warning(f"[ALPACA SYNC WARN] {pos.symbol} kapatılamadı (Zaten kapanmış olabilir): {close_res.get('message')}")
                     
                     # Eğer pozisyon Alpaca'ya yansımamışsa (PENDING LIMIT durumundaysa), o askıda kalan emri bulup iptal et:
-                    try:
-                        open_orders = broker.api.list_orders(status='open')
-                        formatted_sym = broker._format_symbol(pos.symbol)
-                        for o in open_orders:
-                            if broker._format_symbol(o.symbol) == formatted_sym:
-                                broker.api.cancel_order(o.id)
-                                logger.info(f"🗑️ [ALPACA CLEANUP] {pos.symbol} için askıda kalan açık emir ({o.id}) iptal edildi.")
-                    except Exception as cancel_err:
-                        logger.warning(f"[ALPACA CLEANUP WARN] {pos.symbol} açık emirleri iptal edilemedi: {cancel_err}")
+                    if target_broker_name == "ALPACA":
+                        try:
+                            open_orders = broker.api.list_orders(status='open')
+                            formatted_sym = broker._format_symbol(pos.symbol)
+                            for o in open_orders:
+                                if broker._format_symbol(o.symbol) == formatted_sym:
+                                    broker.api.cancel_order(o.id)
+                                    logger.info(f"🗑️ [ALPACA CLEANUP] {pos.symbol} için askıda kalan açık emir ({o.id}) iptal edildi.")
+                        except Exception as cancel_err:
+                            logger.warning(f"[ALPACA CLEANUP WARN] {pos.symbol} açık emirleri iptal edilemedi: {cancel_err}")
                         
             except Exception as e:
                 from core.logger import logger

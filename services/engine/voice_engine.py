@@ -29,7 +29,7 @@ class AIVoiceEngine:
             last_insight = insights[-1] if insights else "Henüz bir ders çıkarılmadı."
             
             # Portföy durumu
-            open_positions = len(live_trade_manager.positions)
+            open_positions = len([p for p in live_trade_manager.positions.values() if p.status == "OPEN"])
             port_status = f"Açık Pozisyon: {open_positions} (Max Kapasite: 14)"
             is_full = open_positions >= 14
             

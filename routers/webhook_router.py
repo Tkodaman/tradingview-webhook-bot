@@ -95,5 +95,6 @@ async def webhook_receiver(signal: WebhookSignal, request: Request):
         )
 
     # 5. NORMAL İŞLEM SÜRECİ
-    result = process_order(signal)
+    import asyncio
+    result = await asyncio.to_thread(process_order, signal)
     return result

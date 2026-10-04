@@ -104,6 +104,18 @@ def get_active_positions():
                     
                 # Eğer yerel (PAPER) açık pozisyonlar varsa ve Alpaca'da yoksa, onları raw_positions'a ekle
                 # live_trade_manager.positions dictionary'sinde key pos_id'dir.
+                
+                # BİNANCE BAKİYESİNİ ÇEK
+                binance_cash = 0.0
+                try:
+                    b_broker = get_broker("BINANCE", paper=True)
+                    if b_broker and getattr(b_broker, 'client', None):
+                        b_bal = b_broker.client.get_asset_balance('USDT')
+                        if b_bal and b_bal.get('free'):
+                            binance_cash = float(b_bal['free'])
+                except Exception:
+                    pass
+                
                 added_local_symbols = set()
                 for pos_id, lp in live_trade_manager.positions.items():
                     local_sym = (lp.symbol or "").upper()
@@ -253,10 +265,21 @@ def get_active_positions():
                 
                 # real_available_cash already fetched from broker above
                 
+                # Calculate Binance Dynamic Budget and Commissions
+                crypto_realized = sum(float(t.get("net_pnl", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
+                crypto_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
+                alpaca_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") != "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
+                
+                binance_budget_limit = float(settings.base_portfolio_size) + crypto_realized - crypto_comm
+                
                 result = {
                     "account_balance": round(effective_balance, 2),
                     "available_cash": round(real_available_cash, 2),
-                    "total_commissions_paid": round(live_trade_manager.total_commissions_paid + sum(p.commission_fees for p in live_trade_manager.positions.values() if p.status == "OPEN"), 2),
+                    "total_commissions_paid": round(alpaca_comm, 2), # Legacy backward compatibility
+                    "alpaca_commission": round(alpaca_comm, 2),
+                    "binance_commission": round(crypto_comm, 2),
+                    "binance_cash": round(binance_cash, 2),
+                    "binance_budget_limit": round(binance_budget_limit, 2),
                     "active_positions": active_list,
                     "history": live_trade_manager.trade_history[:10]
                 }

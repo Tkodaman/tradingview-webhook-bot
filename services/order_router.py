@@ -45,16 +45,20 @@ def _execute_grid_strategy(signal: WebhookSignal, council_verdict: Dict[str, Any
     Alpaca kriptoda taker/maker komisyonu mevcuttur (örneğin %0.1). Hisse senedinde ise slippage ve ufak SEC fee'ler.
     Biz güvenli tarafta kalıp %0.2 round-trip (gidiş-dönüş) komisyon maliyeti hesaplayacağız.
     """
-    base_cost_pct = 0.20 # Yüzde 0.20 Gidiş-Dönüş Maliyet (Komisyon + Slippage)
+    symbol_upper = signal.symbol.upper()
+    is_crypto = "USDT" in symbol_upper or "/" in symbol_upper or symbol_upper.endswith("USD") or "BTC" in symbol_upper
+
+    # Eğer Binance Kripto ise komisyon sıfıra yakın (testnet) veya çok düşük (binde 1).
+    base_cost_pct = 0.05 if is_crypto else 0.20 # Yüzde 0.20 Hisse, 0.05 Kripto
     atr_pct = float(signal.indicators.get('atr_pct', 0.5)) if signal.indicators else 0.5
     
     # Oransal ilerleme: Eğer kazanç aralığı (ATR) komisyonun 1.5 katını bile karşılamıyorsa işlem yapma
     if atr_pct < base_cost_pct * 1.5:
-        logger.warning(f"[GRID REDDEDİLDİ] {signal.symbol} ATR ({atr_pct:.2f}%) Alpaca komisyon/slippage maliyetini (%{base_cost_pct}) aşamıyor. Grid kurmak oransal olarak kârsız.")
+        logger.warning(f"[GRID REDDEDİLDİ] {signal.symbol} ATR ({atr_pct:.2f}%) maliyeti (%{base_cost_pct}) aşamıyor. Grid kârsız.")
         return _strict_rejection(signal, "GRID_UNPROFITABLE_DUE_TO_COMMISSION")
         
     grid_spacing = atr_pct / 3.0  # ATR'yi 3 parçaya bölüp limit order grid atıyoruz
-    logger.info(f"🕸️ [HUMMINGBOT GRID] {signal.symbol} için {grid_spacing:.2f}% aralıklarla Grid Izgarası aktif edildi! (Alpaca komisyonu dahil edildi).")
+    logger.info(f"🕸️ [HUMMINGBOT GRID] {signal.symbol} için {grid_spacing:.2f}% aralıklarla Grid Izgarası aktif edildi! (Maliyet dahil).")
     
     # Grid pozisyonunu shadow olarak kaydet ki UI'da görünsün
     try:
@@ -167,8 +171,13 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             logger.warning(f"🚨 [TRUMP2CASH FLASH OVERRIDE] {signal.symbol} - SOSYAL MEDYA/KİLİT FİGÜR TETİKLEMESİ! PİYASA KURALLARI EZİLİYOR. 🚨")
             logger.info(f"YÜCE DİVAN VETOLARI DEVRE DIŞI. FLASH EMİR BORSAYA İLETİLİYOR.")
         elif council_mode == "GRID":
-            logger.info(f"🕸️ [HUMMINGBOT GRID MODE] {signal.symbol} YATAY PİYASADA. Alpaca Komisyonu hesaplanarak Makas/Grid aralığı oluşturulacak.")
-            return _execute_grid_strategy(signal, council_verdict)
+            logger.info(f"🕸️ [HUMMINGBOT GRID MODE] {signal.symbol} YATAY PİYASADA. Makas/Grid aralığı oluşturulacak.")
+            grid_res = _execute_grid_strategy(signal, council_verdict)
+            if grid_res.get("status") == "rejected":
+                return grid_res
+            # Grid onaylandıysa, hedefleri grid bazlı ayarlayıp standart yöne doğru ilerletiyoruz (engel kaldırma)
+            signal.take_profit = signal.price * (1.0 + grid_res.get("grid_spacing_pct", 0.5) * 1.5 / 100.0) if signal.price else signal.take_profit
+            signal.stop_loss = signal.price * (1.0 - grid_res.get("grid_spacing_pct", 0.5) * 0.5 / 100.0) if signal.price else signal.stop_loss
         else:
             if not council_verdict["approved"]:
                 logger.warning(f"[YÜCE DİVAN VETOSU] {signal.symbol} REDDEDİLDİ. Neden: {council_verdict['reason']}")
@@ -418,14 +427,29 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
         risk_amount = account_equity * (risk_pct / 100.0)
         per_share_risk = signal.price * (sl_pct / 100.0)
         
-        # PORTFÖY BÜTÇE YÖNETİMİ (Kullanıcı Talebi: Max 10.000$ Toplam Risk, Varlık Başına Serbest İnsiyatif)
-        # Portföy bütçesi: sadece BROKER'IN ONAYLADIĞI gerçek pozisyonlar (broker_order_id varsa)
-        # PENDING_BROKER ama henüz broker onayı yoksa bütçeye dahil etme
-        total_exposure = sum(
-            p.nominal_value for p in getattr(live_trade_manager, "positions", {}).values()
-            if p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)
-        )
-        max_global_exposure = 10000.0
+        # PORTFÖY BÜTÇE YÖNETİMİ (Yalıtılmış Bütçe Mimarisi)
+        # KULLANICI EMRİ: Alpaca bütçesi ile Binance bütçesi ASLA karıştırılmayacak.
+        from core.config import settings
+        
+        if is_crypto:
+            crypto_realized = sum(float(t.get("net_pnl", 0.0) or 0.0) for t in getattr(live_trade_manager, "trade_history", []) if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
+            crypto_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in getattr(live_trade_manager, "trade_history", []) if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
+            
+            total_exposure = sum(
+                p.nominal_value for p in getattr(live_trade_manager, "positions", {}).values()
+                if (p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)) and p.market == "CRYPTO"
+            )
+            base_budget = float(settings.base_portfolio_size)
+            max_global_exposure = base_budget + crypto_realized - crypto_comm  # Binance Testnet Dinamik (örn: 1200$)
+            max_per_trade = max_global_exposure * (settings.max_capital_per_trade_pct / 100.0) # Kripto için %12.5 (150$)
+        else:
+            total_exposure = sum(
+                p.nominal_value for p in getattr(live_trade_manager, "positions", {}).values()
+                if (p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)) and p.market != "CRYPTO"
+            )
+            max_global_exposure = 8000.0  # Alpaca (Hisse) Kesin Bütçe Sınırı (8 Bin Dolar)
+            max_per_trade = 8000.0 / 12.0  # 12 pozisyon kuralına göre pozisyon başı ~666.66$ tavan
+
         available_budget = max_global_exposure - total_exposure
         
         qty_override = None
@@ -434,10 +458,10 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             raw_qty = risk_amount / per_share_risk
             desired_capital = raw_qty * signal.price
             
-            # 1. Bireysel Varlık Tavanı (Kelly Kriteri max ne kadar basabilir?)
-            desired_capital = min(desired_capital, 1400.0)  # Max $1400 per trade
+            # 1. Bireysel Varlık Tavanı
+            desired_capital = min(desired_capital, max_per_trade)
             
-            # 2. Global Portföy Tavanı ($10.000)
+            # 2. İlgili Pazarın (Crypto veya Stock) Global Portföy Tavanı
             allowed_capital = min(desired_capital, available_budget)
             
             if allowed_capital < 10.0:  # 10$ altı anlamsızdır
@@ -562,9 +586,9 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
 
         if is_crypto:
             target_broker_name = "BINANCE"
-            logger.info(f"🔄 [HYBRID ROTASYON] {signal.symbol} Kripto varlığı tespit edildi. İnfaz için {target_broker_name} (GERÇEK/LIVE) yönlendiriliyor.")
-            broker = get_broker(target_broker_name, paper=False)  # Kripto Kesinlikle GERÇEK (Live)
-            logger.info(f"[BROKER] Mode: LIVE (HYBRID) | Active Routed Broker: {target_broker_name}")
+            logger.info(f"🔄 [HYBRID ROTASYON] {signal.symbol} Kripto varlığı tespit edildi. İnfaz için {target_broker_name} (SANAL/TESTNET) yönlendiriliyor.")
+            broker = get_broker(target_broker_name, paper=True)  # Kripto Testnet (Paper) modunda çalışacak
+            logger.info(f"[BROKER] Mode: PAPER/TESTNET (HYBRID) | Active Routed Broker: {target_broker_name}")
         else:
             target_broker_name = "ALPACA"
             logger.info(f"🔄 [HYBRID ROTASYON] {signal.symbol} Hisse Senedi tespit edildi. İnfaz için {target_broker_name} (SANAL/PAPER) yönlendiriliyor.")
@@ -608,20 +632,48 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
                         try:
                             slices = 3 if q * lim > 500 else 1
                             slice_qty = q / slices
+                            order_ids = []
                             for i in range(slices):
                                 jitter_ms = random.uniform(0.1, 0.5)
                                 _twap_time.sleep(jitter_ms)
                                 
                                 # Slippage'dan korunmak için küçük lokmalarla (Market Maker'a görünmeden) emri iletiyoruz.
                                 logger.info(f"[STEALTH TWAP] {sym} -> Parça {i+1}/{slices} İletiliyor (Miktar: {slice_qty:.4f})")
-                                b.place_bracket_order(sym, "BUY", slice_qty, tp, sl, limit_price=lim)
+                                twap_res = b.place_bracket_order(sym, "BUY", slice_qty, tp, sl, limit_price=lim)
                                 
+                                if twap_res and twap_res.get("status") == "error":
+                                    logger.error(f"[TWAP ERROR] {sym} İnfazı sırasında ağ/api hatası (Internet Kopması): {twap_res.get('message')}")
+                                    if pos:
+                                        from services.market_feed.live_stream import live_trade_manager
+                                        logger.info(f"[NETWORK RECOVERY] {sym} başarısız oldu. Bütçe geri iade ediliyor (Ghost Trade önlendi).")
+                                        live_trade_manager.close_position(pos.id, "NETWORK_ERROR_ROLLBACK")
+                                        live_trade_manager.positions.pop(pos.id, None)
+                                        live_trade_manager.save_state()
+                                    return # Stop the rest of the slices
+                                
+                                if twap_res and twap_res.get("order_id"):
+                                    order_ids.append(str(twap_res.get("order_id")))
+
                                 if slices > 1 and i < slices - 1:
                                     # Hacimsiz tahtada fiyatın oturması için 3 saniye bekle
                                     _twap_time.sleep(3.0) 
-                        except Exception as e:
-                            logger.error(f"[TWAP ERROR] {sym} İnfazı sırasında hata: {e}")
                             
+                            # Eger basarili sekilde tamamladiysa pozisyon statüsünü Guncelle
+                            if pos:
+                                from services.market_feed.live_stream import live_trade_manager
+                                pos.status = "OPEN"
+                                if order_ids:
+                                    pos.broker_order_id = ",".join(order_ids)
+                                live_trade_manager.save_state()
+                                logger.info(f"[TWAP SUCCESS] {sym} Pozisyon OPEN durumuna alindi. Broker IDs: {pos.broker_order_id}")
+
+                        except Exception as e:
+                            logger.error(f"[TWAP EXCEPTION] {sym} İnfazı sırasında hata: {e}")
+                            if pos:
+                                from services.market_feed.live_stream import live_trade_manager
+                                live_trade_manager.close_position(pos.id, "NETWORK_ERROR_ROLLBACK")
+                                live_trade_manager.positions.pop(pos.id, None)
+                                live_trade_manager.save_state()
                     # Thread ile arka plana gönder (API çağrısını bloklamasın)
                     twap_thread = threading.Thread(target=stealth_twap_execution, args=(broker, signal.symbol, final_qty, tp_price, sl_price, signal.price))
                     twap_thread.start()

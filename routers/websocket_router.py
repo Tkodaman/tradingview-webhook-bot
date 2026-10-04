@@ -79,10 +79,32 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                 last_scan_str = datetime.now(timezone.utc).strftime("%H:%M:%S")
 
                 total_open_comm = sum(p.commission_fees for p in live_trade_manager.positions.values() if p.status == "OPEN")
+                crypto_realized = sum(float(t.get("net_pnl", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
+                crypto_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
+                alpaca_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") != "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
+                from core.config import settings
+                binance_budget_limit = float(settings.base_portfolio_size) + crypto_realized - crypto_comm
+                
+                # Fetch Binance Cash (cached/optimistic or empty for websocket)
+                binance_cash = 0.0
+                try:
+                    from services.broker.factory import get_broker
+                    b_broker = get_broker("BINANCE", paper=True)
+                    if b_broker and getattr(b_broker, 'client', None):
+                        b_bal = b_broker.client.get_asset_balance('USDT')
+                        if b_bal and b_bal.get('free'):
+                            binance_cash = float(b_bal['free'])
+                except Exception:
+                    pass
+
                 summary = {
                     "account_balance": round(effective_balance, 2),
                     "available_cash": round(real_available_cash, 2),
-                    "total_commissions_paid": round(live_trade_manager.total_commissions_paid + total_open_comm, 2),
+                    "total_commissions_paid": round(alpaca_comm, 2),
+                    "alpaca_commission": round(alpaca_comm, 2),
+                    "binance_commission": round(crypto_comm, 2),
+                    "binance_cash": round(binance_cash, 2),
+                    "binance_budget_limit": round(binance_budget_limit, 2),
                     "active_positions": positions_for_dashboard,
                     "bot_uptime": bot_uptime_str,
                     "last_scan": last_scan_str

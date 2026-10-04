@@ -49,28 +49,16 @@ def get_thought_stream():
     return {"thoughts": bot_thought_stream.get_recent(30)}
 
 @router.get("/ai-opportunities")
-def get_ai_opportunities():
-    """
-    Top-5 Fırsat için LLM Avcı Sentezi
-    """
-    from services.ai.ai_dashboard_advisor import ai_dashboard_advisor
-    return {"ai_analysis": ai_dashboard_advisor.get_opportunity_analysis()}
+async def get_ai_opportunities():
+    return {"ai_analysis": "⏳ YZ Fırsat Analizi (Hız İçin Geçici Devre Dışı)"}
 
 @router.get("/ai-psychology")
-def get_ai_psychology():
-    """
-    Korku/Açgözlülük ve Makro Kalkan için LLM Psikoloji Sentezi
-    """
-    from services.ai.ai_dashboard_advisor import ai_dashboard_advisor
-    return {"ai_analysis": ai_dashboard_advisor.get_psychology_synthesis()}
+async def get_ai_psychology():
+    return {"ai_analysis": "⏳ YZ Psikoloji Analizi (Hız İçin Geçici Devre Dışı)"}
 
 @router.get("/ai-correlation")
-def get_ai_correlation():
-    """
-    Uzman Analitik: Açık Pozisyonların Otonom Double-Exposure Sentezi
-    """
-    from services.ai.ai_dashboard_advisor import ai_dashboard_advisor
-    return {"ai_analysis": ai_dashboard_advisor.get_correlation_synthesis()}
+async def get_ai_correlation():
+    return {"ai_analysis": "⏳ YZ Korelasyon Analizi (Hız İçin Geçici Devre Dışı)"}
 
 @router.get("/shadow-summary")
 def get_shadow_summary():

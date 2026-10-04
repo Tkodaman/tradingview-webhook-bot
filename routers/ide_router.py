@@ -56,7 +56,7 @@ class IDETriggerRequest(BaseModel):
     model_id: str
     
 MODEL_COSTS = {
-    "gemini-2.5-pro": 1.5,
+    "gemini-3.8-flash": 1.5,
     "gemini-1.5-pro": 5.0,
     "gemini-3.1-pro-low": 8.0,
     "gemini-3.1-pro": 12.0,
@@ -95,7 +95,7 @@ async def trigger_ide_model(req: IDETriggerRequest):
             if not api_key:
                 raise Exception("GEMINI_API_KEY eksik.")
             genai.configure(api_key=api_key)
-            gemini_model = genai.GenerativeModel("gemini-2.5-pro")
+            gemini_model = genai.GenerativeModel("gemini-3.8-flash")
         
         if req.model_id == "gemini-3.1-pro-low":
             prompt = f"""
@@ -261,7 +261,7 @@ async def trigger_analyst_custom(req: CustomPromptRequest):
                 if not gemini_api_key:
                     raise Exception("OpenAI başarısız oldu ve GEMINI_API_KEY bulunamadı.")
                 genai.configure(api_key=gemini_api_key)
-                model = genai.GenerativeModel("gemini-2.5-pro")
+                model = genai.GenerativeModel("gemini-3.8-flash")
                 response = await _call_gemini_with_retry(model, final_prompt)
                 ai_text = response.text
         else:
@@ -269,7 +269,7 @@ async def trigger_analyst_custom(req: CustomPromptRequest):
             if not api_key:
                 raise Exception("GEMINI_API_KEY eksik.")
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.5-pro")
+            model = genai.GenerativeModel("gemini-3.8-flash")
             response = await _call_gemini_with_retry(model, final_prompt)
             ai_text = response.text.strip()
         

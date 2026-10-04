@@ -1,1 +1,1 @@
-{"consecutive_losses": 1, "daily_losses": 1, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {"LINKUSDT": 1}, "symbol_blocks": {}, "last_reset_date": "2026-10-03"}
+{"consecutive_losses": 5, "daily_losses": 8, "pause_until": 0.0, "pause_reason": "", "symbol_losses": {"SOLUSDT": 2, "BCHUSDT": 4, "NEARUSDT": 1}, "symbol_blocks": {}, "last_reset_date": "2026-10-04"}

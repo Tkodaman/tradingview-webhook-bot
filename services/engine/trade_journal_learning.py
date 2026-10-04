@@ -139,15 +139,15 @@ class TradeJournalLearningEngine:
         }
 
     def evaluate_shadow_trade_autopsy(self, symbol: str, side: str, entry_price: float, exit_price: float, pnl_pct: float, duration_mins: int, success: bool):
-        from services.intelligence.llm_market_intelligence import LLMMarketIntelligenceEngine
-        llm = LLMMarketIntelligenceEngine()
+        from services.ai.llm_master_agent import LLMMasterAgentService
+        llm = LLMMasterAgentService()
         
         status_text = "BAŞARILI (Kâr Alındı)" if success else "BAŞARISIZ (Stop Oldu)"
         
         prompt = f"Sen profesyonel bir Wall Street Quant analistisin. Botumuz {symbol} için güçlü bir alım sinyali üretti ancak bütçe limiti veya risk blokajı nedeniyle bu varlığı alamadık. Sanal olarak izledik. Giriş: ${entry_price}, Çıkış: ${exit_price}. PnL: %{pnl_pct}. Süre: {duration_mins} dk. Sonuç: {status_text}. Bu işlemin neden böyle sonuçlandığına dair (hacim, sahte kırılım, piyasa trendi) 1-2 cümlelik çok kısa ve net bir makine öğrenimi otopsi çıkarımı yaz."
         
-        lesson = llm.generate_insight(prompt)
-        if not lesson or "API ERROR" in lesson:
+        lesson = llm.chat(prompt)
+        if not lesson or "API ERROR" in lesson or "LLM_ERROR" in lesson or "429" in lesson or "quota" in lesson.lower():
             lesson = f"{symbol} hacim/fiyat dinamikleri {'beklenen ivmeyi koruyarak hedefe ulaştı' if success else 'beklenen ivmeyi kaybederek stop seviyesine geriledi'}."
             
         entry = {

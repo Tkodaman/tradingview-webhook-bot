@@ -209,11 +209,16 @@ def get_market_regime():
         display = regime_engine.get_regime_display()
         current_mode = settings.current_risk_mode
 
+        from services.risk_engine.market_hours import market_hours_validator
+        market_overview = market_hours_validator.get_market_overview()
+        
         # Her piyasa icin aktif ticaret profilini de ekle
         profiles = {}
+        market_status = {}
         for market in ["CRYPTO", "NASDAQ", "BIST"]:
             try:
                 profiles[market] = regime_engine.get_trade_profile(current_mode, market)
+                market_status[market] = market_overview.get(market, {}).get("is_open", True)
             except Exception:
                 pass
 
@@ -222,6 +227,7 @@ def get_market_regime():
             "current_risk_mode": current_mode,
             "regimes": display,
             "trade_profiles": profiles,
+            "market_is_open": market_status,
             "last_updated": regime_engine._last_update
         }
     except Exception as e:
