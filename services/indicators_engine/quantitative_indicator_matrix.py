@@ -88,10 +88,34 @@ class QuantitativeIndicatorMatrix:
             if pd.notna(cci):
                 if cci > 100: bullish += 1
                 elif cci < -100: bearish += 1
+                
+            # 7. Volume Anomaly (Smart Money Influx / Balina Ayak İzi)
+            df['Volume_SMA20'] = df['Volume'].rolling(window=20).mean()
+            vol_sma = df['Volume_SMA20'].iloc[-1]
+            vol_current = last_row.get("Volume", 0)
+            open_price = last_row.get("Open", 0)
+            
+            volume_bonus = 0.0
+            if pd.notna(vol_sma) and vol_sma > 0:
+                if vol_current >= (vol_sma * 3.0) and close > open_price:
+                    volume_bonus = 2.0
+                    details["volume_anomaly"] = "SMART_MONEY_INFLUX_BULL"
+                elif vol_current >= (vol_sma * 3.0) and close < open_price:
+                    volume_bonus = -2.0
+                    details["volume_anomaly"] = "SMART_MONEY_INFLUX_BEAR"
+                elif vol_current <= (vol_sma * 0.5) and close > open_price:
+                    volume_bonus = -1.0
+                    details["volume_anomaly"] = "BULL_TRAP_NO_VOLUME"
             
             total_signals = bullish + bearish
-            # Toplam 8 sinyal ölçüyoruz şu an
-            quant_score = (bullish / total_signals * 10) if total_signals > 0 else 5.0
+            # Toplam 8 sinyal ölçüyoruz şu an + Volume Anomaly Bonusu
+            base_score = (bullish / total_signals * 10) if total_signals > 0 else 5.0
+            quant_score = min(10.0, max(0.0, base_score + volume_bonus))
+            
+            # Anomaly Log
+            if volume_bonus != 0.0:
+                logger.info(f"🐋 [VOLUME ANOMALY] {symbol} -> {details['volume_anomaly']} (Etki: {volume_bonus:+.1f} Puan). Hacim/Ort: {vol_current:.1f}/{vol_sma:.1f}")
+
             
             # Quant_score 0-10 arası, 5 nötr.
             # Bunu -3 ile +3 arasına map edelim

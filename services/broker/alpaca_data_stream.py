@@ -30,7 +30,8 @@ class AlpacaDataStream:
 
     async def connect_and_listen(self):
         asyncio.create_task(self._listen_stocks())
-        asyncio.create_task(self._listen_crypto())
+        # Kripto islemleri Binance uzerinden yapildigi icin Alpaca Crypto baglantisi iptal edildi (406 Limit hatasini onlemek icin)
+        # asyncio.create_task(self._listen_crypto()) 
         asyncio.create_task(self._monitor_active_positions())
 
     async def _authenticate(self, websocket):

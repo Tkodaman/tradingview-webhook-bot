@@ -12,7 +12,7 @@ call gcloud compute scp deploy.tar instance-20261003-182635:/home/ASUS/deploy.ta
 echo ===================================================
 echo [3/4] VPS UZERINDE DOSYALAR ACILIYOR VE BOT YENIDEN BASLATILIYOR...
 echo ===================================================
-call gcloud compute ssh instance-20261003-182635 --zone=europe-west4-a --project=tolgakodaman --command="tar -xf /home/ASUS/deploy.tar -C /home/ASUS/tradingview-webhook-bot && rm /home/ASUS/deploy.tar && pm2 restart tv-bot"
+call gcloud compute ssh instance-20261003-182635 --zone=europe-west4-a --project=tolgakodaman --command="tar -xf /home/ASUS/deploy.tar -C /home/ASUS/tradingview-webhook-bot && rm /home/ASUS/deploy.tar && pm2 restart tv-bot --update-env && pm2 ls"
 
 echo ===================================================
 echo [4/4] TEMIZLIK YAPILIYOR...

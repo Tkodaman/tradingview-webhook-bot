@@ -28,9 +28,18 @@ class BinanceBroker(BaseBroker):
 
         if self.api_key and self.secret_key:
             try:
+                # Proxy ayarlarını yeniden dahil ediyoruz çünkü VPS'in IP'si Binance tarafından engelleniyor olabilir (SSL EOF sebebi)
+                req_params = {}
+                if getattr(settings, "outbound_proxy", None):
+                    proxy_url = settings.outbound_proxy
+                    req_params["proxies"] = {"http": proxy_url, "https": proxy_url}
+                    logger.info(f"[BINANCE] Proxy kullaniliyor: {proxy_url}")
+                else:
+                    # Eger proxy yoksa SSL hatalarını gecmek icin verify=False denenebilir
+                    req_params["verify"] = False
+                    
                 # Paper mode for Binance is Testnet
-                # Proxy iptal edildi (SSL EOF hatasına neden olduğu için doğrudan bağlanılacak)
-                self.client = Client(self.api_key, self.secret_key, testnet=paper)
+                self.client = Client(self.api_key, self.secret_key, testnet=paper, requests_params=req_params)
                 logger.info(f"[BINANCE] Baglanti saglandi. Mod: {'PAPER (Testnet)' if paper else 'LIVE'}")
             except Exception as e:
                 logger.error(f"[BINANCE] Baglanti hatasi: {e}")

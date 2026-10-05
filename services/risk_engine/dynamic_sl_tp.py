@@ -165,7 +165,7 @@ class DynamicRiskManager:
                 except Exception as e:
                     new_sl = history["high_water_mark"] - (matched_pos.atr_value * 3.0)
 
-                if new_sl > current_sl:
+                if round(new_sl, 4) > round(current_sl, 4):
                     logger.info(f"[CHANDELIER ML-WICK] {symbol} SL {current_sl:.4f} -> {new_sl:.4f} (Dinamik Zırh)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
                     await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price, matched_pos.market)
@@ -210,7 +210,7 @@ class DynamicRiskManager:
                 except Exception as e:
                     new_sl = history.get("low_water_mark", current_price) + (matched_pos.atr_value * 3.0)
 
-                if new_sl < current_sl:
+                if round(new_sl, 4) < round(current_sl, 4):
                     logger.info(f"[CHANDELIER ML-WICK] {symbol} SELL SL {current_sl:.4f} -> {new_sl:.4f} (Dinamik Zırh)")
                     matched_pos.stop_loss_price = round(new_sl, 4)
                     await self._update_broker_sl(symbol, matched_pos.target_profit_price, matched_pos.stop_loss_price, matched_pos.market)
@@ -235,7 +235,8 @@ class DynamicRiskManager:
     async def _update_broker_sl(self, symbol: str, tp_price: float, sl_price: float, market: str):
         if settings.trading_mode in ["LIVE", "PAPER"]:
             from services.broker.factory import get_broker
-            broker = get_broker(market)
+            target_broker_name = "BINANCE" if market == "CRYPTO" else "ALPACA"
+            broker = get_broker(target_broker_name)
             if broker and hasattr(broker, 'update_bracket_orders'):
                 res = broker.update_bracket_orders(symbol, take_profit_price=tp_price, stop_loss_price=sl_price)
                 if res.get("status") == "success":

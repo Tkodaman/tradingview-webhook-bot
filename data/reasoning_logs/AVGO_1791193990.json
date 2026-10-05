@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-10-05T09:53:10.547520+00:00",
+  "symbol": "AVGO",
+  "action": "BUY",
+  "reasoning_tr": "Yüce Divan ve Otonom Motor, AVGO tahtasında BUY kararı almıştır. İşlem bütçesi 400.00$ (Global 10.000$ limitine uyumlu) olarak belirlendi. Kasa risk oranı %1.00 seviyesindedir. Volatilite ve iğnelerden korunmak adına Dinamik ATR çarpanı 1.5 kullanılmış, Zarar-Kes (SL) %2.25 ve Kâr-Al (TP) %0.3 olarak komisyon payları (Spread) düşülerek net hesaplanmıştır. Piyasa saatleri, hacimsizlik kalkanları (Dead Zone) ve anomali filtreleri başarılı şekilde geçilmiştir. Yapay Zeka güven skoru: 100.0/100.",
+  "reasoning_en": "The Council and Autonomous Engine initiated a BUY on AVGO. Allocated budget is $400.00 strictly following the $10,000 global portfolio cap. Account risk factor is 1.00%. To prevent whale fakeouts and stop-hunts, the Dynamic ATR multiplier is set to 1.5, placing SL at 2.25% and TP at 0.3% (commission and spread adjusted). All market hour constraints, dead-zone volume filters, and anomaly gates have been cleared. AI Confidence Score: 100.0/100."
+}

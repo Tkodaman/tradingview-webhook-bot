@@ -169,7 +169,7 @@ class AutonomousEngine:
                 # --- PORTFÖY ZIRHI: Dinamik Limit (LIVE: 2 Koin | PAPER: 14 Koin) ---
                 # live_trade_manager üzerinden o anki açık pozisyon sayısına bakıyoruz
                 open_positions = getattr(live_trade_manager, "positions", {})
-                open_pos_count = len([p for p in open_positions.values() if getattr(p, "status", "") == "OPEN"])
+                open_pos_count = len([p for p in open_positions.values() if getattr(p, "status", "") in ["OPEN", "PENDING_BROKER"]])
                 
                 # --- KORELASYON KORUMASI (BTC ve ETH aynı anda açılmasın) ---
                 if symbol == "ETHUSDT" and any(p for p in open_positions.values() if p.symbol == "BTCUSDT" and p.status == "OPEN"):
@@ -179,7 +179,7 @@ class AutonomousEngine:
                     logger.info(f"🛡️ [KORELASYON KALKANI] ETH zaten açık, {symbol} reddedildi.")
                     continue
                 
-                max_allowed_positions = 14 if settings.trading_mode == "PAPER" else 2
+                max_allowed_positions = settings.crypto_max_positions + 12 # auto_runner.py'deki limitler (Crypto 6, NASDAQ 12) asıl kontrolü sağlar
                 
                 if open_pos_count >= max_allowed_positions:
                     logger.warning(f"Limit {max_allowed_positions}/{max_allowed_positions} dolu. Yeni işleme girilmiyor (Mod: {settings.trading_mode}).")

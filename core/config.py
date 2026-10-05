@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     trading_mode: str = "PAPER" # PAPER or LIVE (Alpaca Sandbox vs Real)
     active_broker: str = "ALPACA" # ALPACA, INTERACTIVE_BROKERS, MIDAS
     allowed_ips: str = "127.0.0.1,localhost,testclient,52.89.214.238,34.212.75.30,54.218.53.128,52.32.178.7,192.168.49.1"
+    crypto_paper_budget: float = 1600.0
+    crypto_max_positions: int = 6
     trusted_proxy_ips: str = "127.0.0.1,localhost,192.168.49.1"
     webhook_security_token: str = ""
     

@@ -126,11 +126,18 @@ class AlpacaBroker(BaseBroker):
             is_fractional = (qty != int(qty)) or (qty < 1.0)
             
             from core.config import settings
-            ext_hours = getattr(settings, "alpaca_extended_hours", True)
+            ext_hours_setting = getattr(settings, "alpaca_extended_hours", True)
+            
+            # Piyasalarin su an GERCEKTEN acik olup olmadigini kontrol et
+            from services.risk_engine.market_hours import MarketHoursValidator
+            is_currently_open, _, _ = MarketHoursValidator.is_market_open(alpaca_sym)
+            
+            # Eger ayar acikca VE piyasa su an KAPALIYSA (yani gercekten mesai disindaysak)
+            is_actually_ext_hours = ext_hours_setting and not is_currently_open
             
             # GAP FIX (+1 Adım): Piyasa öncesi/sonrası Market Emirler (Market Order) Alpaca tarafından REDDEDİLİR.
             # Eğer limit fiyat verilmemişse ve kripto değilse, güncel canlı fiyatı çekip emir tipini Limit'e çeviriyoruz.
-            if limit_price is None and not is_crypto and ext_hours:
+            if limit_price is None and not is_crypto and is_actually_ext_hours:
                 rt_prices = self.get_realtime_prices([alpaca_sym])
                 if alpaca_sym in rt_prices and rt_prices[alpaca_sym].get("price", 0) > 0:
                     current_p = rt_prices[alpaca_sym]["price"]
@@ -140,7 +147,7 @@ class AlpacaBroker(BaseBroker):
                     logger.info(f"🚀 [ALPACA EXT-HOURS GAP FIX] Market emri otomatik olarak Limit emre çevrildi: {alpaca_sym} @ {limit_price}")
 
             # Piyasa öncesi/sonrası kesirli lot kullanılamaz!
-            if is_fractional and not is_crypto and ext_hours:
+            if is_fractional and not is_crypto and is_actually_ext_hours:
                 logger.warning(f"Alpaca: Fractional shares are not allowed in extended hours. Rounding {qty} to {int(qty)} for {alpaca_sym}")
                 qty = float(int(qty))
                 is_fractional = (qty < 1.0)

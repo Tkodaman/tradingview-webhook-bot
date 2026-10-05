@@ -54,7 +54,11 @@ class MLWickDetector:
             self.model.fit(X)
             self.is_trained = True
             return True
-        except Exception as e:
+        except (Exception,) as e:
+            err_str = str(e)
+            # yfinance JSON hatası spam'i sustur (VPS loglarını kirletmesin)
+            if "Expecting value" in err_str or "JSONDecodeError" in err_str:
+                return False
             print(f"[ML ERROR] Failed to train Wick Detector on {ticker}: {e}")
             return False
 

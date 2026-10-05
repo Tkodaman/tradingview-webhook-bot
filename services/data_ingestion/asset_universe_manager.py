@@ -22,7 +22,7 @@ class AssetUniverseManager:
         # bizzat onaylanmış tüm 33 adet trade edilebilir varlıkla güncellenmiştir.
         self.master_crypto_universe = [
             # Katman 1 / Majörler
-            "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:SOLUSDT", "BINANCE:AVAXUSDT", 
+            "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:SOLUSDT", "BINANCE:AVAXUSDT", "BINANCE:BNBUSDT", 
             "BINANCE:ADAUSDT", "BINANCE:DOTUSDT", "BINANCE:LINKUSDT", "BINANCE:BCHUSDT", 
             "BINANCE:LTCUSDT", "BINANCE:XRPUSDT", "BINANCE:TRXUSDT", "BINANCE:ATOMUSDT",
             "BINANCE:NEARUSDT", "BINANCE:APTUSDT", "BINANCE:SUIUSDT", "BINANCE:SEIUSDT",

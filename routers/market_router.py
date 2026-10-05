@@ -54,10 +54,11 @@ def _rsi_contribution(rsi: float) -> float:
     RSI 40-55 (dipten dönüş) ikinci, RSI 55-65 (trend güçlü) üçüncü,
     RSI 65-75 (olgun trend) nötr, RSI>=75 (aşırı alım) ceza alır.
     """
-    if rsi >= 75.0:  return -10.0  # Aşırı alım / zirve riski
-    elif rsi >= 65.0: return +2.0  # Güçlü ama olgunlaşmış trend
-    elif rsi >= 55.0: return +3.0  # İdeal trend bölgesi (altın bölge)
-    elif rsi >= 40.0: return +5.0  # Dipten dönüş / erken trend potansiyeli
+    if rsi >= 75.0:  return -10.0  # Aşırı alım / zirve riski (Şişkin)
+    elif rsi >= 68.0: return -3.0  # Trendin sonları / yorgunluk (Tepeden alma riski)
+    elif rsi >= 60.0: return +1.0  # Güçlü ama olgunlaşmış trend
+    elif rsi >= 50.0: return +4.0  # Erken kırılım (Fresh Breakout)
+    elif rsi >= 40.0: return +6.0  # Dipten dönüş / sessiz birikim (Önceden keşif)
     elif rsi >= 25.0: return +8.0  # Aşırı satım — dip fırsat
     else:             return -5.0  # Serbest düşüş paniği
 
@@ -144,7 +145,12 @@ async def get_live_buy_sell_wait_matrix():
                         duration_mins = 5
                 except ValueError:
                     duration_mins = 5
-                is_timeout = duration_mins >= 480
+                # Dinamik Vur-Kaç / Zaman Aşımı (Timeout) Süreleri
+                if pos.market == "CRYPTO":
+                    max_duration = 60  # Kripto için 1 saat (Agresif Skalper/Hız Avcısı)
+                else:
+                    max_duration = 120  # NASDAQ/BIST için 2 saat (Yüksek Veri Döngüsü)
+                is_timeout = duration_mins >= max_duration
                 
                 if price >= pos.target_profit_price or price <= pos.stop_loss_price or is_timeout:
                     from services.engine.experience_memory_engine import experience_memory_engine, TradePostMortem
@@ -236,21 +242,23 @@ async def get_live_buy_sell_wait_matrix():
                 penalty = 4.0 * upper_wick_ratio  # 0.5 ile 1.0 arası oran -> 2.0 ile 4.0 arası puan cezası
                 score -= penalty
         
-        # 3. Momentum Fazı — Hacim + RSI kombinasyonu
+        # 3. Momentum Fazı — Hacim + RSI + CHG kombinasyonu (Geç Kalmama Kalkanı)
         momentum_phase = "NEUTRAL"
-        if vol_ratio >= 2.0:
+        
+        # Eğer varlık halihazırda %2.5'ten fazla uçmuşsa, tepeden alma riskimiz (iğne yeme) çok yüksektir! (Kullanıcı Kalkanı)
+        if chg >= 2.5:
+            score -= 5
+            momentum_phase = "LATE_ENTRY_RISK"
+        elif vol_ratio >= 2.0:
             if chg < -1.5:
                 score -= 5  # Çöküş Panik Satışı
                 momentum_phase = "PANIC_DUMP"
             else:
                 score += 4
-                momentum_phase = "WHALE_WAVE"
-        elif 50.0 <= rsi <= 70.0 and data.get("ema_golden_cross", False):
-            score += 3
+                momentum_phase = "WHALE_WAVE_EARLY"
+        elif 40.0 <= rsi <= 60.0 and data.get("ema_golden_cross", False):
+            score += 4
             momentum_phase = "FRESH_BREAKOUT"
-        elif rsi > 72.0 and chg > 3.0:
-            score -= 3
-            momentum_phase = "PEAK_RISK"
         elif rsi < 35.0 and vol_ratio >= 1.3:
             momentum_phase = "EARLY_EXPLOSION"  # Aşırı satım + yükselen hacim = dip toparlanması
         
@@ -307,7 +315,7 @@ async def get_live_buy_sell_wait_matrix():
         if is_crypto_sym:
             crypto_open = [p for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO"]
             crypto_invested = sum(p.nominal_value for p in crypto_open)
-            market_limit = 10
+            market_limit = 6
             market_open_count = len(crypto_open)
             budget_used = crypto_invested
             budget_limit = 1200.0  # Binance tarafı
@@ -327,7 +335,10 @@ async def get_live_buy_sell_wait_matrix():
                 if score < 6:
                     risk_block_reason = f"Bütçe Esneme Bölgesinde (${budget_used:.0f}/${budget_limit:.0f}). Güçlü fırsatlar için saklanıyor (Skor: {score})."
             
-        active_positions_list = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
+        active_positions_list = [
+            p for p in live_trade_manager.positions.values() 
+            if p.status == "OPEN" and p.market == market
+        ]
         try:
             from services.risk_engine.rotation_engine import rotation_engine
         except ImportError:

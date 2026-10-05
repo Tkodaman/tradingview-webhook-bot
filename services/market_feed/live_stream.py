@@ -113,6 +113,13 @@ class LiveTradeManager:
         
         try:
             broker_positions = alpaca_client.sync_open_positions()
+            
+            # KRİTİK HATA DÜZELTMESİ: Eğer Alpaca API hata verdiyse (None döndüyse), 
+            # sakın hayalet temizliği yapma! Yoksa tüm pozisyonları siler!
+            if broker_positions is None:
+                logger.warning("Alpaca API pozisyonları okuyamadı (None döndü). Hayalet temizliği iptal ediliyor.")
+                return
+
             active_broker_symbols = set()
             if broker_positions:
                 for bp in broker_positions:
@@ -128,7 +135,7 @@ class LiveTradeManager:
                             
                     active_broker_symbols.update(possible_symbols)
                     
-                    local_pos = next((p for p in self.positions.values() if p.symbol in possible_symbols and p.status == "OPEN"), None)
+                    local_pos = next((p for p in self.positions.values() if p.symbol in possible_symbols and p.status in ["OPEN", "PENDING_CLOSE", "PENDING_BROKER"]), None)
                     
                     if not local_pos:
                         sym = possible_symbols[-1] if (asset_class == "crypto" and len(possible_symbols) > 1) else raw_sym
@@ -180,7 +187,15 @@ class LiveTradeManager:
                 p for p in self.positions.values()
                 if p.status in ["OPEN", "PENDING_BROKER"] and p.symbol not in active_broker_symbols
                 # Kripto (Spot) pozisyonları yerel hafızada tutulur (Broker 'pozisyon' klasöründe görünmez), Hayalet sayma!
-                and not ("USDT" in p.symbol or "/" in p.symbol or p.symbol.endswith("USD") or "BTC" in p.symbol)
+                and not (
+                    p.market == "CRYPTO" or 
+                    "BINANCE:" in p.symbol or 
+                    "CRYPTO:" in p.symbol or 
+                    "USDT" in p.symbol or 
+                    "/" in p.symbol or 
+                    p.symbol.endswith("USD") or 
+                    "BTC" in p.symbol
+                )
             ]
             for sp in stale_positions:
                 logger.info(f"[GHOST CLEANUP] {sp.symbol} broker'da yok (status={sp.status}). Hayalet pozisyon silindi.")
@@ -378,8 +393,8 @@ class LiveTradeManager:
         is_crypto = "USDT" in sym_upper or "/" in sym_upper or sym_upper.endswith("USD") or "BTC" in sym_upper
         
         if is_crypto:
-            # Kullanıcı talebi: Kripto aktif bütçe 1200$, Maksimum 8 pozisyon. 
-            active_budget_limit = float(settings.base_portfolio_size)
+            # Kullanıcı talebi: Kripto aktif bütçe dinamik, Maksimum 6 pozisyon. 
+            active_budget_limit = float(settings.crypto_paper_budget)
             
             allocated_crypto = sum(
                 p.nominal_value for p in self.positions.values() 
@@ -604,18 +619,24 @@ class LiveTradeManager:
         
         # YALITILMIŞ BÜTÇE KONTROLÜ (Binance Kripto ve Alpaca Hisse birbirine karıştırılamaz)
         from core.config import settings
+        
+        # OTONOM KORUMA: Aynı varlıkta mükerrer pozisyon açılmasını engelle (Çift alım hatası)
+        already_open = any(p.symbol == sym and p.status in ["OPEN", "PENDING_BROKER"] for p in self.positions.values())
+        if already_open and not is_manual:
+            logger.warning(f"[DUPLICATE PREVENTION] {sym} için zaten açık bir pozisyon mevcut. Bütçe ısrafını önlemek için yeni işlem reddedildi.")
+            return None
         if market == "CRYPTO":
             # Binance (Kripto) Bütçesi
-            max_pos = 10  # 8 Normal + 2 Yapay Zeka İnsiyatifi (Bomba Fırsatlar İçin)
+            max_pos = settings.crypto_max_positions
             crypto_positions = [p for p in self.positions.values() if p.status in ["OPEN", "PENDING_BROKER"] and p.market == "CRYPTO"]
-            open_count = len([p for p in crypto_positions if p.status == "OPEN"])
+            open_count = len(crypto_positions)
             allocated = sum(p.nominal_value for p in crypto_positions)
-            available = float(settings.base_portfolio_size) - allocated
+            available = float(settings.crypto_paper_budget) - allocated
         else:
-            # Alpaca (Hisse) Bütçesi: Sınır 8 Bin Dolar ve Max 12 Pozisyon
-            max_pos = 12
+            # Alpaca (Hisse) Bütçesi: Sınır 8 Bin Dolar
+            max_pos = 12  # 10 Normal + 2 Yapay Zeka İnsiyatifi (Muazzam Fırsatlar İçin Yedek Kurşun)
             stock_positions = [p for p in self.positions.values() if p.status in ["OPEN", "PENDING_BROKER"] and p.market != "CRYPTO"]
-            open_count = len([p for p in stock_positions if p.status == "OPEN"])
+            open_count = len(stock_positions)
             allocated = sum(p.nominal_value for p in stock_positions)
             available = 8000.0 - allocated
         
@@ -759,7 +780,7 @@ class LiveTradeManager:
                 from services.broker.factory import get_broker
                 is_paper = settings.trading_mode.upper() != "LIVE"
                 target_broker_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
-                broker = get_broker(target_broker_name, paper=is_paper if target_broker_name == "ALPACA" else True)
+                broker = get_broker(target_broker_name, paper=is_paper if target_broker_name == "ALPACA" else is_paper)
                 
                 if target_broker_name == "BINANCE" and broker and getattr(broker, 'client', None):
                     broker.place_market_order(pos.symbol, "SELL" if pos.side == "BUY" else "BUY", close_qty)
@@ -819,7 +840,8 @@ class LiveTradeManager:
             "net_pnl": net_pnl,
             "reason": "PARTIAL_TP_LOCK",
             "opened_at": pos.opened_at,
-            "closed_at": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S")
+            "closed_at": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S"),
+            "trade_mode": settings.trading_mode
         }
         self.trade_history.insert(0, trade_log)
         db_manager.insert_trade_history(trade_log)
@@ -901,7 +923,7 @@ class LiveTradeManager:
                 is_paper = settings.trading_mode.upper() != "LIVE"
                 
                 target_broker_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
-                broker = get_broker(target_broker_name, paper=is_paper if target_broker_name == "ALPACA" else True) # Binance is always Testnet (Paper) for now
+                broker = get_broker(target_broker_name, paper=is_paper if target_broker_name == "ALPACA" else is_paper) # Binance: LIVE modunda gerçek, diğerleri testnet
                 
                 if broker and getattr(broker, 'api', None) or (target_broker_name == "BINANCE" and getattr(broker, 'client', None)):
                     # Liquidation cancels attached bracket orders automatically
@@ -911,6 +933,11 @@ class LiveTradeManager:
                         logger.info(f"[ALPACA SYNC] {pos.symbol} pozisyonu başarıyla kapatıldı (Neden: {reason}).")
                     else:
                         logger.warning(f"[ALPACA SYNC WARN] {pos.symbol} kapatılamadı (Zaten kapanmış olabilir): {close_res.get('message')}")
+                        if target_broker_name == "ALPACA" and "closed" in str(close_res.get("message", "")).lower():
+                            logger.info(f"[ALPACA QUEUE] {pos.symbol} Market kapalı. Kapatma emri askıya alındı. Lokal pozisyon korunuyor.")
+                            pos.status = "PENDING_CLOSE"
+                            self.save_state()
+                            return None
                     
                     # Eğer pozisyon Alpaca'ya yansımamışsa (PENDING LIMIT durumundaysa), o askıda kalan emri bulup iptal et:
                     if target_broker_name == "ALPACA":
@@ -1000,7 +1027,8 @@ class LiveTradeManager:
             "net_pnl": net_pnl,
             "reason": reason,
             "opened_at": pos.opened_at,
-            "closed_at": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S")
+            "closed_at": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S"),
+            "trade_mode": settings.trading_mode
         }
         self.trade_history.insert(0, trade_log)
         db_manager.insert_trade_history(trade_log)
@@ -1059,6 +1087,40 @@ class LiveTradeManager:
 
     def _evaluate_open_positions(self):
         self.sync_with_db()
+        
+        # === MAKSİMUM GÜNLÜK ZARAR (DAILY DRAWDOWN) KİLL-SWITCH ===
+        today = datetime.now(TRT).strftime("%Y-%m-%d")
+        daily_net_pnl = self.daily_stats.get(today, {}).get("net_pnl", 0.0)
+        from core.config import settings
+        max_loss_limit = -1.0 * (settings.crypto_paper_budget * 0.05)  # %5 Kasadan Erime
+        
+        # Anlık (unrealized) kripto zararını hesapla
+        unrealized_crypto_pnl = 0.0
+        for p in self.positions.values():
+            if p.status == "OPEN" and p.market == "CRYPTO":
+                curr_price = self.market_prices.get(p.symbol, {}).get("price", p.current_price)
+                if curr_price > 0:
+                    if p.side == "BUY":
+                        unrealized_crypto_pnl += (curr_price - p.entry_price) * p.quantity
+                    else:
+                        unrealized_crypto_pnl += (p.entry_price - curr_price) * p.quantity
+                        
+        if (daily_net_pnl + unrealized_crypto_pnl) <= max_loss_limit:
+            if not getattr(self, "kill_switch_triggered_today", False) or getattr(self, "kill_switch_date", "") != today:
+                logger.error(f"🚨 [KILL-SWITCH TETİKLENDİ] Günlük zarar limiti aşıldı! Net PnL: {daily_net_pnl:.2f} + Unrealized: {unrealized_crypto_pnl:.2f} <= {max_loss_limit:.2f}. Kripto işlemleri kapatılıyor.")
+                from services.engine.bot_thought_stream import bot_thought_stream
+                bot_thought_stream.add("🚨 KILL-SWITCH", "SİSTEM", f"Günlük %5 erime sınırına ulaşıldı (Zarar: ${(daily_net_pnl + unrealized_crypto_pnl):.2f}). Tüm açık kripto işlemleri acil durduruluyor ve bugün için yeni işlem kilitlendi.", "ERROR")
+                self.kill_switch_triggered_today = True
+                self.kill_switch_date = today
+                self.is_macro_standby = True
+                self.macro_standby_reason = "Günlük maksimum zarar (Drawdown) Kill-Switch devrede. Bugün işlem yok."
+                
+                # Tüm kriptoları kapat
+                for pid, p in list(self.positions.items()):
+                    if p.status == "OPEN" and p.market == "CRYPTO":
+                        self.close_position(pid, "CLOSED_KILL_SWITCH")
+            return # Zaten kill-switch var, değerlendirme yapma
+
         for pos_id, pos in list(self.positions.items()):
             if pos.status != "OPEN":
                 continue

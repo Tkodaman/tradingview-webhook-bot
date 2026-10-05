@@ -1,112 +1,121 @@
-import ccxt
 import time
-import winsound
-from datetime import datetime
+import subprocess
+import json
+import logging
 
-def run_portfolio_alarm():
-    print("==================================================")
-    print("[ALARM] BTCTURK PORTFOYU - TP / SL / SPREAD ALARMI")
-    print("==================================================")
-    
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# NTFY Channel
+NTFY_URL = "https://ntfy.sh/bist_wolf" # Using user's channel
+
+# Portfolios
+BTCTURK_PORTFOLIO = [
+    {"symbol": "AVAX", "entry_tl": 542.82, "invested_tl": 21400},
+    {"symbol": "MEME", "entry_tl": 0.03040, "invested_tl": 22350},
+    {"symbol": "NEO", "entry_tl": 126.08, "invested_tl": 14100},
+    {"symbol": "STX", "entry_tl": 19.100, "invested_tl": 35780},
+]
+
+MIDAS_PORTFOLIO = [
+    {"symbol": "PLTR", "entry_usd": 18.7, "invested_usd": 490.14},
+    {"symbol": "NET", "entry_usd": 34.675, "invested_usd": 240.61},
+    {"symbol": "FTNT", "entry_usd": 18.231, "invested_usd": 221.34},
+]
+MIDAS_CASH = 417.0
+MIDAS_COMMISSION = 1.5
+
+# Makas (Spread) / TP-SL Constants
+TP1_PCT = 5.0 # +5%
+SL_PCT = -3.0 # -3%
+
+def fetch_crypto_prices():
+    prices = {}
     try:
-        exchange = ccxt.btcturk({'enableRateLimit': True})
+        res = subprocess.run(["curl", "-s", "https://api.binance.com/api/v3/ticker/price"], capture_output=True, text=True, timeout=10)
+        if res.returncode == 0:
+            data = json.loads(res.stdout)
+            for item in data:
+                prices[item['symbol']] = float(item['price'])
     except Exception as e:
-        print("BtcTurk baglantisi kurulamadi, Binance TRY pariteleri denenecek...")
-        exchange = ccxt.binance({'enableRateLimit': True})
-        
-    # Kullanıcının verdiği maliyetler (TRY bazında)
-    portfolio = {
-        'SUI/TRY': {'buy': 58.91, 'tp': 58.91 * 1.08, 'sl': 58.91 * 0.95},     # %8 Kâr, %5 Zarar
-        'SUSHI/TRY': {'buy': 13.43, 'tp': 13.43 * 1.10, 'sl': 13.43 * 0.95},   # %10 Kâr, %5 Zarar
-        'INJ/TRY': {'buy': 370.57, 'tp': 370.57 * 1.08, 'sl': 370.57 * 0.95},  # %8 Kâr, %5 Zarar
-        'FIL/TRY': {'buy': 52.65, 'tp': 52.65 * 1.05, 'sl': 52.65 * 0.95},     # %5 Kâr, %5 Zarar
-        'SOL/TRY': {'buy': 5839.0, 'tp': 5839.0 * 1.08, 'sl': 5839.0 * 0.95}   # %8 Kâr, %5 Zarar
-    }
-    
-    print("Belirlenen Dinamik Hedefler (Ortalama %8 TP, %5 SL):")
-    for sym, data in portfolio.items():
-        print(f"-> {sym}: Maliyet {data['buy']:.2f} TL | TP: {data['tp']:.2f} TL | SL: {data['sl']:.2f} TL")
-    print("--------------------------------------------------")
-    print("Makas %0.30'u gecerse 2 bip calar.")
-    print("Fiyat TP'ye (Kar) ulasirsa zafer melodisi calar.")
-    print("Fiyat SL'ye (Zarar-Kes) ulasirsa acil durum calar.\n")
-    print("Loglar sadece hedeflere veya makas sinirina ulasildiginda basilacaktir (Ekrani kirletmemek icin)...")
+        logging.error(f"Error fetching crypto prices: {e}")
+    return prices
+
+def fetch_stock_prices(symbols):
+    prices = {}
+    try:
+        sym_str = ",".join(symbols)
+        res = subprocess.run(["curl", "-s", f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={sym_str}"], capture_output=True, text=True, timeout=10)
+        if res.returncode == 0:
+            data = json.loads(res.stdout)
+            for item in data.get('quoteResponse', {}).get('result', []):
+                prices[item['symbol']] = float(item['regularMarketPrice'])
+    except Exception as e:
+        logging.error(f"Error fetching stock prices: {e}")
+    return prices
+
+def send_alert(message, priority="high"):
+    try:
+        subprocess.run(["curl", "-H", f"Priority: {priority}", "-H", "Tags: warning,loudspeaker", "-d", message, NTFY_URL], capture_output=True, timeout=5)
+        logging.info(f"🚨 ALERT SENT: {message}")
+    except Exception as e:
+        logging.error(f"Failed to send alert: {e}")
+
+triggered_alerts = set()
+
+def monitor():
+    logging.info("Starting Portfolio Alarm Monitor...")
+    send_alert("✅ BTCTurk ve Midas takip botu aktif. Makas: TP +5%, SL -3%", priority="default")
     
     while True:
-        try:
-            total_cost = 0.0
-            total_current_value = 0.0
+        crypto_prices = fetch_crypto_prices()
+        stock_prices = fetch_stock_prices([p['symbol'] for p in MIDAS_PORTFOLIO])
+        
+        # 1. BTCTurk Check (TRY)
+        for pos in BTCTURK_PORTFOLIO:
+            sym = pos['symbol']
+            pair = f"{sym}USDT"
+            try_pair = f"{sym}TRY"
             
-            for sym, limits in portfolio.items():
-                try:
-                    ticker = exchange.fetch_ticker(sym)
-                    bid = ticker.get('bid', 0)
-                    ask = ticker.get('ask', 0)
-                    last = ticker.get('last', 0)
-                    
-                    if not bid or not ask or not last:
-                        continue
-                        
-                    # Sepet (Basket) hesaplaması için
-                    total_cost += limits['buy']
-                    total_current_value += last
-                        
-                    spread_pct = ((ask - bid) / ask) * 100
-                    now = datetime.now().strftime('%H:%M:%S')
-                    
-                    # 1. MAKAS (SPREAD) KONTROLU
-                    if spread_pct > 1.50:
-                        print(f"[{now}] [TEHLIKE SPREAD] {sym} - Makas Cok Acildi: %{spread_pct:.3f}")
-                    
-                    # 1.5. BREAK-EVEN LOCK (Nyao Scalper Özelliği)
-                    # Fiyat maliyetin %2.5 üzerine çıkarsa, SL'yi giriş fiyatına (veya az üstüne) çek
-                    if last >= limits['buy'] * 1.025 and limits['sl'] < limits['buy'] * 1.005:
-                        limits['sl'] = limits['buy'] * 1.005
-                        print(f"[{now}] [BREAK-EVEN LOCK] {sym} Kara gecti. Stop-Loss giris fiyatina (Karsiz) cekildi: {limits['sl']:.2f} TL")
-                        winsound.Beep(800, 200)
-                        
-                    # 1.8. DYNAMIC ROI (Freqtrade Özelliği - Zaman Bazlı Kâr Alma)
-                    # İşlem çok uzun süre açık kalırsa (örn. momentum biterse) hedef kâr oranını %1.5'a düşürüp çık!
-                    if 'buy_time' not in limits:
-                        limits['buy_time'] = time.time()  # Bot ilk çalıştığında zamanı başlat
-                        
-                    elapsed_mins = (time.time() - limits['buy_time']) / 60.0
-                    
-                    if elapsed_mins > 60 and last >= limits['buy'] * 1.015:
-                        if limits['tp'] > limits['buy'] * 1.015:
-                            limits['tp'] = limits['buy'] * 1.015
-                            print(f"[{now}] [DYNAMIC ROI] {sym} İslem {elapsed_mins:.0f} dakikadir acik. Freqtrade kurali geregi momentum bitti, TP %1.5'a cekildi!")
-                    
-                    # 2. TP / SL KONTROLU
-                    if last >= limits['tp']:
-                        print(f"[{now}] [KAR AL - TP] {sym} HEDEFE ULASTI! Fiyat: {last} TL")
-                        winsound.Beep(523, 200)
-                        winsound.Beep(659, 200)
-                        winsound.Beep(784, 400)
-                        limits['tp'] = last * 1.05 
-                    elif last <= limits['sl']:
-                        print(f"[{now}] [ZARAR KES - SL] {sym} STOP VURULDU! Fiyat: {last} TL")
-                        winsound.Beep(300, 800)
-                        limits['sl'] = last * 0.95
-                        
-                except Exception as ex:
-                    pass
+            live_price = crypto_prices.get(try_pair)
+            if not live_price:
+                usdt_price = crypto_prices.get(pair, 0)
+                usdt_try = crypto_prices.get("USDTTRY", 0)
+                if usdt_price and usdt_try:
+                    live_price = usdt_price * usdt_try
             
-            # 3. BASKET STOP (Nyao Scalper Özelliği - Portföy Kalkanı)
-            if total_cost > 0:
-                portfolio_pnl_pct = ((total_current_value - total_cost) / total_cost) * 100
-                if portfolio_pnl_pct <= -5.0:  # Portföy %5 zarara ulaştığında
-                    now = datetime.now().strftime('%H:%M:%S')
-                    print(f"[{now}] [BASKET STOP] PORTFOY COKUSU! Toplam Zarar: %{portfolio_pnl_pct:.2f}. Butun islemler manuel kapatilmali!")
-                    winsound.Beep(200, 1500)
+            if live_price:
+                entry = pos['entry_tl']
+                pnl_pct = ((live_price - entry) / entry) * 100
+                
+                alert_key = f"{sym}_{'TP1' if pnl_pct >= TP1_PCT else 'SL' if pnl_pct <= SL_PCT else 'NONE'}"
+                if pnl_pct >= TP1_PCT and alert_key not in triggered_alerts:
+                    send_alert(f"🚀 BTCTÜRK {sym} TP1 VURDU! (%{pnl_pct:.2f} Kar) Fiyat: {live_price:.4f} TL", "max")
+                    triggered_alerts.add(alert_key)
+                elif pnl_pct <= SL_PCT and alert_key not in triggered_alerts:
+                    send_alert(f"💥 BTCTÜRK {sym} SL VURDU! (%{pnl_pct:.2f} Zarar) Fiyat: {live_price:.4f} TL", "max")
+                    triggered_alerts.add(alert_key)
+        
+        # 2. Midas Check (USD)
+        for pos in MIDAS_PORTFOLIO:
+            sym = pos['symbol']
+            live_price = stock_prices.get(sym)
+            if live_price:
+                entry = pos['entry_usd']
+                # Scale adjustment (e.g. 18.7 vs 187)
+                while entry < live_price / 3:
+                    entry *= 10
+                
+                pnl_pct = ((live_price - entry) / entry) * 100
+                
+                alert_key = f"{sym}_{'TP1' if pnl_pct >= TP1_PCT else 'SL' if pnl_pct <= SL_PCT else 'NONE'}"
+                if pnl_pct >= TP1_PCT and alert_key not in triggered_alerts:
+                    send_alert(f"🚀 MIDAS {sym} TP1 VURDU! (%{pnl_pct:.2f} Kar) Fiyat: ${live_price:.2f}", "max")
+                    triggered_alerts.add(alert_key)
+                elif pnl_pct <= SL_PCT and alert_key not in triggered_alerts:
+                    send_alert(f"💥 MIDAS {sym} SL VURDU! (%{pnl_pct:.2f} Zarar) Fiyat: ${live_price:.2f}", "max")
+                    triggered_alerts.add(alert_key)
                     
-        except Exception as e:
-            print(f"Baglanti hatasi (Yeniden deneniyor)...")
-            
-        time.sleep(20)
+        time.sleep(60)
 
 if __name__ == "__main__":
-    try:
-        run_portfolio_alarm()
-    except KeyboardInterrupt:
-        print("\nAlarm durduruldu.")
+    monitor()

@@ -83,6 +83,8 @@ def get_active_positions():
         if broker and broker.api:
             try:
 
+                api_health = {"binance": False, "alpaca": False}
+                
                 # Canlı bakiye ve pozisyonları çek
                 # Kullanıcı talebi: Gerçek Alpaca bütçesi akışa yansıtılmalı.
                 try:
@@ -93,10 +95,20 @@ def get_active_positions():
                     
                     effective_balance = float(alpaca_eq)
                     real_available_cash = max(0.0, effective_balance - active_assets)
+                    api_health["alpaca"] = True
                 except Exception as e:
                     effective_balance = live_trade_manager.total_account_equity
                     real_available_cash = live_trade_manager.available_cash
                     raw_positions = []
+                
+                # BİNANCE BAĞLANTI KONTROLÜ (API HEALTH)
+                try:
+                    from services.broker.factory import get_broker
+                    b_broker = get_broker("BINANCE", paper=(settings.trading_mode == "PAPER"))
+                    if b_broker and getattr(b_broker, "client", None) is not None:
+                        api_health["binance"] = True
+                except:
+                    pass
                 
                 # Alpaca'daki pozisyon sembollerini takip et
                 alpaca_symbols = set()
@@ -143,11 +155,13 @@ def get_active_positions():
                     
                     # Alpaca symbol could be BTC/USD, tv_sym is BTC/USDT. Local might be BINANCE:BTCUSDT.
                     # We match if local symbol ends with tv_sym or matches sym.
+                    clean_sym = sym.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
+                    clean_tv_sym = tv_sym.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
                     local_pos = None
                     for lp in live_trade_manager.positions.values():
                         if lp.status == "OPEN":
                             clean_lp = lp.symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
-                            if clean_lp in [sym.upper(), tv_sym.upper()]:
+                            if clean_lp in [clean_sym, clean_tv_sym]:
                                 local_pos = lp
                                 break
                     
@@ -238,11 +252,23 @@ def get_active_positions():
                             sl_price = entry_price * (1.0 + (dyn_sl_pct / 100.0))
                             
                             
+                    market_class = str(p.get("asset_class", "STOCK")).upper()
+                    session_badge = ""
+                    if market_class != "CRYPTO":
+                        from services.risk_engine.market_hours import market_hours_validator
+                        _is_open, _msg, _details = market_hours_validator.is_market_open(sym)
+                        if _details.get("session") == "PRE_MARKET":
+                            session_badge = "PRE"
+                        elif _details.get("session") == "POST_MARKET":
+                            session_badge = "POST"
+                        elif not _is_open:
+                            session_badge = "KAPALI"
+                            
                     pos_id_to_send = local_pos.id if local_pos else f"POS-{sym}"
                     active_list.append({
                         "id": pos_id_to_send,
                         "symbol": sym,
-                        "market": str(p.get("asset_class", "STOCK")).upper(),
+                        "market": market_class,
                         "side": side,
                         "entry_price": entry_price,
                         "current_price": final_current_price,
@@ -254,6 +280,7 @@ def get_active_positions():
                         "unrealized_pnl_pct": float(real_pnl_pct if tv_price > 0 else float(p.get("unrealized_plpc") or 0.0) * 100),
                         "opened_at": opened_at_val,
                         "status": "OPEN",
+                        "session_badge": session_badge,
                         # Trailing / Break-Even durumu (dashboard göstergesi için)
                         "trailing_stop_activated": trailing_active,
                         "break_even_activated": break_even_active,
@@ -280,7 +307,9 @@ def get_active_positions():
                     "binance_cash": round(binance_cash, 2),
                     "binance_budget_limit": round(binance_budget_limit, 2),
                     "active_positions": active_list,
-                    "history": live_trade_manager.trade_history[:10]
+                    "history": live_trade_manager.trade_history[:10],
+                    "trading_mode": settings.trading_mode,
+                    "api_health": api_health
                 }
                 _pos_cache["data"] = result
                 _pos_cache["ts"] = time.time()
@@ -296,8 +325,14 @@ def get_active_positions():
         "account_balance": round(live_trade_manager.account_balance, 2),
         "available_cash": round(live_trade_manager.available_cash, 2),
         "total_commissions_paid": round(live_trade_manager.total_commissions_paid + sum(p.commission_fees for p in live_trade_manager.positions.values() if p.status == "OPEN"), 2),
+        "alpaca_commission": 0.0,
+        "binance_commission": 0.0,
+        "binance_cash": round(live_trade_manager.available_cash, 2),
+        "binance_budget_limit": settings.crypto_paper_budget,
         "active_positions": active_list,
-        "history": live_trade_manager.trade_history[:10]
+        "history": live_trade_manager.trade_history[:10],
+        "trading_mode": settings.trading_mode,
+        "api_health": {"binance": False, "alpaca": False}
     }
     _pos_cache["data"] = result
     _pos_cache["ts"] = time.time()
@@ -369,46 +404,58 @@ def close_live_position(pos_id: str):
     # "POS-COIN" -> "COIN"
     # "POS-COIN-20241231" -> "COIN"
     # "COIN" -> "COIN"
-    parts = pos_id.split("-")
-    if parts[0] == "POS" and len(parts) >= 2:
+    parts = pos_id.split("_") if pos_id.startswith("sync_") else pos_id.split("-")
+    if pos_id.startswith("POS-") and len(parts) >= 2:
         symbol = parts[1]
+    elif pos_id.startswith("sync_") and len(parts) >= 3:
+        symbol = parts[2]
     else:
         symbol = pos_id
 
     alpaca_ok = False
     alpaca_msg = ""
+    is_broker_managed = False
 
     # 1. Alpaca'da kapat (piyasa kapali veya hata olsa bile devam et)
     if settings.trading_mode in ["LIVE", "PAPER"]:
         try:
             from services.broker.factory import get_broker
             broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
-            if broker and broker.api:
-                alpaca_sym = symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
-                if alpaca_sym.endswith("USDT") or alpaca_sym.endswith("USD"):
-                    alpaca_sym = alpaca_sym.replace("USDT", "/USD")
-                    if not alpaca_sym.endswith("/USD"):
-                        alpaca_sym = alpaca_sym[:-3] + "/USD"
-                res = broker.close_position(alpaca_sym)
-                if res.get("status") == "success":
-                    alpaca_ok = True
-                    logger.info(f"[MANUEL KAPAT] {symbol} ({alpaca_sym}) Alpaca'da kapatildi.")
+            if broker and hasattr(broker, "api") and broker.api:
+                local_pos = live_trade_manager.positions.get(pos_id)
+                if local_pos:
+                    is_broker_managed = (local_pos.market != "CRYPTO")
                 else:
-                    alpaca_msg = res.get("message", "Alpaca hatasi")
-                    logger.warning(f"[MANUEL KAPAT] {symbol} Alpaca hatasi: {alpaca_msg}. Yerel kapatma yapiliyor.")
+                    is_broker_managed = not ("USDT" in symbol or "BINANCE" in symbol or "CRYPTO" in symbol)
+                
+                if is_broker_managed:
+                    alpaca_sym = symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
+                    if alpaca_sym.endswith("USDT") or alpaca_sym.endswith("USD"):
+                        alpaca_sym = alpaca_sym.replace("USDT", "/USD")
+                        if not alpaca_sym.endswith("/USD"):
+                            alpaca_sym = alpaca_sym[:-3] + "/USD"
+                    res = broker.close_position(alpaca_sym)
+                    if res.get("status") == "success":
+                        alpaca_ok = True
+                        logger.info(f"[MANUEL KAPAT] {symbol} ({alpaca_sym}) Alpaca'da kapatildi.")
+                    else:
+                        alpaca_msg = res.get("message", "Alpaca hatasi")
+                        logger.warning(f"[MANUEL KAPAT] {symbol} Alpaca hatasi: {alpaca_msg}. Yerel kapatma yapiliyor.")
         except Exception as e:
             alpaca_msg = str(e)
             logger.warning(f"[MANUEL KAPAT] {symbol} Alpaca exception: {e}. Yerel kapatma yapiliyor.")
 
-    # 2. Yerel pozisyonu MUTLAKA kapat (Alpaca basarisiz olsa da)
+    if is_broker_managed: return {'status': 'success', 'closed_position': None, 'alpaca_synced': True, 'alpaca_note': 'Emir Alpaca ya iletildi'}
     # Once direkt pos_id ile dene, bulamazsa symbol uzerinden tara
     local_res = live_trade_manager.close_position(pos_id, "MANUAL_CLOSE")
 
     if not local_res:
         # pos_id eşleşmedi — sembol üzerinden tara
         matched_pos_id = None
+        clean_target_sym = symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
         for pid, pos in live_trade_manager.positions.items():
-            if pos.symbol == symbol and pos.status == "OPEN":
+            clean_pos_sym = pos.symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
+            if clean_pos_sym == clean_target_sym and pos.status == "OPEN":
                 matched_pos_id = pid
                 break
         if matched_pos_id:

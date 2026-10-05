@@ -358,8 +358,11 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             signal.stop_loss = round(signal.price * (1 - sl_pct / 100.0), 4)
             logger.info(f"[DYNAMIC ATR SYNC] {signal.symbol} — Dinamik hesaplanan hedefler: TP=%{tp_pct} (${signal.take_profit}) | SL=%{sl_pct} (${signal.stop_loss})")
         
-        # Strateji tag'ine göre override (sadece signal'da TP/SL yoksa)
-        if signal.macro_tags and not signal.take_profit:
+        # Strateji tag'ine göre override (HATA DÜZELTME: Artık sinyal'deki TP/SL değil, hesaplanan tp_pct/sl_pct kontrol ediliyor)
+        # HATA: signal.take_profit zaten set edildiği için o koşul hiç True olmuyordu.
+        # Düzeltme: _tp_from_signal flag'i ile signal'dan mı yoksa hesaplandı mı ayrım yap.
+        _tp_from_signal = (signal.take_profit and signal.take_profit > signal.price > 0 and signal.stop_loss and 0 < signal.stop_loss < signal.price)
+        if signal.macro_tags and not _tp_from_signal:  # Sadece sinyal TP'si gelmediyse override yap
             if "STRATEGY_MEAN_REVERSION" in signal.macro_tags:
                 tp_pct = RISK_PARAMS.get("mean_reversion_tp_pct", 1.5)
                 sl_pct = 1.0
@@ -439,8 +442,8 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
                 p.nominal_value for p in getattr(live_trade_manager, "positions", {}).values()
                 if (p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)) and p.market == "CRYPTO"
             )
-            base_budget = float(settings.base_portfolio_size)
-            max_global_exposure = base_budget + crypto_realized - crypto_comm  # Binance Testnet Dinamik (örn: 1200$)
+            base_budget = float(settings.crypto_paper_budget)
+            max_global_exposure = base_budget + crypto_realized - crypto_comm  # Binance Testnet Dinamik Bütçe
             
             # TIER-1 YÜKSELTMESİ: KELLY CRITERION DİNAMİK BÜTÇELEME (SADECE HİSSELER/ALPACA İÇİN - Kullanıcı talebi üzerine Kriptoda kapatıldı)
             try:
@@ -490,6 +493,18 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             else:
                 logger.info(f"[RISK SIZING] {signal.symbol} %{risk_pct} Risk bazlı lot hesaplandı: {qty_override:.4f} (Capital: ${allowed_capital:.2f})")
 
+            # KULLANICI EMRİ: Alpaca (NASDAQ) Pre-Market'te fractional (küsuratlı) hisse alımına izin vermez.
+            # Anında infaz için seans dışı ise küsuratı kesip TAM SAYI (int) yapıyoruz.
+            if not is_crypto:
+                from services.risk_engine.market_hours import market_hours_validator
+                is_open, msg, details = market_hours_validator.is_market_open(signal.symbol)
+                if details.get("session") in ["PRE_MARKET", "POST_MARKET"]:
+                    old_qty = qty_override
+                    qty_override = float(int(qty_override))
+                    if qty_override < 1.0:
+                        qty_override = 1.0  # Küsuratlıysa en az 1 lot almaya zorla
+                    logger.info(f"🚀 [PRE-MARKET FRACTIONAL FIX] {signal.symbol} {details.get('session')} aşamasında. Anında infaz (kuyruğa düşmemesi) için miktar {old_qty:.4f} -> {qty_override} olarak tam sayıya yuvarlandı.")
+
         # MOSS BOT FACTORY ENTEGRASYONU: Yüksek riskli (agresif) tahtalarda iğnelerden korunmak için ATR genişlet (sl_atr_mult >= 2.5)
         if is_crypto and risk_pct >= 1.5:
             atr_multiplier = 2.5
@@ -528,9 +543,13 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             pass
 
 
+        # KOMİTE DÜZELTME-1: open_position'a doğru (bütçe kontrollü) seçêm değer verilmeli!
+        # HATA: Eski kodda capital_used kullanılıyordu - bu ham/kontrolsuz değerdi.
+        # YENİ: allowed_capital (bütçe motorundan çıkan, portoï¿½y limit kontrollü değer) kullanılıyor.
+        _final_capital = allowed_capital if per_share_risk > 0 and allowed_capital > 0 else capital_used
         pos = live_trade_manager.open_position(
             symbol=signal.symbol,
-            capital=capital_used,
+            capital=_final_capital,
             side="BUY",
             tp_pct=tp_pct,
             sl_pct=sl_pct,
@@ -601,9 +620,11 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
 
         if is_crypto:
             target_broker_name = "BINANCE"
-            logger.info(f"🔄 [HYBRID ROTASYON] {signal.symbol} Kripto varlığı tespit edildi. İnfaz için {target_broker_name} (SANAL/TESTNET) yönlendiriliyor.")
-            broker = get_broker(target_broker_name, paper=True)  # Kripto Testnet (Paper) modunda çalışacak
-            logger.info(f"[BROKER] Mode: PAPER/TESTNET (HYBRID) | Active Routed Broker: {target_broker_name}")
+            # Kripto: is_paper_mode=False ise GERÇEK Binance'e gönder
+            binance_paper = settings.trading_mode.upper() != "LIVE"
+            logger.info(f"🔄 [HYBRID ROTASYON] {signal.symbol} Kripto varlığı tespit edildi. İnfaz için {target_broker_name} ({'TESTNET/PAPER' if binance_paper else 'LIVE/GERÇEK'}) yönlendiriliyor.")
+            broker = get_broker(target_broker_name, paper=binance_paper)
+            logger.info(f"[BROKER] Mode: {'PAPER/TESTNET' if binance_paper else 'LIVE'} | Active Routed Broker: {target_broker_name}")
         else:
             target_broker_name = "ALPACA"
             logger.info(f"🔄 [HYBRID ROTASYON] {signal.symbol} Hisse Senedi tespit edildi. İnfaz için {target_broker_name} (SANAL/PAPER) yönlendiriliyor.")
@@ -612,7 +633,11 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
         
         if broker:
             if action_clean in ["BUY", "LONG"]:
-                if pos and getattr(pos, "broker_order_id", None):
+                if not pos:
+                    logger.warning(f"[BROKER ROTATION] {signal.symbol} bütçe/limit sebebiyle yerel pozisyon açılamadı. Broker emri iptal edildi.")
+                    return {"status": "rejected", "reason": "LOCAL_POSITION_FAILED"}
+                
+                if getattr(pos, "broker_order_id", None):
                     res = {"status": "success", "order_id": pos.broker_order_id, "details": "Already routed by position manager"}
                     logger.info(f"[BROKER] {signal.symbol} zaten pozisyon yöneticisi tarafından iletildi; ikinci emir atlanıyor.")
                 else:
@@ -699,8 +724,11 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
                         limit_pusu_price = round(signal.price * (1 - (pusu_discount / 100.0)), 6)
                         logger.info(f"🕸️ [PREDATORY LIQUIDITY] {signal.symbol} için {signal.price} yerine {limit_pusu_price} seviyesine LİMİT PUSU kuruluyor! (%{pusu_discount:.2f} dipten yakalama)")
 
-                    # Thread ile arka plana gönder (API çağrısını bloklamasın)
-                    twap_thread = threading.Thread(target=stealth_twap_execution, args=(broker, signal.symbol, final_qty, tp_price, sl_price, limit_pusu_price))
+                    # KOMİTE DÜZELTME-2: TWAP'a qty_override (bütçe hesaplamalı) gönder, final_qty (risk motoru) değil!
+                    # HATA: final_qty = risk_assessment["adjusted_quantity"] — risk motoru değeri, bütçe ile senkronize değildi.
+                    # YENİ: qty_override = allowed_capital / signal.price — bütçe motorunun güvenli, limitli değeri.
+                    _twap_qty = qty_override if qty_override and qty_override > 0 else final_qty
+                    twap_thread = threading.Thread(target=stealth_twap_execution, args=(broker, signal.symbol, _twap_qty, tp_price, sl_price, limit_pusu_price))
                     twap_thread.start()
                     
                     res = {"status": "success", "message": f"TWAP Stealth Execution başlatıldı (Total Qty: {final_qty})"}

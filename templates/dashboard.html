@@ -1244,10 +1244,10 @@ The following code has been modified to include a line number before every line,
 <body>
 
     <!-- CANLI OTONOM ALARM ŞERİDİ (KALDIRILDI) -->
-    <!-- OTONOM İÇ SES VE ADMİN DİYALOĞU ŞERİDİ (TICKER 2) -->
-    <div style="background: rgba(10,15,25,0.95); border-bottom: 1px solid rgba(168,85,247,0.3); padding: 5px 15px; width: 100%; display: flex; align-items: center;">
-        <div style="background: #a855f7; color: #fff; font-weight: bold; padding: 2px 8px; border-radius: 4px; font-size: 10px; letter-spacing: 1px; margin-right: 15px; flex-shrink: 0; text-transform: uppercase;">🧠 Otonom İç Ses</div>
-        <marquee id="aiThoughtMarquee" scrollamount="14" onmouseover="this.stop();" onmouseout="this.start();" style="color: #f8fafc; font-family: monospace; font-size: 16px; font-weight: 600; padding: 4px 0;">
+    <!-- OTONOM İÇ SES VE ADMİN DİYALOĞU ŞERİDİ (TICKER 2) (SABİT / STICKY TOP) -->
+    <div style="position: sticky; top: 0; left: 0; z-index: 9999; background: rgba(10,15,25,0.98); border-bottom: 2px solid rgba(168,85,247,0.6); padding: 5px 15px; width: 100%; display: flex; align-items: center; box-shadow: 0 4px 25px rgba(0,0,0,0.7); font-family: monospace;">
+        <div style="background: linear-gradient(135deg, #9333ea, #6b21a8); color: #fff; font-weight: 800; padding: 4px 10px; border-radius: 4px; font-size: 11px; letter-spacing: 1px; margin-right: 15px; flex-shrink: 0; text-transform: uppercase; box-shadow: 0 0 10px rgba(168,85,247,0.5);">🧠 Otonom İç Ses</div>
+        <marquee id="aiThoughtMarquee" scrollamount="12" onmouseover="this.stop();" onmouseout="this.start();" style="color: #e2e8f0; font-family: monospace; font-size: 16px; font-weight: 500; padding: 4px 0; letter-spacing: 0.5px;">
             Zeka Motoru başlatılıyor, piyasa sinyalleri bekleniyor...
         </marquee>
     </div>
@@ -1287,6 +1287,10 @@ The following code has been modified to include a line number before every line,
                     </div>
                     <div class="header-subtitle">
                         Kripto (7/24), BIST 100/30 ve NASDAQ Mega-Cap • Dinamik Seans Kontrolü • Otonom Risk & Hafıza Motoru
+                        <div style="margin-top: 6px; display: flex; gap: 16px; font-size: 11px; font-weight: 700; font-family: monospace; letter-spacing: 0.5px;">
+                            <div id="apiHealthBinance" style="display: flex; align-items: center; gap: 6px; color: #94a3b8;"><span id="dotBinance" style="width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;transition:all 0.3s ease;"></span>Binance API: Yükleniyor...</div>
+                            <div id="apiHealthAlpaca" style="display: flex; align-items: center; gap: 6px; color: #94a3b8;"><span id="dotAlpaca" style="width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;transition:all 0.3s ease;"></span>Alpaca API: Yükleniyor...</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1524,9 +1528,15 @@ The following code has been modified to include a line number before every line,
                 <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
                     <span class="live-dot" style="background: #f59e0b; box-shadow: 0 0 8px #f59e0b;"></span>
                     <span style="color: #f59e0b; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;">BINANCE (KRİPTO):</span>
-                    <span id="binanceBudgetDisplay" class="wallet-val" style="color: #fff; font-size: 14px; font-weight: 700;">LİMİT $1600.00 (MAKS 4 KOİN)</span>
+                    <span id="binanceBudgetDisplay" class="wallet-val" style="color: #fff; font-size: 14px; font-weight: 700;">LİMİT $1600.00 (MAKS 6 KOİN)</span>
                     <span id="binanceCash" style="color: var(--text-secondary); font-size: 11px;">(Mevcut: $0.00)</span>
                     <span id="binanceCommission" style="color: #fca5a5; font-size: 11px;">(Komisyon: -$0.00)</span>
+                </div>
+                
+                <!-- TRADING MODE INDICATOR -->
+                <div id="modeIndicator" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
+                    <span id="modeDot" class="live-dot" style="background: #a855f7; box-shadow: 0 0 8px #a855f7;"></span>
+                    <span id="modeText" style="color: #a855f7; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;">MOD YÜKLENİYOR...</span>
                 </div>
             </div>
 
@@ -1640,14 +1650,6 @@ The following code has been modified to include a line number before every line,
             </div>
         </div>
 
-        <!-- AI Otonom Analiz Raporu -->
-        <div id="summaryAiAnalysisBox" style="background: rgba(139, 92, 246, 0.1); border-left: 3px solid #c084fc; padding: 10px 14px; margin-bottom: 16px; border-radius: 4px; display: none;">
-            <div style="font-size: 11px; color: #c084fc; font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
-                <span>🤖 GPT Astra 6 (Otonom Analiz)</span>
-            </div>
-            <div id="summaryAiAnalysisText" style="font-size: 13px; color: #e2e8f0; line-height: 1.5;">Yükleniyor...</div>
-        </div>
-
         <!-- Recent Trades Table -->
         <div class="table-container" style="max-height: 250px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px;">
             <table class="positions-table dashboard-output-table" style="width:100%; border-collapse: collapse; font-size: 12px;">
@@ -1752,7 +1754,7 @@ The following code has been modified to include a line number before every line,
                 <span style="color:#8b5cf6;">🥷</span> Gölge Arena: Otonom Zeka & Cesaret Testi (Canlı)
             </div>
             <div style="font-size: 11px; color: #a78bfa; font-weight: bold; border: 1px solid rgba(139,92,246,0.3); padding: 2px 6px; border-radius: 4px; background: rgba(139,92,246,0.1);">
-                [MAKS. 8 SAAT KURALI - VUR KAÇ / BALİNA SÖRFÜ]
+                [MAKS. 2 SAAT KURALI - VUR KAÇ / BALİNA SÖRFÜ]
             </div>
         </div>
         
@@ -2695,13 +2697,54 @@ The following code has been modified to include a line number before every line,
                 }
                 
                 if (binBudgetEl && data.binance_budget_limit !== undefined) {
-                    binBudgetEl.innerText = `LİMİT $${parseFloat(data.binance_budget_limit).toFixed(2)} (MAKS 4 KOİN)`;
+                    binBudgetEl.innerText = `LİMİT $${parseFloat(data.binance_budget_limit).toFixed(2)} (MAKS 6 KOİN)`;
                 }
                 if (binCashEl && data.binance_cash !== undefined) {
                     binCashEl.innerText = `(Mevcut: $${parseFloat(data.binance_cash).toFixed(2)})`;
                 }
                 if (binCommEl && data.binance_commission !== undefined) {
                     binCommEl.innerText = `(Komisyon: -$${parseFloat(data.binance_commission).toFixed(2)})`;
+                }
+                
+                const modeIndicator = document.getElementById('modeIndicator');
+                const modeDot = document.getElementById('modeDot');
+                const modeText = document.getElementById('modeText');
+                if (modeIndicator && modeDot && modeText && data.trading_mode) {
+                    if (data.trading_mode === "PAPER" || data.trading_mode === "SIMULATION") {
+                        modeIndicator.style.background = "rgba(16, 185, 129, 0.1)";
+                        modeIndicator.style.border = "1px solid rgba(16, 185, 129, 0.4)";
+                        modeDot.style.background = "#10b981";
+                        modeDot.style.boxShadow = "0 0 8px #10b981";
+                        modeText.style.color = "#10b981";
+                        modeText.innerText = "🟢 PAPER TRADING (GÖLGE TEST)";
+                    } else {
+                        modeIndicator.style.background = "rgba(239, 68, 68, 0.1)";
+                        modeIndicator.style.border = "1px solid rgba(239, 68, 68, 0.4)";
+                        modeDot.style.background = "#ef4444";
+                        modeDot.style.boxShadow = "0 0 8px #ef4444";
+                        modeText.style.color = "#ef4444";
+                        modeText.innerText = "🔴 LIVE TRADING (GERÇEK PARA)";
+                    }
+                }
+                
+                // API Health Update
+                if (data.api_health) {
+                    const elBinance = document.getElementById('apiHealthBinance');
+                    if (elBinance) {
+                        if (data.api_health.binance) {
+                            elBinance.innerHTML = '<span id="dotBinance" style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;transition:all 0.3s ease;"></span><span style="color:#10b981;">Binance API: Aktif</span>';
+                        } else {
+                            elBinance.innerHTML = '<span id="dotBinance" style="width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;transition:all 0.3s ease;"></span><span style="color:#ef4444;">Binance API: Bağlantı Yok</span>';
+                        }
+                    }
+                    const elAlpaca = document.getElementById('apiHealthAlpaca');
+                    if (elAlpaca) {
+                        if (data.api_health.alpaca) {
+                            elAlpaca.innerHTML = '<span id="dotAlpaca" style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;transition:all 0.3s ease;"></span><span style="color:#10b981;">Alpaca API: Aktif</span>';
+                        } else {
+                            elAlpaca.innerHTML = '<span id="dotAlpaca" style="width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;transition:all 0.3s ease;"></span><span style="color:#ef4444;">Alpaca API: Bağlantı Yok</span>';
+                        }
+                    }
                 }
 
                 const tbody = document.getElementById('positionsTableBody');
@@ -2726,7 +2769,7 @@ The following code has been modified to include a line number before every line,
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>
-                            <b style="color:#fff;">${p.symbol}</b> 
+                            <b style="color:#fff;">${p.symbol}</b> ${p.session_badge ? `<span style="font-size:9px; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 4px; border-radius:4px; margin-left:4px; border:1px solid rgba(245,158,11,0.3);">${p.session_badge}</span>` : ''}
                             <div style="font-size:10px; color:var(--text-muted);">${p.id}</div>
                             <div style="font-size:9.5px; color:#94a3b8; margin-top:3px;">
                                 <span style="color:#cbd5e1;">Subm/Fill:</span> ${formatOpenedAt(p.opened_at)} &nbsp;|&nbsp; <span style="color:#cbd5e1;">Exp:</span> GTC
@@ -2969,7 +3012,7 @@ The following code has been modified to include a line number before every line,
 
             if (reason && reason !== 'İzleniyor...') parts.push(reason);
             else if (phase) parts.push(phase);
-            if (Number.isFinite(rsi) && rsi > 0) parts.push(`RSI(1h) ${rsi.toFixed(1)}`);
+            if (Number.isFinite(rsi) && rsi > 0) parts.push(`RSI(MTF) ${rsi.toFixed(1)}`);
             if (Number.isFinite(volume) && volume > 0) parts.push(`Hac ${volume.toFixed(2)}x`);
             return parts.join(' | ');
         }
@@ -3106,9 +3149,9 @@ The following code has been modified to include a line number before every line,
                 
                 // Sadece RTH (Ana Seans) açıksa tam parlaklıkta göster
                 const isRthOpen = isOpen && (!marketInfo || (!marketInfo.is_pre_market && !marketInfo.is_post_market));
-                const missileReady = isRthOpen && isMissileOpportunity(item);
+                const missileReady = isOpen && isMissileOpportunity(item); // Bot pre/post market'ta alım yaptığı için füzeler her açık seansta hazır!
                 const chgColor = flashColor ? flashColor : (isUp ? '#4ade80' : '#f43f5e');
-                const closedStyle = isRthOpen ? "" : "opacity: 0.4; filter: grayscale(80%);";
+                const closedStyle = isOpen ? "" : "opacity: 0.4; filter: grayscale(80%);";
                 
                 const formattedPrice = formatDyn(item.price);
                 const rsiVal = (item.rsi !== null && item.rsi !== undefined) ? parseFloat(item.rsi) : null;
@@ -3304,7 +3347,7 @@ The following code has been modified to include a line number before every line,
                 
                 // ─── RSI + Hacim + CMF: Renk kodlu gösterim ───
                 box.querySelector('.vol-rsi').innerHTML =
-                    'RSI\(1h\):<span style="color:' + rsiColor + ';font-weight:700;margin-left:2px;">' + rsiStr + '</span>' +
+                    'RSI(MTF):<span style="color:' + rsiColor + ';font-weight:700;margin-left:2px;">' + rsiStr + '</span>' +
                     ' | Hac:<span style="color:' + volColor + ';font-weight:700;margin-left:2px;">' + volStr + 'x</span>' +
                     cmfStr;
                 
@@ -3938,12 +3981,8 @@ The following code has been modified to include a line number before every line,
                 
                 pnlEl.innerHTML = `<span style="color:${realColor}">${pnlRealStr}</span> / <span style="color:${virtColor}">${pnlVirtualStr}</span>`;
                 
-                // AI Summary update
-                if (data.ai_summary) {
-                    document.getElementById('summaryAiAnalysisBox').style.display = 'block';
-                    document.getElementById('summaryAiAnalysisText').innerHTML = data.ai_summary;
-                }
                 
+
                 const tbody = document.getElementById('summaryTableBody');
                 tbody.innerHTML = "";
                 
@@ -4138,7 +4177,7 @@ The following code has been modified to include a line number before every line,
                         }
                         
                         if (binBudgetEl && summary.binance_budget_limit !== undefined) {
-                            binBudgetEl.innerText = `LİMİT $${parseFloat(summary.binance_budget_limit).toFixed(2)} (MAKS 4 KOİN)`;
+                            binBudgetEl.innerText = `LİMİT $${parseFloat(summary.binance_budget_limit).toFixed(2)} (MAKS 6 KOİN)`;
                         }
                         if (binCashEl && summary.binance_cash !== undefined) {
                             binCashEl.innerText = `(Mevcut: $${parseFloat(summary.binance_cash).toFixed(2)})`;
@@ -5255,11 +5294,11 @@ document.addEventListener("DOMContentLoaded", function() {
         
         if (d.thoughts && d.thoughts.length > 0) {
             d.thoughts.forEach(t => {
-                const sym = (t.symbol || '').toUpperCase();
-                // Kripto: USDT/USD ile biter veya BTC/ETH/SOL gibi major coin adları
-                const isCrypto = sym.endsWith('USDT') || sym.endsWith('USD') || 
-                    ['BTC','ETH','SOL','BNB','XRP','ADA','AVAX','DOGE','TIA','INJ'].some(c => sym.startsWith(c));
-                // Boş / SİSTEM düşünceler her iki kutuya da gitsin
+                const sym = (t.symbol || '').toUpperCase().trim();
+                // Gelişmiş Kripto Filtresi: İçinde USDT, USDC, BUSD, USD, TRY, BTC, ETH, SOL vb. geçiyorsa ve IS/NASDAQ/NYSE değilse.
+                const isCrypto = /USDT|USDC|BUSD|BTC|ETH|SOL|BNB|XRP|ADA|AVAX|DOGE|TIA|INJ|PEPE|SHIB/i.test(sym) && !/IS$|NASDAQ|NYSE/i.test(sym);
+                
+                // Boş / SİSTEM / GLOBAL düşünceler her iki kutuya da gitsin
                 if (!sym || sym === 'SİSTEM' || sym === 'SISTEM' || sym === 'GLOBAL') {
                     cryptoThoughts.push(t);
                     stockThoughts.push(t);
@@ -5273,50 +5312,70 @@ document.addEventListener("DOMContentLoaded", function() {
         
         const renderThought = (t) => {
             let levelColor = 'var(--text-secondary)';
-            if (t.level === 'WARN' || t.level === 'WARNING') levelColor = 'var(--accent-yellow)';
-            if (t.level === 'SUCCESS') levelColor = 'var(--up-color)';
-            if (t.level === 'ERROR') levelColor = 'var(--down-color)';
-            if (t.level === 'INFO') levelColor = 'var(--accent-blue)';
+            if (t.level === 'WARN' || t.level === 'WARNING') levelColor = '#fbbf24';
+            if (t.level === 'SUCCESS') levelColor = '#34d399';
+            if (t.level === 'ERROR') levelColor = '#f87171';
+            if (t.level === 'INFO') levelColor = '#38bdf8';
+            if (t.level === 'CRITICAL') levelColor = '#c084fc';
             
-            let emoji = "🧠";
+            let emoji = "\uD83E\uDDE0";
             const msgLower = (t.message || '').toLowerCase();
-            if (msgLower.includes('sinyal')) emoji = '📡';
-            if (msgLower.includes('risk') || msgLower.includes('kalkan') || msgLower.includes('savunma')) emoji = '🛡️';
-            if (msgLower.includes('volatilite')) emoji = '🌪️';
-            if (msgLower.includes('likidite')) emoji = '💧';
-            if (msgLower.includes('hacim')) emoji = '📊';
-            if (msgLower.includes('limit')) emoji = '🚧';
-            if (msgLower.includes('momentum')) emoji = '🚀';
+            if (msgLower.includes('sinyal') || msgLower.includes('onay')) emoji = "\uD83D\uDCE1"; 
+            if (msgLower.includes('risk') || msgLower.includes('koruma') || msgLower.includes('defans')) emoji = "\uD83D\uDEE1\uFE0F"; 
+            if (msgLower.includes('volatilite') || msgLower.includes('momentum')) emoji = "\uD83C\uDF2A\uFE0F"; 
+            if (msgLower.includes('likidite') || msgLower.includes('para')) emoji = "\uD83D\uDCA7"; 
+            if (msgLower.includes('hedef') || msgLower.includes('tp')) emoji = "\uD83C\uDFAF"; 
+            if (msgLower.includes('zarar') || msgLower.includes('sl')) emoji = "\uD83D\uDED1"; 
+            if (msgLower.includes('pusu') || msgLower.includes('bekliyor')) emoji = "\uD83E\uDD77"; 
             
-            let catText = (t.category || 'Sistem').replace('ASTRA-6 AI', 'Yapay Zeka').trim();
+            let catText = (t.category || 'Otonom Sistem').replace('ASTRA-6', 'Gemini-1.5').trim();
             let symText = (t.symbol || '').replace('ANALİZ', 'Değerlendirme').trim();
             let msgText = (t.message || '');
             
-            // Premium AI Brain UI Styling
-            let bgGradient = 'rgba(0, 0, 0, 0.2)';
-            let borderColor = 'rgba(255, 255, 255, 0.05)';
-            if (t.level === 'WARN' || t.level === 'WARNING') { bgGradient = 'linear-gradient(90deg, rgba(234, 179, 8, 0.1) 0%, transparent 100%)'; borderColor = 'rgba(234, 179, 8, 0.2)'; }
-            else if (t.level === 'SUCCESS') { bgGradient = 'linear-gradient(90deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%)'; borderColor = 'rgba(34, 197, 94, 0.2)'; }
-            else if (t.level === 'ERROR') { bgGradient = 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)'; borderColor = 'rgba(239, 68, 68, 0.2)'; }
+            // Ultra-Premium Cyberpunk / Glassmorphism Styling
+            let bgGradient = 'rgba(15, 23, 42, 0.6)';
+            let borderColor = 'rgba(255, 255, 255, 0.1)';
+            let shadowGlow = 'none';
+            
+            if (t.level === 'WARN' || t.level === 'WARNING') { 
+                bgGradient = 'linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)'; 
+                borderColor = 'rgba(234, 179, 8, 0.4)'; 
+                shadowGlow = '0 0 12px rgba(234, 179, 8, 0.15)';
+            }
+            else if (t.level === 'SUCCESS') { 
+                bgGradient = 'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)'; 
+                borderColor = 'rgba(52, 211, 153, 0.4)'; 
+                shadowGlow = '0 0 12px rgba(52, 211, 153, 0.15)';
+            }
+            else if (t.level === 'ERROR') { 
+                bgGradient = 'linear-gradient(135deg, rgba(248, 113, 113, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)'; 
+                borderColor = 'rgba(248, 113, 113, 0.4)'; 
+                shadowGlow = '0 0 12px rgba(248, 113, 113, 0.15)';
+            }
+            else if (t.level === 'INFO') {
+                bgGradient = 'linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)'; 
+                borderColor = 'rgba(56, 189, 248, 0.4)'; 
+                shadowGlow = '0 0 12px rgba(56, 189, 248, 0.15)';
+            }
             
             return `
-            <div style="background: ${bgGradient}; border-left: 3px solid ${borderColor}; margin-bottom: 8px; padding: 10px 12px; border-radius: 0 6px 6px 0; transition: all 0.3s ease; animation: fadeIn 0.4s ease-out;">
-                <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #ffffff; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px;">
-                        <i class="fas fa-clock"></i> ${(t.timestamp || '').slice(11, 19) || t.timestamp}
+            <div style="background: ${bgGradient}; border-left: 4px solid ${borderColor}; box-shadow: ${shadowGlow}; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); margin-bottom: 10px; padding: 12px 14px; border-radius: 4px 8px 8px 4px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1);">
+                <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-family: 'JetBrains Mono', Consolas, monospace; font-size: 10px; color: #94a3b8; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px;">
+                        <i class="fas fa-clock" style="color: ${levelColor}; opacity: 0.8;"></i> ${(t.timestamp || '').slice(11, 19) || t.timestamp}
                     </span>
-                    <span style="font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; background: rgba(56, 189, 248, 0.1); color: var(--accent-blue);">
-                        <i class="fas fa-microchip"></i> ${catText}
+                    <span style="font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.03); color: ${levelColor}; border: 1px solid ${borderColor}; letter-spacing: 0.5px; text-transform: uppercase;">
+                        <i class="fas fa-microchip pulse-icon" style="margin-right:4px;"></i> ${catText}
                     </span>
                 </div>
-                <div style="display:flex; gap: 10px; align-items: flex-start;">
-                    <div style="font-size: 18px; line-height: 1; filter: drop-shadow(0 0 4px ${levelColor});">${emoji}</div>
+                <div style="display:flex; gap: 12px; align-items: flex-start;">
+                    <div style="font-size: 22px; line-height: 1; filter: drop-shadow(0 0 6px ${levelColor}); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">${emoji}</div>
                     <div style="flex:1;">
-                        <b style="color: #f1f5f9; font-size: 13px; text-shadow: 0 0 10px rgba(255,255,255,0.1); display: block; margin-bottom: 3px;">
-                            ${symText ? '<span style="color: #fbbf24;">[' + symText + ']</span>' : ''} İşlem Düşüncesi
+                        <b style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 4px; letter-spacing: 0.3px;">
+                            ${symText ? '<span style="color: #cbd5e1; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; margin-right: 6px; font-family: monospace;">' + symText + '</span>' : ''} İşlem Gerekçesi
                         </b>
-                        <span style="color: ${levelColor}; font-size: 12px; line-height: 1.5; display: inline-block;">
-                            ${msgText.replace(/([0-9]+\.?[0-9]*%?)/g, '<b style="color:#fff;">$1</b>')} 
+                        <span style="color: #94a3b8; font-size: 13px; line-height: 1.6; display: inline-block;">
+                            ${msgText.replace(/([0-9]+\.?[0-9]*%?)/g, `<b style="color: ${levelColor}; font-family: monospace; font-size: 14px;">$1</b>`)} 
                         </span>
                     </div>
                 </div>

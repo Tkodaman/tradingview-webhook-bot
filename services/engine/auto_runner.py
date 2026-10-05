@@ -140,16 +140,20 @@ class TradingViewAutoStrategyRunner:
 
         executed_triggers = []
 
-        # === RSI YARIŞI: Yüksek RSI momentum = önce değerlendir ===
-        # Amac: Guclu ivme gosteren semboller once sinyal uretsin
-        # RSI 60-75 = olgun ama henüz zirvede değil = ideal yarışçı
+        # === ERKEBİŞİM YARIŞI (SNIPER RACE KEY) — KOMİTE REVİZYONU ===
+        # HATA TESPİTİ: Eski race key yüksek RSI'ı önce alıyordu = FOMO sıralaması!
+        # YENİ: Erken Giriş felsefesi. RSI 40-55 = ideal avcı bölgesi = kuyruğun BAŞI.
+        # RSI 55-68 = orta, RSI > 68 = sona atılır. Hacim tiebreaker olarak kalır.
         def _rsi_race_key(item):
             sym, d = item
             rsi_val  = float(d.get("rsi", 0.0) or 0.0)
             vol_val  = float(d.get("volume_ratio", 0.0) or 0.0)
             chg_val  = float(d.get("change_pct", 0.0) or 0.0)
-            # Birleşik yarış skoru: RSI ana kriter, hacim ve değişim tiebreaker
-            return rsi_val * 1.0 + vol_val * 5.0 + chg_val * 2.0
+            # RSI 40-55 ideal bölgesi için ters çevirme: 100 - rsi_val ile uzaklığı ölç
+            # RSI 50 => uzaklık = 5 (50'ye en yakın en yüksek puan alır)
+            rsi_early_score = 10.0 - abs(rsi_val - 50.0) * 0.3
+            # Birleşik yarış skoru: Erken RSI önce, hacim tiebreaker
+            return rsi_early_score + vol_val * 5.0 + chg_val * 1.0
 
         market_data = dict(sorted(market_data_raw.items(), key=_rsi_race_key, reverse=True))
 
@@ -282,10 +286,11 @@ class TradingViewAutoStrategyRunner:
             candle_high = float(data.get("candle_high") or price)
             candle_low  = float(data.get("candle_low")  or price)
 
-            # HUNTER: SADECE GERÇEK AŞIRI-UÇ FOMO'YU ENGELLE (RSI>90 + CHG>10%)
-            # Eski: RSI>85 + chg>5% → block. Yeni: sadece manipülatif pump
-            if rsi > 90.0 and chg_pct >= 10.0:
-                logger.info(f"[FOMO HARD] {sym} RSI={rsi:.0f}+CHG={chg_pct:.1f}% — gerçek pump, atlanıyor.")
+            # HUNTER: AŞIRI-UÇ FOMO'YU ENGELLE — KOMİTE SIKILEŞME KARARI
+            # Eski: RSI>90 + chg>10% (çok gevşek, RSI=89+%9.5 bile geçiyordu)
+            # Yeni: RSI>85 + chg>7.0% (daha gerçekçi ve erken engelleme)
+            if rsi > 85.0 and chg_pct >= 7.0:
+                logger.info(f"[FOMO HARD] {sym} RSI={rsi:.0f}+CHG={chg_pct:.1f}% — aşırı FOMO pump, atlanıyor.")
                 continue
 
             # ============================================================
@@ -428,34 +433,34 @@ class TradingViewAutoStrategyRunner:
             weights = {
                 "rsi_early":    2 if mkt_type != "CRYPTO" else 1,
                 "rsi_mid":      1 if mkt_type != "CRYPTO" else 0,
-                "vwap":         2 if mkt_type == "NASDAQ" else 1,
-                "volume_surge": 2 if mkt_type == "CRYPTO" else 1.5,
-                "volume_norm":  0.5,
-                "adx":          1.5 if mkt_type == "NASDAQ" else 1,
+                "vwap":         2 if mkt_type == "NASDAQ" else 3,  # MTF sonrası VWAP teyidi çok daha değerli (Kripto +3)
+                "volume_surge": 3.5 if mkt_type == "CRYPTO" else 1.5, # Hacim teyidinin Kripto çarpanı artırıldı
+                "volume_norm":  1.0,
+                "adx":          1.5 if mkt_type == "NASDAQ" else 2.5, # MTF sonrası trend onayı çok güvenilir (Kripto +2.5)
             }
 
-            # I1: RSI - DİP VE POTANSİYEL ARAYIŞI (Undervalued / Pre-Breakout)
-            # Kullanıcı isteği: Patlamış varlıklara değil, dipten toparlanan veya patlamaya hazır (RSI 30-50) varlıklara odaklan.
+            # I1: RSI - ERKEN KIRILIM VE DİPTEN YAKALAMA PRENSİBİ (Late Entry Kalkanı)
+            # Kullanıcı isteği: Patlamış varlıklara değil, dipten toparlanan veya patlamaya hazır (RSI 40-55) varlıklara odaklan.
             if 25.0 <= rsi <= 35.0:
-                score += 3.0  # Aşırı satım (Dip bölgesi) - Büyük Fırsat (Aşağıdan alma)
-                logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} dip bölgesi (Aşırı satım) -> +3.0 (Erken keşif)")
+                score += 4.0  # Aşırı satım (Dip bölgesi) - Büyük Fırsat (Aşağıdan alma)
+                logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} dip bölgesi (Aşırı satım) -> +4.0 (Erken keşif)")
             elif 35.0 < rsi <= 50.0:
-                score += weights["rsi_early"] + 0.5 # Erken toparlanma fazı
-                logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} dipten dönüş / potansiyel patlama -> +{weights['rsi_early'] + 0.5}")
-            elif 50.0 < rsi <= 65.0:
-                score += weights["rsi_mid"]
-                logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} trend devam ediyor -> +{weights['rsi_mid']}")
-            elif 65.0 < rsi < 75.0:
-                score += weights["rsi_mid"] * 0.5
-                logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} güçlü trend bandı -> +{weights['rsi_mid']*0.5}")
-            elif rsi >= 75.0:
-                # ÖNERİ 1: Momentum Kırılımı vs Şişkinlik Ayrımı
-                if adx >= 30.0 and vol_ratio >= 1.5:
-                    score += 2.0
-                    logger.info(f"🔥 [I1 RSI MOMENTUM] {sym} RSI={rsi:.1f} ama ADX({adx:.1f}) ve Hacim({vol_ratio:.1f}) coşmuş! Güçlü Momentum Kırılımı -> +2.0")
+                score += 3.0 # Erken toparlanma fazı
+                logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} dipten dönüş / potansiyel patlama -> +3.0")
+            elif 50.0 < rsi <= 60.0:
+                score += 1.5
+                logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} erken kırılım bandı -> +1.5")
+            elif 60.0 < rsi < 68.0:
+                score -= 1.0 # Artık trend olgunlaştı, iğne riski
+                logger.debug(f"[I1 RSI] {sym} RSI={rsi:.1f} olgun trend (iğne yeme riski başlıyor) -> -1.0")
+            elif rsi >= 68.0:
+                # Kesin şişkinlik ve iğne yeme ihtimali çok yüksek
+                if adx >= 35.0 and vol_ratio >= 2.0 and chg_pct < 2.0:
+                    score += 1.0
+                    logger.info(f"🔥 [I1 RSI MOMENTUM] {sym} RSI={rsi:.1f} ama CHG henüz düşük, Hacim coşmuş! Kırılım -> +1.0")
                 else:
-                    score -= 5.0
-                    logger.warning(f"[I1 RSI - ÖNDEN DÜŞÜN] {sym} RSI={rsi:.1f} YORGUN/ŞİŞKİN! Yüksek düzeltme riski -> -5.0")
+                    score -= 6.0
+                    logger.warning(f"[I1 RSI - ÖNDEN DÜŞÜN KALKANI] {sym} RSI={rsi:.1f} YORGUN/ŞİŞKİN! Tepeden girme riski -> -6.0")
 
             # ----------------------------------------------------------
             # İ2 — MACD (Moving Average Convergence/Divergence)
@@ -552,7 +557,7 @@ class TradingViewAutoStrategyRunner:
                 higher_high_pattern = (chg_pct > 0.3)  # Veri yoksa değişim proxy
 
             if higher_high_pattern:
-                hh_bonus = 2 if mkt_type == "CRYPTO" else 1.5
+                hh_bonus = 4 if mkt_type == "CRYPTO" else 1.5  # MTF sonrası 15m+1h Higher High çok zor kırılır, ödülü +4
                 score += hh_bonus
                 logger.info(f"[İ10 HH] {sym} Yükselen tepe pattern → +{hh_bonus} (Score: {score})")
 
@@ -581,7 +586,7 @@ class TradingViewAutoStrategyRunner:
             #        Satıcı baskısı ≤ 0.40 → -1 (zayıf sinyal uyarısı)
             # ----------------------------------------------------------
             if bid_ask_ratio >= 0.60:
-                ob_bonus = 2 if mkt_type in ["CRYPTO", "NASDAQ"] else 1
+                ob_bonus = 3 if mkt_type == "CRYPTO" else (2 if mkt_type == "NASDAQ" else 1) # Kripto'da alıcı üstünlüğü sağlam ödüllendirildi
                 score += ob_bonus
                 logger.info(f"[İ12 OBK] {sym} Güçlü alıcı baskısı (Bid/Ask: {bid_ask_ratio:.2f}) → +{ob_bonus}")
             elif bid_ask_ratio >= 0.55:
@@ -597,16 +602,19 @@ class TradingViewAutoStrategyRunner:
             # ----------------------------------------------------------
             if vol_ratio >= 1.5 and chg_pct >= 1.2:
                 # +++ YUKARIDAN (TEPEDEN) ALMA KORUMASI (User Request) +++
-                pump_threshold = 8.0 if is_crypto else 4.0
+                # KOMİTE KARARI REVİZYONU: Kripto'da %4 çok dar olabilir, gerçek bir ralli yeni başlıyor olabilir. 
+                # Kripto için sınır %6.0, Hisse için %3.0 olarak esnetildi. (Kullanıcı +2 Opsiyonu)
+                pump_threshold = 6.0 if is_crypto else 3.0
+                
                 if chg_pct >= pump_threshold:
-                    score -= 5 # Cok yukselmis varlik, patlamis -> UZAK DUR
-                    logger.warning(f"[I13 TEPEDEN ALMA KORUMASI] {sym} ZATEN PATLAMIŞ (Değişim: %{chg_pct:.2f}). Zirveden maliyetlenmemek için iptal ediliyor -> -5 Ceza")
-                elif vol_ratio >= 3.5 and chg_pct >= (pump_threshold / 1.5):
-                    logger.warning(f"[I13 PUMP] {sym} ASIRI PUMP SINYALI: vol={vol_ratio:.2f} chg={chg_pct:.2f}% -> +0 (Sahte pump filtresi aktif)")
-                    # Momentum bonusu verilmiyor — pump zirvesi riski
+                    score -= 10 # KESİN İPTAL - GEÇ KALINDI
+                    logger.warning(f"[I13 TEPEDEN ALMA KORUMASI] {sym} ZATEN PATLAMIŞ (Değişim: %{chg_pct:.2f}). Zirveden maliyetlenmemek için İPTAL -> -10 Ceza")
+                elif vol_ratio >= 2.5 and chg_pct >= (pump_threshold * 0.7):
+                    score -= 2
+                    logger.warning(f"[I13 PUMP RİSKİ] {sym} AŞIRI HACİM VE YÜKSELİŞ: vol={vol_ratio:.2f} chg={chg_pct:.2f}% -> -2 Ceza (İğne Yeme Riski Aktif)")
                 else:
-                    score += 3
-                    logger.info(f"[I13 MOM] {sym} Hacim+Degisim kirilim onayi -> +3 (Score: {score})")
+                    score += 5 # Kripto'da sağlam kırılım teyidi eskisinden çok daha güvenilir
+                    logger.info(f"[I13 MOM] {sym} Erken Hacim+Değişim kırılım onayı -> +5 (Score: {score})")
 
             # ----------------------------------------------------------
             # BONUS İ14 — Kripto: RSI Oversold Bounce / Bollinger Squeeze
@@ -688,8 +696,8 @@ class TradingViewAutoStrategyRunner:
             dyn_conf = autonomous_council.current_state.get("min_confidence", 65)
             dyn_vol_adj = autonomous_council.current_state.get("min_volume_ratio", 1.0)
 
-            # TAM OTONOM CÜRETKAR MOD: Skor, Hacim ve Kapasite eşikleri Konsey kararına göre güncellendi
-            required_score    = max(_rp["min_score"] - 2, dyn_conf)
+            # TAM OTONOM CÜRETKAR MOD: Skor eşiği artık statik 25 veya profile göre dinamik
+            required_score = max(_rp["min_score"] + 20.0, 25.0)  # Eskiden dyn_conf (65) ile kıyaslanıyordu ve puan (max 40) asla yetmiyordu!
             
             # Dinamik Volatilite Barajı (Volatility Adaptive Threshold)
             if is_crypto:
@@ -716,13 +724,17 @@ class TradingViewAutoStrategyRunner:
             # 🥷 SESSİZLİK PATLAMASI (VCP - Squeeze) TESPİTİ
             # =========================================================
             is_vcp = False
-            if vol_ratio < 0.6 and 40.0 <= rsi <= 60.0 and abs(chg_pct) <= 1.0:
+            # KOMİTE GÜVENLİK REVİZYONU: VCP bonusu +30'dan +18'e indirildi.
+            # Gerekçe: +30 puan RSI cezası (-6) ve pump cezası (-10) dahil TÜM filtreleri geçersiz kılıyordu.
+            # +18 ise sadece gerçek VCP sinyalini yeterince ödüllendirir, sahte durumları da frenler.
+            # Ek koruma: ADX < 20 koşulu eklendi (trend yoksa hacimsizlik gerçekten VCP'dir).
+            if vol_ratio < 0.6 and 40.0 <= rsi <= 60.0 and abs(chg_pct) <= 1.0 and adx < 25.0:
                 is_vcp = True
-                score += 30.0  # VCP Avcı Bonusu (Hacimsizlik cezalarını silip uçurur)
-                logger.info(f"🥷 [VCP HUNTER] {sym} Sessizlik Patlaması (Squeeze) hazırlığı algılandı! Pusuya yatılıyor (+30 Puan).")
+                score += 18.0  # VCP Avcı Bonusu (Güvenli seviyeye indirildi - Komite Kararı)
+                logger.info(f"🥷 [VCP HUNTER] {sym} Sessizlik Patlaması (Squeeze) hazırlığı algılandı! Pusuya yatılıyor (+18 Puan - Güvenli Mod).")
                 bot_thought_stream.add_throttled(
                     "🥷 VCP Patlama Pususu", sym, 
-                    f"Admin, VCP (Volatilite Daralması) formasyonu saptadım. Hacim {vol_ratio:.2f} seviyesine kadar kurumuş fakat fiyatın altına inilmiyor. Sessizlik patlaması bekliyorum, radarıma alıp pusuya yatıyorum.", 
+                    f"Admin, VCP (Volatilite Daralması) formasyonu saptadım. Hacim {vol_ratio:.2f} seviyesine kadar kurumuş fakat fiyatın altına inilmiyor. ADX de trend yok diyor. Sessizlik patlaması bekliyorum, radarıma alıp pusuya yatıyorum.", 
                     "SUCCESS", cooldown_sec=300
                 )
 
@@ -860,12 +872,19 @@ class TradingViewAutoStrategyRunner:
                 pass
 
 
-            # ÖNERİ 1: ML ve Alpha VIP Bypass Sıkılaştırıldı
+            # KOMİTE GÜVENLİK REVİZYONU: ML ve Alpha Bypass artık RSI+Pump güvencesiyle çalışır!
+            # HATA TESPİTİ: ml_prob >= 0.70 tüm RSI cezaları ve pump korumalarını bypass ediyordu.
+            # Örnek: RSI=80, chg=%8 bir varlık ML=%72 olursa ALIM yapılıyordu = iğne yeme garantisi.
+            # YENİ: ml_prob bypass sadece RSI < 68 VE chg < pump_threshold olan varlıklarda çalışır.
             alpha_bypass = ('alpha_val' in locals() and alpha_val >= 0.75)
-            is_buy_signal = (score >= required_score) or (ml_prob >= 0.70) or alpha_bypass
+            _pump_thr_check = 6.0 if is_crypto else 3.0
+            _ml_bypass_safe = (rsi < 68.0) and (chg_pct < _pump_thr_check)  # RSI ve pump güvencesi
+            is_buy_signal = (score >= required_score) or (ml_prob >= 0.70 and _ml_bypass_safe) or alpha_bypass
             
             if alpha_bypass and not (score >= required_score):
                 logger.info(f"💎 [VIP BYPASS] {sym} Kurumsal Alpha çok yüksek ({alpha_val:.2f}). Teknik baraj (Skor: {score:.1f}) aşıldı!")
+            if ml_prob >= 0.70 and not _ml_bypass_safe:
+                logger.warning(f"[ML BYPASS BLOKLANDI] {sym} ML=%{ml_prob*100:.0f} yüksek ancak RSI={rsi:.1f} veya chg=%{chg_pct:.1f} güvensiz. Bypass reddedildi. (Tepeden alma koruması)")
 
             # Hacim filtresi (Korku Zinciri Kırıldı)
             vol_penalty = 1.0
@@ -897,8 +916,9 @@ class TradingViewAutoStrategyRunner:
             # Piyasa bazında maksimum pozisyon limiti: Kripto için 4 (Konsey kararı: Az ama öz), NASDAQ için 12
             max_pos_for_market = 4 if _mtype_local == "CRYPTO" else 12
             
-            # YEDEK İNİSİYATİF (4+2 Kripto Kuralı): Kullanıcı onayıyla, eğer fırsat kusursuzsa (score >= 33 veya ai_confidence > 0.78) +2 kapasite tanınır.
-            is_perfect_opportunity = score >= 33.0 or ml_prob > 0.78
+            # YEDEK İNİSİYATİF (4+2 Kripto Kuralı): Kullanıcı onayıyla, eğer fırsat kusursuzsa (score >= 23 veya ai_confidence > 0.74) +2 kapasite tanınır.
+            # NOT: Puan sınırı 33'ten 23'e düşürüldü çünkü yeni 'Sniper/Erken Giriş' mantığı FOMO şişkinliğini sildiği için skorlar deflasyona uğradı.
+            is_perfect_opportunity = score >= 23.0 or ml_prob > 0.74
             if is_perfect_opportunity and _mtype_local == "CRYPTO":
                 max_pos_for_market += 2
                 
@@ -906,8 +926,8 @@ class TradingViewAutoStrategyRunner:
                 slot_cleared = False
                 
                 # TIER-1 ÇÖZÜM: ACIMASIZ ZAMAN AŞIMI VE ROTASYON (TIME-DECAY LIQUIDATION)
-                # Dışarıdaki fırsat devasa ise (score >= 32 veya ml_prob > 0.80) ve içerideki tahta 4 saattir ölü taklidi yapıyorsa ACIMASIZCA KES.
-                if score >= 32.0 or ml_prob > 0.80:
+                # Dışarıdaki fırsat devasa ise (score >= 22 veya ml_prob > 0.76) ve içerideki tahta 4 saattir ölü taklidi yapıyorsa ACIMASIZCA KES.
+                if score >= 22.0 or ml_prob > 0.76:
                     current_time_ms = int(time.time() * 1000)
                     for pos_id, pos in list(live_trade_manager.positions.items()):
                         if pos.status == "OPEN" and pos.market == _mtype_local:
@@ -949,7 +969,9 @@ class TradingViewAutoStrategyRunner:
             total_open_pos = sum(1 for p in live_trade_manager.positions.values() if p.status == "OPEN")
             
             # Dinamik Esneme: 10 max, ama fırsat çok güçlüyse insiyatifle +4 yedeği kullan (Max 14)
-            current_max = 14 if (score >= required_score + 2 or ml_prob >= 0.70) else 10
+            # KOMİTE TUTARLILIK DÜZELTMESİ: ML bypass burада da aynı RSI+pump güvencesiyle çalışmalı (is_buy_signal ile aynı kural).
+            _ml_global_bypass_safe = (rsi < 68.0) and (chg_pct < _pump_thr_check)
+            current_max = 14 if (score >= required_score + 2 or (ml_prob >= 0.70 and _ml_global_bypass_safe)) else 10
             
             if total_open_pos >= current_max or total_open_pos >= 14:
                 msg = f"[GLOBAL LIMIT BLOCK] {sym} reddedildi. Sistem genelinde maksimum ({total_open_pos}/{current_max}) açık pozisyon limitine ulaşıldı."
@@ -1070,10 +1092,20 @@ class TradingViewAutoStrategyRunner:
                 if not hasattr(self, "_last_trade_time"):
                     self._last_trade_time = 0
 
-                # 3 dakika = 180 saniye
-                if (current_time - self._last_trade_time) < 180:
-                    remaining = int(180 - (current_time - self._last_trade_time))
-                    msg = f"⏳ [COOLDOWN] {sym} sinyal üretti ancak şarjör soğuma süresinde (Kalan: {remaining}sn)."
+                # DİNAMİK ŞARJÖR SOĞUTMA (SNIPER COOLDOWN) — KOMİTE +2 ÖNERİSİ
+                # Kripto 7/24 çalışır, fırsatlar hızlı gelip geçer -> 90sn (Çevik Sniper)
+                # NASDAQ Pre/Post/RTH saatleri daha az gürültülü -> 240sn (Ölçülü Giriş)
+                # BIST standart -> 180sn (Varsayılan)
+                if _mtype_local == "CRYPTO":
+                    _cooldown_seconds = 90
+                elif _mtype_local == "NASDAQ":
+                    _cooldown_seconds = 240
+                else:
+                    _cooldown_seconds = 180
+
+                if (current_time - self._last_trade_time) < _cooldown_seconds:
+                    remaining = int(_cooldown_seconds - (current_time - self._last_trade_time))
+                    msg = f"⏳ [COOLDOWN] {sym} sinyal üretti ancak şarjör soğuma süresinde (Kalan: {remaining}sn / {_mtype_local} için {_cooldown_seconds}sn)."
                     logger.info(msg)
                     bot_thought_stream.add_throttled("⏳ Şarjör Soğutuluyor", "SYSTEM", f"Piyasanın son işlemime tepkisini ölçüyorum. {sym} fırsatı var ancak {remaining} saniye bekleyeceğim.", "WARNING", cooldown_sec=180)
                     try:

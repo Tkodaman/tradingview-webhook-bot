@@ -85,10 +85,15 @@ async def webhook_receiver(signal: WebhookSignal, request: Request):
     processed_signals[signal_id] = current_time_ms
 
     # 4. SPREAD GUARD KONTROLÜ (Bid-Ask Makası)
+    is_crypto = "USDT" in signal.symbol.upper() or "/" in signal.symbol.upper() or "BTC" in signal.symbol.upper() or signal.symbol.upper().endswith("USD")
     spread_pct = alpaca_client.get_bid_ask_spread(signal.symbol)
     if spread_pct is None:
-        logger.warning(f"[SPREAD GUARD ACTIVE] {signal.symbol} için quote alınamadı; işlem bekletildi.")
-        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content={"status": "WAIT", "reason": "Spread quote unavailable"})
+        if is_crypto:
+            logger.info(f"[SPREAD GUARD BYPASS] {signal.symbol} için Alpaca Crypto quote alınamadı, altcoin olarak varsayılıyor ve spread kontrolü atlanıyor.")
+            spread_pct = 0.05 # Varsayılan güvenli spread
+        else:
+            logger.warning(f"[SPREAD GUARD ACTIVE] {signal.symbol} için quote alınamadı; işlem bekletildi.")
+            return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content={"status": "WAIT", "reason": "Spread quote unavailable"})
     if spread_pct > 0.15:
         logger.warning(f"🛑 SPREAD GUARD ACTIVE: {signal.symbol} spread is {spread_pct:.3f}% > 0.15%. Order deferred to WAIT state.")
         return JSONResponse(
