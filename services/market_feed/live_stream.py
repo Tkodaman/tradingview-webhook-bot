@@ -877,7 +877,7 @@ class LiveTradeManager:
 
     def close_position(self, pos_id: str, reason: str = "MANUAL_CLOSE") -> Optional[Dict[str, Any]]:
         from services.engine.ha_manager import ha_manager
-        if not ha_manager.is_leader:
+        if not ha_manager.is_leader and reason != "MANUAL_CLOSE":
             logger.warning(f"💤 [HA STANDBY] Pozisyon kapatma kararı verildi ({reason}), ancak bu Node LİDER olmadığı için işlem uygulanmıyor.")
             return None
 
