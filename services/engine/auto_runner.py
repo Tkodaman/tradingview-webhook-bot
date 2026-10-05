@@ -897,8 +897,8 @@ class TradingViewAutoStrategyRunner:
             # Piyasa bazında maksimum pozisyon limiti: Kripto için 4 (Konsey kararı: Az ama öz), NASDAQ için 12
             max_pos_for_market = 4 if _mtype_local == "CRYPTO" else 12
             
-            # YEDEK İNİSİYATİF (4+2 Kripto Kuralı): Kullanıcı onayıyla, eğer fırsat kusursuzsa (score >= 35 veya ai_confidence > 0.85) +2 kapasite tanınır.
-            is_perfect_opportunity = score >= 35.0 or ml_prob > 0.85
+            # YEDEK İNİSİYATİF (4+2 Kripto Kuralı): Kullanıcı onayıyla, eğer fırsat kusursuzsa (score >= 33 veya ai_confidence > 0.78) +2 kapasite tanınır.
+            is_perfect_opportunity = score >= 33.0 or ml_prob > 0.78
             if is_perfect_opportunity and _mtype_local == "CRYPTO":
                 max_pos_for_market += 2
                 
