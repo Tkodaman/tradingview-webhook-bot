@@ -903,18 +903,47 @@ class TradingViewAutoStrategyRunner:
                 max_pos_for_market += 2
                 
             if open_pos_in_market >= max_pos_for_market:
-                msg = f"[MARKET LIMIT BLOCK] {sym} reddedildi. {_mtype_local} için maksimum ({open_pos_in_market}/{max_pos_for_market}) açık pozisyon limitine ulaşıldı."
-                logger.info(msg)
-                bot_thought_stream.add_throttled(
-                    "🛡️ Kalkanlar Devrede", sym,
-                    f"- Admin]: <span style='color:#f59e0b; font-weight:bold;'>{sym}</span> için {_mtype_local} kotamız dolu ({open_pos_in_market}/{max_pos_for_market}). Sabırla bekliyoruz, fomo'ya kapılmak yok.",
-                    "INFO", cooldown_sec=300
-                )
-                try:
-                    live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Market Limit")
-                except Exception:
-                    pass
-                continue
+                slot_cleared = False
+                
+                # TIER-1 ÇÖZÜM: ACIMASIZ ZAMAN AŞIMI VE ROTASYON (TIME-DECAY LIQUIDATION)
+                # Dışarıdaki fırsat devasa ise (score >= 32 veya ml_prob > 0.80) ve içerideki tahta 4 saattir ölü taklidi yapıyorsa ACIMASIZCA KES.
+                if score >= 32.0 or ml_prob > 0.80:
+                    current_time_ms = int(time.time() * 1000)
+                    for pos_id, pos in list(live_trade_manager.positions.items()):
+                        if pos.status == "OPEN" and pos.market == _mtype_local:
+                            pos_age_hours = (current_time_ms - pos.entry_timestamp_ms) / (1000 * 60 * 60)
+                            pnl_pct = getattr(pos, 'unrealized_pnl_pct', 0.0)
+                            
+                            # EĞER POZİSYON 4 SAATTEN UZUN SÜREDİR AÇIKSA VE YATAYA BAĞLADIYSA (-%2 ile +%1 arası)
+                            if pos_age_hours >= 4.0 and -2.0 <= pnl_pct <= 1.0:
+                                logger.info(f"🔪 [TIER-1 ROTATION] {pos.symbol} {pos_age_hours:.1f} saattir ölü. Dışarıdaki {sym} fırsatı için kurban ediliyor!")
+                                bot_thought_stream.add_throttled(
+                                    "🔪 Otonom Rotasyon (Kurban)", sym,
+                                    f"- Admin]: Dışarıdaki **{sym}** fırsatı o kadar büyük ki, içeride 4 saattir hareketsiz yatan **{pos.symbol}** tahtasını ufak zararına bakmadan acımasızca kapattım. Kan değişimi şart!",
+                                    "WARNING", cooldown_sec=60
+                                )
+                                # Pozisyonu zararına (veya kârına) bakmadan sat
+                                try:
+                                    live_trade_manager.close_position(pos.id, "CLOSED_FOR_ROTATION")
+                                    slot_cleared = True
+                                    open_pos_in_market -= 1
+                                    break # Sadece 1 tane kurban yeterli
+                                except Exception as e:
+                                    logger.error(f"Rotasyon satışı başarısız: {e}")
+
+                if not slot_cleared:
+                    msg = f"[MARKET LIMIT BLOCK] {sym} reddedildi. {_mtype_local} için maksimum ({open_pos_in_market}/{max_pos_for_market}) açık pozisyon limitine ulaşıldı."
+                    logger.info(msg)
+                    bot_thought_stream.add_throttled(
+                        "🛡️ Kalkanlar Devrede", sym,
+                        f"- Admin]: <span style='color:#f59e0b; font-weight:bold;'>{sym}</span> için {_mtype_local} kotamız dolu ({open_pos_in_market}/{max_pos_for_market}). İçeride feda edilecek (rotasyonluk) zayıf tahta da yok. Bekliyoruz.",
+                        "INFO", cooldown_sec=300
+                    )
+                    try:
+                        live_trade_manager.open_shadow_position(sym, "BUY", base_tp, base_sl, price, "Market Limit")
+                    except Exception:
+                        pass
+                    continue
 
             # SİSTEM GENELİ MAKSİMUM POZİSYON LİMİTİ (GLOBAL LIMIT BLOCK)
             total_open_pos = sum(1 for p in live_trade_manager.positions.values() if p.status == "OPEN")
