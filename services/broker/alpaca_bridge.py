@@ -323,6 +323,16 @@ class AlpacaBroker(BaseBroker):
             logger.error(f"Alpaca Fetch Positions Failed: {e}")
             return None
 
+    def get_pending_orders(self) -> list:
+        if not self.api:
+            return []
+        try:
+            open_orders = self.api.list_orders(status="open")
+            return [o.symbol for o in open_orders]
+        except Exception as e:
+            logger.error(f"Alpaca Fetch Pending Orders Failed: {e}")
+            return []
+
     def get_realtime_prices(self, symbols: list) -> Dict[str, Any]:
         """
         Fetches real-time snapshots from Alpaca (IEX) for a list of symbols.

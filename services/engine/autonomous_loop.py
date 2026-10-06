@@ -1,6 +1,7 @@
 import asyncio
 import time
 from core.logger import logger
+from core.config import settings
 from services.data_ingestion.tradingview_live_client import tradingview_live_client
 from services.market_feed.live_stream import live_trade_manager
 import ccxt.async_support as ccxt_async
@@ -82,12 +83,37 @@ class AutonomousEngine:
             # Basit bir düşüş metrik simülasyonu (Gerçek RSI ve EMA'dan)
             btc_rsi = btc_data.get("RSI", 50)
             btc_drop_pct = -3.5 if btc_rsi < 25 else 0.0 # Aşırı satım varsa drop simülasyonu
-            is_vix_high = False # Gelişmiş VIX entegrasyonu ileride eklenebilir
+            
+            # --- TIER-1 MAKRO KALKANI (VIX KORKU ENDEKSİ) ---
+            # CBOE:VIX artık TradingViewScanner tarafından canlı çekiliyor.
+            vix_data = live_data.get("VIX", {})
+            vix_price = vix_data.get("price", 15.0)
+            is_vix_high = vix_price >= 22.0 # VIX 22 üstüyse Makro Risk yüksektir (Kalkan Tetiklenir)
+            if is_vix_high:
+                logger.warning(f"🌐 [MAKRO VİZYON] VIX Korku Endeksi kritik seviyede: {vix_price}! Küresel risk tespit edildi.")
+                
             hedge_manager.evaluate_flash_crash_and_hedge(live_trade_manager, btc_drop_pct, is_vix_high)
         except Exception as e:
             logger.error(f"[HEDGE MANAGER ERROR] {e}")
 
-        for symbol, data in live_data.items():
+        # TIER-2: KONSEY YÖNLENDİRMESİ (WMA +2 Ağırlıklı Sıralama)
+        try:
+            from routers.market_router import get_live_buy_sell_wait_matrix
+            matrix_results = await get_live_buy_sell_wait_matrix()
+            # Konseyin en yüksek puan (WMA) verdigi siralamayi cikar
+            ranked_symbols = [item["symbol"] for item in matrix_results if "symbol" in item]
+            for sym in list(live_data.keys()):
+                if sym not in ranked_symbols:
+                    ranked_symbols.append(sym)
+        except Exception as e:
+            logger.error(f"[KONSEY YÖNLENDİRME HATASI] {e}")
+            ranked_symbols = list(live_data.keys())
+
+        for symbol in ranked_symbols:
+            data = live_data.get(symbol)
+            if not data:
+                continue
+                
             try:
                 # --- ENSTRÜMAN 1: Açık Pozisyon & Fonlama Oranı (Short Squeeze Radarı) ---
                 is_short_squeeze_setup = False
@@ -166,11 +192,16 @@ class AutonomousEngine:
                 # Kelly risk sınırını %50'den max %20'ye düşürdük
                 suggested_risk_pct = min(max(kelly_pct, 0.01), 0.20) 
 
-                # --- PORTFÖY ZIRHI: Dinamik Limit (LIVE: 2 Koin | PAPER: 14 Koin) ---
-                # live_trade_manager üzerinden o anki açık pozisyon sayısına bakıyoruz
+                # --- PORTFÖY ZIRHI: Kripto Bazlı Limit (Sadece CRYPTO pozisyonları sayılır) ---
+                # DÜZELTME: Eski kod TÜM pozisyonları sayıyordu (NASDAQ dahil).
+                # Bu yüzden 12 NASDAQ açıkken CRYPTO sinyalleri de bloklanıyordu.
                 open_positions = getattr(live_trade_manager, "positions", {})
-                open_pos_count = len([p for p in open_positions.values() if getattr(p, "status", "") in ["OPEN", "PENDING_BROKER"]])
-                
+                open_pos_count = len([
+                    p for p in open_positions.values()
+                    if getattr(p, "status", "") in ["OPEN", "PENDING_BROKER"]
+                    and getattr(p, "market", "") == "CRYPTO"
+                ])
+
                 # --- KORELASYON KORUMASI (BTC ve ETH aynı anda açılmasın) ---
                 if symbol == "ETHUSDT" and any(p for p in open_positions.values() if p.symbol == "BTCUSDT" and p.status == "OPEN"):
                     logger.info(f"🛡️ [KORELASYON KALKANI] BTC zaten açık, {symbol} reddedildi.")
@@ -178,12 +209,34 @@ class AutonomousEngine:
                 if symbol == "BTCUSDT" and any(p for p in open_positions.values() if p.symbol == "ETHUSDT" and p.status == "OPEN"):
                     logger.info(f"🛡️ [KORELASYON KALKANI] ETH zaten açık, {symbol} reddedildi.")
                     continue
-                
-                max_allowed_positions = settings.crypto_max_positions + 12 # auto_runner.py'deki limitler (Crypto 6, NASDAQ 12) asıl kontrolü sağlar
-                
+
+                max_allowed_positions = int(getattr(settings, "crypto_max_positions", 6))
+
                 if open_pos_count >= max_allowed_positions:
-                    logger.warning(f"Limit {max_allowed_positions}/{max_allowed_positions} dolu. Yeni işleme girilmiyor (Mod: {settings.trading_mode}).")
+                    logger.warning(f"[CRYPTO LIMIT] {symbol} reddedildi. Kripto pozisyon limiti dolu ({open_pos_count}/{max_allowed_positions}).")
                     continue
+                    
+                # --- AŞAMALI ALIM (STAGGERED ENTRY / GLOBAL PACING) ZIRHI ---
+                # Kullanıcı Talebi: "İlk startta tüm pozisyonları anında doldurmak yerine izleyerek, gölge testinden süzerek sıralı alım yap"
+                last_crypto_open_time = None
+                from datetime import datetime
+                for p in open_positions.values():
+                    if getattr(p, "market", "") == "CRYPTO":
+                        p_ts = getattr(p, "created_at", None)
+                        if p_ts:
+                            try:
+                                p_dt = datetime.strptime(p_ts, "%Y-%m-%d %H:%M:%S")
+                                if last_crypto_open_time is None or p_dt > last_crypto_open_time:
+                                    last_crypto_open_time = p_dt
+                            except:
+                                pass
+                
+                if last_crypto_open_time is not None:
+                    minutes_since_last = (datetime.now() - last_crypto_open_time).total_seconds() / 60.0
+                    # Aşamalı Alım Eşiği: 5 Dakika (Otonom motorun pusuya yatma süresi - Konsey M5 Optimizasyonu)
+                    if minutes_since_last < 5.0:
+                        logger.info(f"⏳ [AŞAMALI ALIM / PACING] {symbol} izlemede. Ava çıkıldı ancak son işlem üzerinden sadece {minutes_since_last:.1f} dk geçti (Hedef: 5dk). Zincirler kırıldı, süzmeye devam ediyorum.")
+                        continue
 
                 # COOLDOWN (Bekleme Süresi) Koruması: Aynı coini art arda AI'a gönderip token yakmasını engelle
                 now = time.time()
@@ -193,7 +246,14 @@ class AutonomousEngine:
                 
                 self.signal_cooldown[symbol] = now
 
-                logger.info(f"💎 [TIER-1 ONAYI] {symbol} | Squeeze: {is_short_squeeze_setup} | Risk Pct: %{suggested_risk_pct*100:.1f}")
+                try:
+                    from services.risk_engine.reversal_engine import reversal_engine
+                    is_reversal = symbol in [r.split(":")[-1] for r in reversal_engine.target_symbols]
+                except Exception:
+                    is_reversal = False
+                    
+                display_symbol = f"🟣 {symbol} (DİP)" if is_reversal else symbol
+                logger.info(f"💎 [TIER-1 ONAYI] {display_symbol} | Squeeze: {is_short_squeeze_setup} | Risk Pct: %{suggested_risk_pct*100:.1f}")
                 
                 # --- SOTA ZIRHI 3 & 4 (Execution): Hard Stop & İzleyen Kâr ---
                 # Sinyal kusursuz! process_order tetiklenir...

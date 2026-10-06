@@ -136,8 +136,6 @@ class AssetUniverseManager:
         self.target_bist_count = 20    # BIST 30 içinden en iyi 20
         self.target_nasdaq_count = 80  # 165+ NASDAQ içinden hacmi ve skoru en iyi 80'i yarışır
 
-        self._force_rotation()
-
     def _early_entry_score(self, ticker: str) -> float:
         """
         STANDART ÇOKLU FAKTÖR ROTASYON SKORU
@@ -231,9 +229,23 @@ class AssetUniverseManager:
 
         if all_candidates:
             top5 = all_candidates[:5]
+            
+            try:
+                from services.risk_engine.reversal_engine import reversal_engine
+                reversal_targets = [r.split(":")[-1] for r in reversal_engine.target_symbols]
+            except Exception:
+                reversal_targets = []
+                
+            formatted_top5 = []
+            for s, sc in top5:
+                if s in reversal_targets:
+                    formatted_top5.append(f"🟣 {s}(skor={sc} DİP)")
+                else:
+                    formatted_top5.append(f"{s}(skor={sc})")
+
             logger.info(
                 "[ERKEN RADAR] Top-5 erken giris adayi: "
-                + " | ".join([f"{s}(skor={sc})" for s, sc in top5])
+                + " | ".join(formatted_top5)
             )
         return all_candidates
 
@@ -286,10 +298,24 @@ class AssetUniverseManager:
             self.active_nasdaq_targets = self.master_nasdaq_universe[:self.target_nasdaq_count]
             
         if "NASDAQ:QQQ" not in self.active_nasdaq_targets: self.active_nasdaq_targets.append("NASDAQ:QQQ")
-
+        # MACRO HEDGE / VIX SHIELD (Korku Endeksi)
+        if "CBOE:VIX" not in self.active_nasdaq_targets: self.active_nasdaq_targets.append("CBOE:VIX")
         # Benchmark'larin her zaman izlenmesi
         if "BINANCE:BTCUSDT" not in self.active_crypto_targets:
             self.active_crypto_targets.append("BINANCE:BTCUSDT")
+            
+        # DİP AVCISI HEDEFLERİNİ SABİTLE (Onlar düşerken puanları azaldığı için listeden düşmemeliler)
+        try:
+            from services.risk_engine.reversal_engine import reversal_engine
+            for t in reversal_engine.target_symbols:
+                if t.startswith("BINANCE:") and t not in self.active_crypto_targets:
+                    self.active_crypto_targets.append(t)
+                elif t.startswith("NASDAQ:") and t not in self.active_nasdaq_targets:
+                    self.active_nasdaq_targets.append(t)
+                elif t.startswith("BIST:") and t not in self.active_bist_targets:
+                    self.active_bist_targets.append(t)
+        except Exception:
+            pass
 
         # YARIŞ LİSTESİ TABLOSU (Admin Scoreboard)
         logger.info(f"📊 [DİNAMİK YARIŞ LİSTESİ] Kripto: {len(self.active_crypto_targets)} aktif | NASDAQ: {'Açık' if is_nasdaq_open else 'KAPALI (Filtrelendi)'} | BIST: {'Açık' if is_bist_open else 'KAPALI (Filtrelendi)'}")

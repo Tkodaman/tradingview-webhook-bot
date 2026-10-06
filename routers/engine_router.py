@@ -12,6 +12,24 @@ class AutoRunnerToggleRequest(BaseModel):
     enabled: bool = Field(True, description="Otonom strateji motorunu aç/kapat")
     capital_per_trade: float = Field(100.0, description="İşlem başına kullanılacak bakiye")
 
+class TradingModeRequest(BaseModel):
+    mode: str = Field(..., description="PAPER veya LIVE")
+
+@router.post("/trading-mode")
+def toggle_trading_mode(req: TradingModeRequest):
+    from core.config import settings
+    if req.mode.upper() not in ["PAPER", "LIVE"]:
+        return {"status": "error", "message": "Geçersiz mod. PAPER veya LIVE olmalı."}
+    settings.apply_trading_mode(req.mode)
+    
+    # KULLANICI GÜVENLİK BARIYERİ: Gölge ve Gerçek pozisyonlar asla karıştırılmamalı!
+    # Mod değiştiği an (Paper -> Live veya tam tersi) eski hafızayı ve pozisyonları tamamen yok et.
+    from services.market_feed.live_stream import live_trade_manager
+    live_trade_manager.reset_account()
+    
+    return {"status": "success", "mode": settings.trading_mode, "message": f"Trading Mode {settings.trading_mode} olarak ayarlandı ve hafıza sıfırlandı."}
+
+
 @router.post("/auto-runner/toggle")
 async def toggle_auto_runner(req: AutoRunnerToggleRequest):
     """

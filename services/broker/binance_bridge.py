@@ -29,15 +29,13 @@ class BinanceBroker(BaseBroker):
         if self.api_key and self.secret_key:
             try:
                 # Proxy ayarlarını yeniden dahil ediyoruz çünkü VPS'in IP'si Binance tarafından engelleniyor olabilir (SSL EOF sebebi)
-                req_params = {}
+                req_params = {"verify": False}
+                import urllib3
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
                 if getattr(settings, "outbound_proxy", None):
                     proxy_url = settings.outbound_proxy
                     req_params["proxies"] = {"http": proxy_url, "https": proxy_url}
                     logger.info(f"[BINANCE] Proxy kullaniliyor: {proxy_url}")
-                else:
-                    # Eger proxy yoksa SSL hatalarını gecmek icin verify=False denenebilir
-                    req_params["verify"] = False
-                    
                 # Paper mode for Binance is Testnet
                 self.client = Client(self.api_key, self.secret_key, testnet=paper, requests_params=req_params)
                 logger.info(f"[BINANCE] Baglanti saglandi. Mod: {'PAPER (Testnet)' if paper else 'LIVE'}")
@@ -77,8 +75,51 @@ class BinanceBroker(BaseBroker):
         return self.get_account_balance()
 
     def get_open_positions(self) -> list:
-        # Spot hesapta 'pozisyon' klasigi yoktur, elde tutulan varliklardir.
-        return []
+        if not self.client:
+            return []
+        try:
+            acc = self.client.get_account()
+            
+            # Tüm sembollerin fiyatlarını tek seferde çek (Notional Dust Filter için)
+            prices = {}
+            try:
+                tickers = self.client.get_all_tickers()
+                for t in tickers:
+                    prices[t['symbol']] = float(t['price'])
+            except Exception as e:
+                logger.warning(f"[BINANCE DUST FILTER] Ticker alınamadı, sadece QTY kullanılacak. Hata: {e}")
+                
+            positions = []
+            for bal in acc.get('balances', []):
+                asset = bal['asset']
+                if asset in ['USDT', 'BUSD', 'USDC']: continue
+                
+                qty = float(bal['free']) + float(bal['locked'])
+                
+                # Dolarsal (Notional) Toz Filtresi
+                usd_value = 0.0
+                symbol = f"{asset}USDT"
+                if prices and symbol in prices:
+                    usd_value = qty * prices[symbol]
+                
+                # Sadece hem mikari > 0 olan HEM DE dolarsal degeri 2.5$ ustunde olanlari gecerli say
+                # (Eger fiyat bulunamazsa ve qty > 0.0001 ise yine de gecerli say)
+                is_valid = False
+                if usd_value > 2.50:
+                    is_valid = True
+                elif not prices and qty > 0.00001:
+                    is_valid = True
+                    
+                if is_valid:
+                    positions.append({
+                        "symbol": symbol,
+                        "qty": qty,
+                        "asset_class": "crypto"
+                    })
+            return positions
+        except Exception as e:
+            logger.error(f"[BINANCE SYNC] Failed to fetch open positions: {e}")
+            return []
 
     def close_position(self, symbol: str) -> Dict[str, Any]:
         if not self.client:
@@ -171,6 +212,13 @@ class BinanceBroker(BaseBroker):
                 type=Client.ORDER_TYPE_MARKET,
                 quantity=fmt_qty
             )
+            
+            # Senaryo 3: Parçalı Dolum (Partial Fill) Koruması
+            if order.get("status") == "PARTIALLY_FILLED":
+                executed_qty = float(order.get("executedQty", 0))
+                logger.warning(f"🚨 [PARTIAL FILL - MARKET] {sym} emri kısmen doldu. İşleme sadece {executed_qty} ile devam ediliyor.")
+                return {"status": "success", "order_id": order.get('orderId'), "details": order, "filled_qty": executed_qty}
+
             logger.info(f"[BINANCE] Emir Basarili: {order.get('orderId')}")
             return {"status": "success", "order_id": order.get('orderId'), "details": order}
         except Exception as e:
@@ -213,6 +261,18 @@ class BinanceBroker(BaseBroker):
                 type=Client.ORDER_TYPE_MARKET,
                 quantity=fmt_qty
             )
+            
+            # Senaryo 3: Parçalı Dolum (Partial Fill) Koruması Bracket Emirler İçin
+            if entry_order.get("status") == "PARTIALLY_FILLED":
+                executed_qty = float(entry_order.get("executedQty", 0))
+                logger.warning(f"🚨 [PARTIAL FILL - BRACKET] {sym} emri kısmen doldu. Kalan kısım asılı kalmaması için otonom olarak devredışı bırakıldı. Yeni Miktar: {executed_qty}")
+                # Hacim miktarını gerçekte alınan miktara göre güncelle ki OCO emri kilitlenmesin
+                fmt_qty = f"{executed_qty:.{precision}f}" if precision > 0 else f"{int(executed_qty)}"
+                
+                # Eğer dolum sıfırsa veya çok küçükse işlemi iptal et
+                if executed_qty <= 0:
+                    logger.error(f"[PARTIAL FILL ERROR] {sym} alınamadı, OCO emri iptal edildi.")
+                    return {"status": "error", "message": "Partial fill resulted in zero quantity."}
             
             # Borsalardaki ani kopmalara karşı "Donanımsal Stop" (Hardware OCO)
             try:

@@ -718,25 +718,23 @@ async def get_live_buy_sell_wait_matrix():
         # Adil Oransal Dağılım: Temel skor + Liyakat Bonusu. Yapay şişirme (1.10x) kaldırıldı!
         raw_score = base_raw_score + agent_bonus
         
-        # Geçmiş kayıtlar için ham skoru (raw_score) sakla ki geçmişin potansiyeli korunsun
-        now_ts = time.time()
+        # ── KONSEY (ÖNERİ + 2) AĞIRLIKLI ORTALAMASI (KAOS ENGELLEYİCİ) ──
+        # Listenin her tickte zıplamasını (kaotik yapıyı) engellemek için sadece son 3 veriyi tut
         if sym not in _score_history:
             _score_history[sym] = []
             
-        # Sadece son 15 dakikadaki (900 saniye) kayıtları tut
-        _score_history[sym].append((now_ts, raw_score))
-        _score_history[sym] = [t for t in _score_history[sym] if now_ts - t[0] <= 900]
-        
+        _score_history[sym].append(raw_score)
+        if len(_score_history[sym]) > 3:
+            _score_history[sym].pop(0) # Sadece son 3'ü (Öneri + 2 Önceki) tut
+            
         smoothed_score = raw_score
-        if len(_score_history[sym]) > 1:
-            total_weight = 0
-            weighted_score = 0
-            for t_ts, t_raw in _score_history[sym]:
-                # Yarı ömür: 60 saniye (ani hacim patlamaları artık hızlı yansır)
-                weight = 1.0 / (1.0 + (now_ts - t_ts) / 60.0)
-                weighted_score += t_raw * weight
-                total_weight += weight
-            smoothed_score = weighted_score / total_weight
+        hist_len = len(_score_history[sym])
+        
+        # Weighted Moving Average (Ağırlıklı Ortalama): Güncele (son veriye) daha fazla ağırlık
+        if hist_len == 3:
+            smoothed_score = (_score_history[sym][0]*1 + _score_history[sym][1]*2 + _score_history[sym][2]*3) / 6.0
+        elif hist_len == 2:
+            smoothed_score = (_score_history[sym][0]*1 + _score_history[sym][1]*2) / 3.0
 
         # ── KONSEY CEZALARI (ADİL PAYDA ORANI İÇİN ACIMASIZ SÜZGEÇ) ──
         # Yumuşatılmış skor üzerinden cezaları KESİN ve ANINDA uygula! Geçmişin hatırı cezalarda işlemez.
@@ -817,10 +815,85 @@ async def get_live_buy_sell_wait_matrix():
         )
         m["historical_sample"] = historical_sample
 
+    # --- YENİ: REVERSAL ENGINE (DİP AVCISI) KUTULARI (Grup filterindan ÖNCE eklenmeli ki dashboard'a yansısın) ---
+    try:
+        from services.risk_engine.reversal_engine import reversal_engine
+        for rev_sym in reversal_engine.target_symbols:
+            raw_sym = rev_sym.split(":")[-1] if ":" in rev_sym else rev_sym
+            rev_data = live_data.get(raw_sym, {})
+            rev_price = rev_data.get("price", 0.0)
+            rev_rsi = rev_data.get("rsi", 0.0)
+            rev_vol = rev_data.get("volume_ratio", 0.0)
+            # RSI temelli gerçekçi güven skoru hesaplama
+            realistic_conf = 100.0 - (rev_rsi * 1.2)
+            realistic_conf = max(45.0, min(99.5, realistic_conf))
+            if rev_vol > 1.5: realistic_conf = min(99.9, realistic_conf + 4.0)
+            
+            # Dinamik Durum Mesajı
+            if rev_rsi <= 25 and rev_vol >= 1.5:
+                rev_status = "🚀 MUAZZAM FIRSAT (Dip Görüldü, Alıma Hazır!)"
+            elif rev_rsi <= 30:
+                rev_status = "⚠️ Yoğun Bakım (Balina Hacmi Bekleniyor)"
+            elif rev_rsi <= 45:
+                rev_status = "🩸 Kanama Başladı (Düşüş Derinleşiyor)"
+            else:
+                rev_status = "💤 Uykuda (Kan Banyosu Bekleniyor...)"
+
+            if reversal_engine.is_active:
+                rev_status = "🔮 Otonom İnfaz Devrede (Kill-Switch Tetiklendi!)"
+            
+            rev_market = "CRYPTO"
+            rev_open = True
+            if "BIST:" in rev_sym:
+                rev_market = "BIST"
+                rev_open = is_bist_open if 'is_bist_open' in locals() else True
+            elif "NASDAQ:" in rev_sym:
+                rev_market = "NASDAQ"
+                rev_open = is_nasdaq_open if 'is_nasdaq_open' in locals() else True
+
+            matrix_results.append({
+                "symbol": raw_sym,
+                "market": rev_market,
+                "is_market_open": rev_open,
+                "price": rev_price,
+                "change_pct": rev_data.get("change_pct", 0.0),
+                "rsi": rev_rsi,
+                "volume_ratio": rev_vol,
+                "decision": "WAIT",
+                "reason": rev_status,
+                "is_reversal": True,
+                "score": 0,
+                "momentum_phase": "REVERSAL_MONITOR",
+                "confidence_score": round(realistic_conf, 1),
+                "indicator_coverage": 1.0
+            })
+    except Exception as e:
+        print("Reversal Engine Entegrasyon Hatası:", e)
+
+    # Varlıkları market bazında ayır
+    crypto_all = [m for m in matrix_results if m["market"] == "CRYPTO"]
+    bist_all = [m for m in matrix_results if m["market"] == "BIST"]
+    nasdaq_all = [m for m in matrix_results if m["market"] == "NASDAQ"]
+
+    # CRYPTO için Özel Sıralama: İlk 6 Momentum, Sonra Reversal, Sonra Diğer Momentumlar
+    crypto_normal = sorted([m for m in crypto_all if not m.get("is_reversal")], key=lambda x: x.get("confidence_score", 0), reverse=True)
+    crypto_reversal = sorted([m for m in crypto_all if m.get("is_reversal")], key=lambda x: x.get("confidence_score", 0), reverse=True)
+    final_crypto = crypto_normal[:6] + crypto_reversal + crypto_normal[6:]
+
+    # BIST için Özel Sıralama: İlk 6 Momentum, Sonra Reversal, Sonra Diğer Momentumlar
+    bist_normal = sorted([m for m in bist_all if not m.get("is_reversal")], key=lambda x: x.get("confidence_score", 0), reverse=True)
+    bist_reversal = sorted([m for m in bist_all if m.get("is_reversal")], key=lambda x: x.get("confidence_score", 0), reverse=True)
+    final_bist = bist_normal[:6] + bist_reversal + bist_normal[6:]
+
+    # NASDAQ için Özel Sıralama: İlk 6 Momentum, Sonra Reversal, Sonra Diğer Momentumlar
+    nasdaq_normal = sorted([m for m in nasdaq_all if not m.get("is_reversal")], key=lambda x: x.get("confidence_score", 0), reverse=True)
+    nasdaq_reversal = sorted([m for m in nasdaq_all if m.get("is_reversal")], key=lambda x: x.get("confidence_score", 0), reverse=True)
+    final_nasdaq = nasdaq_normal[:6] + nasdaq_reversal + nasdaq_normal[6:]
+
     grouped_matrix = {
-        "CRYPTO": sorted([m for m in matrix_results if m["market"] == "CRYPTO"], key=lambda x: x["confidence_score"], reverse=True)[:50],
-        "BIST": sorted([m for m in matrix_results if m["market"] == "BIST"], key=lambda x: x["confidence_score"], reverse=True)[:15],
-        "NASDAQ": sorted([m for m in matrix_results if m["market"] == "NASDAQ"], key=lambda x: x["confidence_score"], reverse=True)[:50]
+        "CRYPTO": final_crypto[:50],
+        "BIST": final_bist[:15],
+        "NASDAQ": final_nasdaq[:50]
     }
     
     # === GLOBAL MACRO FORESIGHT (SESLİ ÖNSEZİ) ===
@@ -872,7 +945,7 @@ async def get_live_buy_sell_wait_matrix():
                 f"Tüm slotlar dolu. Şuan sadece mevcut pozisyonları koruma ve devasa fırsatları izleme modundayız."
             ])
             threading.Thread(target=speak_turkish, args=(msg,)).start()
-        
+
     result = {
         "status": "success",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC"),

@@ -15,6 +15,15 @@ _freqtrade_cooldowns = {}
 
 def _strict_rejection(signal: WebhookSignal, reason: str) -> Dict[str, Any]:
     """Return the same decision envelope used by downstream risk rejections."""
+    try:
+        from utils.thought_stream import bot_thought_stream
+        bot_thought_stream.add_throttled(
+            "⛔ Risk Konseyi İptali", signal.symbol,
+            f"[{signal.symbol}] Emir havada imha edildi! Sebep: {reason}. Piyasada ters giden bir şeyler var, risk alıp bütçeni yakmayacağım.",
+            "WARNING", cooldown_sec=120
+        )
+    except Exception:
+        pass
     return {
         "status": "rejected",
         "reason": reason,
@@ -89,6 +98,39 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
     # Action'ı büyük harfe çevir
     action_clean = str(signal.action).upper()
     signal.action = action_clean
+
+    # ================================================================
+    # ✈️ PRE-FLIGHT MICRO-SYNC (Uçuş Öncesi Hayalet Taraması)
+    # 15 saniyelik genel senkronizasyon döngüsünü beklemek yerine, sinyal gelir gelmez
+    # sadece bu sembol için broker'a "Elimde var mı?" diye sorarak hafıza çakışmasını engeller.
+    # ================================================================
+    symbol_upper = signal.symbol.upper()
+    is_crypto = "USDT" in symbol_upper or "/" in symbol_upper or symbol_upper.endswith("USD") or "BTC" in symbol_upper
+    
+    if settings.trading_mode.upper() == "LIVE":
+        try:
+            target_broker = "BINANCE" if is_crypto else "ALPACA"
+            broker_client = get_broker(target_broker, paper=False)
+            if broker_client:
+                broker_positions = broker_client.get_open_positions()
+                if broker_positions is not None:
+                    broker_has_it = any(p.get("symbol", "").upper() == symbol_upper for p in broker_positions)
+                    local_has_it = any(p.symbol.upper() == symbol_upper and p.status in ["OPEN", "PENDING_BROKER"] for p in live_trade_manager.positions.values())
+                    
+                    if action_clean in ["BUY", "LONG"] and broker_has_it and not local_has_it:
+                        logger.warning(f"🚨 [MICRO-SYNC] {symbol_upper} işlemi reddedildi! (Broker'da var ama yerelde yok. Çift alım önlendi.)")
+                        return _strict_rejection(signal, "MICRO_SYNC_PREVENTED_DUPLICATE")
+                    
+                    if action_clean in ["SELL", "SHORT", "CLOSE"] and local_has_it and not broker_has_it:
+                        logger.warning(f"🚨 [MICRO-SYNC] {symbol_upper} yerelde açık ama Broker'da (Borsa) kapanmış! Yerel hayalet siliniyor...")
+                        # Hayaleti anında sil ki sistemi tıkamasın
+                        for pid, p in list(live_trade_manager.positions.items()):
+                            if p.symbol.upper() == symbol_upper:
+                                live_trade_manager.close_position(pid, "CLOSED_OFFLINE_MICRO_SYNC")
+                                live_trade_manager.positions.pop(pid, None)
+                        return _strict_rejection(signal, "MICRO_SYNC_ALREADY_CLOSED_ON_BROKER")
+        except Exception as e:
+            logger.debug(f"[MICRO-SYNC SKIP] Uçuş öncesi kontrol atlandı: {e}")
 
     # ================================================================
     # 🇹🇷 BIST KORUMASI: BIST = Sadece Simülasyon / Öneri Modu
@@ -335,6 +377,28 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
         except Exception as exc:
             # Spread kontrolü exception → Sadece logla, devam et
             logger.debug(f"[SPREAD SKIP] {signal.symbol}: {exc} — spread kontrolü atlandı, işlem devam ediyor.")
+
+        # === FOMO KALKANI (SLIPPAGE GUARD) ===
+        try:
+            from services.market_feed.live_stream import live_trade_manager
+            live_price = live_trade_manager.market_prices.get(signal.symbol, {}).get("price")
+            if live_price and live_price > 0 and signal.price > 0:
+                slippage_pct = ((live_price - signal.price) / signal.price) * 100.0
+                if action_clean in ["BUY", "LONG"]:
+                    # Dinamik FOMO Limiti — scope güvenli: atr_for_spread yerine signal.indicators'dan oku
+                    _atr_for_fomo = float(signal.indicators.get("atr_pct", signal.indicators.get("volatility", 1.8)) if signal.indicators else 1.8)
+                    fomo_limit = max(0.8, _atr_for_fomo * 0.3)
+                    if slippage_pct > fomo_limit:
+                        logger.warning(f"🚫 [FOMO GUARD] {signal.symbol} için Slippage %{slippage_pct:.2f} (Limit: %{fomo_limit:.2f}). Sinyal: ${signal.price}, Canlı: ${live_price}. Fiyat çoktan fırlamış, reddedildi!")
+                        try:
+                            from services.engine.bot_thought_stream import bot_thought_stream
+                            bot_thought_stream.add("🚫 FOMO KALKANI", signal.symbol, f"Sinyal fiyatı ${signal.price}, Canlı ${live_price} (+%{slippage_pct:.2f}). Uçan koine atlamıyoruz, iptal.", "ERROR")
+                        except Exception:
+                            pass
+                        return {"status": "rejected", "reason": "FOMO_SLIPPAGE", "symbol": signal.symbol}
+        except Exception as e:
+            logger.debug(f"[FOMO GUARD SKIP] {signal.symbol}: {e}")
+
     if action_clean in ["BUY", "LONG"]:
         from services.ai_agent.system_prompt import RISK_PARAMS
         
@@ -444,12 +508,16 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             )
             base_budget = float(settings.crypto_paper_budget)
             max_global_exposure = base_budget + crypto_realized - crypto_comm  # Binance Testnet Dinamik Bütçe
+            # Güvenlik: max_global_exposure asla base_budget'in altına düşmesin (realized loss çok büyük olsa bile)
+            max_global_exposure = max(max_global_exposure, base_budget)
             
             # TIER-1 YÜKSELTMESİ: KELLY CRITERION DİNAMİK BÜTÇELEME (SADECE HİSSELER/ALPACA İÇİN - Kullanıcı talebi üzerine Kriptoda kapatıldı)
             try:
                 # KULLANICI EMRİ: Kesinlikle Binance (Kripto) için 4 coin, 1600$ limitine uyulacak.
                 # Bu yüzden Kelly formülünü iptal edip, config'den gelen net yüzdeliği kullanıyoruz (Örn: %25).
-                max_per_trade = max_global_exposure * (settings.max_capital_per_trade_pct / 100.0) 
+                trade_pct = max(settings.max_capital_per_trade_pct, 15.0)  # Kripto için minimum %15 (aksi halde RISK modunda %5 ile 80$ olur ve reddedilir)
+                max_per_trade = max_global_exposure * (trade_pct / 100.0)
+                max_per_trade = max(max_per_trade, 50.0)  # Mutlak alt tavan: $50 (komik miktarlar engellenir)
             except Exception as e:
                 max_per_trade = max_global_exposure * (25.0 / 100.0) # Fallback (Kesin %25)
                 

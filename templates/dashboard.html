@@ -1515,26 +1515,46 @@ The following code has been modified to include a line number before every line,
         <div class="wallet-info" style="display: flex; gap: 20px; align-items: center; width: 100%; justify-content: space-between;">
             
             <div style="display: flex; gap: 20px;">
-                <!-- ALPACA SECTION -->
-                <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
-                    <span class="live-dot" style="background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
-                    <span style="color: #10b981; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;">ALPACA (HİSSE):</span>
-                    <span class="wallet-val" id="walletBalance" style="color: #fff; font-size: 14px; font-weight: 700;">$0.00</span>
-                    <span id="freeCash" style="color: var(--text-secondary); font-size: 11px;">(Serbest: $0.00)</span>
-                    <span id="alpacaCommission" style="color: #fca5a5; font-size: 11px;">(Komisyon: -$0.00)</span>
+                <!-- ALPACA SECTION (Yalıtılmış) -->
+                <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 250px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="live-dot" style="background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+                            <span style="color: #10b981; font-weight: bold; font-size: 11px; letter-spacing: 0.5px;">ALPACA (HİSSE)</span>
+                        </div>
+                        <span id="alpacaPosCount" style="color: #fff; font-size: 11px; font-weight: bold;">(Dolu: 0/12)</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                        <span id="walletBalance" style="color: #fff; font-size: 14px; font-weight: 700;">$0.00</span>
+                        <span id="freeCash" style="color: #94a3b8; font-size: 10px;">(Serbest: $0.00)</span>
+                    </div>
+                    <!-- Progress Bar -->
+                    <div style="width: 100%; height: 4px; background: rgba(0,0,0,0.5); border-radius: 2px; overflow: hidden; margin-top:2px;">
+                        <div id="alpacaProgressBar" style="height: 100%; width: 0%; background: #10b981; transition: width 0.3s ease;"></div>
+                    </div>
                 </div>
 
-                <!-- BINANCE SECTION -->
-                <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
-                    <span class="live-dot" style="background: #f59e0b; box-shadow: 0 0 8px #f59e0b;"></span>
-                    <span style="color: #f59e0b; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;">BINANCE (KRİPTO):</span>
-                    <span id="binanceBudgetDisplay" class="wallet-val" style="color: #fff; font-size: 14px; font-weight: 700;">LİMİT $1600.00 (MAKS 6 KOİN)</span>
-                    <span id="binanceCash" style="color: var(--text-secondary); font-size: 11px;">(Mevcut: $0.00)</span>
-                    <span id="binanceCommission" style="color: #fca5a5; font-size: 11px;">(Komisyon: -$0.00)</span>
+                <!-- BINANCE SECTION (Yalıtılmış) -->
+                <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 250px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="live-dot" style="background: #f59e0b; box-shadow: 0 0 8px #f59e0b;"></span>
+                            <span style="color: #f59e0b; font-weight: bold; font-size: 11px; letter-spacing: 0.5px;">BINANCE (KRİPTO)</span>
+                        </div>
+                        <span id="binancePosCount" style="color: #fff; font-size: 11px; font-weight: bold;">(Dolu: 0/6)</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                        <span id="binanceBudgetDisplay" style="color: #fff; font-size: 14px; font-weight: 700;">$2000.00 Limit</span>
+                        <span id="binanceCash" style="color: #94a3b8; font-size: 10px;">(Mevcut: $0.00)</span>
+                    </div>
+                    <!-- Progress Bar -->
+                    <div style="width: 100%; height: 4px; background: rgba(0,0,0,0.5); border-radius: 2px; overflow: hidden; margin-top:2px;">
+                        <div id="binanceProgressBar" style="height: 100%; width: 0%; background: #f59e0b; transition: width 0.3s ease;"></div>
+                    </div>
                 </div>
                 
                 <!-- TRADING MODE INDICATOR -->
-                <div id="modeIndicator" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px;">
+                <div id="modeIndicator" onclick="toggleTradingMode()" style="cursor: pointer; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
                     <span id="modeDot" class="live-dot" style="background: #a855f7; box-shadow: 0 0 8px #a855f7;"></span>
                     <span id="modeText" style="color: #a855f7; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;">MOD YÜKLENİYOR...</span>
                 </div>
@@ -1712,6 +1732,10 @@ The following code has been modified to include a line number before every line,
     }
     .blink-legendary { animation: blinkLegendary 2.5s ease-in-out infinite !important; }
     
+    @keyframes pulse-purple {
+        0% { box-shadow: 0 0 5px rgba(168,85,247,0.2); border-color: rgba(168,85,247,0.3); }
+        100% { box-shadow: 0 0 20px rgba(168,85,247,0.8), inset 0 0 10px rgba(168,85,247,0.2); border-color: rgba(192,132,252,1); }
+    }
 </style>
     
     </div>
@@ -1754,7 +1778,7 @@ The following code has been modified to include a line number before every line,
                 <span style="color:#8b5cf6;">🥷</span> Gölge Arena: Otonom Zeka & Cesaret Testi (Canlı)
             </div>
             <div style="font-size: 11px; color: #a78bfa; font-weight: bold; border: 1px solid rgba(139,92,246,0.3); padding: 2px 6px; border-radius: 4px; background: rgba(139,92,246,0.1);">
-                [MAKS. 2 SAAT KURALI - VUR KAÇ / BALİNA SÖRFÜ]
+                [MAKS. 4 SAAT KURALI - VUR KAÇ / BALİNA SÖRFÜ]
             </div>
         </div>
         
@@ -2075,15 +2099,15 @@ The following code has been modified to include a line number before every line,
 
 
         <div class="two-col-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
-            <div class="inner-box" id="expectancyBox" style="height:220px; overflow-y:auto; box-sizing:border-box;">
+            <div class="inner-box" id="expectancyBox" style="height:140px; overflow-y:auto; box-sizing:border-box;">
                 <div class="inner-box-title"><span>📐 Expectancy & Kelly Oranı</span></div>
                 <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
             </div>
-            <div class="inner-box" id="correlationBox" style="height:220px; overflow-y:auto; box-sizing:border-box;">
+            <div class="inner-box" id="correlationBox" style="height:140px; overflow-y:auto; box-sizing:border-box;">
                 <div class="inner-box-title"><span>🔗 Korelasyon Isı Haritası</span></div>
                 <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
             </div>
-            <div class="inner-box" id="strategyMapBox" style="height:220px; overflow-y:auto; box-sizing:border-box;">
+            <div class="inner-box" id="strategyMapBox" style="height:140px; overflow-y:auto; box-sizing:border-box;">
                 <div class="inner-box-title"><span>🧭 Strateji Router (Rejim → Otonom TP/SL)</span></div>
                 <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
             </div>
@@ -2613,7 +2637,7 @@ The following code has been modified to include a line number before every line,
                     let mood = "NÖTR (Dengeli)";
                     if (data.total_profit_factor > 1.5) mood = "AÇGÖZLÜ (Agresif Alım)";
                     else if (data.total_profit_factor < 0.8) mood = "KORKU (Savunma)";
-                    msg += `<span style="color: var(--accent-blue); font-weight: bold;">[Astra-6 Modu: ${mood}]</span> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; `;
+                    msg += `<span style="color: var(--accent-blue); font-weight: bold;">[Zeka Motoru: ${mood}]</span> &nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp; `;
                     
                     // 2. Win Rate & Total PnL
                     const winRate = data.win_rate_pct ? data.win_rate_pct.toFixed(1) : 0;
@@ -2681,30 +2705,45 @@ The following code has been modified to include a line number before every line,
                 const alpCommEl = document.getElementById('alpacaCommission');
                 const binBudgetEl = document.getElementById('binanceBudgetDisplay');
                 const binCashEl = document.getElementById('binanceCash');
-                const binCommEl = document.getElementById('binanceCommission');
+                
+                let alpacaLimit = 8000;
+                let binanceLimit = 2000;
                 
                 if (balEl && data.account_balance !== undefined) {
                     lastAlpacaBalance = parseFloat(data.account_balance);
                     balEl.innerText = `$${parseFloat(data.account_balance).toFixed(2)}`;
+                    alpacaLimit = parseFloat(data.account_balance) || 8000;
                     const ce = document.getElementById('chartLatestEquity');
                     if (ce) ce.innerText = `$${lastAlpacaBalance.toFixed(2)}`;
                 }
                 if (freeCashEl && data.available_cash !== undefined) {
                     freeCashEl.innerText = `(Serbest: $${parseFloat(data.available_cash).toFixed(2)})`;
                 }
-                if (alpCommEl && data.alpaca_commission !== undefined) {
-                    alpCommEl.innerText = `(Komisyon: -$${parseFloat(data.alpaca_commission).toFixed(2)})`;
-                }
                 
                 if (binBudgetEl && data.binance_budget_limit !== undefined) {
-                    binBudgetEl.innerText = `LİMİT $${parseFloat(data.binance_budget_limit).toFixed(2)} (MAKS 6 KOİN)`;
+                    binanceLimit = parseFloat(data.binance_budget_limit) || 2000;
+                    binBudgetEl.innerText = `$${binanceLimit.toFixed(2)} Limit`;
                 }
                 if (binCashEl && data.binance_cash !== undefined) {
                     binCashEl.innerText = `(Mevcut: $${parseFloat(data.binance_cash).toFixed(2)})`;
                 }
-                if (binCommEl && data.binance_commission !== undefined) {
-                    binCommEl.innerText = `(Komisyon: -$${parseFloat(data.binance_commission).toFixed(2)})`;
-                }
+                
+                // Active Position Arrays to update Pos Count
+                const activePosList = data.active_positions || [];
+                // Piyasa Kripto ise (CRYPTO veya BINANCE) Kripto sayısına at, değilse Hisse'ye at
+                const cryptoCount = activePosList.filter(p => p.market === "CRYPTO" || p.market === "BINANCE").length;
+                const alpacaCount = activePosList.filter(p => p.market !== "CRYPTO" && p.market !== "BINANCE").length;
+                
+                const elCryptoCount = document.getElementById('binancePosCount');
+                const elAlpacaCount = document.getElementById('alpacaPosCount');
+                const elAlpacaProg = document.getElementById('alpacaProgressBar');
+                const elBinanceProg = document.getElementById('binanceProgressBar');
+                
+                if (elCryptoCount) elCryptoCount.innerText = `(Dolu: ${cryptoCount}/6)`;
+                if (elAlpacaCount) elAlpacaCount.innerText = `(Dolu: ${alpacaCount}/12)`;
+                
+                if (elAlpacaProg) elAlpacaProg.style.width = `${Math.min(100, (alpacaCount / 12) * 100)}%`;
+                if (elBinanceProg) elBinanceProg.style.width = `${Math.min(100, (cryptoCount / 6) * 100)}%`;
                 
                 const modeIndicator = document.getElementById('modeIndicator');
                 const modeDot = document.getElementById('modeDot');
@@ -3200,8 +3239,10 @@ The following code has been modified to include a line number before every line,
                 // Box colors based on AI Decision rather than daily change
                 const isBuy = item.decision === "BUY";
                 const isSell = item.decision === "SELL";
-                let boxBorderColor = isBuy ? 'rgba(74, 222, 128, 0.7)' : (isSell ? 'rgba(244, 63, 94, 0.7)' : 'rgba(250, 204, 21, 0.7)');
-                let boxBgGradient = isBuy ? 'linear-gradient(90deg, rgba(74,222,128,0.15) 0%, rgba(0,0,0,0.3) 20%)' : (isSell ? 'linear-gradient(90deg, rgba(244,63,94,0.15) 0%, rgba(0,0,0,0.3) 20%)' : 'linear-gradient(90deg, rgba(250,204,21,0.1) 0%, rgba(0,0,0,0.3) 20%)');
+                const isReversal = !!item.is_reversal;
+                
+                let boxBorderColor = isReversal ? '#a855f7' : (isBuy ? 'rgba(74, 222, 128, 0.7)' : (isSell ? 'rgba(244, 63, 94, 0.7)' : 'rgba(250, 204, 21, 0.7)'));
+                let boxBgGradient = isReversal ? 'linear-gradient(90deg, rgba(168,85,247,0.2) 0%, rgba(0,0,0,0.5) 40%)' : (isBuy ? 'linear-gradient(90deg, rgba(74,222,128,0.15) 0%, rgba(0,0,0,0.3) 20%)' : (isSell ? 'linear-gradient(90deg, rgba(244,63,94,0.15) 0%, rgba(0,0,0,0.3) 20%)' : 'linear-gradient(90deg, rgba(250,204,21,0.1) 0%, rgba(0,0,0,0.3) 20%)'));
                 
                 let aiRec = item.reason || "İzleniyor...";
                 
@@ -3244,35 +3285,57 @@ The following code has been modified to include a line number before every line,
                     box.dataset.symbol = item.symbol;
                     box.onclick = () => { document.getElementById('newPosSymbol').value = item.symbol; openNewPositionModal(); };
                     
-                    box.innerHTML = 
-                        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2px;">' +
-                            '<div style="display:flex; align-items:center; gap:4px; min-width:0; flex:1; overflow:hidden;">' +
-                                '<span class="rank-badge" style="font-size:11px; font-weight:800; min-width:20px; display:inline-block;"></span>' +
-                                '<span class="sym-name" style="font-weight:800; font-size:12.5px; color:#fbbf24; letter-spacing: -0.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>' +
-                                '<span class="rank-change" style="font-size:10px; font-weight:700;"></span>' +
-                                '<span class="sym-change" style="font-size:10px; font-weight:700;"></span>' +
-                                '<span class="conf-badge" style="font-size:10px; color:#fbbf24; background: rgba(251,191,36,0.15); padding: 1px 4px; border-radius:2px; font-weight:700;"></span>' +
+                    if (isReversal) {
+                        // MOR NEON KUTU (REVERSAL ENGINE)
+                        box.innerHTML = 
+                            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2px;">' +
+                                '<div style="display:flex; align-items:center; gap:4px; min-width:0; flex:1; overflow:hidden;">' +
+                                    '<span style="font-size:12px;">🔮</span>' +
+                                    '<span class="sym-name" style="font-weight:900; font-size:13px; color:#c084fc; letter-spacing: -0.3px; white-space:nowrap;"></span>' +
+                                    '<span class="sym-change" style="font-size:10px; font-weight:700;"></span>' +
+                                    '<span class="conf-badge" style="font-size:9px; color:#d8b4fe; background: rgba(168,85,247,0.2); padding: 1px 4px; border-radius:2px; font-weight:700;">DİP AVCISI</span>' +
+                                '</div>' +
+                                '<span class="curr-price" style="font-weight:800; font-size:13px;"></span>' +
                             '</div>' +
-                            '<span class="curr-price" style="font-weight:800; font-size:13px;"></span>' +
-                        '</div>' +
-                        '<div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:#cbd5e1; font-weight: 500; margin-bottom: 2px;">' +
-                            '<span class="vol-rsi"></span>' +
-                            '<span class="hedef-price"></span>' +
-                        '</div>' +
-                        '<div class="ai-rec-container" style="font-size:10.5px; color:#94a3b8; display:flex; align-items:center; gap:4px; overflow:hidden;" data-rec="">' +
-                        '</div>';
+                            '<div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:#e2e8f0; font-weight: 500; margin-bottom: 1px; border-bottom: 1px dashed rgba(168,85,247,0.3); padding-bottom: 1px;">' +
+                                '<span class="vol-rsi"></span>' +
+                                '<span class="hedef-price"></span>' +
+                            '</div>' +
+                            '<div class="ai-rec-container" style="font-size:10px; color:#d8b4fe; min-height: 12px; font-weight:600; line-height:1.1; margin-bottom: 1px;" data-rec=""></div>' +
+                            '<button onclick="event.stopPropagation(); executeReversalTrade(\'' + item.symbol + '\');" style="width:100%; background: linear-gradient(90deg, #9333ea, #a855f7); color:white; border:none; border-radius:3px; padding:1px 0; font-size:9.5px; font-weight:900; cursor:pointer; box-shadow: 0 0 6px rgba(168,85,247,0.5); text-shadow: 0 1px 2px rgba(0,0,0,0.5); letter-spacing:0.5px; margin-top:0px;" onmouseover="this.style.filter=\'brightness(1.2)\'" onmouseout="this.style.filter=\'brightness(1)\'">⚡ EXECUTE (İNFAZ ET)</button>';
+                    } else {
+                        // STANDART KUTU (MOMENTUM)
+                        box.innerHTML = 
+                            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2px;">' +
+                                '<div style="display:flex; align-items:center; gap:4px; min-width:0; flex:1; overflow:hidden;">' +
+                                    '<span class="rank-badge" style="font-size:11px; font-weight:800; min-width:20px; display:inline-block;"></span>' +
+                                    '<span class="sym-name" style="font-weight:800; font-size:12.5px; color:#fbbf24; letter-spacing: -0.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></span>' +
+                                    '<span class="rank-change" style="font-size:10px; font-weight:700;"></span>' +
+                                    '<span class="sym-change" style="font-size:10px; font-weight:700;"></span>' +
+                                    '<span class="conf-badge" style="font-size:10px; color:#fbbf24; background: rgba(251,191,36,0.15); padding: 1px 4px; border-radius:2px; font-weight:700;"></span>' +
+                                '</div>' +
+                                '<span class="curr-price" style="font-weight:800; font-size:13px;"></span>' +
+                            '</div>' +
+                            '<div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:#cbd5e1; font-weight: 500; margin-bottom: 2px;">' +
+                                '<span class="vol-rsi"></span>' +
+                                '<span class="hedef-price"></span>' +
+                            '</div>' +
+                            '<div class="ai-rec-container" style="font-size:10.5px; color:#94a3b8; display:flex; align-items:center; gap:4px; overflow:hidden;" data-rec="">' +
+                            '</div>';
+                    }
                 }
                 // Update properties
                 // Trigger CSS Animation Restart
                 box.classList.remove("flash-up", "flash-down");
                 if (flashClass) {
-                    // Reflow thrashing önlemek için requestAnimationFrame kullan
                     requestAnimationFrame(() => {
                         box.classList.add(flashClass);
                     });
                 }
                 
-                box.style.cssText = 'border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); border-left: 3px solid ' + boxBorderColor + '; padding: 4px 8px; display:flex; flex-direction:column; gap:2px; transition: all 0.3s ease; cursor:pointer; background: ' + boxBgGradient + '; ' + closedStyle + ' box-shadow: 0 4px 6px rgba(0,0,0,0.15); min-width:0; overflow:hidden;';
+                let boxShadowRules = isReversal ? '0 0 12px rgba(168,85,247,0.3)' : '0 4px 6px rgba(0,0,0,0.15)';
+                box.style.cssText = 'border-radius: 6px; border: 1px solid ' + (isReversal ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.05)') + '; border-left: ' + (isReversal ? '4px solid #a855f7' : ('3px solid ' + boxBorderColor)) + '; padding: 4px 8px; display:flex; flex-direction:column; justify-content:space-between; height:100%; gap:2px; transition: all 0.3s ease; cursor:pointer; background: ' + boxBgGradient + '; ' + closedStyle + ' box-shadow: ' + boxShadowRules + '; min-width:0; overflow:hidden; position:relative;';
+                if (isReversal) box.style.animation = 'pulse-purple 2s infinite alternate';
                 box.title = item.symbol + ' AI Analizi: ' + aiRec;
                 
                 // EFSANEVİ FIRSAT BLINK (YZ GÜVEN >= %90) VE PİYASA AÇIKSA
@@ -3359,9 +3422,13 @@ The following code has been modified to include a line number before every line,
                 if (recContainer.dataset.rec !== aiRec) {
                     recContainer.dataset.rec = aiRec;
                     const isLegendary = (isOpen && hasConf && confScore >= 90);
-                    const aiIcon = isLegendary ? '<span style="font-size:10px; flex-shrink:0;">🧠</span>' : '<span style="font-size:8.5px; flex-shrink:0;">🎯</span>';
                     
-                    recContainer.innerHTML = aiIcon + '<marquee scrollamount="3" style="flex:1; color:' + (isLegendary ? '#10b981' : '#94a3b8') + ';">' + aiRec + '</marquee>';
+                    if (isReversal) {
+                        recContainer.innerHTML = aiRec; // Reversal'da düşünce akışını direkt göster
+                    } else {
+                        const aiIcon = isLegendary ? '<span style="font-size:10px; flex-shrink:0;">🧠</span>' : '<span style="font-size:8.5px; flex-shrink:0;">🎯</span>';
+                        recContainer.innerHTML = aiIcon + '<marquee scrollamount="3" style="flex:1; color:' + (isLegendary ? '#10b981' : '#94a3b8') + ';">' + aiRec + '</marquee>';
+                    }
                 }
                 
                 // Append to container (moves it to the end, ensuring correct order)
@@ -3943,6 +4010,39 @@ The following code has been modified to include a line number before every line,
             }
         };
 
+        window.executeReversalTrade = async function(symbol) {
+            if (!confirm(`🚀 DİP AVCISI İNFAZ EMRİ\n\n${symbol} için Otonom Motor bypass edilecek ve piyasa fiyatından direkt alım yapılacaktır.\n\nOnaylıyor musunuz?`)) return;
+            
+            try {
+                // Dip avcısı için özel parametreler
+                const reqBody = {
+                    symbol: symbol,
+                    capital: 250, // Sabit bir test tutarı (veyahut cüzdandan çekilebilir)
+                    side: "BUY",
+                    tp_pct: 3.0,
+                    sl_pct: 2.0
+                };
+                
+                showToast(`🚀 ${symbol} için infaz emri Binance'e iletiliyor...`, 'info');
+                const res = await fetch('/api/positions/open', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(reqBody)
+                });
+                
+                const data = await res.json();
+                if(res.ok && data.status === 'success') {
+                    showToast(`✅ İNFAZ BAŞARILI! ${symbol} pozisyonu açıldı!`, 'success');
+                    fetchPositions();
+                    fetchSummary();
+                } else {
+                    showToast(`❌ Hata: ${data.message || 'Bilinmeyen hata'}`, 'error');
+                }
+            } catch(e) {
+                showToast(`❌ İnfaz hatası: ${e.message}`, 'error');
+            }
+        };
+
         window.quickClosePosition = async function(posId) {
             if (!confirm(`${posId} nolu pozisyonu piyasa fiyatından kapatmak istiyor musunuz?`)) return;
             try {
@@ -4082,9 +4182,10 @@ The following code has been modified to include a line number before every line,
                         ? `%${asset.wilson_lower_pct} - %${asset.wilson_upper_pct}`
                         : '—';
                     const statLabel = asset.statistical_confidence_label || '';
+                    const shadowBadge = asset.last_trade_is_shadow ? '<span style="font-size:9px; background:rgba(139, 92, 246, 0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Son İşlem: Gölge (Sanal)">🥷 GÖLGE</span>' : '<span style="font-size:9px; background:rgba(74, 222, 128, 0.15); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Son İşlem: Gerçek (Reel Bakiye)">💼 GERÇEK</span>';
                     
                     tr.innerHTML = `
-                        <td style="padding: 10px; font-weight:bold; color:#f8fafc;">${asset.symbol} <span style="font-size:9px; color:#64748b; margin-left:4px;">${asset.market}</span></td>
+                        <td style="padding: 10px; font-weight:bold; color:#f8fafc;">${asset.symbol} <span style="font-size:9px; color:#64748b; margin-left:4px;">${asset.market}</span> <br><div style="margin-top: 4px;">${shadowBadge}</div></td>
                         <td style="padding: 10px; text-align:center; font-weight:bold; color:${scoreColor};">${score}</td>
                         <td style="padding: 10px; text-align:center;">%${parseFloat(asset.win_rate_pct).toFixed(1)}</td>
                         <td style="padding: 10px; text-align:center;">${parseFloat(asset.profit_factor).toFixed(2)}x</td>
@@ -4118,7 +4219,7 @@ The following code has been modified to include a line number before every line,
         window.resetAccountWallet = async function() {
             if(!confirm("Kasa bakiyesi ve trade geçmişi Alpaca hesabınızla senkronize edilerek sıfırlanacaktır. Onaylıyor musunuz?")) return;
             try {
-                const res = await fetch('/api/account/reset', { method: 'POST' });
+                const res = await fetch('/api/positions/reset-account', { method: 'POST' });
                 if(res.ok) {
                     showToast('Kasa bakiyesi Alpaca üzerinden güncellenerek sıfırlandı.', 'success');
                     refreshData(true);
@@ -4158,34 +4259,48 @@ The following code has been modified to include a line number before every line,
                         const prices = msg.data.live_prices;
                         const summary = msg.data.summary;
                         
-                        // Kasa ve Bakiye Güncellemesi (Ayrıştırılmış Alpaca ve Binance)
+                        // Kasa ve Bakiye Güncellemesi (Ayrıştırılmış Alpaca ve Binance Progress Bar Update)
                         const balEl = document.getElementById('walletBalance');
                         const freeCashEl = document.getElementById('freeCash');
-                        const alpCommEl = document.getElementById('alpacaCommission');
                         const binBudgetEl = document.getElementById('binanceBudgetDisplay');
                         const binCashEl = document.getElementById('binanceCash');
-                        const binCommEl = document.getElementById('binanceCommission');
+                        
+                        let alpacaLimit = 8000;
+                        let binanceLimit = 2000;
                         
                         if (balEl && summary.account_balance !== undefined) {
                             balEl.innerText = `$${parseFloat(summary.account_balance).toFixed(2)}`;
+                            alpacaLimit = parseFloat(summary.account_balance) || 8000;
                         }
                         if (freeCashEl && summary.available_cash !== undefined) {
                             freeCashEl.innerText = `(Serbest: $${parseFloat(summary.available_cash).toFixed(2)})`;
                         }
-                        if (alpCommEl && summary.alpaca_commission !== undefined) {
-                            alpCommEl.innerText = `(Komisyon: -$${parseFloat(summary.alpaca_commission).toFixed(2)})`;
-                        }
                         
                         if (binBudgetEl && summary.binance_budget_limit !== undefined) {
-                            binBudgetEl.innerText = `LİMİT $${parseFloat(summary.binance_budget_limit).toFixed(2)} (MAKS 6 KOİN)`;
+                            binanceLimit = parseFloat(summary.binance_budget_limit) || 2000;
+                            binBudgetEl.innerText = `$${binanceLimit.toFixed(2)} Limit`;
                         }
                         if (binCashEl && summary.binance_cash !== undefined) {
                             binCashEl.innerText = `(Mevcut: $${parseFloat(summary.binance_cash).toFixed(2)})`;
                         }
-                        if (binCommEl && summary.binance_commission !== undefined) {
-                            binCommEl.innerText = `(Komisyon: -$${parseFloat(summary.binance_commission).toFixed(2)})`;
-                        }
-
+                        
+                        // Active Position Arrays to update Pos Count
+                        const activePosList = msg.data.positions || [];
+                        const cryptoCount = activePosList.filter(p => p.market === "CRYPTO" && p.status === "OPEN").length;
+                        const alpacaCount = activePosList.filter(p => p.market !== "CRYPTO" && p.status === "OPEN").length;
+                        
+                        const elCryptoCount = document.getElementById('binancePosCount');
+                        const elAlpacaCount = document.getElementById('alpacaPosCount');
+                        const elAlpacaProg = document.getElementById('alpacaProgressBar');
+                        const elBinanceProg = document.getElementById('binanceProgressBar');
+                        
+                        if (elCryptoCount) elCryptoCount.innerText = `(Dolu: ${cryptoCount}/6)`;
+                        if (elAlpacaCount) elAlpacaCount.innerText = `(Dolu: ${alpacaCount}/12)`;
+                        
+                        // Progress Bar Widths (Using max counts)
+                        if (elAlpacaProg) elAlpacaProg.style.width = `${Math.min(100, (alpacaCount / 12) * 100)}%`;
+                        if (elBinanceProg) elBinanceProg.style.width = `${Math.min(100, (cryptoCount / 6) * 100)}%`;
+                        
                         // Bot Uptime & Son Scan Guncelle
                         const uptimeEl = document.getElementById('tsBotUptime');
                         const lastScanEl = document.getElementById('tsLastScan');
@@ -4195,6 +4310,28 @@ The following code has been modified to include a line number before every line,
                         if (lastScanEl && summary.last_scan) {
                             lastScanEl.innerText = summary.last_scan + ' UTC';
                         }
+                        
+                        // API HEALTH UPDATE (WEBSOCKET)
+                        if (summary.api_health) {
+                            const elBinance = document.getElementById('apiHealthBinance');
+                            if (elBinance) {
+                                if (summary.api_health.binance) {
+                                    elBinance.innerHTML = '<span id="dotBinance" style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;transition:all 0.3s ease;"></span><span style="color:#10b981;">Binance API: Aktif</span>';
+                                } else {
+                                    elBinance.innerHTML = '<span id="dotBinance" style="width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 8px #ef4444;transition:all 0.3s ease;"></span><span style="color:#ef4444;">Binance API: Bağlantı Yok</span>';
+                                }
+                            }
+                            const elAlpaca = document.getElementById('apiHealthAlpaca');
+                            if (elAlpaca) {
+                                if (summary.api_health.alpaca) {
+                                    elAlpaca.innerHTML = '<span id="dotAlpaca" style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;transition:all 0.3s ease;"></span><span style="color:#10b981;">Alpaca API: Aktif</span>';
+                                } else {
+                                    elAlpaca.innerHTML = '<span id="dotAlpaca" style="width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 8px #f59e0b;transition:all 0.3s ease;"></span><span style="color:#f59e0b;">Alpaca: PAPER MOD</span>';
+                                }
+                            }
+                        }
+
+
 
                         // LİDERLİK BAYRAĞI (HA STATUS) GÜNCELLEMESİ
                         const haFlagEl = document.getElementById('haStatusFlag');
@@ -5386,7 +5523,7 @@ document.addEventListener("DOMContentLoaded", function() {
         else boxCrypto.innerHTML = cryptoThoughts.map(renderThought).join('');
         
         if (window.stockMarketIsOpen === false) {
-            boxStock.innerHTML = '<div style="padding: 12px; color: #64748b; font-size: 13px; text-align: center; border: 1px dashed rgba(255,255,255,0.1); border-radius: 6px; margin: 10px;">😴 BIST ve NASDAQ piyasaları şu an seans dışı (Kapalı).<br><br><span style="font-size:11px;">Astra-6 yapay zeka motoru, piyasalar açılana kadar bu varlıklar için işlem düşüncelerini duraklattı.</span></div>';
+            boxStock.innerHTML = '<div style="padding: 12px; color: #64748b; font-size: 13px; text-align: center; border: 1px dashed rgba(255,255,255,0.1); border-radius: 6px; margin: 10px;">😴 BIST ve NASDAQ piyasaları şu an seans dışı (Kapalı).<br><br><span style="font-size:11px;">Otonom Zeka Motoru, piyasalar açılana kadar bu varlıklar için işlem düşüncelerini duraklattı.</span></div>';
             boxStock.style.opacity = '0.4';
             boxStock.style.filter = 'grayscale(100%)';
         } else {
@@ -5471,11 +5608,14 @@ document.addEventListener("DOMContentLoaded", function() {
                 const exitP = t.exit_price != null ? t.exit_price.toFixed(4) : '0.0000';
                 const lesson = t.algorithmic_action_plan || t.lesson_learned || 'Rutin işlem.';
                 const dur = t.duration_minutes || 0;
+                
+                const tradeTypeBadge = t.is_shadow ? '<span style="font-size:9px; background:rgba(139, 92, 246, 0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Gölge İşlem (Sanal)">🥷 GÖLGE</span>' : '<span style="font-size:9px; background:rgba(74, 222, 128, 0.15); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Gerçek İşlem (Reel)">💼 GERÇEK</span>';
 
                 html += `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); transition: all 0.3s ease;">
                     <td style="padding: 12px; font-weight:bold; color:#fff; vertical-align: top;">
                         <span style="font-size: 14px;">${t.symbol}</span><br>
+                        <div style="margin-top: 4px; margin-bottom: 4px;">${tradeTypeBadge}</div>
                         <span style="font-size: 10px; color: #94a3b8; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px;">${t.market_regime || 'BİLİNMİYOR'}</span>
                     </td>
                     <td style="padding: 12px; font-size:11px; color:#cbd5e1; line-height: 1.5; vertical-align: top;">
@@ -5765,6 +5905,32 @@ async function openForecastModal(symbol) {
 }
 function closeForecastModal() {
     document.getElementById('forecastModalOverlay').classList.remove('active');
+}
+
+function toggleTradingMode() {
+    const currentText = document.getElementById('modeText').innerText;
+    let newMode = "LIVE";
+    if (currentText.includes("LIVE")) {
+        newMode = "PAPER";
+    }
+    
+    fetch('/api/trading-mode', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ mode: newMode })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === "success") {
+            console.log("Trading Mode Değişti:", data.message);
+            // Sayfa websocket üzerinden otomatik yenilenip rengi değişecek
+        } else {
+            alert("Hata: " + data.message);
+        }
+    })
+    .catch(err => console.error(err));
 }
 </script>
 

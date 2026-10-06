@@ -13,10 +13,10 @@ except ImportError:
 # --- Gemini (Ana Motor) ---
 _GEMINI_AVAILABLE = False
 try:
-    import google.generativeai as genai
+    from google import genai
     _GEMINI_AVAILABLE = True
 except ImportError:
-    logger.warning('[GEMINI AGENT] google.generativeai kütüphanesi yok.')
+    logger.warning('[GEMINI AGENT] google.genai kütüphanesi yok.')
 
 class LLMMasterAgentService:
     def __init__(self):
@@ -43,8 +43,7 @@ class LLMMasterAgentService:
 
         if _GEMINI_AVAILABLE and self._api_key:
             try:
-                genai.configure(api_key=self._api_key)
-                self._generative_model = genai.GenerativeModel(self._model_gemini)
+                self._generative_model = genai.Client(api_key=self._api_key)
                 self._gemini_ready = True
                 logger.info(f'[LLM AGENT] Yüce Divan (Gemini) Aktif — Model: {self._model_gemini}')
             except Exception as e:
@@ -91,7 +90,10 @@ class LLMMasterAgentService:
                 if system_prompt:
                     prompt += f'System Instructions:\n{system_prompt}\n\n'
                 prompt += f'User:\n{user_message}'
-                resp = self._generative_model.generate_content(prompt)
+                resp = self._generative_model.models.generate_content(
+                    model=self._model_gemini,
+                    contents=prompt
+                )
                 return resp.text
             except Exception as e:
                 logger.error('[LLM AGENT] Gemini hatasi: ' + str(e))

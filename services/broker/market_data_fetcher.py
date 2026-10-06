@@ -35,7 +35,9 @@ class MarketDataFetcher:
         }
         
         try:
-            res = requests.get(self.binance_url, params=params, timeout=5)
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            res = requests.get(self.binance_url, params=params, timeout=5, verify=False)
             if res.status_code == 200:
                 data = res.json()
                 # Klines format: [Open time, Open, High, Low, Close, Volume, Close time, Quote asset volume, Number of trades, Taker buy base asset volume, Taker buy quote asset volume, Ignore]

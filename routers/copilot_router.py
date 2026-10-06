@@ -110,7 +110,14 @@ async def chat_copilot_stream(req: CopilotRequest):
 
                 yield "data: [DONE]\n\n"
             except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                err_msg = str(e)
+                if "429" in err_msg or "quota" in err_msg.lower():
+                    # 429 Fallback Zırhı
+                    fallback_text = "\n\n🚨 [KRİZ MÜHENDİSİ UYARISI]: Ana haberleşme ağı (API) kota sınırına (Hata 429) ulaştı veya Sunucu IP'si kısıtlandı! Lütfen arayüzden 'Gemini' veya diğer kota dostu modelleri seçiniz veya API anahtarınızı güncelleyiniz."
+                    yield f"data: {json.dumps({'text': fallback_text})}\n\n"
+                    yield "data: [DONE]\n\n"
+                else:
+                    yield f"data: {json.dumps({'error': err_msg})}\n\n"
 
         return StreamingResponse(event_generator(), media_type="text/event-stream")
         

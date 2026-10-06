@@ -60,6 +60,7 @@ class LiveTradeManager:
         self.shadow_positions: Dict[str, ActivePosition] = {}
         self.trade_history: List[Dict[str, Any]] = []
         self.daily_stats: Dict[str, Dict[str, float]] = {} # Günlük İstatistikler
+        self.cooldown_list: Dict[str, float] = {}          # Senaryo 4: İntikam Karantinası (Cooldown)
         self.is_macro_standby: bool = False
         self.macro_standby_reason: str = ""
         self.auto_trade_enabled: bool = False  # YZ tam otonom al-sat tetikleyicisi
@@ -112,26 +113,48 @@ class LiveTradeManager:
         import time
         
         try:
-            broker_positions = alpaca_client.sync_open_positions()
+            # Senaryo 5: Rate Limit veya Market Closed (API 429/Kapanış Hatası) nedeniyle 
+            # askıda kalan (PENDING_CLOSE) pozisyonların otonom kuyruk (Queue) üzerinden tekrar denenmesi
+            pending_closes = [p for p in self.positions.values() if p.status == "PENDING_CLOSE"]
+            for pc in pending_closes:
+                logger.info(f"🔄 [EMERGENCY QUEUE] {pc.symbol} için askıda kalan kapatma emri tekrar deneniyor...")
+                # Tekrar kapatmayı dene
+                self.close_position(pc.id, reason="RETRY_PENDING_CLOSE")
+
+            broker_positions = []
             
-            # KRİTİK HATA DÜZELTMESİ: Eğer Alpaca API hata verdiyse (None döndüyse), 
-            # sakın hayalet temizliği yapma! Yoksa tüm pozisyonları siler!
-            if broker_positions is None:
-                logger.warning("Alpaca API pozisyonları okuyamadı (None döndü). Hayalet temizliği iptal ediliyor.")
-                return
+            # 1. Sync Alpaca
+            alpaca_pos = alpaca_client.sync_open_positions()
+            if alpaca_pos is None:
+                logger.warning("Alpaca API pozisyonları okuyamadı (None döndü). Alpaca hayalet temizliği riskli.")
+                
+            # 2. Sync Binance
+            binance_pos = []
+            try:
+                from services.broker.factory import get_broker
+                binance = get_broker("BINANCE")
+                b_pos = binance.get_open_positions()
+                if b_pos is not None:
+                    binance_pos = b_pos
+            except Exception as e:
+                logger.error(f"[BINANCE SYNC ERROR] {e}")
 
             active_broker_symbols = set()
-            if broker_positions:
-                for bp in broker_positions:
+            
+            # Alpaca Pozisyonlarını Senkronize Et (Lokalde yoksa İÇERİ AKTAR)
+            if alpaca_pos is not None:
+                for bp in alpaca_pos:
                     raw_sym = bp.get("symbol")
                     asset_class = bp.get("asset_class", "us_equity")
+                    
+                    # KULLANICI EMRİ: Alpaca'da asla kripto varlık alınmayacak/izlenmeyecek!
+                    if asset_class == "crypto":
+                        continue
+                        
                     qty = abs(float(bp.get("qty", 0)))
                     if qty == 0: continue
                     
                     possible_symbols = [raw_sym]
-                    if asset_class == "crypto" or (raw_sym.endswith("USD") and raw_sym != "USD"):
-                        logger.debug(f"[ALPACA SYNC] Ignoring crypto position {raw_sym} from Alpaca to prevent mixing with Binance.")
-                        continue
                             
                     active_broker_symbols.update(possible_symbols)
                     
@@ -139,19 +162,14 @@ class LiveTradeManager:
                     
                     if not local_pos:
                         sym = possible_symbols[-1] if (asset_class == "crypto" and len(possible_symbols) > 1) else raw_sym
-                        market = "CRYPTO" if asset_class == "crypto" or raw_sym.endswith("USD") else "NASDAQ"
+                        market = "CRYPTO" if asset_class == "crypto" or raw_sym.endswith("USDT") or raw_sym.endswith("USD") else "NASDAQ"
                         entry_price = float(bp.get("avg_entry_price", 0))
                         current_price = float(bp.get("current_price", entry_price))
                         side = "BUY" if float(bp.get("qty", 0)) > 0 else "SELL"
                         
-                        if market == "CRYPTO":
-                            tp_margin = 0.15
-                            sl_margin = 0.10
-                            be_margin = 0.05
-                        else:
-                            tp_margin = 0.10
-                            sl_margin = 0.05
-                            be_margin = 0.03
+                        tp_margin = 0.10
+                        sl_margin = 0.05
+                        be_margin = 0.03
                             
                         tp_price = entry_price * (1 + tp_margin) if side == "BUY" else entry_price * (1 - tp_margin)
                         sl_price = entry_price * (1 - sl_margin) if side == "BUY" else entry_price * (1 + sl_margin)
@@ -174,28 +192,49 @@ class LiveTradeManager:
                             unrealized_pnl_pct=float(bp.get("unrealized_plpc", 0)) * 100
                         )
                         self.positions[pos.id] = pos
+                        logger.info(f"[SYNC] {sym} lokalde yok, Alpaca broker'dan eklendi.")
                     else:
                         real_entry_price = float(bp.get("avg_entry_price", 0))
                         if real_entry_price > 0:
                             local_pos.entry_price = real_entry_price
                             local_pos.quantity = qty
                             local_pos.nominal_value = real_entry_price * qty
+                            
+            # Binance Pozisyonlarını Senkronize Et (Lokalde yoksa ASLA İÇERİ AKTARMA)
+            if binance_pos is not None:
+                for bp in binance_pos:
+                    raw_sym = bp.get("symbol")
+                    qty = abs(float(bp.get("qty", 0)))
+                    if qty == 0: continue
+                    
+                    # Binance sembolleri genellikle BTCUSDT formatındadır
+                    active_broker_symbols.add(raw_sym)
+                    
+                    local_pos = next((p for p in self.positions.values() if p.symbol == raw_sym and p.status in ["OPEN", "PENDING_CLOSE", "PENDING_BROKER"]), None)
+                    
+                    if local_pos:
+                        real_entry_price = float(bp.get("avg_entry_price", 0))
+                        if real_entry_price > 0:
+                            local_pos.entry_price = real_entry_price
+                            local_pos.quantity = qty
+                            local_pos.nominal_value = real_entry_price * qty
+                    # EĞER LOCAL_POS YOKSA, KESİNLİKLE EKLEME! (Kullanıcının şahsi spot coinleri olabilir)
             
+            # Alpaca Market Kapalıyken Bekleyen Emirler Koruması
+            pending_broker_symbols = set()
+            try:
+                from services.broker.factory import get_broker
+                alp_broker = get_broker("ALPACA", paper=is_paper)
+                if alp_broker and hasattr(alp_broker, "get_pending_orders"):
+                    pending_broker_symbols.update(alp_broker.get_pending_orders())
+            except Exception as e:
+                logger.error(f"[PENDING ORDERS SYNC ERROR] {e}")
+
             # Hayalet Pozisyon Temizligi (Ghost Position Cleanup)
-            # PENDING_BROKER dahil: broker'da yoksa temizle
+            # PENDING_BROKER dahil: broker'da (hem pozisyon hem bekleyen emir olarak) yoksa temizle
             stale_positions = [
                 p for p in self.positions.values()
-                if p.status in ["OPEN", "PENDING_BROKER"] and p.symbol not in active_broker_symbols
-                # Kripto (Spot) pozisyonları yerel hafızada tutulur (Broker 'pozisyon' klasöründe görünmez), Hayalet sayma!
-                and not (
-                    p.market == "CRYPTO" or 
-                    "BINANCE:" in p.symbol or 
-                    "CRYPTO:" in p.symbol or 
-                    "USDT" in p.symbol or 
-                    "/" in p.symbol or 
-                    p.symbol.endswith("USD") or 
-                    "BTC" in p.symbol
-                )
+                if p.status in ["OPEN", "PENDING_BROKER"] and p.symbol not in active_broker_symbols and p.symbol not in pending_broker_symbols
             ]
             for sp in stale_positions:
                 logger.info(f"[GHOST CLEANUP] {sp.symbol} broker'da yok (status={sp.status}). Hayalet pozisyon silindi.")
@@ -330,21 +369,32 @@ class LiveTradeManager:
 
     @property
     def total_account_equity(self) -> float:
-        """NET KASA PORTFÖY DEĞERİ (Alpaca'dan canlı çekilir)"""
+        """NET KASA PORTFÖY DEĞERİ
+        DÜZELTME: Bu property Alpaca balance çekmeye çalışıyor, hata alınca 0 dönüyor.
+        Bu durum kripto işlemlerini INSUFFICIENT_GLOBAL_BUDGET ile engelliyor.
+        Güvenli fallback: Alpaca hatası veya bağlantı kopukluğu durumunda
+        crypto_paper_budget'i baz alarak çalışmaya devam et.
+        """
         from core.config import settings
-        if settings.trading_mode in ["PAPER", "LIVE"]:
-            try:
-                from services.broker.factory import get_broker
-                is_paper = settings.trading_mode.upper() != "LIVE"
-                broker = get_broker(settings.active_broker, paper=is_paper)
-                if broker:
-                    return round(broker.get_account_balance(), 2)
-            except Exception as e:
-                from core.logger import logger
-                logger.error(f"[EQUITY FETCH ERROR] {e}")
-                
-        # Fallback to local calculation
-        return round(self.initial_capital + self.realized_pnl + self.total_unrealized_pnl, 2)
+        try:
+            from services.broker.factory import get_broker
+            is_paper = settings.trading_mode.upper() != "LIVE"
+            broker = get_broker(settings.active_broker, paper=is_paper)
+            if broker:
+                balance = broker.get_account_balance()
+                if balance and balance > 10.0:  # Sıfır/geçersiz değerleri reddet
+                    return round(balance, 2)
+        except Exception as e:
+            from core.logger import logger
+            logger.warning(f"[EQUITY FETCH] Broker bakiye alınamadı ({e}), local fallback kullanılıyor.")
+
+        # Güvenli Fallback: Broker bağlantısı kopuk olsa bile işlem yapabilmek için
+        # Crypto bütçesi + realized PnL + unrealized PnL kullan
+        local_equity = self.initial_capital + self.realized_pnl + self.total_unrealized_pnl
+        if local_equity > 10.0:
+            return round(local_equity, 2)
+        # Son çare: config'den crypto_paper_budget'i kullan (Alpaca tamamen çevrimdışı durumu)
+        return float(getattr(settings, 'crypto_paper_budget', 1600.0))
 
     @property
     def account_balance(self) -> float:
@@ -625,6 +675,20 @@ class LiveTradeManager:
         if already_open and not is_manual:
             logger.warning(f"[DUPLICATE PREVENTION] {sym} için zaten açık bir pozisyon mevcut. Bütçe ısrafını önlemek için yeni işlem reddedildi.")
             return None
+
+        # ================================================================
+        # 🛡️ YENİ KONTROL: Senaryo 4 - İntikam Karantinası (Cooldown)
+        # ================================================================
+        import time
+        if sym in self.cooldown_list and not is_manual:
+            if time.time() < self.cooldown_list[sym]:
+                rem_min = int((self.cooldown_list[sym] - time.time()) / 60)
+                logger.warning(f"🛡️ [COOLDOWN REJECT] {sym} karantinada! (Zararla kapandığı için intikam işlemi {rem_min} dk boyunca reddedildi.)")
+                return None
+            else:
+                del self.cooldown_list[sym]
+        # ================================================================
+
         if market == "CRYPTO":
             # Binance (Kripto) Bütçesi
             max_pos = settings.crypto_max_positions
@@ -640,8 +704,14 @@ class LiveTradeManager:
             allocated = sum(p.nominal_value for p in stock_positions)
             available = 8000.0 - allocated
         
-        if open_count >= max_pos or available < 10.0 or capital > available:
-            logger.warning(f"BÜTÇE LİMİTİ AŞILDI ({market} Yalıtılmış Bütçe): {sym} İşlemi reddedildi. İstenen: ${capital}, Serbest Nakit: ${available} (Açık Pozisyonlar: {open_count}/{max_pos})")
+        if (open_count >= max_pos or available < 10.0 or capital > available) and not is_manual:
+            msg = f"[{sym}] Bütçe veya Pozisyon Limiti dolu! İstenen: ${capital:.1f}, Serbest Nakit: ${available:.1f}. Emir reddedildi."
+            logger.warning(msg)
+            try:
+                from utils.thought_stream import bot_thought_stream
+                bot_thought_stream.add_throttled("🚧 Kasa Limiti", sym, msg, "WARNING", cooldown_sec=120)
+            except Exception:
+                pass
             return None
 
         # %0.08 Slippage ile gerçek giriş fiyatı
@@ -716,7 +786,13 @@ class LiveTradeManager:
                     else:
                         err_msg = res.get("message", "?")
                         if not is_paper:
-                            logger.error(f"[ALPACA REJECTED - LIVE] {sym}: {err_msg}. Pozisyon açılmadı.")
+                            msg = f"[ALPACA REJECTED - LIVE] {sym}: {err_msg}. Pozisyon açılmadı."
+                            logger.error(msg)
+                            try:
+                                from utils.thought_stream import bot_thought_stream
+                                bot_thought_stream.add_throttled("❌ Broker Reddi", sym, msg, "ERROR", cooldown_sec=10)
+                            except Exception:
+                                pass
                             return None
                         else:
                             logger.warning(f"[BROKER REJECTED - PAPER] {sym}: {err_msg}. Lokal (sanal) pozisyon açılıyor.")
@@ -726,7 +802,13 @@ class LiveTradeManager:
                 from core.config import settings
                 is_paper = settings.trading_mode.upper() != "LIVE"
                 if not is_paper:
-                    logger.error(f"[BROKER HATA - LIVE] {sym} Alpaca iletimi başarısız: {e}. Pozisyon açılmadı.")
+                    msg = f"[BROKER HATA - LIVE] {sym} Alpaca iletimi başarısız: {e}. Pozisyon açılmadı."
+                    logger.error(msg)
+                    try:
+                        from utils.thought_stream import bot_thought_stream
+                        bot_thought_stream.add_throttled("❌ Alpaca Hatası", sym, msg, "ERROR", cooldown_sec=10)
+                    except Exception:
+                        pass
                     return None
                 else:
                     logger.warning(f"[BROKER HATA - PAPER] {sym} Alpaca bağlantısı başarısız: {e}. Lokal pozisyon açılıyor.")
@@ -858,7 +940,6 @@ class LiveTradeManager:
         try:
             from services.broker.factory import get_broker
             from core.config import settings
-            import datetime
             
             is_paper = settings.trading_mode.upper() != "LIVE"
             broker = get_broker("ALPACA", paper=is_paper)
@@ -870,7 +951,7 @@ class LiveTradeManager:
             if not open_orders:
                 return
 
-            now = datetime.datetime.now(datetime.timezone.utc)
+            now = datetime.now(timezone.utc)
             for order in open_orders:
                 # Alpaca order.submitted_at is a datetime object
                 try:
@@ -1003,6 +1084,16 @@ class LiveTradeManager:
             
         # Kesinleşmiş Gerçekleşen Net PnL Güncellemesi
         self.realized_pnl = round(self.realized_pnl + net_pnl, 2)
+        
+        # ================================================================
+        # 🛡️ YENİ KONTROL: Senaryo 4 - İntikam Karantinası (Cooldown)
+        # ================================================================
+        import time
+        if net_pnl < 0 and any(kw in reason for kw in ["SL", "MANUAL", "REVERSAL", "LIQUIDATION"]):
+            self.cooldown_list[pos.symbol] = time.time() + (15 * 60)
+            logger.warning(f"🛡️ [COOLDOWN] {pos.symbol} pozisyonu {net_pnl} zararla kapandı ({reason}). İntikam (Revenge) trade önlemi olarak 15 dk karantinaya alındı.")
+        # ================================================================
+
         self.total_commissions_paid = round(self.total_commissions_paid + total_comm, 2)
 
         # Günlük istatistiklere ekle
@@ -1028,7 +1119,8 @@ class LiveTradeManager:
             "reason": reason,
             "opened_at": pos.opened_at,
             "closed_at": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S"),
-            "trade_mode": settings.trading_mode
+            "trade_mode": settings.trading_mode,
+            "is_shadow": pos.id.startswith("SHADOW")
         }
         self.trade_history.insert(0, trade_log)
         db_manager.insert_trade_history(trade_log)
@@ -1045,7 +1137,7 @@ class LiveTradeManager:
                 exit_price=curr_price,
                 pnl_pct=round((net_pnl / pos.nominal_value) * 100.0, 2) if pos.nominal_value > 0 else 0.0,
                 market_regime=market_regime,
-                indicators={**(pos.entry_indicators or {}), "market": pos.market, "reason": reason},
+                indicators={**(pos.entry_indicators or {}), "market": pos.market, "reason": reason, "is_shadow": pos.id.startswith("SHADOW")},
                 ai_confidence=pos.confidence_score,
                 pnl_amount=net_pnl
             )
@@ -1094,6 +1186,10 @@ class LiveTradeManager:
         from core.config import settings
         max_loss_limit = -1.0 * (settings.crypto_paper_budget * 0.05)  # %5 Kasadan Erime
         
+        # --- YENİ: DİNAMİK ŞALTER (Regime-based Cooldown) BYPASS LİMİT ESNEMESİ ---
+        if getattr(self, "kill_switch_bypassed_date", "") == today:
+            max_loss_limit = -1.0 * (settings.crypto_paper_budget * 0.10)  # V-Shape onayı aldıysak %10'a esnet
+        
         # Anlık (unrealized) kripto zararını hesapla
         unrealized_crypto_pnl = 0.0
         for p in self.positions.values():
@@ -1108,6 +1204,11 @@ class LiveTradeManager:
         if (daily_net_pnl + unrealized_crypto_pnl) <= max_loss_limit:
             if not getattr(self, "kill_switch_triggered_today", False) or getattr(self, "kill_switch_date", "") != today:
                 logger.error(f"🚨 [KILL-SWITCH TETİKLENDİ] Günlük zarar limiti aşıldı! Net PnL: {daily_net_pnl:.2f} + Unrealized: {unrealized_crypto_pnl:.2f} <= {max_loss_limit:.2f}. Kripto işlemleri kapatılıyor.")
+                try:
+                    from services.risk_engine.reversal_engine import reversal_engine
+                    reversal_engine.wake_up_call(True)
+                except Exception as e:
+                    logger.error(f"Reversal Engine wake_up hatası: {e}")
                 from services.engine.bot_thought_stream import bot_thought_stream
                 bot_thought_stream.add("🚨 KILL-SWITCH", "SİSTEM", f"Günlük %5 erime sınırına ulaşıldı (Zarar: ${(daily_net_pnl + unrealized_crypto_pnl):.2f}). Tüm açık kripto işlemleri acil durduruluyor ve bugün için yeni işlem kilitlendi.", "ERROR")
                 self.kill_switch_triggered_today = True
@@ -1119,7 +1220,51 @@ class LiveTradeManager:
                 for pid, p in list(self.positions.items()):
                     if p.status == "OPEN" and p.market == "CRYPTO":
                         self.close_position(pid, "CLOSED_KILL_SWITCH")
+                        
+            # --- YENİ: DİP AVCISI TARAMASI (Sadece Kill-Switch Aktifken Çalışır) ---
+            try:
+                from services.risk_engine.reversal_engine import reversal_engine
+                if getattr(self, "kill_switch_triggered_today", False) and getattr(self, "kill_switch_date", "") == today:
+                    reversal_engine.scan_and_execute(self.market_prices, settings.crypto_paper_budget)
+            except Exception as e:
+                logger.error(f"Reversal Engine tarama hatası: {e}")
+                
+            # --- YENİ: DİNAMİK ŞALTER (Regime-Based Cooldown) ---
+            # BTCUSDT verisine bakarak piyasanın kan banyosundan çıkıp çıkmadığını anla
+            btc_data = self.market_prices.get("BTCUSDT", {})
+            if btc_data:
+                btc_rsi = float(btc_data.get("rsi", 0.0))
+                btc_cmf = float(btc_data.get("cmf", 0.0))
+                btc_macd = float(btc_data.get("macd", 0.0))
+                
+                # Eğer BTC V-Shape Recovery yapıyorsa (RSI > 52, Kurumsal Para (CMF) giriyor, MACD yeşil)
+                if btc_rsi > 52.0 and btc_cmf > 0.05 and btc_macd > 0.0:
+                    logger.info("🟢 [DİNAMİK ŞALTER] BTC V-Shape Recovery! Piyasa toparlandı. Kill-Switch İPTAL.")
+                    from services.engine.bot_thought_stream import bot_thought_stream
+                    bot_thought_stream.add("🟢 ŞALTER İPTALİ", "SİSTEM", "Bitcoin toparlanma gösterdi (RSI>52, CMF Pozitif). Kan banyosu bitti. Dinamik Şalter tetiklendi, sistem tekrar ava çıkıyor.", "INFO")
+                    
+                    self.kill_switch_triggered_today = False
+                    self.kill_switch_bypassed_date = today # Bugün için limiti %10'a esnet
+                    self.is_macro_standby = False
+                    self.macro_standby_reason = ""
+                    
+                    try:
+                        from services.risk_engine.reversal_engine import reversal_engine
+                        reversal_engine.wake_up_call(False) # Dip Avcısını tekrar uyut
+                    except:
+                        pass
+                    
+                    return # Bu frame'i atla, bir sonraki döngüde normal çalışsın
+                    
             return # Zaten kill-switch var, değerlendirme yapma
+
+        # Kill Switch aktif değilse Dip Avcısını uykuda tut
+        try:
+            from services.risk_engine.reversal_engine import reversal_engine
+            if reversal_engine.is_active:
+                reversal_engine.wake_up_call(False)
+        except:
+            pass
 
         for pos_id, pos in list(self.positions.items()):
             if pos.status != "OPEN":
@@ -1200,6 +1345,37 @@ class LiveTradeManager:
                 except Exception as e:
                     pass
 
+                # === HACİM BAZLI ÇIKIŞLAR (EXHAUSTION & PANIC STOP) ===
+                if pos.market == "CRYPTO":
+                    if pct > 1.5 or pct < -0.8:
+                        try:
+                            from services.broker.market_data_fetcher import data_fetcher
+                            df_vol = data_fetcher.get_ohlcv(search_sym, "CRYPTO", "5m", 30)
+                            if df_vol is not None and not df_vol.empty and len(df_vol) >= 20:
+                                df_vol['Volume_SMA20'] = df_vol['Volume'].rolling(20).mean()
+                                vol_sma = df_vol['Volume_SMA20'].iloc[-1]
+                                current_vol = df_vol['Volume'].iloc[-1]
+                                if pd.notna(vol_sma) and vol_sma > 0:
+                                    # 1. Hacim Tükenmesi (Sadece Kârdayken)
+                                    if pct > 1.5 and current_vol < (vol_sma * 0.35):
+                                        if is_open:
+                                            logger.warning(f"📉 [VOLUME EXHAUSTION] {pos.symbol} alıcılar tükendi (Vol: {current_vol:.1f}/Ort: {vol_sma:.1f}). Kâr: %{pct:.2f}. Çıkılıyor.")
+                                            from services.engine.bot_thought_stream import bot_thought_stream
+                                            bot_thought_stream.add("💸 HACİM KURUMASI", pos.symbol, f"Alıcılar tükendi, fiyat yakında çökebilir. %{pct:.2f} kâr cepte.", "WARNING")
+                                            self.close_position(pos_id, "CLOSED_VOLUME_EXHAUSTION")
+                                            continue
+                                            
+                                    # 2. Erken Panik Stop (Balina Boşaltımı) (Sadece Zarardayken)
+                                    elif pct < -0.8 and current_vol > (vol_sma * 3.0):
+                                        if is_open:
+                                            logger.error(f"🚨 [EARLY PANIC STOP] {pos.symbol} devasa hacimli düşüş! (Vol: {current_vol:.1f}/Ort: {vol_sma:.1f}). Zarar: %{pct:.2f}. Stop beklenmeden kaçılıyor!")
+                                            from services.engine.bot_thought_stream import bot_thought_stream
+                                            bot_thought_stream.add("🚨 PANİK SATIŞI", pos.symbol, f"Balina tahtayı yıkıyor! Normal stop'u beklemeden %{pct:.2f} zararla fişi çektim.", "ERROR")
+                                            self.close_position(pos_id, "CLOSED_EARLY_PANIC_STOP")
+                                            continue
+                        except Exception as e:
+                            logger.error(f"[VOLUME EXIT ERROR] {e}")
+
                 # AKILLI ÇIKIŞ (Erken Kâr Alma)
                 # Eğer pozisyon %1.5'tan fazla kârdaysa ve momentum zayıflıyorsa (RSI aşırı şişmiş vs. veya hacim düştüyse)
                 # Otonom Tarayıcı RSI verisine doğrudan erişemediğimizden fiyatın tepeden %1 düşüşüne de bakabiliriz.
@@ -1253,10 +1429,10 @@ class LiveTradeManager:
                 if curr_price >= pos.target_profit_price:
                     if is_open:
                         if not pos.partial_profit_taken:
-                            logger.info(f"🚀 [MOONBAG] {pos.symbol} Ana hedefe (TP: ${pos.target_profit_price}) ulaştı! %50 Kâr cebe atılıyor, kalanı trendin sonuna kadar (Moonbag) iz sürücüye bırakılıyor.")
-                            self._take_partial_profit(pos_id, ratio=0.50)
+                            logger.info(f"🚀 [MOONBAG] {pos.symbol} Ana hedefe (TP: ${pos.target_profit_price}) ulaştı! %60 Kâr cebe atılıyor (Golden Lock), kalanı trendin sonuna kadar iz sürücüye bırakılıyor.")
+                            self._take_partial_profit(pos_id, ratio=0.60)
                             # Kalanı uzaya bırak (Sanal TP'yi çok uzağa taşı ki sadece iz sürücü stop çıkarsın)
-                            pos.target_profit_price = round(pos.entry_price * 1.50, 4) # %50 daha yukarı
+                            pos.target_profit_price = round(pos.entry_price * 1.60, 4) # %60 daha yukarı
                             continue
                         else:
                             # Zaten partial aldıysa ve "uzay" TP'sine de çarptıysa komple kapat
@@ -1272,15 +1448,17 @@ class LiveTradeManager:
                         continue
 
                 # 4. TIME-STOP (ÖLÜ PARA) KESİCİSİ - YZ (AI) İNSİYATİFLİ
-                if is_open and pos.opened_at:
+                # KULLANICI EMRİ: Sadece PAPER (Gölge Arena) veya SHADOW_OPEN iken çalışsın. LIVE (Gerçek) işlemlerde zaman aşımı ile kesmek yok.
+                if is_open and pos.opened_at and (settings.trading_mode == "PAPER" or pos.status == "SHADOW_OPEN"):
                     try:
-                        from core.config import TRT
-                        from datetime import datetime
                         now_time = datetime.now(TRT).replace(tzinfo=None)
                         pos_open_time = datetime.strptime(pos.opened_at, "%Y-%m-%d %H:%M:%S")
                         diff_hours = (now_time - pos_open_time).total_seconds() / 3600.0
                         
-                        if diff_hours >= 12.0 and not getattr(pos, 'time_stop_evaluated', False):
+                        # BÖLÜNMÜŞ ZEKA (SPLIT-BRAIN) ZAMAN AŞIMI: Kripto 4 Saat, NASDAQ/BIST 2 Saat
+                        time_limit = 4.0 if pos.market == "CRYPTO" else 2.0
+                        
+                        if diff_hours >= time_limit and not getattr(pos, 'time_stop_evaluated', False):
                             pos.time_stop_evaluated = True
                             if pct < 1.0: # %1 bile kâr vermediyse
                                 ml_prob = 0.50
@@ -1292,9 +1470,9 @@ class LiveTradeManager:
                                     pass
                                 
                                 if ml_prob >= 0.65:
-                                    logger.info(f"⏳ [TIME-STOP UZATMASI] {pos.symbol} 12 saattir yatayda (Kâr: %{pct:.2f}) ama Yapay Zeka (Win: %{ml_prob*100:.1f}) patlama bekliyor. Süre 12 saat uzatıldı!")
+                                    logger.info(f"⏳ [TIME-STOP UZATMASI] {pos.symbol} {time_limit} saattir yatayda (Kâr: %{pct:.2f}) ama Yapay Zeka (Win: %{ml_prob*100:.1f}) patlama bekliyor. Süre uzatıldı!")
                                 else:
-                                    logger.info(f"💀 [DEAD MONEY] {pos.symbol} 12 saattir yatayda (Kâr: %{pct:.2f}) ve Yapay Zeka umutsuz (Win: %{ml_prob*100:.1f}). Ölü para kesicisi ipini çekiyor!")
+                                    logger.info(f"💀 [DEAD MONEY] {pos.symbol} {time_limit} saattir yatayda (Kâr: %{pct:.2f}) ve Yapay Zeka umutsuz (Win: %{ml_prob*100:.1f}). Ölü para kesicisi ipini çekiyor!")
                                     self.close_position(pos_id, "CLOSED_TIME_STOP")
                                     continue
                     except Exception as e:
@@ -1369,9 +1547,9 @@ class LiveTradeManager:
                 if curr_price <= pos.target_profit_price:
                     if is_open:
                         if not pos.partial_profit_taken:
-                            logger.info(f"🚀 [MOONBAG SHORT] {pos.symbol} Ana hedefe (TP: ${pos.target_profit_price}) ulaştı! %50 Kâr cebe atılıyor, kalanı iz sürücüye bırakılıyor.")
-                            self._take_partial_profit(pos_id, ratio=0.50)
-                            pos.target_profit_price = round(pos.entry_price * 0.50, 4) # %50 daha aşağı
+                            logger.info(f"🚀 [MOONBAG SHORT] {pos.symbol} Ana hedefe (TP: ${pos.target_profit_price}) ulaştı! %60 Kâr cebe atılıyor (Golden Lock), kalanı iz sürücüye bırakılıyor.")
+                            self._take_partial_profit(pos_id, ratio=0.60)
+                            pos.target_profit_price = round(pos.entry_price * 0.40, 4) # %60 daha aşağı
                             continue
                         else:
                             self.close_position(pos_id, "CLOSED_TP")
@@ -1384,15 +1562,17 @@ class LiveTradeManager:
                         continue
 
                 # 4. TIME-STOP (ÖLÜ PARA) KESİCİSİ - YZ (AI) İNSİYATİFLİ
-                if is_open and pos.opened_at:
+                # KULLANICI EMRİ: Sadece PAPER (Gölge Arena) veya SHADOW_OPEN iken çalışsın. LIVE (Gerçek) işlemlerde zaman aşımı ile kesmek yok.
+                if is_open and pos.opened_at and (settings.trading_mode == "PAPER" or pos.status == "SHADOW_OPEN"):
                     try:
-                        from core.config import TRT
-                        from datetime import datetime
                         now_time = datetime.now(TRT).replace(tzinfo=None)
                         pos_open_time = datetime.strptime(pos.opened_at, "%Y-%m-%d %H:%M:%S")
                         diff_hours = (now_time - pos_open_time).total_seconds() / 3600.0
                         
-                        if diff_hours >= 12.0 and not getattr(pos, 'time_stop_evaluated', False):
+                        # BÖLÜNMÜŞ ZEKA (SPLIT-BRAIN) ZAMAN AŞIMI: Kripto 4 Saat, NASDAQ/BIST 2 Saat
+                        time_limit = 4.0 if pos.market == "CRYPTO" else 2.0
+                        
+                        if diff_hours >= time_limit and not getattr(pos, 'time_stop_evaluated', False):
                             pos.time_stop_evaluated = True
                             if pct < 1.0:
                                 ml_prob = 0.50
@@ -1404,9 +1584,9 @@ class LiveTradeManager:
                                     pass
                                 
                                 if ml_prob >= 0.65:
-                                    logger.info(f"⏳ [TIME-STOP UZATMASI SHORT] {pos.symbol} 12 saattir yatayda (Kâr: %{pct:.2f}) ama Yapay Zeka patlama bekliyor. Süre uzatıldı!")
+                                    logger.info(f"⏳ [TIME-STOP UZATMASI SHORT] {pos.symbol} {time_limit} saattir yatayda (Kâr: %{pct:.2f}) ama Yapay Zeka patlama bekliyor. Süre uzatıldı!")
                                 else:
-                                    logger.info(f"💀 [DEAD MONEY SHORT] {pos.symbol} 12 saattir yatayda (Kâr: %{pct:.2f}) ve Yapay Zeka umutsuz. İpi çekiliyor!")
+                                    logger.info(f"💀 [DEAD MONEY SHORT] {pos.symbol} {time_limit} saattir yatayda (Kâr: %{pct:.2f}) ve Yapay Zeka umutsuz. İpi çekiliyor!")
                                     self.close_position(pos_id, "CLOSED_TIME_STOP")
                                     continue
                     except Exception as e:

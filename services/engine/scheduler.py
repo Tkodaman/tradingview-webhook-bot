@@ -81,6 +81,10 @@ def start_scheduler():
     from services.engine.state_reconciler import state_reconciler
     scheduler.add_job(state_reconciler.reconcile, 'interval', minutes=3, id='state_reconciler_job')
 
+    # OTOMATİK HAYALET AVCISI (Auto-Purge & Sync) - Her 15 dakikada bir çalışır, Binance ve Alpaca ile %100 senkronizasyon sağlar, hayaletleri siler.
+    from services.market_feed.live_stream import live_trade_manager
+    scheduler.add_job(live_trade_manager.sync_with_broker, 'interval', minutes=15, id='auto_purge_job')
+
     # TRT (UTC+3) -> BIST 09:50 TRT = 06:50 UTC
     scheduler.add_job(bist_pre_market_routine, 'cron', day_of_week='mon-fri', hour=6, minute=50, id='bist_routine')
     

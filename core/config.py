@@ -4,14 +4,15 @@ from typing import List
 import json
 import os
 
+TRADING_MODE_STATE_FILE = "trading_mode_state.json"
 RISK_MODE_STATE_FILE = "risk_mode_state.json"
 
 class Settings(BaseSettings):
     passphrase: str
-    trading_mode: str = "PAPER" # PAPER or LIVE (Alpaca Sandbox vs Real)
+    trading_mode: str = "LIVE" # PAPER or LIVE (Alpaca Sandbox vs Real)
     active_broker: str = "ALPACA" # ALPACA, INTERACTIVE_BROKERS, MIDAS
     allowed_ips: str = "127.0.0.1,localhost,testclient,52.89.214.238,34.212.75.30,54.218.53.128,52.32.178.7,192.168.49.1"
-    crypto_paper_budget: float = 1600.0
+    crypto_paper_budget: float = 2000.0
     crypto_max_positions: int = 6
     trusted_proxy_ips: str = "127.0.0.1,localhost,192.168.49.1"
     webhook_security_token: str = ""
@@ -24,16 +25,16 @@ class Settings(BaseSettings):
     # Binance API Credentials
     binance_api_key: str = ""
     binance_secret_key: str = ""
-    outbound_proxy: str = "http://192.168.49.1:8000" # Cloudflare/Proxy entegrasyonu
+    outbound_proxy: str | None = None
     
     # Risk Parameters (Esnetilmiş Aktif İşlem Modu)
     max_risk_score_allowed: float = 88.0 # Tavan risk skoru esnetildi
     high_risk_threshold: float = 65.0 # Pozisyon küçültme eşiği yükseltildi
     moderate_risk_threshold: float = 45.0
     
-    # Position Sizing (Kullanıcı Talebi: Toplam $1600 Kasa, Maksimum 4 Koin)
-    max_capital_per_trade_pct: float = 25.0 # Bütçe 4'e bölünecek (Her koin için %25)
-    base_portfolio_size: float = 1600.0 # Başlangıç Kasa: $1600 (Binance)
+    # Position Sizing (Kullanıcı Talebi: Toplam $2000 Kasa, Maksimum 6 Koin)
+    max_capital_per_trade_pct: float = 16.66 # Bütçe 6'ya bölünecek (Her koin için ~%16.6)
+    base_portfolio_size: float = 2000.0 # Başlangıç Kasa: $2000 (Binance)
     dynamic_capital_allocation_pct: float = 25.0  # İşlem başına kullanılacak bütçe (%)
     
     # Circuit Breakers & Hard Rules
@@ -91,6 +92,29 @@ class Settings(BaseSettings):
         except Exception:
             pass
 
+    def apply_trading_mode(self, mode: str):
+        self.trading_mode = mode.upper()
+        self._persist_trading_mode()
+
+    def _persist_trading_mode(self):
+        try:
+            with open(TRADING_MODE_STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump({"trading_mode": self.trading_mode}, f)
+        except Exception:
+            pass
+
+    def load_persisted_trading_mode(self):
+        if not os.path.exists(TRADING_MODE_STATE_FILE):
+            return
+        try:
+            with open(TRADING_MODE_STATE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            saved_mode = data.get("trading_mode")
+            if saved_mode:
+                self.trading_mode = saved_mode.upper()
+        except Exception:
+            pass
+
     def load_persisted_risk_mode(self):
         if not os.path.exists(RISK_MODE_STATE_FILE):
             return
@@ -113,3 +137,4 @@ class Settings(BaseSettings):
 
 settings = Settings()
 settings.load_persisted_risk_mode()
+settings.load_persisted_trading_mode()

@@ -252,7 +252,8 @@ def get_active_positions():
                             sl_price = entry_price * (1.0 + (dyn_sl_pct / 100.0))
                             
                             
-                    market_class = str(p.get("asset_class", "STOCK")).upper()
+                    # Pydantic ActivePosition dict objesinden 'market' bilgisini al (Yoksa asset_class'a düş)
+                    market_class = str(p.get("market") or p.get("asset_class", "STOCK")).upper()
                     session_badge = ""
                     if market_class != "CRYPTO":
                         from services.risk_engine.market_hours import market_hours_validator
@@ -294,7 +295,7 @@ def get_active_positions():
                 crypto_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 alpaca_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") != "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 
-                binance_budget_limit = live_trade_manager.initial_capital + crypto_realized - crypto_comm
+                binance_budget_limit = float(getattr(settings, "crypto_paper_budget", 1600.0)) + crypto_realized - crypto_comm
                 crypto_invested = sum(p.nominal_value for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO")
                 binance_cash = max(0.0, binance_budget_limit - crypto_invested)
                 
@@ -386,7 +387,7 @@ async def open_live_position(req: OpenPositionRequest):
         pos = await asyncio.to_thread(open_func)
         
         if not pos:
-            return {"status": "error", "message": "Yetersiz bütçe, makro koruma aktif veya maksimum açık işlem limitine ulaşıldı."}
+            return {"status": "error", "message": "Emir reddedildi! Bütçe/Koruma veya Alpaca API Hatası. Tam sebep için Kayan Yazı loguna bakın!"}
 
         return {"status": "success", "position": pos.model_dump()}
     except Exception as e:

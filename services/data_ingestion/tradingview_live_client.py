@@ -154,11 +154,12 @@ class TradingViewLiveClient:
         if now - self.last_fetch_time < self.cache_ttl_seconds and self.cached_us_data:
             return {**self.cached_us_data, **self.cached_tr_data, **self.cached_crypto_data}
 
-        # MTF Ortalama (15m + 1h)
+        # MTF Ortalama (15m + 1h + 2h). Hacim (volume) her zaman günlük kümülatif çekilmelidir!
         columns_mtf = [
             "name", "close", "change", 
-            "high|15", "low|15", "volume|15", "RSI|15", "MACD.macd|15", "MACD.signal|15", "EMA20|15", "EMA50|15", "EMA200|15", "ATR|15", "VWAP|15", "Stoch.K|15", "ADX|15", "Volatility.D|15", "average_volume_10d_calc|15", "ChaikinMoneyFlow|15", "open|15",
-            "high|60", "low|60", "volume|60", "RSI|60", "MACD.macd|60", "MACD.signal|60", "EMA20|60", "EMA50|60", "EMA200|60", "ATR|60", "VWAP|60", "Stoch.K|60", "ADX|60", "Volatility.D|60", "average_volume_10d_calc|60", "ChaikinMoneyFlow|60", "open|60"
+            "high|15", "low|15", "volume", "RSI|15", "MACD.macd|15", "MACD.signal|15", "EMA20|15", "EMA50|15", "EMA200|15", "ATR|15", "VWAP|15", "Stoch.K|15", "ADX|15", "Volatility.D|15", "average_volume_10d_calc", "ChaikinMoneyFlow|15", "open|15",
+            "high|60", "low|60", "volume|60", "RSI|60", "MACD.macd|60", "MACD.signal|60", "EMA20|60", "EMA50|60", "EMA200|60", "ATR|60", "VWAP|60", "Stoch.K|60", "ADX|60", "Volatility.D|60", "average_volume_10d_calc|60", "ChaikinMoneyFlow|60", "open|60",
+            "high|120", "low|120", "volume|120", "RSI|120", "MACD.macd|120", "MACD.signal|120", "EMA20|120", "EMA50|120", "EMA200|120", "ATR|120", "VWAP|120", "Stoch.K|120", "ADX|120", "Volatility.D|120", "average_volume_10d_calc|120", "ChaikinMoneyFlow|120", "open|120"
         ]
 
         headers = {
@@ -202,8 +203,19 @@ class TradingViewLiveClient:
                             chg = round(float(vals[2] or 0.0), 2)
                             high = round(float(vals[3] or price), 2)
                             low = round(float(vals[4] or price), 2)
-                            vol = float(vals[5] or 0)
-                            rsi_v = vals[6]; rsi = round(float(rsi_v), 2) if rsi_v is not None else None
+                            
+                            # MTF Hacim ve RSI Çıkarımı
+                            vol_15 = float(vals[5] or 0)
+                            rsi_15_v = vals[6]; rsi_15 = float(rsi_15_v) if rsi_15_v is not None else 50.0
+                            
+                            vol_60 = float(vals[22] or 0) if len(vals) > 22 else vol_15
+                            rsi_60_v = vals[23] if len(vals) > 23 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else rsi_15
+                            
+                            vol_120 = float(vals[39] or 0) if len(vals) > 39 else vol_60
+                            rsi_120_v = vals[40] if len(vals) > 40 else None; rsi_120 = float(rsi_120_v) if rsi_120_v is not None else rsi_60
+                            
+                            vol = vol_15 # Uyumluluk için
+                            
                             macd = round(float(vals[7] or 0.0), 2)
                             ema20 = float(vals[9] or price)
                             ema50 = float(vals[10] or price)
@@ -213,9 +225,8 @@ class TradingViewLiveClient:
                             stoch_v = vals[14]; stoch_k = round(float(stoch_v), 2) if stoch_v is not None else None
                             adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
                             
-                            vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
+                            vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol_15)
                             
-                            # YENİ: 15-dakikalık mum kapanış gürültüsünü (Volume Reset) düzeltmek için zaman prorasyonu
                             import time as time_mod
                             from services.risk_engine.market_hours import market_hours_validator
                             
@@ -223,28 +234,41 @@ class TradingViewLiveClient:
                             is_open = status_tuple[0]
                             session_type = status_tuple[2].get("session", "RTH")
                             
-                            # TradingView'in standart hacim verisi sadece Normal Seans (RTH) için güncellenir.
-                            # Pre/Post market'te MOC mumunu bölmek sahte hacim patlamaları (5x-10x) yaratır.
                             if is_open and session_type == "RTH":
-                                # 15 dakikalık mum için saniye bazlı kusursuz prorasyon
-                                candle_start = (int(now) // 900) * 900
-                                seconds_in_candle = int(now) - candle_start
-                                # Matematiksel patlamayı önlemek için ilk 5 dakikayı baz al (Stabilizasyon)
-                                effective_seconds = max(seconds_in_candle, 300)
-                                expected_fraction = effective_seconds / 900.0
-                                adjusted_vol_avg = vol_avg * expected_fraction
-                                if adjusted_vol_avg > 0:
-                                    raw_vol_ratio = vol / adjusted_vol_avg
-                                    vol_ratio = round(raw_vol_ratio, 2)
-                                else:
-                                    vol_ratio = 1.0
-                                    
-                                    
-                                # Sahte hacim kısıtlaması KUSURSUZ İNFAZ PROTOKOLÜ gereği kaldırıldı.
+                                import datetime
+                                # Bugünün açılışından (ör: 09:30) beri kaç dakika geçtiğini hesapla
+                                now_utc = datetime.datetime.utcnow()
+                                
+                                # ABD Piyasası (NASDAQ) hesabı için basit bir proxy: 
+                                # 6.5 saat = 390 dakika. Biz güncel olarak geçen dakikayı bulmalıyız.
+                                # Veya daha basiti, Tradingview'in doğrudan kümülatif gün hacmini beklenen orana göre hesaplamak.
+                                # Piyasa genelde UTC 14:30 - 21:00 arasıdır (6.5 saat)
+                                elapsed_minutes = (now_utc.hour * 60 + now_utc.minute) - (14 * 60 + 30)
+                                elapsed_minutes = max(15, min(390, elapsed_minutes)) # En az 15dk, en çok 390dk
+                                
+                                # Günlük beklenen hacim (O ana kadar ki)
+                                expected_cumulative_vol = vol_avg * (elapsed_minutes / 390.0)
+                                vol_ratio = round(vol / expected_cumulative_vol, 2) if expected_cumulative_vol > 0 else 1.0
+                                
+                                if vol_ratio >= 2.5:
+                                    try:
+                                        from services.engine.bot_thought_stream import bot_thought_stream
+                                        def _fvol(v): return f"{v/1000000:.1f}M" if v >= 1000000 else f"{v/1000:.1f}K"
+                                        msg = f"Bugün seans açılalı {int(elapsed_minutes)} dk oldu. Normalde {clean_sym} için {_fvol(expected_cumulative_vol)} hacim olması lazımdı, ama şu an {_fvol(vol)} var! Demek ki devasa bir kurumsal alım ({vol_ratio}x Patlama) var."
+                                        bot_thought_stream.add_throttled(
+                                            category="🔥 HACİM RADARI", 
+                                            symbol=clean_sym, 
+                                            message=msg, 
+                                            level="INFO", 
+                                            cooldown_sec=900
+                                        )
+                                    except Exception:
+                                        pass
                             else:
-                                # Piyasa kapalıyken son mum "Kapanış Müzayedesi (MOC)" mumudur ve 
-                                # ortalama bir mumun devasa katı hacme sahiptir.
                                 vol_ratio = 1.0
+                                
+                            # Harmanlanmış (Blended) RSI (%30 15d + %35 60d + %35 120d)
+                            rsi = round((rsi_15 * 0.30) + (rsi_60 * 0.35) + (rsi_120 * 0.35), 2)
                             
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
@@ -363,8 +387,19 @@ class TradingViewLiveClient:
                             chg = round(float(vals[2] or 0.0), 2)
                             high = round(float(vals[3] or price), 2)
                             low = round(float(vals[4] or price), 2)
-                            vol = float(vals[5] or 0)
-                            rsi_v = vals[6]; rsi = round(float(rsi_v), 2) if rsi_v is not None else None
+                            
+                            # MTF Hacim ve RSI Çıkarımı
+                            vol_15 = float(vals[5] or 0)
+                            rsi_15_v = vals[6]; rsi_15 = float(rsi_15_v) if rsi_15_v is not None else 50.0
+                            
+                            vol_60 = float(vals[22] or 0) if len(vals) > 22 else vol_15
+                            rsi_60_v = vals[23] if len(vals) > 23 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else rsi_15
+                            
+                            vol_120 = float(vals[39] or 0) if len(vals) > 39 else vol_60
+                            rsi_120_v = vals[40] if len(vals) > 40 else None; rsi_120 = float(rsi_120_v) if rsi_120_v is not None else rsi_60
+                            
+                            vol = vol_15 # Uyumluluk için
+                            
                             macd = round(float(vals[7] or 0.0), 2)
                             ema20 = float(vals[9] or price)
                             ema50 = float(vals[10] or price)
@@ -373,7 +408,7 @@ class TradingViewLiveClient:
                             vwap = float(vals[13] or price)
                             stoch_v = vals[14]; stoch_k = round(float(stoch_v), 2) if stoch_v is not None else None
                             adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
-                            vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
+                            vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol_15)
                             
                             import time as time_mod
                             from services.risk_engine.market_hours import market_hours_validator
@@ -383,24 +418,35 @@ class TradingViewLiveClient:
                             session_type = status_tuple[2].get("session", "RTH")
                             
                             if is_open and session_type == "RTH":
-                                # 15 dakikalık mum için saniye bazlı kusursuz prorasyon
-                                candle_start = (int(now) // 900) * 900
-                                seconds_in_candle = int(now) - candle_start
-                                # Matematiksel patlamayı önlemek için ilk 5 dakikayı baz al
-                                effective_seconds = max(seconds_in_candle, 300)
-                                expected_fraction = effective_seconds / 900.0
-                                adjusted_vol_avg = vol_avg * expected_fraction
+                                import datetime
+                                now_utc = datetime.datetime.utcnow()
                                 
-                                if adjusted_vol_avg > 0:
-                                    raw_vol_ratio = vol / adjusted_vol_avg
-                                    vol_ratio = round(raw_vol_ratio, 2)
-                                else:
-                                    vol_ratio = 1.0
-                                    
-                                    
-                                # Sahte hacim kısıtlaması KUSURSUZ İNFAZ PROTOKOLÜ gereği kaldırıldı.
+                                # BIST UTC 07:00 - 15:00 arasıdır (8 saat = 480 dakika)
+                                elapsed_minutes = (now_utc.hour * 60 + now_utc.minute) - (7 * 60 + 0)
+                                elapsed_minutes = max(15, min(480, elapsed_minutes)) # En az 15dk, en çok 480dk
+                                
+                                # Günlük beklenen hacim (O ana kadar ki)
+                                expected_cumulative_vol = vol_avg * (elapsed_minutes / 480.0)
+                                vol_ratio = round(vol / expected_cumulative_vol, 2) if expected_cumulative_vol > 0 else 1.0
+                                
+                                if vol_ratio >= 2.5:
+                                    try:
+                                        from services.engine.bot_thought_stream import bot_thought_stream
+                                        def _fvol(v): return f"{v/1000000:.1f}M" if v >= 1000000 else f"{v/1000:.1f}K"
+                                        msg = f"Bugün seans açılalı {int(elapsed_minutes)} dk oldu. Normalde {clean_sym} için {_fvol(expected_cumulative_vol)} lot hacim olmalıydı, ama piyasada şu an {_fvol(vol)} lot var! Demek ki devasa bir kurumsal alım ({vol_ratio}x Patlama) var."
+                                        bot_thought_stream.add_throttled(
+                                            category="🔥 HACİM RADARI", 
+                                            symbol=clean_sym, 
+                                            message=msg, 
+                                            level="INFO", 
+                                            cooldown_sec=900
+                                        )
+                                    except Exception:
+                                        pass
                             else:
                                 vol_ratio = 1.0
+                                
+                            rsi = round((rsi_15 * 0.30) + (rsi_60 * 0.35) + (rsi_120 * 0.35), 2)
                             
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===
@@ -486,8 +532,16 @@ class TradingViewLiveClient:
                             chg = round(float(vals[2] or 0.0), 2)
                             high = round(float(vals[3] or price), prec)
                             low = round(float(vals[4] or price), prec)
-                            vol = float(vals[5] or 0)
-                            rsi_v = vals[6]; rsi = round(float(rsi_v), 2) if rsi_v is not None else None
+                            
+                            # MTF Hacim ve RSI Çıkarımı
+                            vol_15 = float(vals[5] or 0)
+                            rsi_15_v = vals[6]; rsi_15 = float(rsi_15_v) if rsi_15_v is not None else 50.0
+                            
+                            vol_60 = float(vals[22] or 0) if len(vals) > 22 else vol_15
+                            rsi_60_v = vals[23] if len(vals) > 23 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else rsi_15
+                            
+                            vol = vol_15 # Uyumluluk
+                            
                             macd = round(float(vals[7] or 0.0), 2)
                             ema20 = float(vals[9] or price)
                             ema50 = float(vals[10] or price)
@@ -496,27 +550,35 @@ class TradingViewLiveClient:
                             vwap = float(vals[13] or price)
                             stoch_v = vals[14]; stoch_k = round(float(stoch_v), 2) if stoch_v is not None else None
                             adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
-                            adx_v = vals[15]; adx = round(float(adx_v), 2) if adx_v is not None else None
-                            vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol)
+                            vol_avg = float(vals[17] if len(vals) > 17 and vals[17] else vol_15)
                             
-                            # 60 dakikalık mum için saniye bazlı kusursuz prorasyon
-                            candle_start = (int(now) // 3600) * 3600
-                            seconds_in_candle = int(now) - candle_start
-                            # Matematiksel patlamayı (5.00x) önlemek için ilk 15 dakikayı taban al
-                            effective_seconds = max(seconds_in_candle, 900)
-                            expected_fraction = effective_seconds / 3600.0
-                            adjusted_vol_avg = vol_avg * expected_fraction
+                            import datetime
+                            now_utc = datetime.datetime.utcnow()
                             
-                            raw_vol_ratio = 1.0
-                            if adjusted_vol_avg > 0:
-                                raw_vol_ratio = vol / adjusted_vol_avg
-                                
-                            # Sahte hacim kısıtlaması KUSURSUZ İNFAZ PROTOKOLÜ gereği kaldırıldı.
-
-                            vol_ratio = round(raw_vol_ratio, 2)
+                            # Kripto günde 24 saat açıktır (1440 dakika)
+                            elapsed_minutes = (now_utc.hour * 60 + now_utc.minute)
+                            elapsed_minutes = max(15, elapsed_minutes) # Gün başında 0'a bölme hatası olmasın diye en az 15dk
                             
-                            # Aşırı gürültüyü engelle, maks 5.0x
-                            vol_ratio = min(vol_ratio, 5.0)
+                            # Günlük beklenen hacim (O ana kadar ki kümülatif)
+                            expected_cumulative_vol = vol_avg * (elapsed_minutes / 1440.0)
+                            vol_ratio = round(vol / expected_cumulative_vol, 2) if expected_cumulative_vol > 0 else 1.0
+                            
+                            if vol_ratio >= 2.5:
+                                try:
+                                    from services.engine.bot_thought_stream import bot_thought_stream
+                                    def _fvol(v): return f"{v/1000000:.1f}M" if v >= 1000000 else f"{v/1000:.1f}K"
+                                    msg = f"Gün başından (UTC) bu yana {int(elapsed_minutes)} dk geçti. Normalde {clean_sym} için {_fvol(expected_cumulative_vol)} hacim olmalıydı, ama şu an {_fvol(vol)} var! Demek ki devasa bir para girişi ({vol_ratio}x Patlama) var."
+                                    bot_thought_stream.add_throttled(
+                                        category="🔥 HACİM RADARI", 
+                                        symbol=clean_sym, 
+                                        message=msg, 
+                                        level="INFO", 
+                                        cooldown_sec=900
+                                    )
+                                except Exception:
+                                    pass
+                            
+                            rsi = round((rsi_15 * 0.40) + (rsi_60 * 0.60), 2)
                             
                             cmf = round(float(vals[18] if len(vals) > 18 and vals[18] else 0.0), 3)
                             # === YENİ: Candle open + Higher-High proxy + Bid/Ask proxy ===

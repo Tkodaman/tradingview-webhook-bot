@@ -33,6 +33,7 @@ class TradePostMortem(BaseModel):
     error_margin_pct: float = 0.0
     algorithmic_action_plan: str = ""
     ai_confidence: Optional[float] = None
+    is_shadow: bool = False
     
 class ExperienceLearningSummary(BaseModel):
     total_trades_analyzed: int
@@ -211,7 +212,8 @@ class ExperienceMemoryEngine:
             exit_reason=exit_reason if exit_reason is not None else ("TAKE_PROFIT" if is_win else "STOP_LOSS"),
             error_margin_pct=round(error_margin, 2),
             algorithmic_action_plan=action_plan,
-            ai_confidence=ai_confidence
+            ai_confidence=ai_confidence,
+            is_shadow=indicators.get("is_shadow", False)
         )
         self.trade_history.append(trade)
         
@@ -562,6 +564,7 @@ class ExperienceMemoryEngine:
                 "wilson_lower_pct": wilson_lower,
                 "wilson_upper_pct": wilson_upper,
                 "statistical_confidence_label": statistical_confidence_label,
+                "last_trade_is_shadow": trades[-1].is_shadow if trades else False
             })
 
         results.sort(key=lambda x: x["confidence_score"], reverse=True)

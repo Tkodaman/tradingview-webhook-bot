@@ -8,7 +8,12 @@ class AlpacaClient:
     def __init__(self):
         self.api_key = getattr(settings, "alpaca_api_key", None)
         self.api_secret = getattr(settings, "alpaca_secret_key", None)
-        self.base_url = "https://paper-api.alpaca.markets/v2" if getattr(settings, "trading_mode", "PAPER") == "PAPER" else "https://api.alpaca.markets/v2"
+        
+        # OTO-DÜZELTME: Eğer LIVE modundaysak ama PK (Paper Key) girildiyse URL'yi Paper'a çek.
+        self.base_url = "https://api.alpaca.markets/v2"
+        if getattr(settings, "trading_mode", "PAPER") != "LIVE" or (self.api_key and self.api_key.startswith("PK")):
+            self.base_url = "https://paper-api.alpaca.markets/v2"
+
         import requests
         self.session = requests.Session()
         if self.api_key and self.api_secret:
@@ -17,6 +22,28 @@ class AlpacaClient:
                 "APCA-API-SECRET-KEY": self.api_secret,
                 "accept": "application/json"
             })
+        
+        # --- API CIRCUIT BREAKER ---
+        self.error_count = 0
+        self.circuit_breaker_until = 0
+
+    def _check_circuit_breaker(self) -> bool:
+        import time
+        if time.time() < self.circuit_breaker_until:
+            return False
+        return True
+
+    def _register_api_result(self, success: bool):
+        import time
+        if success:
+            self.error_count = 0
+        else:
+            self.error_count += 1
+            if self.error_count >= 5:
+                self.circuit_breaker_until = time.time() + 900  # 15 dakika uyku
+                logger.critical("🔌 [API CIRCUIT BREAKER] Alpaca API ardışık 5 hata aldı (401/Timeout). IP ban yememek için 15 dakika uykuya geçildi!")
+                # Reset error count so it doesn't immediately re-trigger after waking up
+                self.error_count = 0
 
     def submit_bracket_order(
         self,
@@ -143,6 +170,9 @@ class AlpacaClient:
     def sync_open_positions(self) -> list:
         if not self.api_key or not self.api_secret:
             return []
+        if not self._check_circuit_breaker():
+            return []
+            
         try:
             import requests
             headers = {
@@ -152,19 +182,29 @@ class AlpacaClient:
             }
             response = self.session.get(f"{self.base_url}/positions", headers=headers)
             if response.status_code == 200:
+                self._register_api_result(True)
                 data = response.json()
                 logger.info(f"[ALPACA SYNC] Successfully fetched {len(data)} open positions from broker.")
                 return data
+            elif response.status_code in [401, 403, 429]:
+                self._register_api_result(False)
+                logger.error(f"❌ [ALPACA SYNC ERROR] {response.status_code} - {response.text}")
+                return []
             else:
+                self._register_api_result(False)
                 logger.error(f"❌ [ALPACA SYNC ERROR] {response.status_code} - {response.text}")
                 return None
         except Exception as e:
+            self._register_api_result(False)
             logger.error(f"❌ [ALPACA SYNC NETWORK ERROR] {e}")
             return None
 
     def get_account_details(self) -> dict:
         if not self.api_key or not self.api_secret:
             return {}
+        if not self._check_circuit_breaker():
+            return {}
+            
         try:
             import requests
             headers = {
@@ -174,9 +214,16 @@ class AlpacaClient:
             }
             response = self.session.get(f"{self.base_url}/account", headers=headers, timeout=10.0)
             if response.status_code == 200:
+                self._register_api_result(True)
                 return response.json()
+            elif response.status_code in [401, 403, 429]:
+                self._register_api_result(False)
+                logger.error(f"❌ [ALPACA ACCOUNT ERROR] {response.status_code} - {response.text}")
+            else:
+                self._register_api_result(False)
         except Exception as e:
-            logger.error(f"❌ [ALPACA ACCOUNT ERROR] {e}")
+            self._register_api_result(False)
+            logger.error(f"❌ [ALPACA ACCOUNT NETWORK ERROR] {e}")
         return {}
 
     def get_account_balance(self) -> float:

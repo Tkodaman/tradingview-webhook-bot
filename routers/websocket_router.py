@@ -93,7 +93,7 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                 crypto_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 alpaca_comm = sum(float(t.get("alpaca_commission", 0.0) or 0.0) for t in live_trade_manager.trade_history if t.get("market") != "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])
                 from core.config import settings
-                binance_budget_limit = live_trade_manager.initial_capital + crypto_realized - crypto_comm
+                binance_budget_limit = float(getattr(settings, "crypto_paper_budget", 1600.0)) + crypto_realized - crypto_comm
                 crypto_invested = sum(p.nominal_value for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO")
                 binance_cash = max(0.0, binance_budget_limit - crypto_invested)
 
@@ -102,6 +102,20 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                     leader_status = ha_manager.is_leader
                 except Exception:
                     leader_status = False
+
+                # Broker ve Data bağlantı durumları (Dashboard 🟢/🔴 Simülasyonu)
+                from core.config import settings
+                is_alpaca_healthy = False
+                try:
+                    from services.broker.factory import get_broker
+                    alp_b = get_broker("ALPACA", paper=(settings.trading_mode != "LIVE"))
+                    if alp_b and getattr(alp_b, "api", None):
+                        is_alpaca_healthy = True
+                except Exception:
+                    pass
+                
+                # Binance TradingViewScanner ve ping durumlarına bakılarak basit sağlık durumu (Veri akıyorsa sağlıklı)
+                is_binance_healthy = len(prices) > 0
 
                 summary = {
                     "account_balance": round(effective_balance, 2),
@@ -114,14 +128,19 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                     "active_positions": positions_for_dashboard,
                     "bot_uptime": bot_uptime_str,
                     "last_scan": last_scan_str,
-                    "is_leader": leader_status
+                    "is_leader": leader_status,
+                    "api_health": {
+                        "binance": is_binance_healthy,
+                        "alpaca": is_alpaca_healthy
+                    }
                 }
                 
                 payload = {
                     "type": "LIVE_MARKET",
                     "data": {
                         "live_prices": prices,
-                        "summary": summary
+                        "summary": summary,
+                        "trading_mode": settings.trading_mode
                     }
                 }
                 await manager.broadcast(payload)

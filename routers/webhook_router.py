@@ -13,6 +13,7 @@ router = APIRouter()
 
 # Debounce cache: { "SIGNAL_ID": timestamp_of_insertion }
 processed_signals = {}
+signal_flood_tracker = {}  # Senaryo 6: Testere Piyasası Koruması
 webhook_queue = asyncio.Queue()
 
 @router.get("/health")
@@ -68,6 +69,29 @@ async def webhook_receiver(signal: WebhookSignal, request: Request):
                 content={"status": "REJECTED", "reason": f"Stale signal. Latency {latency}ms > 1500ms"}
             )
             
+    # ================================================================
+    # 🛡️ YENİ KONTROL: Senaryo 6 - Anti-Flood Circuit Breaker (Testere Koruması)
+    # Aynı sembole 10 saniye içinde 3'ten fazla sinyal gelirse 5 dakika kilitler.
+    # ================================================================
+    tracker = signal_flood_tracker.get(signal.symbol, {"count": 0, "last_time": 0, "blocked_until": 0})
+    if current_time_ms < tracker["blocked_until"]:
+        logger.warning(f"🚨 [CIRCUIT BREAKER] {signal.symbol} için Whipsaw (Testere) veya Sinyal Seli tespit edildi. İşlem reddedildi!")
+        return JSONResponse(status_code=429, content={"status": "REJECTED", "reason": "Circuit breaker active for this symbol."})
+        
+    if current_time_ms - tracker["last_time"] < 10000:
+        tracker["count"] += 1
+        if tracker["count"] >= 3:
+            tracker["blocked_until"] = current_time_ms + (5 * 60 * 1000) # 5 dk blok
+            logger.error(f"⚡ [CIRCUIT BREAKER TRIPPED] {signal.symbol} için 10 saniyede 3+ sinyal! Olası indikatör hatası. Sembol 5 dk kilitlendi.")
+            signal_flood_tracker[signal.symbol] = tracker
+            return JSONResponse(status_code=429, content={"status": "REJECTED", "reason": "Signal flood detected. Symbol locked for 5m."})
+    else:
+        tracker["count"] = 1
+        
+    tracker["last_time"] = current_time_ms
+    signal_flood_tracker[signal.symbol] = tracker
+    # ================================================================
+
     # 3. IDEMPOTENCY & DEBOUNCE (TEKRAR KORUMASI)
     # Temizleme: 5 dakikadan eski sinyalleri önbellekten sil
     keys_to_delete = [k for k, v in processed_signals.items() if current_time_ms - v > 300000]

@@ -31,6 +31,7 @@ from services.engine.market_regime_engine import regime_engine
 from services.engine.bot_thought_stream import bot_thought_stream
 from services.engine.macro_fundamental_engine import macro_fundamental_engine
 from services.engine.kelly_criterion import kelly_engine
+from services.intelligence.yuce_divan_oracle import yuce_divan
 
 # Global instances
 llm_intelligence = LLMMarketIntelligenceEngine()
@@ -178,7 +179,7 @@ class TradingViewAutoStrategyRunner:
                     
                     if profit_pct >= 1.5:
                         thought = f"😎 Admin, sana söylemiştim! Bak {elapsed_min} dakika önce {v_sym} resmen fırlayacak diye gözüne soktum ({v_data['block_reason']} demiştik). Eğer manuel olarak tetiğe bassaydın şu an tam +%{profit_pct:.2f} kârı cebe atmıştık bile! Otonom zekamın kusursuzluğunu gör, piyasayı adeta okuyorum. Bu şaheser öngörüyü ML tecrübe hafızama gururla işledim, bir sonrakinde kaçırmayalım!"
-                        bot_thought_stream.add_throttled("🧠 Astra-6 Özgüven", v_sym, thought, "SUCCESS", cooldown_sec=600)
+                        bot_thought_stream.add_throttled("🧠 Otonom Zeka", v_sym, f"[{v_sym}] {thought}", "SUCCESS", cooldown_sec=600)
                         
                         try:
                             experience_memory_engine.record_completed_trade(
@@ -199,7 +200,7 @@ class TradingViewAutoStrategyRunner:
                         
                     elif profit_pct <= -2.0:
                         thought = f"😞 Ah Admin... Gerçekten çok mahcubum. {elapsed_min} dakika önce {v_sym} uçacak sanıp radarıma almıştım ama fiyat -%{abs(profit_pct):.2f} çöktü. İyi ki kalkanlarımız çalışmış veya manuel işlem almamışsın, yoksa fena terste kalacaktık. Bu benim için acı bir tecrübe oldu... Bu fiyaskoyu ML öğrenimime derhal işliyorum; bu formasyonun ve hacim tuzağının üzerine özel olarak çalışacağım. Bir daha aynı hataya düşmeyeceğime söz veriyorum."
-                        bot_thought_stream.add_throttled("🧠 Astra-6 Özgüven", v_sym, thought, "WARNING", cooldown_sec=600)
+                        bot_thought_stream.add_throttled("🧠 Otonom Zeka", v_sym, f"[{v_sym}] {thought}", "WARNING", cooldown_sec=600)
                         
                         try:
                             experience_memory_engine.record_completed_trade(
@@ -893,7 +894,7 @@ class TradingViewAutoStrategyRunner:
                     vol_penalty = 0.8
                     bot_thought_stream.add_throttled(
                         "🔥 Özgüvenli Giriş", sym,
-                        f"Hacim standardın altında ({vol_ratio:.2f}) ama fırsat kaçırılamaz (Skor {score}). Analiz felci çözüldü, risk alınıyor!",
+                        f"[{sym}] Hacim standardın altında ({vol_ratio:.2f}) ama fırsat kaçırılamaz (Skor {score}). Analiz felci çözüldü, risk alınıyor!",
                         "SUCCESS", cooldown_sec=120
                     )
                 else:
@@ -966,19 +967,27 @@ class TradingViewAutoStrategyRunner:
                     continue
 
             # SİSTEM GENELİ MAKSİMUM POZİSYON LİMİTİ (GLOBAL LIMIT BLOCK)
-            total_open_pos = sum(1 for p in live_trade_manager.positions.values() if p.status == "OPEN")
-            
-            # Dinamik Esneme: 10 max, ama fırsat çok güçlüyse insiyatifle +4 yedeği kullan (Max 14)
-            # KOMİTE TUTARLILIK DÜZELTMESİ: ML bypass burада da aynı RSI+pump güvencesiyle çalışmalı (is_buy_signal ile aynı kural).
-            _ml_global_bypass_safe = (rsi < 68.0) and (chg_pct < _pump_thr_check)
-            current_max = 14 if (score >= required_score + 2 or (ml_prob >= 0.70 and _ml_global_bypass_safe)) else 10
-            
-            if total_open_pos >= current_max or total_open_pos >= 14:
-                msg = f"[GLOBAL LIMIT BLOCK] {sym} reddedildi. Sistem genelinde maksimum ({total_open_pos}/{current_max}) açık pozisyon limitine ulaşıldı."
+            # DÜZELTME: total_open_pos tüm pazarları birlikte sayıyordu.
+            # Bu yüzden 12 NASDAQ pozisyonu açıkken CRYPTO sinyalleri de "12/10 dolu" diye reddediliyordu.
+            # Şimdi her pazar kendi limitiyle karşılaştırılıyor.
+            if _mtype_local == "CRYPTO":
+                market_open_pos = sum(1 for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market == "CRYPTO")
+                crypto_max = int(getattr(settings, "crypto_max_positions", 6))
+                current_max = crypto_max
+            else:
+                market_open_pos = sum(1 for p in live_trade_manager.positions.values() if p.status == "OPEN" and p.market != "CRYPTO")
+                # Dinamik Esneme: 12 max, ama fırsat çok güçlüyse +2 yedeği kullan (Max 14)
+                _ml_global_bypass_safe = (rsi < 68.0) and (chg_pct < _pump_thr_check)
+                current_max = 14 if (score >= required_score + 2 or (ml_prob >= 0.70 and _ml_global_bypass_safe)) else 12
+
+            total_open_pos = market_open_pos  # Loglarda pazar bazlı göster
+
+            if market_open_pos >= current_max:
+                msg = f"[GLOBAL LIMIT BLOCK] {sym} reddedildi. {_mtype_local} için maksimum ({market_open_pos}/{current_max}) açık pozisyon limitine ulaşıldı."
                 logger.info(msg)
                 bot_thought_stream.add_throttled(
                     "🚧 Global Limit", sym,
-                    f"- Admin]: <span style='color:#10b981; font-weight:bold;'>{sym}</span> radarımda ama genel portföy limiti dolu ({total_open_pos}/{current_max}). Nakit koruması aktif, izlemekle yetiniyorum.",
+                    f"- Admin]: <span style='color:#10b981; font-weight:bold;'>{sym}</span> radarımda ama <b>{_mtype_local}</b> portföy limiti dolu ({market_open_pos}/{current_max}). Nakit koruması aktif, izlemekle yetiniyorum.",
                     "WARNING", cooldown_sec=300
                 )
                 try:
@@ -988,6 +997,7 @@ class TradingViewAutoStrategyRunner:
                     pass
                 continue
 
+
             # BÜTÇE LİMİT KONTROLÜ (Yalıtılmış Bütçe Mimarisi)
             is_crypto = _mtype_local == "CRYPTO"
             if is_crypto:
@@ -995,7 +1005,7 @@ class TradingViewAutoStrategyRunner:
                     p.nominal_value for p in live_trade_manager.positions.values()
                     if (p.status == "OPEN" or (p.status == "PENDING_BROKER" and p.broker_order_id)) and p.market == "CRYPTO"
                 )
-                active_budget_limit = float(settings.base_portfolio_size)
+                active_budget_limit = float(settings.crypto_paper_budget)
             else:
                 total_invested = sum(
                     p.nominal_value for p in live_trade_manager.positions.values()
@@ -1172,18 +1182,18 @@ class TradingViewAutoStrategyRunner:
                 
                 dyn_cap = dyn_cap * _regime_cap_mult * audacious_mult * kelly_mult
                 # ═══════════════════════════════════════════════════════════
-                # GPT ASTRA 6 / GEMINI PRO ONAY KATMANI (Otonom Ajan)
-                # Sinyal eşiği geçtikten SONRA Astra'ya onay sorar.
-                # Astra "WAIT" derse lot %50 küçülür, trade durdurmaz.
-                # Astra erişilemezse işlem normal devam eder (non-blocking).
+                # 7'Lİ YÜCE DİVAN (ORACLE) ONAY KATMANI
                 # ═══════════════════════════════════════════════════════════
+                divan_result = await yuce_divan.get_council_decision(sym, score, rsi, vol_ratio)
+                if divan_result["approved"]:
+                    bot_thought_stream.add_throttled("YÜCE DİVAN", sym, divan_result["admin_msg"], level="SUCCESS", cooldown_sec=60)
+                else:
+                    bot_thought_stream.add_throttled("YÜCE DİVAN", sym, divan_result["admin_msg"], level="WARNING", cooldown_sec=60)
+                    logger.warning(f"[YUCE DIVAN BLOCKED] {sym} -> {divan_result['admin_msg']}")
+                    continue # İnfazı iptal et ve sıradaki fırsata geç
+                
                 llm_lot_mult = 1.0
-                # KUSURSUZ İNFAZ: Analiz Felci ve Çakışma Katmanlarının Çözülmesi
-                # auto_runner.py otonom olarak sadece kantitatif (matematiksel/teknik) sinyal üretecek.
-                # Sinyalin son onayı ve risk denetimi zaten order_router.py'daki Yüce Divan (AutonomousCouncil) tarafından yapılıyor.
-                # Burada ikinci bir LLM filtresi koymak çakışmalara (çift filtreleme) ve analiz felcine neden oluyordu.
-                llm_lot_mult = 1.0  # Standart lot ile devam, Yüce Divan (order_router) risk_level'ı belirleyecek.
-                logger.debug(f"[AUTO-RUNNER] {sym} kantitatif filtreleri geçti. Son karar için Yüce Divan'a (order_router) gönderiliyor.")
+                logger.debug(f"[AUTO-RUNNER] {sym} kantitatif filtreleri ve Yüce Divan onayını geçti. İnfaz başlatılıyor.")
 
                 logger.info(f"⚡ [EXECUTION] {sym} Final Bütçe: ${dyn_cap:.2f} (Rejim x{_regime_cap_mult}, Cüretkar x{audacious_mult}, Astra/Gemini x{llm_lot_mult})")
 
@@ -1228,10 +1238,13 @@ class TradingViewAutoStrategyRunner:
                     macro_tags=[f"STRATEGY_{strategy_tag}", f"SCORE_{score}_OF_8", f"MODE_{current_mode}"]
                 )
                 if self.is_running:
+                    res = {}
                     if not ha_manager.is_leader:
                         logger.warning(f"💤 [HA STANDBY] {sym} fırsatı yakalandı (Puan: {score}/8) ancak bu Node LİDER olmadığı için işleme girilmiyor.")
+                        res = {"status": "skipped", "reason": "HA_STANDBY"}
                     else:
                         res = await asyncio.to_thread(process_order, signal)
+                        
                     # Y1 AUTO-RUNNER için journal kaydı (process_order içinde de yapılıyor, burada ek log)
                     logger.info(f"[AUTO-RUNNER EXECUTED] {sym} BUY @ ${price:.2f} | Score: {score}/8 | Result: {res.get('status')}")
                     executed_triggers.append({
@@ -1348,7 +1361,7 @@ class TradingViewAutoStrategyRunner:
                 cooldown = 120 # Aynı sembolse spam yapma
             
             logger.info(f"[THOUGHT STREAM] Adding thought for {sym} to bot_thought_stream. Score: {sc}")
-            bot_thought_stream.add_throttled("🧠 Astra-6 Analitiği", sym, thought, "INFO", cooldown_sec=cooldown)
+            bot_thought_stream.add_throttled("🧠 Zeka Motoru", sym, f"[{sym}] {thought}", "INFO", cooldown_sec=cooldown)
         else:
             # En iyi aday bulunamadı (Tüm varlıklar kalkanlara takıldı veya fırsat yok)
             open_pos_count = len([p for p in live_trade_manager.positions.values() if p.status == "OPEN"])
