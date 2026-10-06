@@ -37,6 +37,8 @@ class MarketHoursValidator:
     @classmethod
     def get_market_type(cls, symbol: str) -> str:
         s = symbol.upper()
+        if s in ['BIST', 'NASDAQ', 'CRYPTO']:
+            return s
         if s.startswith("BIST:") or s in cls.BIST_SYMBOLS:
             return "BIST"
         if s.startswith("BINANCE:") or s.startswith("CRYPTO:") or s.endswith("USDT") or (s.endswith("USD") and s != "USD") or s in cls.CRYPTO_SYMBOLS:
