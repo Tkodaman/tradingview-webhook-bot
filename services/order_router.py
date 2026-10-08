@@ -496,7 +496,6 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
         
         # PORTFÖY BÜTÇE YÖNETİMİ (Yalıtılmış Bütçe Mimarisi)
         # KULLANICI EMRİ: Alpaca bütçesi ile Binance bütçesi ASLA karıştırılmayacak.
-        from core.config import settings
         
         if is_crypto:
             crypto_realized = sum(float(t.get("net_pnl", 0.0) or 0.0) for t in getattr(live_trade_manager, "trade_history", []) if t.get("market") == "CRYPTO" and t.get("reason") not in ["CLOSED_OFFLINE_SYNC", "SIMULATION_CLOSE"])

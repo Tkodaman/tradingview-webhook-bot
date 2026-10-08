@@ -2113,6 +2113,19 @@ The following code has been modified to include a line number before every line,
             </div>
         </div>
     </div>
+    <!-- YENİ: AKTİF İŞLEM (HAREKAT) RAPORU (SADECE ONAYLANANLAR) -->
+    <div class="panel" style="margin-top: 24px; border: 1px solid rgba(52, 211, 153, 0.4); box-shadow: 0 0 15px rgba(52, 211, 153, 0.1);">
+        <div class="panel-header">
+            <div class="panel-header-title">
+                <span style="color: var(--accent-green);">🎖️</span> KESİNLEŞMİŞ SAVAŞ EMİRLERİ (Otonom Harekat Raporu)
+            </div>
+        </div>
+        <div style="padding: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; position: relative; overflow: hidden; height: auto; min-height: 40px; display: flex; align-items: center;">
+            <div id="activeTradeReportsTicker" style="width: 100%; color: #e2e8f0; font-size: 13px; line-height: 1.6; font-family: 'JetBrains Mono', Consolas, monospace;">
+                Hiçbir harekat aktif değil. Radarlar açık, emir bekleniyor...
+            </div>
+        </div>
+    </div>
 
     <!-- (a10) BOT DÜŞÜNCE AKIŞI: Fakeout Guard / Stop-Hunt Evader / Korelasyon Filtresi'nin canlı "neden bekliyorum" gerekçeleri -->
     <div class="panel" style="margin-top: 24px;">
@@ -2124,13 +2137,13 @@ The following code has been modified to include a line number before every line,
         <div style="display: flex; gap: 20px; overflow: hidden;">
             <div style="flex: 1; border-right: 1px solid rgba(255,255,255,0.05); padding-right: 10px;">
                 <div style="font-size: 11px; color: var(--accent-blue); margin-bottom: 8px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">Kripto (Crypto)</div>
-                <div id="thoughtStreamBoxCrypto" style="max-height: 220px; overflow-y: auto;">
+                <div id="thoughtStreamBoxCrypto" style="max-height: 400px; overflow-y: auto;">
                     <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
                 </div>
             </div>
             <div style="flex: 1; padding-left: 10px;">
                 <div style="font-size: 11px; color: var(--accent-yellow); margin-bottom: 8px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">Hisse (BIST/Nasdaq)</div>
-                <div id="thoughtStreamBoxStock" style="max-height: 220px; overflow-y: auto;">
+                <div id="thoughtStreamBoxStock" style="max-height: 400px; overflow-y: auto;">
                     <div style="padding: 8px; color: var(--text-secondary); font-size: 12px;">Yükleniyor...</div>
                 </div>
             </div>
@@ -2748,6 +2761,7 @@ The following code has been modified to include a line number before every line,
                 const modeIndicator = document.getElementById('modeIndicator');
                 const modeDot = document.getElementById('modeDot');
                 const modeText = document.getElementById('modeText');
+                window.currentTradingMode = data.trading_mode;
                 if (modeIndicator && modeDot && modeText && data.trading_mode) {
                     if (data.trading_mode === "PAPER" || data.trading_mode === "SIMULATION") {
                         modeIndicator.style.background = "rgba(16, 185, 129, 0.1)";
@@ -2808,7 +2822,9 @@ The following code has been modified to include a line number before every line,
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>
-                            <b style="color:#fff;">${p.symbol}</b> ${p.session_badge ? `<span style="font-size:9px; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 4px; border-radius:4px; margin-left:4px; border:1px solid rgba(245,158,11,0.3);">${p.session_badge}</span>` : ''}
+                            <b style="color:#fff;">${p.symbol}</b> 
+                            ${p.session_badge ? `<span style="font-size:9px; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 4px; border-radius:4px; margin-left:4px; border:1px solid rgba(245,158,11,0.3);">${p.session_badge}</span>` : ''}
+                            ${p.source === 'MANUEL' ? `<span style="font-size:9px; background:rgba(96,165,250,0.2); color:#60a5fa; padding:2px 4px; border-radius:4px; margin-left:4px; border:1px solid rgba(96,165,250,0.3);">MANUEL</span>` : `<span style="font-size:9px; background:rgba(74,222,128,0.2); color:#4ade80; padding:2px 4px; border-radius:4px; margin-left:4px; border:1px solid rgba(74,222,128,0.3);">OTONOM</span>`}
                             <div style="font-size:10px; color:var(--text-muted);">${p.id}</div>
                             <div style="font-size:9.5px; color:#94a3b8; margin-top:3px;">
                                 <span style="color:#cbd5e1;">Subm/Fill:</span> ${formatOpenedAt(p.opened_at)} &nbsp;|&nbsp; <span style="color:#cbd5e1;">Exp:</span> GTC
@@ -2819,7 +2835,12 @@ The following code has been modified to include a line number before every line,
                                 ${(p.market === 'CRYPTO' && (p.symbol.includes('USDT') || p.symbol.endsWith('USDT'))) ? '<span style="font-size:14px;">🟡</span> Binance' : '<span style="font-size:14px;">🦙</span> Alpaca'}
                             </div>
                         </td>
-                        <td><span style="color:${p.side === 'BUY' ? 'var(--up-color)' : 'var(--down-color)'}; font-weight:700;">${p.side}</span></td>
+                        <td>
+                            <span style="color:${p.side.includes('BUY') ? 'var(--up-color)' : 'var(--down-color)'}; font-weight:700;">${p.side.replace('VIRTUAL_', '')}</span>
+                            ${p.side.includes('VIRTUAL') ? '<span style="font-size:9px; background:rgba(139,92,246,0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(139,92,246,0.3);">GÖLGE</span>' : 
+                             (data.trading_mode === 'PAPER' ? '<span style="font-size:9px; background:rgba(96,165,250,0.2); color:#60a5fa; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(96,165,250,0.3);">GERÇEK PAPER</span>' : 
+                             '<span style="font-size:9px; background:rgba(74,222,128,0.2); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(74,222,128,0.3);">CANLI</span>')}
+                        </td>
                         <td>$${formatDyn(p.entry_price)}</td>
                         <td>$${formatDyn(p.current_price)}</td>
                         <td>${parseFloat(p.quantity).toFixed(4)} ($${parseFloat(p.nominal_value).toFixed(2)})</td>
@@ -3170,6 +3191,35 @@ The following code has been modified to include a line number before every line,
                 }
             });
             
+            // YÜCE DİVAN - GÜVEN VE MOR KART KATI SIRALAMA YAMASI (V3)
+            // Kullanıcı isteği: Mor (is_reversal) kutucuklar sıra atlayıp 1. sıraya çıkmasın!
+            // İlk 5 sıra normal varlıklara ayrılacak. Mor kutucuklar 6. sıradan başlayacak ve maksimum 4 tane yarışacak.
+            
+            // 1. Tüm listeyi önce sadece GÜVEN SKORUNA (confidence) göre sırala
+            items.sort((a, b) => {
+                const aConf = parseFloat(a.confidence_score) || 0;
+                const bConf = parseFloat(b.confidence_score) || 0;
+                return bConf - aConf;
+            });
+            
+            // 2. Normal ve Mor olanları ayır
+            const normals = items.filter(x => !(x.is_reversal && String(x.is_reversal).toLowerCase() !== "false"));
+            let purples = items.filter(x => (x.is_reversal && String(x.is_reversal).toLowerCase() !== "false"));
+            
+            // 3. En fazla 4 mor kutuya izin ver
+            purples = purples.slice(0, 4);
+            
+            // 4. Yeni sıralamayı inşa et (In-place array modifikasyonu)
+            const finalItems = [];
+            finalItems.push(...normals.slice(0, 5)); // İlk 5'e normaller
+            finalItems.push(...purples);             // Sonra maksimum 4 mor
+            finalItems.push(...normals.slice(5));    // Sonra geri kalan normaller
+            
+            items.length = 0;
+            items.push(...finalItems);
+            
+            // Tüm çocukları DOM'dan koparıp, zorla sıralı şekilde yeniden eklemek için bir container temizliği yapıyoruz.
+            // Bu sayede FLIP veya grid bugları kartları yanlış sıraya itmeyecek!
             items.forEach((item, index) => {
                 const confScore = item.confidence_score;
                 const hasConf = confScore !== undefined && confScore !== null;
@@ -3290,6 +3340,7 @@ The following code has been modified to include a line number before every line,
                         box.innerHTML = 
                             '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2px;">' +
                                 '<div style="display:flex; align-items:center; gap:4px; min-width:0; flex:1; overflow:hidden;">' +
+                                    '<span class="rank-badge" style="font-size:11px; font-weight:900; min-width:20px; display:inline-block;"></span>' +
                                     '<span style="font-size:12px;">🔮</span>' +
                                     '<span class="sym-name" style="font-weight:900; font-size:13px; color:#c084fc; letter-spacing: -0.3px; white-space:nowrap;"></span>' +
                                     '<span class="sym-change" style="font-size:10px; font-weight:700;"></span>' +
@@ -3334,7 +3385,7 @@ The following code has been modified to include a line number before every line,
                 }
                 
                 let boxShadowRules = isReversal ? '0 0 12px rgba(168,85,247,0.3)' : '0 4px 6px rgba(0,0,0,0.15)';
-                box.style.cssText = 'border-radius: 6px; border: 1px solid ' + (isReversal ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.05)') + '; border-left: ' + (isReversal ? '4px solid #a855f7' : ('3px solid ' + boxBorderColor)) + '; padding: 4px 8px; display:flex; flex-direction:column; justify-content:space-between; height:100%; gap:2px; transition: all 0.3s ease; cursor:pointer; background: ' + boxBgGradient + '; ' + closedStyle + ' box-shadow: ' + boxShadowRules + '; min-width:0; overflow:hidden; position:relative;';
+                box.style.cssText = 'border-radius: 6px; border: 1px solid ' + (isReversal ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.05)') + '; border-left: ' + (isReversal ? '4px solid #a855f7' : ('3px solid ' + boxBorderColor)) + '; padding: 4px 8px; display:flex; flex-direction:column; justify-content:space-between; height:auto; break-inside: avoid; margin-bottom: 8px; gap:2px; transition: all 0.3s ease; cursor:pointer; background: ' + boxBgGradient + '; ' + closedStyle + ' box-shadow: ' + boxShadowRules + '; min-width:0; overflow:hidden; position:relative;';
                 if (isReversal) box.style.animation = 'pulse-purple 2s infinite alternate';
                 box.title = item.symbol + ' AI Analizi: ' + aiRec;
                 
@@ -3959,6 +4010,9 @@ The following code has been modified to include a line number before every line,
             const tp_pct = tpEl && tpEl.value ? parseFloat(tpEl.value) : 0;
             const sl_pct = slEl && slEl.value ? parseFloat(slEl.value) : 0;
 
+            // Yapay Zeka Risk Bariyeri (Manuel Emirler İçin Onay)
+            if (!confirm(`⚠️ DİKKAT: RİSK UYARISI\n\n${symbol} varlığı için MANUEL işlem emri vermek üzeresiniz.\nEğer bu varlığın hacmi düşükse veya Otonom Motor'un güven skorunu karşılamıyorsa, Nasdaq piyasasındaki doğal dalgalanmalar sizi anında zararla (Stop-Loss) saf dışı bırakabilir.\n\nYapay Zeka tavsiyesi: Eğer hacimden emin değilseniz işlemi iptal edin.\nYine de manuel emri borsaya göndermek istiyor musunuz?`)) return;
+
             try {
                 const res = await fetch('/api/positions/open', {
                     method: 'POST',
@@ -3986,6 +4040,11 @@ The following code has been modified to include a line number before every line,
                 return;
             }
             const side = document.getElementById('qoSide').value;
+            
+            // Manuel Giriş Uyarı Kalkanı
+            const isConfirmed = confirm(`⚠️ MANUEL EMİR ONAYI\n\n${symbol} varlığı için manuel ${side} emri veriyorsunuz.\nOtonom Zeka filtresi atlanarak doğrudan piyasaya sürülecektir.\n\nOnaylıyor musunuz?`);
+            if (!isConfirmed) return;
+
             const capital = parseFloat(document.getElementById('qoCapital').value);
             const tp_pct = parseFloat(document.getElementById('qoTpPct').value) || 0;
             const sl_pct = parseFloat(document.getElementById('qoSlPct').value) || 0;
@@ -4011,7 +4070,7 @@ The following code has been modified to include a line number before every line,
         };
 
         window.executeReversalTrade = async function(symbol) {
-            if (!confirm(`🚀 DİP AVCISI İNFAZ EMRİ\n\n${symbol} için Otonom Motor bypass edilecek ve piyasa fiyatından direkt alım yapılacaktır.\n\nOnaylıyor musunuz?`)) return;
+            if (!confirm(`⚠️ DİKKAT: RİSK UYARISI\n\n${symbol} varlığı için manuel işlem emri vermek üzeresiniz.\nOtonom Motor'un onayından geçmediği takdirde varlığın hacmi yetersiz (<1.5x) veya Güven Skoru düşük olabilir. Bu durum Nasdaq piyasasında aşırı dar Stop-Loss (-%0.39 vb.) ile sahte kırılımlara (Fakeout) kurban gitmenize neden olur.\n\nYapay Zeka tavsiyesi: Onay vermeyiniz.\nYine de emri borsaya İNFAZ ETMEK İSTİYOR MUSUNUZ?`)) return;
             
             try {
                 // Dip avcısı için özel parametreler
@@ -4108,11 +4167,30 @@ The following code has been modified to include a line number before every line,
                         }
                     }
                     
+                    const sideStr = trade.side.toUpperCase();
+                    const isVirtual = sideStr.includes('VIRTUAL');
+                    const cleanSide = sideStr.replace('VIRTUAL_', '');
+                    
+                    // History tablosunda window global degiskenine bakalim (Eger Websocket baglandiysa o bilecektir)
+                    let modeHTML = '';
+                    if (isVirtual) {
+                        modeHTML = '<span style="font-size:9px; background:rgba(139,92,246,0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(139,92,246,0.3);">GÖLGE</span>';
+                    } else if (window.currentTradingMode === 'PAPER' || document.getElementById('modeText')?.innerText?.includes('PAPER')) {
+                        modeHTML = '<span style="font-size:9px; background:rgba(96,165,250,0.2); color:#60a5fa; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(96,165,250,0.3);">GERÇEK PAPER</span>';
+                    } else if (window.currentTradingMode === 'LIVE' || document.getElementById('modeText')?.innerText?.includes('LIVE')) {
+                        modeHTML = '<span style="font-size:9px; background:rgba(74,222,128,0.2); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(74,222,128,0.3);">CANLI</span>';
+                    } else {
+                        // Default Fallback
+                        modeHTML = '<span style="font-size:9px; background:rgba(96,165,250,0.2); color:#60a5fa; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(96,165,250,0.3);">GERÇEK PAPER</span>';
+                    }
+
                     const tr = document.createElement('tr');
                     tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
                     tr.innerHTML = `
                         <td style="padding: 8px; font-weight:bold; color:#f8fafc;">${trade.symbol}</td>
-                        <td style="padding: 8px; text-align:center; color:${sideColor};">${trade.side.toUpperCase()}</td>
+                        <td style="padding: 8px; text-align:center; color:${sideColor};">
+                            <span style="font-weight:bold;">${cleanSide}</span> ${modeHTML}
+                        </td>
                         <td style="padding: 8px; text-align:right;">${parseFloat(trade.entry_price).toFixed(2)}</td>
                         <td style="padding: 8px; text-align:right;">${trade.exit_price ? parseFloat(trade.exit_price).toFixed(2) : '-'}</td>
                         <td style="padding: 8px; text-align:right;">${parseFloat(trade.quantity).toFixed(4)}</td>
@@ -4182,7 +4260,7 @@ The following code has been modified to include a line number before every line,
                         ? `%${asset.wilson_lower_pct} - %${asset.wilson_upper_pct}`
                         : '—';
                     const statLabel = asset.statistical_confidence_label || '';
-                    const shadowBadge = asset.last_trade_is_shadow ? '<span style="font-size:9px; background:rgba(139, 92, 246, 0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Son İşlem: Gölge (Sanal)">🥷 GÖLGE</span>' : '<span style="font-size:9px; background:rgba(74, 222, 128, 0.15); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Son İşlem: Gerçek (Reel Bakiye)">💼 GERÇEK</span>';
+                    const shadowBadge = asset.last_trade_is_shadow ? '<span style="font-size:9px; background:rgba(139, 92, 246, 0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Son İşlem: Gölge (Yapay Zeka)">🥷 GÖLGE</span>' : '<span style="font-size:9px; background:rgba(74, 222, 128, 0.15); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Son İşlem: Borsaya İletildi (Live veya Paper)">💼 BROKER API</span>';
                     
                     tr.innerHTML = `
                         <td style="padding: 10px; font-weight:bold; color:#f8fafc;">${asset.symbol} <span style="font-size:9px; color:#64748b; margin-left:4px;">${asset.market}</span> <br><div style="margin-top: 4px;">${shadowBadge}</div></td>
@@ -5609,7 +5687,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 const lesson = t.algorithmic_action_plan || t.lesson_learned || 'Rutin işlem.';
                 const dur = t.duration_minutes || 0;
                 
-                const tradeTypeBadge = t.is_shadow ? '<span style="font-size:9px; background:rgba(139, 92, 246, 0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Gölge İşlem (Sanal)">🥷 GÖLGE</span>' : '<span style="font-size:9px; background:rgba(74, 222, 128, 0.15); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Gerçek İşlem (Reel)">💼 GERÇEK</span>';
+                const tradeTypeBadge = t.is_shadow ? '<span style="font-size:9px; background:rgba(139, 92, 246, 0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Gölge İşlem (Yapay Zeka)">🥷 GÖLGE</span>' : '<span style="font-size:9px; background:rgba(74, 222, 128, 0.15); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Broker İşlemi (Live veya Paper)">💼 BROKER API</span>';
 
                 html += `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); transition: all 0.3s ease;">
@@ -5914,6 +5992,13 @@ function toggleTradingMode() {
         newMode = "PAPER";
     }
     
+    // YENİ ONAY PENCERESİ: Yanlışlıkla basmalara karşı
+    if (newMode === "LIVE") {
+        if (!confirm(`⚠️ DİKKAT: GERÇEK (LIVE) MODA GEÇİŞ YAPIYORSUNUZ!\n\nBot tüm otonom işlemlerini GERÇEK PARA ile Binance ve Alpaca üzerinden piyasaya sürecektir.\n\nAPI anahtarlarınızın (Live) hazır olduğundan ve sonuçları göze aldığınızdan emin misiniz?`)) return;
+    } else {
+        if (!confirm(`ℹ️ BİLGİLENDİRME: PAPER (SANAL) MODA GEÇİŞ YAPIYORSUNUZ!\n\nBot otonom işlemlerini cüretkar bir şekilde tam dümen (Sanal Bakiye) kullanarak test ağı (Testnet) üzerinden yapacaktır. Gerçek paranız kullanılmayacaktır.\n\nOnaylıyor musunuz?`)) return;
+    }
+    
     fetch('/api/trading-mode', {
         method: 'POST',
         headers: {
@@ -5931,6 +6016,33 @@ function toggleTradingMode() {
         }
     })
     .catch(err => console.error(err));
+    // AKTİF HAREKAT RAPORLARI POLLING
+    async function fetchActiveReports() {
+        const tickerDiv = document.getElementById('activeTradeReportsTicker');
+        if (!tickerDiv) return;
+        try {
+            const res = await fetch('/api/v1/system/active_reports');
+            const data = await res.json();
+            if (data && data.reports && data.reports.length > 0) {
+                let contentHTML = '';
+                data.reports.forEach(r => {
+                    contentHTML += `<div style="border-bottom: 1px solid rgba(52, 211, 153, 0.2); padding-bottom: 15px; margin-bottom: 15px;">`;
+                    contentHTML += `<span style="color: var(--accent-green); font-size: 15px; font-weight: bold; text-shadow: 0 0 5px rgba(52,211,153,0.5);">[${r.symbol} HAREKAT EMRİ - ${new Date(r.timestamp*1000).toLocaleTimeString()}]</span><br><br>`;
+                    let formattedContent = r.content.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b style="color:#fff;">$1</b>');
+                    contentHTML += `<div style="color: #cbd5e1;">${formattedContent}</div>`;
+                    contentHTML += `</div>`;
+                });
+                tickerDiv.innerHTML = contentHTML;
+            } else {
+                tickerDiv.innerHTML = '<span style="color: #64748b;">Hiçbir harekat aktif değil. Radarlar açık, emir bekleniyor...</span>';
+            }
+        } catch(e) {
+            console.error("fetchActiveReports error:", e);
+        }
+    }
+    fetchActiveReports();
+    setInterval(fetchActiveReports, 10000); // 10 saniyede bir güncelle
+
 }
 </script>
 

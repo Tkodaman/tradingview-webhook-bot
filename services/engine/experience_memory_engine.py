@@ -34,6 +34,7 @@ class TradePostMortem(BaseModel):
     algorithmic_action_plan: str = ""
     ai_confidence: Optional[float] = None
     is_shadow: bool = False
+    strategy_type: str = "UNKNOWN"
     
 class ExperienceLearningSummary(BaseModel):
     total_trades_analyzed: int
@@ -62,6 +63,10 @@ class ExperienceMemoryEngine:
         self.weight_adjustments: Dict[str, float] = {}
         self.dynamic_clusters: Dict[str, Dict[str, Any]] = {}
         self.asset_toxic_registry: Dict[str, Dict[str, Any]] = {}
+        self.strategy_performance: Dict[str, Dict[str, Any]] = {
+            "STRICT_FILTER_V1": {"wins": 0, "losses": 0, "total_pnl": 0.0},
+            "DYNAMIC_CURETKAR_V2": {"wins": 0, "losses": 0, "total_pnl": 0.0}
+        }
         self._last_heartbeat_time = 0
         
         self.load_memory()
@@ -82,6 +87,10 @@ class ExperienceMemoryEngine:
                     self.weight_adjustments = data.get("weight_adjustments", {})
                     self.dynamic_clusters = data.get("dynamic_clusters", {})
                     self.asset_toxic_registry = data.get("asset_toxic_registry", {})
+                    self.strategy_performance = data.get("strategy_performance", {
+                        "STRICT_FILTER_V1": {"wins": 0, "losses": 0, "total_pnl": 0.0},
+                        "DYNAMIC_CURETKAR_V2": {"wins": 0, "losses": 0, "total_pnl": 0.0}
+                    })
                     
                     history_data = data.get("trade_history", [])
                     self.trade_history = [TradePostMortem(**h) for h in history_data]
@@ -101,7 +110,8 @@ class ExperienceMemoryEngine:
                     "live_action_logs_nasdaq": self.live_action_logs_nasdaq,
                     "weight_adjustments": self.weight_adjustments,
                     "dynamic_clusters": self.dynamic_clusters,
-                    "asset_toxic_registry": self.asset_toxic_registry
+                    "asset_toxic_registry": self.asset_toxic_registry,
+                    "strategy_performance": self.strategy_performance
                 }, f, ensure_ascii=False)
         except Exception as e:
             print(f"Memory save error: {e}")
@@ -157,7 +167,7 @@ class ExperienceMemoryEngine:
             self.live_action_logs_crypto.append(log_entry)
         self.save_memory()
 
-    def record_completed_trade(self, symbol: str, action: str, entry_price: float, exit_price: float, pnl_pct: float, market_regime: str, indicators: Dict[str, Any], duration_minutes: int = None, exit_reason: str = None, ai_confidence: Optional[float] = None, pnl_amount: Optional[float] = None) -> TradePostMortem:
+    def record_completed_trade(self, symbol: str, action: str, entry_price: float, exit_price: float, pnl_pct: float, market_regime: str, indicators: Dict[str, Any], duration_minutes: int = None, exit_reason: str = None, ai_confidence: Optional[float] = None, pnl_amount: Optional[float] = None, strategy_type: str = "UNKNOWN") -> TradePostMortem:
         # Alpaca Webhook Simülasyonu: Alım-Satım çift yönlü tahmini komisyon ve kayma (slippage) maliyeti %0.30
         alpaca_fee_pct = 0.30
         net_pnl_pct = round(pnl_pct - alpaca_fee_pct, 2)
@@ -213,7 +223,8 @@ class ExperienceMemoryEngine:
             error_margin_pct=round(error_margin, 2),
             algorithmic_action_plan=action_plan,
             ai_confidence=ai_confidence,
-            is_shadow=indicators.get("is_shadow", False)
+            is_shadow=indicators.get("is_shadow", False),
+            strategy_type=strategy_type
         )
         self.trade_history.append(trade)
         
@@ -230,6 +241,14 @@ class ExperienceMemoryEngine:
         else:
             self.asset_toxic_registry[symbol]["consecutive_losses"] += 1
             self.asset_toxic_registry[symbol]["total_loss_pct"] += abs(pnl_pct)
+
+        # Evrimsel A/B Darwin Modeli: Strateji Performansini Guncelle
+        if strategy_type in self.strategy_performance:
+            if is_win:
+                self.strategy_performance[strategy_type]["wins"] += 1
+            else:
+                self.strategy_performance[strategy_type]["losses"] += 1
+            self.strategy_performance[strategy_type]["total_pnl"] += pnl_amount
 
         self._derive_synthesized_insights()
         self.save_memory()
@@ -273,15 +292,15 @@ class ExperienceMemoryEngine:
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
                 rule_idx += 1
-            elif stats["consecutive_losses"] >= 2:
+            elif stats["consecutive_losses"] >= 3:
                 self.learned_rules.append({
                     "rule_id": f"DYN-RULE-{rule_idx}",
                     "cluster_key": cluster_name,
                     "type": "CAUTION",
                     "category": "Oransal Temkinlilik (İşlem Otopsisi)",
                     "insight": f"Rejim ({cluster_name}) son {stats['consecutive_losses']} işlemde zararda.",
-                    "action_taken": "İşlem büyüklüğü %20 düşürüldü.",
-                    "impact_status": "⚠️ TEMKİNLİ MOD",
+                    "action_taken": "İşlem büyüklüğü %10 düşürüldü (Cüretkar esneme).",
+                    "impact_status": "⚠️ HAFİF TEMKİNLİ MOD",
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
                 rule_idx += 1
@@ -322,10 +341,10 @@ class ExperienceMemoryEngine:
                 continue
             win_rate = (stats["win_trades"] / total * 100) if total > 0 else 50.0
 
-            # Toksisite kriteri: 3+ peş peşe zarar VE %30'dan düşük kazanma oranı
-            # Sadece 2 consecutive loss sistemi kilitliyordu — eşik yükseltildi
-            is_toxic = (stats["consecutive_losses"] >= 3 and win_rate < 40.0)
-            is_catastrophic = (stats["total_loss_pct"] >= 8.0 and win_rate < 30.0)
+            # Toksisite kriteri: Cüretkarlık için 4+ peş peşe zarar VE %30'dan düşük kazanma oranı
+            # Eski 2 ve 3 consecutive loss sistemi kilitliyordu — eşik cüretkarca yükseltildi
+            is_toxic = (stats["consecutive_losses"] >= 4 and win_rate < 30.0)
+            is_catastrophic = (stats["total_loss_pct"] >= 10.0 and win_rate < 20.0)
 
             if is_toxic or is_catastrophic:
                 self.learned_rules.append({
@@ -365,12 +384,12 @@ class ExperienceMemoryEngine:
                 if t.symbol == symbol and t.pnl_pct < 0 and 
                 (datetime.now(ZoneInfo("Europe/Istanbul")) - datetime.strptime(t.timestamp, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Europe/Istanbul"))).total_seconds() < 86400
             )
-            if recent_stops >= 2:
-                logger.warning(f"🛡️ [UTANÇ PROTOKOLÜ] {symbol} son 24 saatte {recent_stops} kez stop yedi! Güven skoru -20 puan cezalandırılıyor.")
+            if recent_stops >= 3:
+                logger.warning(f"🛡️ [UTANÇ PROTOKOLÜ] {symbol} son 24 saatte {recent_stops} kez stop yedi! Cüretkar esneme ile Güven skoru -10 puan cezalandırılıyor.")
                 return {
-                    "is_safe": True, # İşlem yasağı değil, çok ağır puan cezası veriyoruz
-                    "confidence_modifier": -20.0, 
-                    "qty_multiplier": 0.5, # Bütçeyi de yarıya kes
+                    "is_safe": True, # İşlem yasağı değil, hafif puan cezası veriyoruz
+                    "confidence_modifier": -10.0, 
+                    "qty_multiplier": 0.8, # Bütçeyi sadece %20 kes (eski: %50)
                     "reason": f"Utanç Protokolü (Son 24 saatte {recent_stops} stop)"
                 }
 
@@ -393,12 +412,12 @@ class ExperienceMemoryEngine:
                         "reason": rule["insight"]
                     }
                 elif rule["type"] in ("BLOCK", "CAUTION"):
-                    # Cluster BLOCK artık sadece lot kısıyor, işlemi durdurmuyoruz
+                    # Cluster CAUTION artık lotu daha az kısıyor (cüretkar)
                     memory_result = {
                         "is_safe": True,
-                        "confidence_modifier": -0.15,
-                        "qty_multiplier": 0.80,  # %20 lot kısıntısı, tam blok yok
-                        "reason": rule["insight"] + " (Temkinli mod)"
+                        "confidence_modifier": -0.10,
+                        "qty_multiplier": 0.90,  # %10 lot kısıntısı, tam blok yok
+                        "reason": rule["insight"] + " (Hafif temkinli mod)"
                     }
 
         return memory_result
@@ -733,6 +752,52 @@ class ExperienceMemoryEngine:
             "action_plans": plans[:10],
             "history_points": curve
         }
+
+    def get_best_performing_strategy(self, market: str = "CRYPTO") -> dict:
+        """Kendi kendiyle yarişan (A/B Darwin Modeli) stratejiler arasinda en iyisini secer ve GÜNLÜK TREND (Regime) etkisini katar."""
+        try:
+            from services.engine.market_regime_engine import regime_engine
+            current_regime = regime_engine.current_regimes.get(market.upper(), "SIDEWAYS")
+        except:
+            current_regime = "SIDEWAYS"
+
+        best_strat = "STRICT_FILTER_V1"
+        best_score = -9999.0
+        details = {}
+        
+        for strat, stats in self.strategy_performance.items():
+            total = stats["wins"] + stats["losses"]
+            win_rate = (stats["wins"] / total * 100.0) if total > 0 else 0.0
+            pnl = stats["total_pnl"]
+            
+            # 1. Aşama Puanlama: Geçmiş Kâr-Zarar (A/B Testi)
+            score = (win_rate * 0.5) + (pnl * 0.5) if total > 0 else 0.0
+            
+            # 2. Aşama: Fısıltı Seviyesinde Trend Eğilimi (Aşırı boğmamak ve dipten dönüş fırsatlarını kaçırmamak için yumuşatıldı)
+            if strat == "DYNAMIC_CURETKAR_V2":
+                if current_regime in ["BULL", "MEGA_BULL"]:
+                    score += 10.0  # Boğada cüretkarlık hafif teşvik edilir (+10)
+                # BEAR veya CRASH durumunda Cüretkar'a CEZA YOK! Çünkü çöküşlerde en iyi alım fırsatları "Esnek Pusu" ile gelir.
+            elif strat == "STRICT_FILTER_V1":
+                if current_regime in ["BEAR", "CRASH"]:
+                    score += 5.0  # Sadece ufak bir temkinlilik bonusu (+5). Eğer Dinamik yöntem işe yarıyorsa bu bonus onu yenemez!
+                    
+            details[strat] = {"win_rate": round(win_rate, 2), "total_pnl": round(pnl, 2), "trades": total, "regime_applied": current_regime}
+            
+            if score > best_score:
+                best_score = score
+                best_strat = strat
+                
+        # Eger esitlik varsa veya data yoksa (ilk asama), rejim MEGA_BULL ise DYNAMIC'e, BEAR ise STRICT'e gec
+        if details.get("STRICT_FILTER_V1", {}).get("trades", 0) == 0 and details.get("DYNAMIC_CURETKAR_V2", {}).get("trades", 0) == 0:
+            if current_regime in ["BULL", "MEGA_BULL"]:
+                best_strat = "DYNAMIC_CURETKAR_V2" 
+            elif current_regime in ["BEAR", "CRASH"]:
+                best_strat = "STRICT_FILTER_V1"
+            else:
+                best_strat = "DYNAMIC_CURETKAR_V2"
+            
+        return {"best_strategy": best_strat, "stats": details, "market_regime": current_regime}
 
     def get_summary(self) -> ExperienceLearningSummary:
         self.ensure_active_live_logs()

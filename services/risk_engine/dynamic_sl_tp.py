@@ -53,6 +53,12 @@ def calculate_atr_based_tp_sl(
         max_sl = 3.2 if is_short_term else 4.5
 
     sl_pct = max(min_sl, min(calculated_sl, max_sl))
+    
+    # [KULLANICI DİREKTİFİ GÜNCELLEMESİ] Volatil varlıklarda %2.5, Ağır varlıklarda minimum %1.5 SL kalkanı.
+    if is_crypto or eff_atr_pct > 2.0:
+        sl_pct = max(sl_pct, 2.5)
+    else:
+        sl_pct = max(sl_pct, 1.5)
 
     # 3. Dinamik Kâr Al (TP) Hesabı
     # Hantal %10 rallileri beklemez; volatiliteye göre hızlıca kârı cebe indirir.
@@ -104,9 +110,8 @@ class DynamicRiskManager:
         self.price_history = {}
 
         # === ÖZGÜVENLİ TRAILING STOP PARAMETRESİ ===
-        # trailing_distance_pct: Kârın izini sürerken sahte iğnelere (wicks) kurban gitmemek için ESNETİLDİ.
-        # Çok sıkı (%2) trailing stop, ufak bir düzeltmede (pullback) kârlı işlemi zararına kapatıyordu.
-        self.trailing_distance_pct = 4.8   # %4.8 dinamik iz sürme (Geniş Nefes Payı Bırakıldı - Wick Guard)
+        # Kullanıcı Direktifi: Kâra geçtikten sonra kazancı korumak (kazı) için maksimum %2 dinamik iz sürme.
+        self.trailing_distance_pct = 2.0   # Kâra geçildiğinde zirveden %2 geri çekilme hakkı tanınır.
 
     async def on_price_update(self, symbol: str, current_price: float):
         """
@@ -142,13 +147,46 @@ class DynamicRiskManager:
         entry_price  = matched_pos.entry_price
         current_sl   = matched_pos.stop_loss_price
         
-        # Otonom Makas (Dinamik Evrim - Stop-Hunt Kaçınma)
+        # Dinamik İz Sürme Mesafesi (Kullanıcı Direktifi: Volatiliteye Göre %1.5 ile %2.5 arası)
         try:
             from services.risk_engine.stop_hunt_evader import stop_hunt_evader
             profile = stop_hunt_evader.analyze_asset(symbol)
-            trail_pct = (self.trailing_distance_pct * profile["sl_multiplier"]) / 100.0
+            base_trail = (self.trailing_distance_pct * profile["sl_multiplier"]) / 100.0
         except Exception:
-            trail_pct = self.trailing_distance_pct / 100.0
+            base_trail = self.trailing_distance_pct / 100.0
+            
+        # Volatilite (ATR) veya Kripto durumuna göre Dinamik İz Süren (Trailing) Mesafesi
+        is_crypto = matched_pos.market == "CRYPTO"
+        eff_atr_pct = (getattr(matched_pos, "atr_value", 0.0) / entry_price * 100.0) if entry_price > 0 else 0.0
+        
+        if is_crypto or eff_atr_pct > 2.0:
+            trail_pct = max(base_trail, 0.025) # Volatil varlıksa %2.5
+        else:
+            trail_pct = max(base_trail, 0.015) # Ağır varlıksa minimum %1.5
+
+        # --- KULLANICI DİREKTİFİ: PARABOLİK İZ SÜRME VE HACİM SENSÖRÜ ---
+        profit_pct_hwm = ((history.get("high_water_mark", current_price) - entry_price) / entry_price) * 100.0 if matched_pos.side == "BUY" else ((entry_price - history.get("low_water_mark", current_price)) / entry_price) * 100.0
+        
+        if profit_pct_hwm > 6.0:
+            trail_pct = 0.008 # %6 kârın üstünde makası acımasızca daralt (%0.8)
+        elif profit_pct_hwm > 3.0:
+            trail_pct = 0.012 # %3 kârın üstünde dar takip (%1.2)
+            
+        from datetime import datetime, timezone
+        try:
+            opened_time = datetime.fromisoformat(matched_pos.opened_at.replace("Z", "+00:00"))
+            hours_open = (datetime.now(timezone.utc) - opened_time).total_seconds() / 3600.0
+        except Exception:
+            hours_open = 0.0
+            
+        # PUMP / DUMP Algılayıcı (Hızlı Kâr Şiddeti)
+        if hours_open < 1.0 and profit_pct_hwm >= 4.0:
+            trail_pct = 0.005 # Aşırı hızlı PUMP! Kalkanı anında %0.5'e düşür, tepeden çakılmadan kaç.
+
+        # --- KULLANICI DİREKTİFİ: TIME-DECAY (8 SAAT) ---
+        # İşlem yatayda 8 saat kalırsa, başlangıç kalkanı (sl_pct) yavaş yavaş entry_price'a doğru çekilerek boğulur.
+        decay_ratio = min(hours_open / 8.0, 1.0) if hours_open > 0 else 0.0
+
 
         if matched_pos.side == "BUY":
             # === Chandelier Exit (ATR bazlı) ===
@@ -172,10 +210,22 @@ class DynamicRiskManager:
                     await self._notify_ui(symbol, matched_pos)
                 return
 
-            # === %1.5 SIKI TRAILING STOP ===
-            # SL = en yüksek görülen fiyatın %1.5 altı
-            # İlk SL: giriş fiyatının %1.5 altı (eğer mevcut SL daha uzaksa ezip geçer)
-            candidate_sl = history["high_water_mark"] * (1.0 - trail_pct)
+            # === DİNAMİK İZ SÜREN STOP (KÂRA GEÇİNCE) ===
+            # Sadece varlık KÂRA GEÇTİĞİNDE (fiyat girişin üstüne çıktığında) izleme başlar.
+            if history["high_water_mark"] > entry_price:
+                candidate_sl = history["high_water_mark"] * (1.0 - trail_pct)
+                # KULLANICI DİREKTİFİ: Kâra geçtiğinde SL yeterince alınan değerin üstüne çıkarılarak iz sürebilir.
+                if history["high_water_mark"] > (entry_price * (1.0 + trail_pct)):
+                    candidate_sl = max(candidate_sl, entry_price * 1.002) # %0.2 komisyon kurtaran Zararsız Nokta (Break-Even) garantisi!
+            else:
+                candidate_sl = current_sl # Kâra geçmediyse Başlangıç SL'ini koru.
+
+            # KULLANICI DİREKTİFİ: TIME-DECAY BOGMA MEKANİZMASI (BUY)
+            if decay_ratio > 0.0:
+                initial_sl_distance = (entry_price * 0.025) if (is_crypto or eff_atr_pct > 2.0) else (entry_price * 0.015)
+                initial_sl = entry_price - initial_sl_distance
+                time_decay_sl = initial_sl + ((entry_price * 1.001 - initial_sl) * decay_ratio)
+                candidate_sl = max(candidate_sl, time_decay_sl)
 
             # SL'yi asla aşağı indirme; her zaman en yüksek olanı kullan
             new_sl_rounded = round(max(candidate_sl, current_sl), 4)
@@ -217,12 +267,27 @@ class DynamicRiskManager:
                     await self._notify_ui(symbol, matched_pos)
                 return
 
-            # SELL trailing: SL = en düşük fiyatın %1.5 üstü
+            # === DİNAMİK İZ SÜREN STOP (SELL İÇİN) ===
             low_water = min(current_price, history.get("low_water_mark", current_price))
             if current_price < history.get("low_water_mark", current_price):
                 history["low_water_mark"] = current_price
-            candidate_sl = history.get("low_water_mark", current_price) * (1.0 + trail_pct)
+                
+            # Sadece varlık KÂRA GEÇTİĞİNDE (fiyat girişin altına düştüğünde) izleme başlar.
+            if history.get("low_water_mark", current_price) < entry_price:
+                candidate_sl = history.get("low_water_mark", current_price) * (1.0 + trail_pct)
+                # KULLANICI DİREKTİFİ (SELL): Kâra geçtiğinde SL yeterince alınan değerin altına inerek iz sürebilir.
+                if history.get("low_water_mark", current_price) < (entry_price * (1.0 - trail_pct)):
+                    candidate_sl = min(candidate_sl, entry_price * 0.998) # %0.2 komisyon kurtaran Zararsız Nokta (Break-Even) garantisi
+            else:
+                candidate_sl = current_sl # Kâra geçmediyse Başlangıç SL'ini koru.
             
+            # KULLANICI DİREKTİFİ: TIME-DECAY BOGMA MEKANİZMASI (SELL)
+            if decay_ratio > 0.0:
+                initial_sl_distance = (entry_price * 0.025) if (is_crypto or eff_atr_pct > 2.0) else (entry_price * 0.015)
+                initial_sl = entry_price + initial_sl_distance
+                time_decay_sl = initial_sl - ((initial_sl - entry_price * 0.999) * decay_ratio)
+                candidate_sl = min(candidate_sl, time_decay_sl)
+
             new_sl_rounded = round(min(candidate_sl, current_sl), 4)
             current_sl_rounded = round(current_sl, 4)
             

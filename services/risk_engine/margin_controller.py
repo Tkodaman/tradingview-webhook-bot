@@ -31,6 +31,7 @@ class MarginCalculationRequest(BaseModel):
     max_position_margin_pct: float = Field(35.0, description="Tek İşleme Ayrılabilecek Maksimum Marj (%)")
     vix_or_volatility: Optional[float] = Field(None, description="VIX Endeksi veya ATR Volatilitesi")
     win_rate_pct: Optional[float] = Field(None, description="Strateji Başarı Oranı (%)")
+    strat_streak_multiplier: float = Field(1.0, description="Darwinian Sermaye Çarpanı (1.0 = Normal, 2.0 = Av Serisi Bütçe Artışı, 0.5 = Can Yanması / Savunma)")
 
 class AsymmetricMarginPlan(BaseModel):
     symbol: str
@@ -52,6 +53,8 @@ class AsymmetricMarginPlan(BaseModel):
     cost_breakdown_at_target: ExactCostBreakdown
     cost_breakdown_at_stop: ExactCostBreakdown
     break_even_protection_notes: str
+    split_entry_prices: Optional[Dict[str, float]] = None
+    capital_evolution_note: str = ""
 
 class MathematicalNetReturnEngine:
     """
@@ -191,6 +194,18 @@ class MathematicalNetReturnEngine:
                 # Dezavantajlı setup, minimum koruma riski
                 risk_pct = 0.5
 
+        # --- EKLENTİ 2: DARWINIAN KAPİTAL EVRİMİ (Sermaye Evrimi) ---
+        # Stratejinin anlık başarı/kazanç ivmesine göre Kelly riskini katlıyoruz veya kısıyoruz.
+        risk_pct = risk_pct * req.strat_streak_multiplier
+        risk_pct = min(risk_pct, 20.0) # Bütçe %20'yi (Tavan) geçemez. Maksimum cephane.
+        risk_pct = max(risk_pct, 0.5)  # %0.5'in altına (Taban) inemez. Minimum savunma.
+        
+        cap_note = "Standart Dağılım"
+        if req.strat_streak_multiplier > 1.2:
+            cap_note = "🧬 EVRİM: Av serisi tespit edildi! Kasadan stratejiye ayrılan cephane boyutu arttırıldı."
+        elif req.strat_streak_multiplier < 0.8:
+            cap_note = "🛡️ SAVUNMA: Strateji ardışık hasar aldı. Kasa koruma (Defans) moduna geçildi, bütçe kısıldı."
+
         entry = req.entry_price
         action = req.action.upper()
         max_margin_pct = req.max_position_margin_pct
@@ -239,6 +254,16 @@ class MathematicalNetReturnEngine:
             f"tamamen karşılanarak işlem sıfır riskli (Free-Roll) hale getirilir."
         )
 
+        # --- EKLENTİ 1: MİKRO PUSU EMRİ (Geri Çekilme - Pullback Algoritması) ---
+        split_entries = None
+        if action == "BUY":
+            pullback_price = round(entry * 0.985, 4) # Hacimli roketin %1.5 aşağısına "Pusu" kur.
+            split_entries = {
+                "market_buy_40_pct": entry,
+                "limit_pusu_60_pct": pullback_price,
+                "avg_blended_entry": round((entry * 0.40) + (pullback_price * 0.60), 4)
+            }
+
         return AsymmetricMarginPlan(
             symbol=req.symbol,
             market=m_key,
@@ -258,7 +283,9 @@ class MathematicalNetReturnEngine:
             currency=currency,
             cost_breakdown_at_target=costs_at_tp,
             cost_breakdown_at_stop=costs_at_sl,
-            break_even_protection_notes=notes
+            break_even_protection_notes=notes,
+            split_entry_prices=split_entries,
+            capital_evolution_note=cap_note
         )
 
 margin_controller = MathematicalNetReturnEngine()

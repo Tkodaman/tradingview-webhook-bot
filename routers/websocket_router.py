@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import List
 from services.market_feed.live_stream import LiveTradeManager
+from services.intelligence.active_trade_reporter import active_trade_reporter
 
 # Bot baslangic zamani (uptime hesabi icin)
 _BOT_START_TIME = time.time()
@@ -140,7 +141,8 @@ async def live_data_broadcaster(live_trade_manager: LiveTradeManager):
                     "data": {
                         "live_prices": prices,
                         "summary": summary,
-                        "trading_mode": settings.trading_mode
+                        "trading_mode": settings.trading_mode,
+                        "active_reports": active_trade_reporter.get_latest_reports()
                     }
                 }
                 await manager.broadcast(payload)

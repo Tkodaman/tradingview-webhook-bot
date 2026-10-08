@@ -69,6 +69,31 @@ class RiskEvaluator:
             rs_score = signal.indicators.get("rs_score", 0.0)
             trend_conflict = signal.indicators.get("trend_conflict", False)
             
+            # --- 🚀 HİBRİT TAARRUZ DOKTRİNİ (TIA & BOME) ---
+            volume_ratio = float(signal.indicators.get("volume_ratio", 1.0))
+            rsi = float(signal.indicators.get("rsi", 50.0))
+            
+            # 1. TIA DOKTRİNİ (Sessiz Büyüme): RSI < 60 ve Hacim 1.2x - 2.0x arası
+            if rsi < 60.0 and 1.2 <= volume_ratio <= 2.0:
+                confidence_score += 15.0
+                logger.debug(f"[SCORE BOOST] {signal.symbol} TIA Doktrini (Sessiz Hacim/Düşük RSI). Güven skoru +15 arttı.")
+                
+            # 2. BOME DOKTRİNİ (Şok Birlikleri): RSI <= 68 ve Hacim > 2.5x (Erken Ralli)
+            elif rsi <= 68.0 and volume_ratio > 2.5:
+                confidence_score += 20.0
+                logger.debug(f"[SCORE BOOST] {signal.symbol} BOME Doktrini (Erken Patlama/Dev Hacim). Güven skoru +20 arttı.")
+                
+            # 3. FOMO CEZASI (ALGO Modeli): RSI >= 72 (Geç Kalınmış Fırsat)
+            elif rsi >= 72.0:
+                confidence_score -= 20.0
+                logger.debug(f"[SCORE DROP] {signal.symbol} FOMO Ceza (Aşırı Alım). Güven skoru -20 düştü.")
+                
+            # 4. SAHTE KIRILIM CEZASI: Hacim < 1.0
+            if volume_ratio < 1.0:
+                confidence_score -= 15.0
+                logger.debug(f"[SCORE DROP] {signal.symbol} Sahte Kırılım (Hacimsiz). Güven skoru -15 düştü.")
+            # ------------------------------------------------
+            
             # OBV / Para Girişi Bonusu
             if cmf > 0.05:
                 confidence_score += 15.0

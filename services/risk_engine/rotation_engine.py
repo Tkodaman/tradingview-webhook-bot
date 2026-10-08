@@ -10,8 +10,10 @@ class OpportunityRotationEngine:
     
     def __init__(self):
         self.PORTFOLIO_LIMIT = 4 # Maksimum tutulacak varlık sayısı
-        self.MIN_SCORE_GAP_FOR_ROTATION = 8 # Yeni varlığın eskiden en az 8 puan üstün olması gerekir
-        self.MIN_VOLUME_FOR_ROTATION = 1.5 # Yeni varlıkta en az 1.5x hacim patlaması olmalı
+        # ÇOK NADİR VE MUAZZAM FIRSAT KİLİTLERİ (ACIMASIZ ROTASYON İÇİN)
+        self.MIN_SCORE_FOR_NEW_ASSET = 95.0 # Yeni varlığın güven skoru minimum 95 olmalı! (Kesin Fırsat)
+        self.MIN_SCORE_GAP_FOR_ROTATION = 20 # Eski varlık ile arasında en az 20 puanlık UÇURUM olmalı.
+        self.MIN_VOLUME_FOR_ROTATION = 3.5 # Yeni varlığa devasa hacim (En az 3.5x) girmeli!
         
     def evaluate_rotation(self, new_symbol: str, new_score: int, new_data: Dict[str, Any], active_positions: List[Any]) -> Dict[str, Any]:
         """
@@ -19,9 +21,12 @@ class OpportunityRotationEngine:
         """
         new_vol = new_data.get("volume_ratio", 0.0)
         
-        # 1. Aşama: Yeni Varlık Rotasyona Değer mi? (Sentinel Guard)
+        # 1. Aşama: Yeni Varlık Rotasyona Değer mi? (Çelik Kapı Kontrolü)
+        if new_score < self.MIN_SCORE_FOR_NEW_ASSET:
+            return {"rotate": False, "reason": f"Dışarıdaki varlık ({new_symbol}) muazzam bir fırsat değil (Skor: {new_score}). Otonom Rotasyon için %{self.MIN_SCORE_FOR_NEW_ASSET} skor şarttır."}
+            
         if new_vol < self.MIN_VOLUME_FOR_ROTATION:
-            return {"rotate": False, "reason": f"Yeni varlık ({new_symbol}) hacmi yetersiz ({new_vol}x). Rotasyon riskine değmez."}
+            return {"rotate": False, "reason": f"Yeni varlık ({new_symbol}) hacmi yetersiz ({new_vol}x). Acımasız rotasyon için en az {self.MIN_VOLUME_FOR_ROTATION}x devasa hacim şarttır."}
             
         if len(active_positions) < self.PORTFOLIO_LIMIT:
             # Kasa dolmamış, rotasyona gerek yok, direkt alınabilir
@@ -55,13 +60,13 @@ class OpportunityRotationEngine:
             
         # 3. Aşama: Olasılık Matrisini Çarpıştır (Cross-Probability)
         if (new_score - weakest_score) >= self.MIN_SCORE_GAP_FOR_ROTATION:
-            # Rotasyon Kararı ONAYLANDI
+            # Rotasyon Kararı ONAYLANDI (Çok nadir bir durum)
             weak_sym = getattr(weakest_position, 'symbol', "Bilinmiyor")
             return {
                 "rotate": True,
                 "target_to_close": weak_sym,
                 "target_to_open": new_symbol,
-                "reason": f"[TAM OTONOM ROTASYON]: {new_symbol} (Skor: {new_score}, Hacim: {new_vol}x) devasa bir fırsat sundu. İçerideki zayıf {weak_sym} varlığı satılarak kaynak bu tarafa aktarılmalıdır."
+                "reason": f"[ACIMASIZ ROTASYON]: Dışarıda {new_symbol} (Skor: {new_score}, Hacim: {new_vol}x) adında MUAZZAM bir fırsat belirdi! İçerideki uyuyan/zayıf {weak_sym} varlığı %0.5 zararla bile olsa acımasızca KESİLİP sermaye bu rokete aktarılmalıdır."
             }
             
         return {"rotate": False, "reason": f"Puan farkı ({new_score} vs {weakest_score}) rotasyon riskini göze alacak kadar yüksek değil."}

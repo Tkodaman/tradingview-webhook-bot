@@ -53,19 +53,26 @@ async def chat_copilot_stream(req: CopilotRequest):
     
     try:
         model_name = req.model_name
-        if not model_name:
-            model_name = "gemini-3.8-flash"
+        if not model_name or "gemini" in model_name.lower():
+            model_name = "gemini-flash-lite-latest" # Force upgrade legacy frontend requests to latest
             
         system_prompt = _build_system_context() if req.include_context else None
             
         async def event_generator():
             try:
                 if "gemini" in model_name:
-                    api_key = req.api_key or os.environ.get("GEMINI_API_KEY")
+                    from dotenv import load_dotenv
+                    load_dotenv(override=True)
+                    
+                    api_key = req.api_key
+                    if not api_key or str(api_key).strip() == "" or api_key == "undefined":
+                        api_key = os.environ.get("GEMINI_API_KEY")
+                        
                     if not api_key:
-                        raise Exception("Gemini API Key eksik.")
+                        raise Exception("Gemini API Key eksik. Sunucu ayarlarını kontrol edin.")
                         
                     genai.configure(api_key=api_key)
+                    # Use generation_config for system prompt in older SDK versions if system_instruction fails, but system_instruction is supported in recent versions
                     model = genai.GenerativeModel(model_name=model_name, system_instruction=system_prompt)
                     
                     formatted_messages = []

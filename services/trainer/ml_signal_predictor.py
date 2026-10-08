@@ -1,4 +1,4 @@
-﻿"""
+"""
 RandomForest ML Sinyal Tahmin Modeli
 Scikit-learn tabanli ikili siniflandirici: KAR (1) / ZARAR (0)
 - Her pozisyon kapandiginda egitim verisi birikir (SQLite)
@@ -26,8 +26,8 @@ except ImportError:
 TRAINING_DATA_FILE = "ml_training_data.json"
 MODEL_MIN_SAMPLES = 30       # Min ornek sayisi
 RETRAIN_EVERY_N = 50         # Her N yeni islemde yeniden egit
-BLOCK_THRESHOLD = 0.55       # Bu skore altinda BLOCK
-REWARD_THRESHOLD = 0.70      # Bu skore ustunde lot artisi
+BLOCK_THRESHOLD = 0.15       # CÜRETKAR MOD (BOLD): 0.55 yerine 0.15 yapildi. Bot riskleri yok sayarak saldirir.
+REWARD_THRESHOLD = 0.55      # CÜRETKAR MOD: 0.70 yerine 0.55 yapildi. Lot artisi cok daha kolay alinacakk.
 
 
 class MLSignalPredictor:

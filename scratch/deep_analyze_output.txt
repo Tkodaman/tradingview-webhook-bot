@@ -1,0 +1,167 @@
+=== DERİN ANALİZ RAPORU ===
+--- TRXUSDT ---
+symbol: TRXUSDT
+market: CRYPTO
+is_market_open: True
+market_status_badge: 🟢 7/24 PİYASA AÇIK
+market_session_text: 7/24 Kesintisiz Canlı Seans
+price: 0.3357
+change_pct: 0.06
+high: 0.3359
+low: 0.3355
+rsi: 61.07
+volume_ratio: 1.48
+adx: 40.33
+cmf: 0.244
+atr_pct: 0.11
+stoch_k: 66.67
+supertrend_bullish: True
+indicator_coverage: 1.0
+data_quality: FULL
+data_age_seconds: 1.6
+missing_fields: []
+decision_gate: ALLOW_ENTRY
+score: 8.0
+momentum_phase: NEUTRAL
+decision: WAIT
+badge: 🟡 WAIT_PATIENT
+reason: ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+last_update: 20:09:13
+volume_session_note: CRYPTO ASYA/EU: Hac%45 CMF%55
+score_breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 16.0, 'technical': 17.45, 'price_change': 5.5, 'ml_history': 8.1, 'data_quality': 10.0}
+ranking_score: 73.1
+confidence_score: 73.1
+confidence_label: LIVE_TECHNICAL
+historical_sample: 1
+--- NEARUSDT ---
+symbol: NEARUSDT
+market: CRYPTO
+is_market_open: True
+market_status_badge: 🟢 7/24 PİYASA AÇIK
+market_session_text: 7/24 Kesintisiz Canlı Seans
+price: 5.39
+change_pct: 6.49
+high: 5.45
+low: 5.34
+rsi: 69.2
+volume_ratio: 1.13
+adx: 37.27
+cmf: 0.038
+atr_pct: 1.36
+stoch_k: 87.58
+supertrend_bullish: True
+indicator_coverage: 1.0
+data_quality: FULL
+data_age_seconds: 1.6
+missing_fields: []
+decision_gate: ALLOW_ENTRY
+score: -4.181818181818194
+momentum_phase: LATE_ENTRY_RISK
+decision: WAIT
+badge: 🟡 WAIT_PATIENT
+reason: ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+last_update: 20:09:13
+volume_session_note: CRYPTO ASYA/EU: Hac%45 CMF%55
+score_breakdown: {'rsi_momentum': 20.0, 'volume_cmf': 9.13, 'technical': 13.18, 'price_change': 1.5, 'ml_history': 8.1, 'data_quality': 10.0}
+ranking_score: 61.8
+confidence_score: 61.8
+confidence_label: LIVE_TECHNICAL
+historical_sample: 1
+--- UNIUSDT ---
+symbol: UNIUSDT
+market: CRYPTO
+is_market_open: True
+price: 7.79
+change_pct: -8.97
+rsi: 29.25
+volume_ratio: 1.56
+decision: WAIT
+reason: ⚠️ Yoğun Bakım (Balina Hacmi Bekleniyor)
+is_reversal: True
+score: 0
+momentum_phase: REVERSAL_MONITOR
+confidence_score: 68.9
+indicator_coverage: 1.0
+--- UNIUSDT ---
+symbol: UNIUSDT
+market: CRYPTO
+is_market_open: True
+market_status_badge: 🟢 7/24 PİYASA AÇIK
+market_session_text: 7/24 Kesintisiz Canlı Seans
+price: 7.79
+change_pct: -8.97
+high: 7.8
+low: 7.77
+rsi: 29.25
+volume_ratio: 1.56
+adx: 33.03
+cmf: -0.229
+atr_pct: 0.7
+stoch_k: 45.02
+supertrend_bullish: True
+indicator_coverage: 1.0
+data_quality: FULL
+data_age_seconds: 1.6
+missing_fields: []
+decision_gate: ALLOW_ENTRY
+score: 11.0
+momentum_phase: EARLY_EXPLOSION
+decision: WAIT
+badge: 🟡 WAIT_PATIENT
+reason: ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+last_update: 20:09:13
+volume_session_note: CRYPTO ASYA/EU: Hac%45 CMF%55
+score_breakdown: {'rsi_momentum': 0.0, 'volume_cmf': 4.5, 'technical': 15.25, 'price_change': 0.5, 'ml_history': 8.1, 'data_quality': 10.0}
+ranking_score: 41.3
+confidence_score: 41.3
+confidence_label: LIVE_TECHNICAL
+historical_sample: 1
+--- BIMAS ---
+symbol: BIMAS
+market: BIST
+is_market_open: True
+price: 394.25
+change_pct: -3.67
+rsi: 22.47
+volume_ratio: 1.0
+decision: WAIT
+reason: ⚠️ Yoğun Bakım (Balina Hacmi Bekleniyor)
+is_reversal: True
+score: 0
+momentum_phase: REVERSAL_MONITOR
+confidence_score: 73.0
+indicator_coverage: 1.0
+--- INTU ---
+symbol: INTU
+market: NASDAQ
+is_market_open: True
+market_status_badge: 🟣 POST-MARKET AKTİF
+market_session_text: Piyasa Sonrası İşlemler (Post-Market)
+price: 297.18
+change_pct: 2.55
+high: 298.81
+low: 290.73
+rsi: 67.21
+volume_ratio: 1.0
+adx: 55.09
+cmf: 0.16
+atr_pct: 0.39
+stoch_k: 47.07
+supertrend_bullish: True
+indicator_coverage: 1.0
+data_quality: FULL
+data_age_seconds: 1.6
+missing_fields: []
+decision_gate: ALLOW_ENTRY
+score: -5.0
+momentum_phase: FAKEOUT_RISK
+decision: WAIT
+badge: 🚧 RISK_BLOCK
+reason: 🚨 Sahte Kırılım (ATR=0.39%<1.0 + Vol=1.00<2.0 (Yalancı Kırılım))
+last_update: 20:09:12
+volume_session_note: NASDAQ RTH: Hac%65 CMF%35
+score_breakdown: {'rsi_momentum': 20.0, 'volume_cmf': 9.81, 'technical': 17.45, 'price_change': 8.5, 'ml_history': 6.75, 'data_quality': 10.0}
+ranking_score: 72.5
+confidence_score: 72.5
+confidence_label: LIVE_TECHNICAL
+historical_sample: 1

@@ -9,6 +9,7 @@ os.environ["ANYIO_MAX_THREADS"] = "200"
 import asyncio
 import time
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -344,6 +345,11 @@ try:
 except Exception:
     pass
 
+@app.get("/api/v1/system/active_reports", response_class=JSONResponse)
+async def get_active_reports():
+    from services.intelligence.active_trade_reporter import active_trade_reporter
+    return {"status": "success", "reports": active_trade_reporter.get_latest_reports()}
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_get(request: Request):
     return templates.TemplateResponse(
@@ -354,10 +360,13 @@ async def login_get(request: Request):
 
 @app.post("/login", response_class=HTMLResponse)
 async def login_post(request: Request, username: str = Form(...), password: str = Form(...), remember: str = Form(None)):
+    import asyncio
+    await asyncio.sleep(0.5) # +2 Kalkanı: Anti-Bruteforce yavaşlatması
+    
     valid_token = None
     if username == "kodaman" and password == settings.passphrase:
         valid_token = settings.passphrase
-    elif username == "guest" and password == "1907":
+    elif username == "fener" and password == "1907":
         valid_token = "guest_token_1907"
         
     if valid_token:
@@ -541,6 +550,19 @@ async def startup_accountability_check():
                 print("[✓] Master Portföy (Zarar Durumu) sisteme başarıyla mühürlendi.")
     except Exception as e:
         print(f"[X] Hafıza yüklenemedi: {e}")
+        
+    import asyncio
+    async def delayed_sync():
+        await asyncio.sleep(5) # HA Manager'ın lider olabilmesi için süre tanı
+        try:
+            from services.market_feed.live_stream import live_trade_manager
+            from core.logger import logger
+            logger.info("🔄 [STARTUP] Bot yeniden başlatıldı. Borsa (Alpaca/Binance) senkronizasyonu başlatılıyor...")
+            live_trade_manager.sync_with_broker()
+        except Exception as e:
+            print(f"[STARTUP SYNC ERROR] {e}")
+            
+    asyncio.create_task(delayed_sync())
 
 # Register Routers
 app.include_router(webhook_router)

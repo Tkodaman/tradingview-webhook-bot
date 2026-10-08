@@ -282,6 +282,8 @@ def get_active_positions():
                         "opened_at": opened_at_val,
                         "status": "OPEN",
                         "session_badge": session_badge,
+                        "is_manual": getattr(local_pos, "is_manual", (True if local_pos and hasattr(local_pos, "reason") and local_pos.reason and "MANUAL" in str(local_pos.reason).upper() else False)) if local_pos else False,
+                        "source": "MANUEL" if (getattr(local_pos, "is_manual", False) or (local_pos and hasattr(local_pos, "reason") and local_pos.reason and "MANUAL" in str(local_pos.reason).upper())) else getattr(local_pos, "source", "OTONOM"),
                         # Trailing / Break-Even durumu (dashboard göstergesi için)
                         "trailing_stop_activated": trailing_active,
                         "break_even_activated": break_even_active,

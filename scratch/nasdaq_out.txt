@@ -1,0 +1,223 @@
+=== KUSURSUZ NASDAQ ADAYLARI ===
+
+--- COST ---
+Skor: 68.2 | Hacim: 1.0 | RSI: 60.12 | CMF: 0.081 | Değişim: %0.66
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 7.62, 'technical': 17.45, 'price_change': 10.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- ZS ---
+Skor: 67.9 | Hacim: 1.0 | RSI: 68.48 | CMF: 0.146 | Değişim: %0.57
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+Score Breakdown: {'rsi_momentum': 20.0, 'volume_cmf': 9.81, 'technical': 10.0, 'price_change': 10.0, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- CSCO ---
+Skor: 64.4 | Hacim: 1.0 | RSI: 68.81 | CMF: 0.204 | Değişim: %-0.5
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+Score Breakdown: {'rsi_momentum': 20.0, 'volume_cmf': 12.0, 'technical': 10.56, 'price_change': 5.5, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- ANET ---
+Skor: 64.1 | Hacim: 1.0 | RSI: 61.2 | CMF: 0.254 | Değişim: %0.16
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 12.0, 'technical': 13.8, 'price_change': 5.5, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- MSFT ---
+Skor: 62.8 | Hacim: 1.0 | RSI: 60.21 | CMF: 0.323 | Değişim: %0.06
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 12.0, 'technical': 12.6, 'price_change': 5.5, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- OKTA ---
+Skor: 62.7 | Hacim: 1.0 | RSI: 59.11 | CMF: 0.123 | Değişim: %-0.33
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 9.81, 'technical': 13.32, 'price_change': 5.5, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- GOOG ---
+Skor: 62.0 | Hacim: 1.0 | RSI: 64.45 | CMF: 0.286 | Değişim: %0.74
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 12.0, 'technical': 5.85, 'price_change': 10.0, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- MDB ---
+Skor: 60.8 | Hacim: 1.0 | RSI: 55.03 | CMF: -0.09 | Değişim: %0.55
+Faz: WEAK_TREND
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 5.44, 'technical': 12.26, 'price_change': 10.0, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- PYPL ---
+Skor: 60.6 | Hacim: 1.0 | RSI: 58.37 | CMF: -0.23 | Değişim: %0.6
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 3.25, 'technical': 14.62, 'price_change': 10.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- AEP ---
+Skor: 60.4 | Hacim: 1.0 | RSI: 57.14 | CMF: -0.082 | Değişim: %0.34
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 5.44, 'technical': 16.72, 'price_change': 5.5, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- TSLA ---
+Skor: 59.8 | Hacim: 1.0 | RSI: 57.15 | CMF: 0.009 | Değişim: %-0.79
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 7.62, 'technical': 12.61, 'price_change': 5.5, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- VRTX ---
+Skor: 59.8 | Hacim: 1.0 | RSI: 48.9 | CMF: 0.177 | Değişim: %0.66
+Faz: WEAK_TREND
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 9.81, 'technical': 13.21, 'price_change': 10.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- CTAS ---
+Skor: 59.1 | Hacim: 1.0 | RSI: 54.76 | CMF: 0.031 | Değişim: %0.66
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 7.62, 'technical': 13.74, 'price_change': 10.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- SNPS ---
+Skor: 58.7 | Hacim: 1.0 | RSI: 61.88 | CMF: -0.026 | Değişim: %-0.56
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 5.44, 'technical': 13.68, 'price_change': 5.5, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- MNST ---
+Skor: 58.7 | Hacim: 1.0 | RSI: 47.5 | CMF: 0.129 | Değişim: %-0.88
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 9.81, 'technical': 15.55, 'price_change': 5.5, 'ml_history': 7.8, 'data_quality': 10.0}
+
+--- ZM ---
+Skor: 58.7 | Hacim: 1.0 | RSI: 58.5 | CMF: -0.117 | Değişim: %0.65
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 3.25, 'technical': 12.73, 'price_change': 10.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- QQQ ---
+Skor: 57.4 | Hacim: 1.0 | RSI: 58.9 | CMF: 0.107 | Değişim: %-0.24
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 9.81, 'technical': 8.31, 'price_change': 5.5, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- ROKU ---
+Skor: 56.6 | Hacim: 1.0 | RSI: 53.79 | CMF: 0.339 | Değişim: %0.41
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 12.0, 'technical': 12.32, 'price_change': 5.5, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- AMD ---
+Skor: 56.4 | Hacim: 1.0 | RSI: 58.33 | CMF: -0.053 | Değişim: %-0.56
+Faz: FRESH_BREAKOUT
+Durum: 🟢 POSITION_OPEN - Açık Pozisyon Aktif (Giriş: $645.93, PnL: $-0.11)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 5.44, 'technical': 11.38, 'price_change': 5.5, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- ROST ---
+Skor: 55.7 | Hacim: 1.0 | RSI: 41.98 | CMF: -0.094 | Değişim: %0.57
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 6.0, 'volume_cmf': 5.44, 'technical': 17.88, 'price_change': 10.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- AVGO ---
+Skor: 55.5 | Hacim: 1.0 | RSI: 64.88 | CMF: 0.088 | Değişim: %0.16
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 7.62, 'technical': 8.32, 'price_change': 5.5, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- FTNT ---
+Skor: 55.4 | Hacim: 1.0 | RSI: 60.74 | CMF: -0.013 | Değişim: %-1.02
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⚠️ Uyumsuz İndikatör (Teyit Bekleniyor)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 5.44, 'technical': 13.83, 'price_change': 3.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- SBUX ---
+Skor: 55.3 | Hacim: 1.0 | RSI: 37.23 | CMF: 0.0 | Değişim: %-2.63
+Faz: REVERSAL_MONITOR
+Durum:  - 🩸 Kanama Başladı (Düşüş Derinleşiyor)
+Score Breakdown: {}
+
+--- VRT ---
+Skor: 55.1 | Hacim: 1.0 | RSI: 46.32 | CMF: 0.287 | Değişim: %-2.51
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 12.0, 'technical': 12.03, 'price_change': 3.0, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- TXN ---
+Skor: 54.6 | Hacim: 1.0 | RSI: 53.64 | CMF: 0.235 | Değişim: %-2.82
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 12.0, 'technical': 11.49, 'price_change': 3.0, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- ABNB ---
+Skor: 54.5 | Hacim: 1.0 | RSI: 48.03 | CMF: 0.135 | Değişim: %0.15
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 9.81, 'technical': 12.47, 'price_change': 5.5, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- CDNS ---
+Skor: 54.4 | Hacim: 1.0 | RSI: 53.57 | CMF: 0.077 | Değişim: %-0.93
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 7.62, 'technical': 14.56, 'price_change': 5.5, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- NVDA ---
+Skor: 53.9 | Hacim: 1.0 | RSI: 52.43 | CMF: -0.053 | Değişim: %-0.73
+Faz: NEUTRAL
+Durum: 🟢 POSITION_OPEN - Açık Pozisyon Aktif (Giriş: $236.87, PnL: $2.98)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 5.44, 'technical': 14.83, 'price_change': 5.5, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- REGN ---
+Skor: 53.1 | Hacim: 1.0 | RSI: 49.3 | CMF: -0.159 | Değişim: %0.56
+Faz: WEAK_TREND
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 3.25, 'technical': 13.11, 'price_change': 10.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- MRVL ---
+Skor: 52.7 | Hacim: 1.0 | RSI: 59.48 | CMF: -0.036 | Değişim: %-0.87
+Faz: FRESH_BREAKOUT
+Durum: 🟢 POSITION_OPEN - Açık Pozisyon Aktif (Giriş: $281.841636, PnL: $5.3)
+Score Breakdown: {'rsi_momentum': 16.0, 'volume_cmf': 5.44, 'technical': 7.66, 'price_change': 5.5, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- STX ---
+Skor: 52.5 | Hacim: 1.0 | RSI: 39.57 | CMF: 0.0 | Değişim: %0.06
+Faz: REVERSAL_MONITOR
+Durum:  - 🩸 Kanama Başladı (Düşüş Derinleşiyor)
+Score Breakdown: {}
+
+--- INTC ---
+Skor: 52.0 | Hacim: 1.0 | RSI: 40.41 | CMF: -0.098 | Değişim: %0.51
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 6.0, 'volume_cmf': 5.44, 'technical': 12.48, 'price_change': 10.0, 'ml_history': 8.1, 'data_quality': 10.0}
+
+--- ADP ---
+Skor: 51.8 | Hacim: 1.0 | RSI: 54.01 | CMF: -0.248 | Değişim: %0.64
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 3.25, 'technical': 10.8, 'price_change': 10.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- MAR ---
+Skor: 51.8 | Hacim: 1.0 | RSI: 44.59 | CMF: 0.058 | Değişim: %-1.29
+Faz: NEUTRAL
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 6.0, 'volume_cmf': 7.62, 'technical': 18.4, 'price_change': 3.0, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- AI ---
+Skor: 51.5 | Hacim: 1.0 | RSI: 52.48 | CMF: -0.402 | Değişim: %0.0
+Faz: FRESH_BREAKOUT
+Durum: 🟡 WAIT_PATIENT - ⏳ Yatay Konsolidasyon (Kırılım Bekleniyor)
+Score Breakdown: {'rsi_momentum': 10.0, 'volume_cmf': 3.25, 'technical': 15.95, 'price_change': 5.5, 'ml_history': 6.75, 'data_quality': 10.0}
+
+--- KLAC ---
+Skor: 47.9 | Hacim: 1.0 | RSI: 43.39 | CMF: 0.0 | Değişim: %-0.38
+Faz: REVERSAL_MONITOR
+Durum:  - 🩸 Kanama Başladı (Düşüş Derinleşiyor)
+Score Breakdown: {}
+
+--- ORLY ---
+Skor: 46.4 | Hacim: 1.0 | RSI: 44.65 | CMF: 0.0 | Değişim: %-0.62
+Faz: REVERSAL_MONITOR
+Durum:  - 🩸 Kanama Başladı (Düşüş Derinleşiyor)
+Score Breakdown: {}

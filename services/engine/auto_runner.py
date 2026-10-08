@@ -32,7 +32,7 @@ from services.engine.bot_thought_stream import bot_thought_stream
 from services.engine.macro_fundamental_engine import macro_fundamental_engine
 from services.engine.kelly_criterion import kelly_engine
 from services.intelligence.yuce_divan_oracle import yuce_divan
-
+from services.intelligence.active_trade_reporter import active_trade_reporter
 # Global instances
 llm_intelligence = LLMMarketIntelligenceEngine()
 from services.intelligence.quant_alpha_engine import QuantAlphaEngine
@@ -63,7 +63,8 @@ class TradingViewAutoStrategyRunner:
                 await asyncio.to_thread(live_trade_manager.get_live_prices)
                 await self.evaluate_live_market_and_trigger()
             except Exception as e:
-                logger.error(f"[AUTO-RUNNER ERROR] {e}")
+                import traceback
+                logger.error(f"[AUTO-RUNNER ERROR] {e}\n{traceback.format_exc()}")
             await asyncio.sleep(self.scan_interval_seconds)
 
     async def evaluate_live_market_and_trigger(self) -> List[Dict[str, Any]]:
@@ -352,10 +353,10 @@ class TradingViewAutoStrategyRunner:
             )
             regime_lot_multiplier = regime_result.lot_multiplier
             market_regime_detector.last_results[sym] = regime_result
-            # RANGING: Block değil, lot 0.8x
+            # RANGING: Block
             if regime_result.should_skip_momentum:
-                regime_lot_multiplier *= 0.8
-                logger.info(f"[REGIME-SOFT] {sym} RANGING — lot x0.8, cüretkar devam")
+                logger.info(f"🚫 [REGIME STRICT] {sym} RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.")
+                continue
 
             # FAKEOUT GUARD: Hard Block→-2 skor cezası
             _candle_range = candle_high - candle_low
@@ -366,9 +367,9 @@ class TradingViewAutoStrategyRunner:
                 rsi=rsi, cmf=cmf, stoch_k=stoch_k, atr_pct=atr_pct,
                 body_ratio=_body_ratio_early, bid_ask_ratio=bid_ask_ratio
             )
-            fakeout_penalty = -2 if fakeout_res.is_fakeout else 0
             if fakeout_res.is_fakeout:
-                logger.info(f"[FAKEOUT-SOFT] {sym}: {fakeout_res.reason} — -2 skor (cüretkar devam)")
+                logger.info(f"🚫 [FAKEOUT STRICT] {sym}: {fakeout_res.reason} — Sahte Kırılım Tespit Edildi, İşlem İptal.")
+                continue
 
             # ============================================================
             # MİKRO GERİ ÇEKİLME (PULLBACK) AVCISI - "Tepeden Alma" Koruması
@@ -688,17 +689,25 @@ class TradingViewAutoStrategyRunner:
             except Exception as e:
                 logger.debug(f"[TEMPORAL ERR] {e}")
 
-            # Giris izni kontrolu (Tam Otonom & Cüretkar Mod: Bloklama kaldırıldı, sadece not düşülüyor)
+            # Giris izni kontrolu (Katı Otonom)
             if not _rp["entry_allowed"]:
-                logger.info(f"[REGIME-SOFT] {sym} ({_mtype_local}) {_rp['regime']} rejiminde aslında giriş yasak ancak otonom mod aktif. Sinyal gücüne güvenerek devam edilecek.")
+                logger.info(f"🚫 [REGIME STRICT] {sym} ({_mtype_local}) {_rp['regime']} rejiminde giriş yasaktır. İşlem iptal.")
+                continue
 
             # --- TIER-2 OTONOM KONSEY (DYNAMIC THRESHOLDS) ---
             from services.engine.autonomous_council import autonomous_council
             dyn_conf = autonomous_council.current_state.get("min_confidence", 65)
             dyn_vol_adj = autonomous_council.current_state.get("min_volume_ratio", 1.0)
 
-            # TAM OTONOM CÜRETKAR MOD: Skor eşiği artık statik 25 veya profile göre dinamik
-            required_score = max(_rp["min_score"] + 20.0, 25.0)  # Eskiden dyn_conf (65) ile kıyaslanıyordu ve puan (max 40) asla yetmiyordu!
+            # KULLANICI EMRİ: ÇARPIŞMALARI KATI HALE GETİR VE SADECE EN İYİ FIRSATLARI AL
+            # Skor eşiğini tekrar kurumsal düzeye çekiyoruz.
+            required_score = _rp["min_score"] + 5.0  # Ortalama 5.0 + 5.0 = 10.0 baraj.
+            
+            # KONSEY KARARI: HİSSE SENEDİ İÇİN DENGELİ ESNETME
+            # Hisseler kripto kadar hızlı skor alamaz, ancak tamamen de serbest bırakamayız.
+            if not is_crypto:
+                required_score -= 1.0  # Hisselerde baraj ~9.0 puana düşer. Yarı katı.
+                logger.debug(f"[KONSEY KATI MOD] {sym} Hisse Senedi. Eşik Değeri: {required_score}")
             
             # Dinamik Volatilite Barajı (Volatility Adaptive Threshold)
             if is_crypto:
@@ -758,11 +767,39 @@ class TradingViewAutoStrategyRunner:
                     "SUCCESS", cooldown_sec=300
                 )
 
-            # Soft ceza toplamını skora ekle
-            if is_vcp or is_foresight_early_jump:
-                score += fakeout_penalty + pullback_penalty # stale ve memory cezaları VCP ve Öngörü'de yok sayılır
-            else:
-                score += stale_penalty + memory_penalty + fakeout_penalty + pullback_penalty
+            # =========================================================
+            # 🌑 KARANLIK HAVUZ (DARK POOL) AKÜMÜLASYON DEDEKTÖRÜ
+            # =========================================================
+            is_dark_pool = False
+            # Fiyat adeta donmuş (-0.5 ile +0.5 arası) ancak hacim son 20 mumun 5 KATINDAN FAZLA!
+            # Bu durum perakende (küçük) yatırımcı olamaz, devasa OTC (tezgah altı) kurumsal balina alımıdır.
+            if abs(chg_pct) <= 0.5 and vol_ratio >= 5.0 and rsi < 65.0:
+                is_dark_pool = True
+                score += 30.0  # Çok nadir ve kesin bir fırsat! Kesin Onay (Sniper)
+                logger.info(f"🌑 [DARK POOL DETECTED] {sym} tahtasında fiyat sabit ama Hacim {vol_ratio}x patladı! Kurumsal Akümülasyon seziyorum (+30 Puan).")
+                bot_thought_stream.add_throttled(
+                    "🌑 Karanlık Havuz (Dark Pool)", sym, 
+                    f"Komutanım, {sym} tahtasında inanamayacağınız bir anormallik var. Fiyat yatay (%{chg_pct:.2f}) ama hacim normalin {vol_ratio:.1f} KATI! Devasa bir fon veya kurumsal balina kimseye çaktırmadan mal topluyor. Radarı delip geçiyorum!", 
+                    "SUCCESS", cooldown_sec=600
+                )
+
+            # =========================================================
+            # ⚡ ŞİMŞEK ÇÖKÜŞ (FLASH CRASH) V-RECOVERY AVCISI
+            # =========================================================
+            is_flash_crash = False
+            # Sadece kriptoda geçerli. Kısa sürede %10'dan fazla çakılan, RSI'ı 20'nin altına inen tasfiye (liquidation) iğneleri.
+            if is_crypto and chg_pct <= -10.0 and rsi <= 20.0 and vol_ratio >= 2.0:
+                is_flash_crash = True
+                score += 50.0 # Tüm teknik düşüş cezalarını (Düşük MACD vb.) ezip geçer
+                logger.warning(f"⚡ [FLASH CRASH HUNTER] {sym} Piyasada Şimşek Çöküş (-%{abs(chg_pct):.1f}) var! Korkmak yerine tasfiye (liquidation) iğnesine ağ atıyorum (+50 Puan)!")
+                bot_thought_stream.add_throttled(
+                    "⚡ Şimşek Çöküş Avı", sym, 
+                    f"{sym} aniden %{abs(chg_pct):.1f} çöktü. Korkup kaçmak yerine bu haksız tasfiye (liquidation) iğnesine pusu kuruyorum. V-Recovery (V şeklinde toparlanma) bekliyorum!", 
+                    "WARNING", cooldown_sec=600
+                )
+
+            # Soft cezalar (fakeout, pullback vs) Yüce Divan (Strict Mode) kapsamında iptal edildiği için skor manipülasyonu kaldırıldı.
+            pass
 
             # DEEP ANALYSIS: Trap Guard artık sadece uyarı (-1 skor cezası)
             if score >= (required_score - 5):  # Deep analysis'i çok daha erken çalıştır
@@ -781,8 +818,8 @@ class TradingViewAutoStrategyRunner:
                         sr_res = sr_mapper.map_levels(df, sym)
                         score += sr_res["sr_score"]
                         if sr_res.get("trap_risk"):
-                            score -= 1  # Korku kırıldı: Blok yok, sadece ufak pürüz (-1)
-                            logger.warning(f"[TRAP-SOFT] {sym} Bull Trap ihtimali var ama momentum yüksek.")
+                            logger.warning(f"🚫 [TRAP STRICT] {sym} Bull Trap ihtimali çok yüksek! Tuzaktan kaçılıyor.")
+                            continue
                         logger.debug(f"[DEEP] {sym} Skor:{score:.1f}")
                 except Exception as da_err:
                     logger.debug(f"[DEEP SKIP] {sym}: {da_err}")
@@ -872,6 +909,9 @@ class TradingViewAutoStrategyRunner:
             except Exception as kelly_err:
                 pass
 
+            if not is_crypto:
+                logger.info(f"📊 [NASDAQ RADARI] {sym} | Skor: {score} | İstenen Baraj: {required_score} | Fiyat: {price}")
+
 
             # KOMİTE GÜVENLİK REVİZYONU: ML ve Alpha Bypass artık RSI+Pump güvencesiyle çalışır!
             # HATA TESPİTİ: ml_prob >= 0.70 tüm RSI cezaları ve pump korumalarını bypass ediyordu.
@@ -881,6 +921,52 @@ class TradingViewAutoStrategyRunner:
             _pump_thr_check = 6.0 if is_crypto else 3.0
             _ml_bypass_safe = (rsi < 68.0) and (chg_pct < _pump_thr_check)  # RSI ve pump güvencesi
             is_buy_signal = (score >= required_score) or (ml_prob >= 0.70 and _ml_bypass_safe) or alpha_bypass
+            
+            if is_buy_signal:
+                # EKLENTİ 1: CUMA SENDROMU (Weekend Macro-Liquidation) Muhafızı
+                from datetime import datetime
+                import pytz
+                now_tr = datetime.now(pytz.timezone('Europe/Istanbul'))
+                # Eğer Gün Cuma ise (weekday() == 4) ve saat 21:00'den sonraysa
+                is_friday_night = (now_tr.weekday() == 4) and (now_tr.hour >= 21)
+                
+                # Sadece Kripto için Pazar gecesi kapanış sendromu (Asya açılışı şoku)
+                is_sunday_night = (now_tr.weekday() == 6) and (now_tr.hour >= 23)
+                
+                if (is_friday_night and not is_crypto) or (is_sunday_night and is_crypto):
+                    logger.warning(f"🛡️ [CASH IS KING] {sym} için fırsat muazzam ancak 'Hafta Sonu Risk Sendromu' devrede. İşlem REDDEDİLDİ. Nakit korunuyor.")
+                    is_buy_signal = False
+                    try:
+                        bot_thought_stream.add_throttled("🛡️ HAFTA SONU KORUMASI", sym, "Fırsat var ancak Cuma Kapanış / Pazar Gece likidasyon riski nedeniyle işlem iptal edildi. Nakit kraldır.", "WARNING", cooldown_sec=300)
+                        experience_memory_engine.add_live_log(_mtype_local, "BLOCK", "Cuma Kapanış Sendromu")
+                    except: pass
+                    continue
+                
+                # EKLENTİ 2: L2 SPOOFING (Sahte Duvar) KALKANI
+                # Hacim devasa (vol_ratio >= 3.0) ama fiyat eksiye veya sıfıra çakılmışsa, tahtadaki alım duvarları sahtedir (Spoofing). Balina mal boşaltıyordur.
+                is_spoofed = (vol_ratio >= 3.0) and (chg_pct <= 0.2)
+                if is_spoofed:
+                    logger.warning(f"🚫 [SPOOF KALKANI] {sym} tahtasında Sahte Alım Duvarı (Spoofing) tespit edildi! Hacim {vol_ratio}x ama fiyat baskılanıyor. İşlem REDDEDİLDİ.")
+                    is_buy_signal = False
+                    try:
+                        bot_thought_stream.add_throttled("🚫 SPOOF TESPİTİ", sym, f"Balinalar devasa sahte emirler girdi (Hacim: {vol_ratio}x). Tuzak fark edildi, işlem iptal edildi.", "ERROR", cooldown_sec=300)
+                        experience_memory_engine.add_live_log(_mtype_local, "BLOCK", "Sahte Emir (Spoofing) Tuzağı")
+                    except: pass
+                    continue
+
+                # EKLENTİ 3: Kırmızı Bayrak (Red Flag - Haber/Scam/Hack) Kilidi
+                from services.risk_engine.red_flag_guardian import red_flag_guardian
+                # Gerçek veri akışı bağlandığında data["latest_news"] üzerinden beslenecek.
+                mock_recent_news = data.get("latest_news_headline", "")
+                rf_res = red_flag_guardian.check_red_flags(sym, mock_recent_news)
+                if not rf_res["is_safe"]:
+                    logger.warning(rf_res["reason"])
+                    is_buy_signal = False
+                    try:
+                        bot_thought_stream.add_throttled("🚨 KIRMIZI BAYRAK", sym, rf_res["reason"], "ERROR", cooldown_sec=300)
+                        experience_memory_engine.add_live_log(_mtype_local, "BLOCK", rf_res["reason"])
+                    except: pass
+                    continue # Teknik körlük tuzağından kaçıldı, sinyal iptal edildi.
             
             if alpha_bypass and not (score >= required_score):
                 logger.info(f"💎 [VIP BYPASS] {sym} Kurumsal Alpha çok yüksek ({alpha_val:.2f}). Teknik baraj (Skor: {score:.1f}) aşıldı!")
@@ -1107,11 +1193,11 @@ class TradingViewAutoStrategyRunner:
                 # NASDAQ Pre/Post/RTH saatleri daha az gürültülü -> 240sn (Ölçülü Giriş)
                 # BIST standart -> 180sn (Varsayılan)
                 if _mtype_local == "CRYPTO":
-                    _cooldown_seconds = 90
+                    _cooldown_seconds = 10
                 elif _mtype_local == "NASDAQ":
-                    _cooldown_seconds = 240
+                    _cooldown_seconds = 15
                 else:
-                    _cooldown_seconds = 180
+                    _cooldown_seconds = 10
 
                 if (current_time - self._last_trade_time) < _cooldown_seconds:
                     remaining = int(_cooldown_seconds - (current_time - self._last_trade_time))
@@ -1123,8 +1209,6 @@ class TradingViewAutoStrategyRunner:
                     except Exception:
                         pass
                     continue
-                else:
-                    self._last_trade_time = current_time
 
                 dyn_cap = live_trade_manager.get_dynamic_position_capital(sym)
                 qty_mult = mem_check.get("qty_multiplier", 1.0)
@@ -1144,7 +1228,8 @@ class TradingViewAutoStrategyRunner:
                     qty_mult *= 0.80
 
                 if trend_conflict:
-                    qty_mult *= 0.70
+                    # KONSEY KARARI: Hisselerde çakışma (conflict) daha tolere edilebilir
+                    qty_mult *= (0.70 if is_crypto else 0.90)
 
                 qty_mult = max(0.2, min(qty_mult, 3.0))  # Güvenli sınır
 
@@ -1185,13 +1270,12 @@ class TradingViewAutoStrategyRunner:
                 # 7'Lİ YÜCE DİVAN (ORACLE) ONAY KATMANI
                 # ═══════════════════════════════════════════════════════════
                 divan_result = await yuce_divan.get_council_decision(sym, score, rsi, vol_ratio)
-                if divan_result["approved"]:
-                    bot_thought_stream.add_throttled("YÜCE DİVAN", sym, divan_result["admin_msg"], level="SUCCESS", cooldown_sec=60)
-                else:
+                if not divan_result["approved"]:
                     bot_thought_stream.add_throttled("YÜCE DİVAN", sym, divan_result["admin_msg"], level="WARNING", cooldown_sec=60)
                     logger.warning(f"[YUCE DIVAN BLOCKED] {sym} -> {divan_result['admin_msg']}")
                     continue # İnfazı iptal et ve sıradaki fırsata geç
                 
+                # YÜCE DİVAN ONAYLADI! Ancak henüz mesaj atmıyoruz, işlemin borsada açılmasını (process_order) bekleyeceğiz.
                 llm_lot_mult = 1.0
                 logger.debug(f"[AUTO-RUNNER] {sym} kantitatif filtreleri ve Yüce Divan onayını geçti. İnfaz başlatılıyor.")
 
@@ -1211,12 +1295,20 @@ class TradingViewAutoStrategyRunner:
                 target_sl_price = round(price * (1 - (dyn_sl_pct / 100.0)), 4)
                 logger.info(f"🎯 [TARGETS] {sym} Giriş: ${price:.2f} -> TP: ${target_tp_price:.2f} (+%{dyn_tp_pct}) | SL: ${target_sl_price:.2f} (-%{dyn_sl_pct})")
 
+                from core.config import settings as core_settings
+                
+                final_qty = round(dyn_cap / price, 4)
+                if final_qty <= 0.0:
+                    logger.warning(f"🚨 [BUDGET SHIELD] {sym} Final Bütçe $0. Miktar 0 olduğu için pas geçiliyor.")
+                    bot_thought_stream.add_throttled("CEPHANE YETERSİZ", sym, f"Komutanım, {sym} için Konsey onay verdi ancak kasada yeterli bakiye (Cephane) olmadığı için işlem AÇILAMADI!", level="ERROR", cooldown_sec=60)
+                    continue
+
                 signal = WebhookSignal(
-                    passphrase=settings.passphrase,  # settings'den al
+                    passphrase=getattr(core_settings, "passphrase", "tolga_trading_key_123!"),
                     action="BUY",
                     symbol=sym,
                     price=price,
-                    quantity=round(dyn_cap / price, 4),
+                    quantity=final_qty,
                     take_profit=target_tp_price,
                     stop_loss=target_sl_price,
                     account_equity=dyn_cap,
@@ -1244,7 +1336,35 @@ class TradingViewAutoStrategyRunner:
                         res = {"status": "skipped", "reason": "HA_STANDBY"}
                     else:
                         res = await asyncio.to_thread(process_order, signal)
-                        
+                        # BÜYÜK BUG FİXİ: Global Cooldown SADECE işlem başarıyla AÇILDIYSA tetiklenir!
+                        if res.get("status") in ["success", "paper_success", "shadow_success", "ok", "executed"]:
+                            self._last_trade_time = current_time
+                            bot_thought_stream.add_throttled("YÜCE DİVAN", sym, divan_result["admin_msg"], level="SUCCESS", cooldown_sec=60)
+                            
+                            # YENİ ÖZELLİK: Komutanın istediği detaylı SAVAŞ EMRİ / HAREKAT RAPORU
+                            asyncio.create_task(active_trade_reporter.generate_and_store_report(
+                                symbol=sym,
+                                price=price,
+                                tp1=target_tp_price,
+                                tp2=price * (1 + ((dyn_tp_pct * 1.5) / 100.0)), # Örnek 2. TP Hedefi
+                                sl=target_sl_price,
+                                action="BUY"
+                            ))
+                        else:
+                            reason = res.get('reason', 'UNKNOWN_REASON')
+                            msg_detail = res.get('message', '')
+                            err_str = f"{reason}" + (f" - {msg_detail}" if msg_detail else "")
+                            bot_thought_stream.add_throttled("BORSA REDDETTİ", sym, f"Konsey füzeyi ateşledi ancak borsa/broker işlemi reddetti (Hata veya limit): {err_str}", level="ERROR", cooldown_sec=60)
+                            
+                            # YENİ ÖZELLİK: Reddedilen işlemler de Admin paneline "Operasyon İptal Edildi" olarak düşsün
+                            asyncio.create_task(active_trade_reporter.generate_and_store_report(
+                                symbol=sym,
+                                price=price,
+                                tp1=0, tp2=0, sl=0,
+                                action="BUY",
+                                status="REJECTED",
+                                error_msg=err_str
+                            ))
                     # Y1 AUTO-RUNNER için journal kaydı (process_order içinde de yapılıyor, burada ek log)
                     logger.info(f"[AUTO-RUNNER EXECUTED] {sym} BUY @ ${price:.2f} | Score: {score}/8 | Result: {res.get('status')}")
                     executed_triggers.append({
@@ -1309,24 +1429,24 @@ class TradingViewAutoStrategyRunner:
             
             # Rastgele cümle kalıpları ile zenginleştirilmiş dil yapısı
             intros_high_score = [
-                "Selam Admin. Piyasa taramamda en çok dikkatimi çeken varlık",
-                "Admin, algoritmalarım alarm veriyor. Şu an odaklandığım ana hedef",
-                "Tüm piyasayı taradım ve şu an en olgunlaşmış kurulum",
-                "Admin, radarıma çok güçlü bir sinyal takıldı:"
+                "Selam Admin. Piyasayı taradım ve şu an en çok dikkatimi çeken 'Potansiyel Aday' varlık",
+                "Admin, algoritmalarım alarm veriyor. Şu an pusuda izlediğim ana hedef",
+                "Tüm piyasayı eledim ve şu an izleme listemin (Watchlist) en tepesindeki kurulum",
+                "Admin, radarıma çok güçlü bir sinyal takıldı ancak tetiğe basmak için onay bekliyorum:"
             ]
             
             intros_low_score = [
-                "Admin, fırsat havuzunda izlemeye aldığım varlıklardan biri",
-                "Şu an arka planda sessizce takip ettiğim tahta",
-                "Piyasada henüz net bir kırılım yok ancak potansiyel gördüğüm varlık",
-                "Admin, henüz tetiğe basmak için erken ama gözüm üzerinde:"
+                "Admin, fırsat havuzunda henüz tam olgunlaşmamış izlemeye aldığım varlıklardan biri",
+                "Şu an arka planda sessizce takip ettiğim (işlem açmadığım) tahta",
+                "Piyasada henüz net bir kırılım yok, pusudayım. Sadece potansiyel gördüğüm varlık",
+                "Admin, henüz tetiğe basmak için erken, sadece gözüm üzerinde:"
             ]
             
             outros_high_score = [
-                "Sahte kırılıma (fakeout) düşmemek için 'Golden Setup' onayı bekliyorum.",
-                "Hacim teyidi geldiği an affetmeyip tetiğe basacağım.",
-                "Risk/Ödül oranı şu an tam istediğim gibi. Karar aşamasındayım.",
-                "Makine Öğrenimi motorumdan son teyidi bekliyorum, sonrasında işleme gireceğim."
+                "Sahte kırılıma (fakeout) düşmemek için Yüce Divan ve bütçe (cephane) onayı bekliyorum.",
+                "Hacim teyidi ve Konsey onayı geldiği an tetiğe basıp işlemi Aktif Pozisyonlara düşüreceğim.",
+                "Risk/Ödül oranı şu an iyi. Karar aşamasındayım, şartlar 100% olursa işleme gireceğim.",
+                "Makine Öğrenimi motorumdan son teyidi bekliyorum, onay gelirse işlem listesinde (Hedeflerde) göreceksiniz."
             ]
             
             outros_low_score = [

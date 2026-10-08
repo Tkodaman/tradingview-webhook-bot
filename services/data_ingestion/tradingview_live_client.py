@@ -522,6 +522,15 @@ class TradingViewLiveClient:
                     for item in data:
                         raw_sym = item.get("s", "")
                         clean_sym = raw_sym.split(":")[-1]
+                        
+                        # KÖKTEN ÇÖZÜM: Shitcoin ve Stablecoin Çiftlerini Filtrele (HYPERFDUSD, USDC vb.)
+                        if clean_sym.endswith("FDUSD") or clean_sym.endswith("USDC") or clean_sym.endswith("TUSD") or clean_sym.endswith("BUSD") or clean_sym.endswith("EUR"):
+                            continue
+                        if not (clean_sym.endswith("USDT") or clean_sym.endswith("TRY")):
+                            continue
+                        if clean_sym in ["USDCUSDT", "TUSDUSDT", "FDUSDUSDT", "BUSDUSDT", "EURUSDT", "TRYUSDT", "PAXGUSDT"]:
+                            continue
+                            
                         vals = item.get("d", [])
                         if len(vals) >= 16:
                             price_val = float(vals[1] or 0.0)

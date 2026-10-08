@@ -20,6 +20,15 @@ class BotThoughtStream:
         self._last_seen: Dict[str, float] = {}
 
     def add(self, category: str, symbol: str, message: str, level: str = "INFO"):
+        # TOXIC FILTER / SPAM KESİCİ (Kesin Çözüm)
+        # LLM veya diğer tarayıcılar tarafından "HYPERFDUSD" gibi stablecoin pariteleri için
+        # inatla üretilen spamları tamamen susturur.
+        toxic_keywords = ["FDUSD", "USDC", "TUSD", "BUSD", "DAI", "PAXG", "USDTUSD", "HYPER"]
+        if symbol and any(toxic in symbol.upper() for toxic in toxic_keywords):
+            return # Sessizce yok say
+        if message and any(toxic in message.upper() for toxic in toxic_keywords):
+            return # Sessizce yok say
+
         self._log.appendleft({
             "timestamp": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S"),
             "category": category,

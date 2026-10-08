@@ -1,105 +1,105 @@
 [TAILING] Tailing last 50 lines for [tv-bot] process (change the value with --lines option)
-/home/ASUS/.pm2/logs/tv-bot-error.log last 50 lines:
-0|tv-bot   | 2026-10-06 21:59:43,971 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] WIFUSDT Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:43,971 - bot_logger - INFO - [I11 BODY] VIX Guclu mum govdesi (Ratio: 0.75) -> +1
-0|tv-bot   | 2026-10-06 21:59:43,971 - bot_logger - INFO - [İ12 OBK] VIX Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-06 21:59:43,977 - bot_logger - INFO - [ML MODEL] VIX BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:43,977 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] VIX Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:43,978 - bot_logger - INFO - [İ12 OBK] INTC Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-06 21:59:43,984 - bot_logger - INFO - [ML MODEL] INTC BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:43,984 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] INTC Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:43,984 - bot_logger - INFO - [I11 BODY] DOCN Guclu mum govdesi (Ratio: 0.75) -> +1
-0|tv-bot   | 2026-10-06 21:59:43,984 - bot_logger - INFO - [İ12 OBK] DOCN Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-06 21:59:43,990 - bot_logger - INFO - [ML MODEL] DOCN BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:43,990 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] DOCN Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:43,991 - bot_logger - WARNING - [I11 BODY] SEIUSDT FITIL AGIRLIKLI mum (Ratio: 0.00) -> -2 (Sahte Kirilim riski!)
-0|tv-bot   | 2026-10-06 21:59:43,991 - bot_logger - INFO - [İ12 OBK] SEIUSDT Satıcı baskısı mevcut (Bid/Ask: 0.17) → -1
-0|tv-bot   | 2026-10-06 21:59:43,997 - bot_logger - INFO - [ML MODEL] SEIUSDT BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:43,997 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] SEIUSDT Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:43,997 - bot_logger - INFO - [İ10 HH] WDC Yükselen tepe pattern → +1.5 (Score: 8.0)
-0|tv-bot   | 2026-10-06 21:59:43,997 - bot_logger - INFO - [I11 BODY] WDC Guclu mum govdesi (Ratio: 1.28) -> +1
-0|tv-bot   | 2026-10-06 21:59:43,997 - bot_logger - INFO - [İ12 OBK] WDC Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-06 21:59:44,003 - bot_logger - INFO - [ML MODEL] WDC BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:44,003 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] WDC Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:44,004 - bot_logger - INFO - [İ12 OBK] BONKUSDT Satıcı baskısı mevcut (Bid/Ask: 0.23) → -1
-0|tv-bot   | 2026-10-06 21:59:44,004 - bot_logger - INFO - [I14 RSI-W] BONKUSDT Oversold Bounce (RSI=35.2 vol=0.70) -> +1.5
-0|tv-bot   | 2026-10-06 21:59:44,010 - bot_logger - INFO - [ML MODEL] BONKUSDT BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:44,010 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] BONKUSDT Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:44,010 - bot_logger - INFO - [I11 BODY] ALGOUSDT Guclu mum govdesi (Ratio: 1.00) -> +1
-0|tv-bot   | 2026-10-06 21:59:44,010 - bot_logger - INFO - [İ12 OBK] ALGOUSDT Satıcı baskısı mevcut (Bid/Ask: 0.15) → -1
-0|tv-bot   | 2026-10-06 21:59:44,016 - bot_logger - INFO - [ML MODEL] ALGOUSDT BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:44,016 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] ALGOUSDT Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:44,017 - bot_logger - INFO - [İ12 OBK] TWLO Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-06 21:59:44,022 - bot_logger - INFO - [ML MODEL] TWLO BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:44,023 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] TWLO Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:44,023 - bot_logger - INFO - [I11 BODY] MINAUSDT Guclu mum govdesi (Ratio: 0.73) -> +1
-0|tv-bot   | 2026-10-06 21:59:44,023 - bot_logger - INFO - [İ12 OBK] MINAUSDT Güçlü alıcı baskısı (Bid/Ask: 1.00) → +3
-0|tv-bot   | 2026-10-06 21:59:44,029 - bot_logger - INFO - [ML MODEL] MINAUSDT BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:44,029 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] MINAUSDT Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:44,030 - bot_logger - INFO - [İ12 OBK] ICPUSDT Satıcı baskısı mevcut (Bid/Ask: 0.22) → -1
-0|tv-bot   | 2026-10-06 21:59:44,030 - bot_logger - INFO - [I14 RSI-W] ICPUSDT Oversold Bounce (RSI=37.7 vol=0.65) -> +1.5
-0|tv-bot   | 2026-10-06 21:59:44,036 - bot_logger - INFO - [ML MODEL] ICPUSDT BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:44,036 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] ICPUSDT Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:44,036 - bot_logger - WARNING - [I11 BODY] WLDUSDT FITIL AGIRLIKLI mum (Ratio: 0.06) -> -2 (Sahte Kirilim riski!)
-0|tv-bot   | 2026-10-06 21:59:44,036 - bot_logger - INFO - [İ12 OBK] WLDUSDT Satıcı baskısı mevcut (Bid/Ask: 0.12) → -1
-0|tv-bot   | 2026-10-06 21:59:44,042 - bot_logger - INFO - [ML MODEL] WLDUSDT BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:44,042 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] WLDUSDT Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:44,043 - bot_logger - INFO - [İ12 OBK] STX Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-06 21:59:44,048 - bot_logger - INFO - [ML MODEL] STX BLOKE: Kazanma olasiligi %51.6 < %55
-0|tv-bot   | 2026-10-06 21:59:44,049 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] STX Win Probability: %51.6 -> Güven Skoruna Etkisi: +0.2 Puan
-0|tv-bot   | 2026-10-06 21:59:44,049 - bot_logger - INFO - [THOUGHT STREAM] Adding thought for TAOUSDT to bot_thought_stream. Score: 25.65578491687745
-0|tv-bot   | 2026-10-06 21:59:44,545 - bot_logger - INFO - [SHADOW TRADE] RENDERUSDT sanal olarak işleme alındı. Neden: 🚨 Sahte Kırılım (ATR=0.92%<1.0 + Vol=1.59<2.0 (Yalancı Kırılım))
-0|tv-bot   | sleep 3 seconds and retrying https://paper-api.alpaca.markets/v2/account 3 more time(s)...
-
 /home/ASUS/.pm2/logs/tv-bot-out.log last 50 lines:
-0|tv-bot   | INFO:     104.28.216.174:60657 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60437 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60657 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60437 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60667 - "GET /api/market/live-matrix?t=1791323976500 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60665 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60437 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60667 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60667 - "GET /api/market/live-matrix?t=1791323978001 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60665 - "GET /api/experience-memory/algorithmic-stats HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60657 - "GET /api/positions/history/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60672 - "GET /api/experience-memory/asset-confidence-index HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60437 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60657 - "GET /api/market/regime HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60672 - "GET /api/analytics/strategy-map HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60437 - "GET /api/market/live-matrix?t=1791323979502 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60665 - "GET /api/market/live-matrix?t=1791323981005 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60657 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60672 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60672 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60657 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60672 - "GET /api/market/live-matrix?t=1791323982502 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60667 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60657 - "GET /api/experience-memory/asset-confidence-index HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60437 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60665 - "GET /api/positions/history/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60667 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60672 - "GET /api/experience-memory/algorithmic-stats HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60657 - "GET /api/market/regime HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60667 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60657 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60672 - "GET /api/market/live-matrix?t=1791323984009 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60665 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60667 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60665 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60437 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60672 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60465 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60665 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.216.174:60437 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/market/regime HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/asset-confidence-index HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/analytics/correlation HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/analytics/shadow-summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/memory/dynamic-voice HTTP/1.1" 404 Not Found
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/market/live-matrix?t=1791456215843 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/market/live-matrix?t=1791456217348 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/market/live-matrix?t=1791456218838 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/market/live-matrix?t=1791456220342 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/market/live-matrix?t=1791456221843 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/market/live-matrix?t=1791456223345 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/market/live-matrix?t=1791456224847 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/market/live-matrix?t=1791456226350 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/market/live-matrix?t=1791456227843 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/analytics/strategy-map HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/experience-memory/algorithmic-stats HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+
+/home/ASUS/.pm2/logs/tv-bot-error.log last 50 lines:
+0|tv-bot   | Failed to get ticker 'AVGO' reason: Expecting value: line 1 column 1 (char 0)
+0|tv-bot   | $AVGO: possibly delisted; No price data found  (period=60d)
+0|tv-bot   | 2026-10-08 10:44:01,870 - bot_logger - WARNING - [DATA FETCHER] Yahoo Finance AVGO verisi boş döndü.
+0|tv-bot   | 2026-10-08 10:44:01,877 - bot_logger - INFO - [ML MODEL] AVGO BLOKE: Kazanma olasiligi %34.3 < %55
+0|tv-bot   | 2026-10-08 10:44:01,877 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] AVGO Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
+0|tv-bot   | 2026-10-08 10:44:01,878 - bot_logger - INFO - 📊 [NASDAQ RADARI] AVGO | Skor: 6.477706878885591 | İstenen Baraj: 11.0 | Fiyat: 376.51
+0|tv-bot   | 2026-10-08 10:44:01,878 - bot_logger - INFO - [İ12 OBK] GLW Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
+0|tv-bot   | 2026-10-08 10:44:01,885 - bot_logger - INFO - [ML MODEL] GLW BLOKE: Kazanma olasiligi %34.3 < %55
+0|tv-bot   | 2026-10-08 10:44:01,885 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] GLW Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
+0|tv-bot   | 2026-10-08 10:44:01,885 - bot_logger - INFO - 📊 [NASDAQ RADARI] GLW | Skor: 2.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 163.2
+0|tv-bot   | 2026-10-08 10:44:01,886 - bot_logger - WARNING - [I11 BODY] PANW FITIL AGIRLIKLI mum (Ratio: 0.18) -> -2 (Sahte Kirilim riski!)
+0|tv-bot   | 2026-10-08 10:44:01,886 - bot_logger - INFO - [İ12 OBK] PANW Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
+0|tv-bot   | 2026-10-08 10:44:01,892 - bot_logger - INFO - [ML MODEL] PANW BLOKE: Kazanma olasiligi %34.3 < %55
+0|tv-bot   | 2026-10-08 10:44:01,892 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] PANW Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
+0|tv-bot   | 2026-10-08 10:44:01,892 - bot_logger - INFO - 📊 [NASDAQ RADARI] PANW | Skor: 0.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 405.54
+0|tv-bot   | 2026-10-08 10:44:01,893 - bot_logger - INFO - [I11 BODY] CSX Guclu mum govdesi (Ratio: 1.00) -> +1
+0|tv-bot   | 2026-10-08 10:44:01,893 - bot_logger - INFO - [İ12 OBK] CSX Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
+0|tv-bot   | 2026-10-08 10:44:01,899 - bot_logger - INFO - [ML MODEL] CSX BLOKE: Kazanma olasiligi %34.3 < %55
+0|tv-bot   | 2026-10-08 10:44:01,899 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] CSX Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
+0|tv-bot   | 2026-10-08 10:44:01,899 - bot_logger - INFO - 📊 [NASDAQ RADARI] CSX | Skor: 2.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 46.8
+0|tv-bot   | 2026-10-08 10:44:01,900 - bot_logger - INFO - [İ12 OBK] SNOW Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
+0|tv-bot   | 2026-10-08 10:44:01,906 - bot_logger - INFO - [ML MODEL] SNOW BLOKE: Kazanma olasiligi %34.3 < %55
+0|tv-bot   | 2026-10-08 10:44:01,906 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] SNOW Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
+0|tv-bot   | 2026-10-08 10:44:01,906 - bot_logger - INFO - 📊 [NASDAQ RADARI] SNOW | Skor: 1.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 332.98
+0|tv-bot   | 2026-10-08 10:44:01,907 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] AMZN: [HR4] CHOP ZONE TRAP: ATR=0.26%<1.0 + Vol=1.00<2.0 (Yalancı Kırılım) — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-08 10:44:01,907 - bot_logger - INFO - [İ12 OBK] THETAUSDT Satıcı baskısı mevcut (Bid/Ask: 0.30) → -1
+0|tv-bot   | 2026-10-08 10:44:01,907 - bot_logger - INFO - [I14 RSI-W] THETAUSDT Oversold Bounce (RSI=44.4 vol=0.90) -> +1.5
+0|tv-bot   | 2026-10-08 10:44:01,909 - bot_logger - INFO - [PATTERN ENGINE] THETAUSDT Formasyonlar: ['THREE_LOWER_LOWS'] (Skor: -2.0)
+0|tv-bot   | 2026-10-08 10:44:01,924 - bot_logger - ERROR - [QUANT MATRIX] Hesaplama hatası (THETAUSDT): 'Volume'
+0|tv-bot   | 2026-10-08 10:44:01,927 - bot_logger - WARNING - [SR MAPPER] THETAUSDT Dirence çok yakın (Bull Trap Riski). Mesafe: %0.83
+0|tv-bot   | 2026-10-08 10:44:01,927 - bot_logger - INFO - [SR MAPPER] THETAUSDT Desteğe çok yakın (Mükemmel Giriş). Mesafe: %0.05
+0|tv-bot   | 2026-10-08 10:44:01,927 - bot_logger - WARNING - 🚫 [TRAP STRICT] THETAUSDT Bull Trap ihtimali çok yüksek! Tuzaktan kaçılıyor.
+0|tv-bot   | 2026-10-08 10:44:01,927 - bot_logger - INFO - [İ12 OBK] EME Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
+0|tv-bot   | Failed to get ticker 'EME' reason: Expecting value: line 1 column 1 (char 0)
+0|tv-bot   | $EME: possibly delisted; No price data found  (period=60d)
+0|tv-bot   | 2026-10-08 10:44:02,192 - bot_logger - WARNING - [DATA FETCHER] Yahoo Finance EME verisi boş döndü.
+0|tv-bot   | 2026-10-08 10:44:02,203 - bot_logger - INFO - [ML MODEL] EME BLOKE: Kazanma olasiligi %34.3 < %55
+0|tv-bot   | 2026-10-08 10:44:02,204 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] EME Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
+0|tv-bot   | 2026-10-08 10:44:02,204 - bot_logger - INFO - 📊 [NASDAQ RADARI] EME | Skor: 5.927706878885591 | İstenen Baraj: 11.0 | Fiyat: 784.39
+0|tv-bot   | 2026-10-08 10:44:02,205 - bot_logger - INFO - [I11 BODY] CSCO Guclu mum govdesi (Ratio: 0.91) -> +1
+0|tv-bot   | 2026-10-08 10:44:02,205 - bot_logger - INFO - [İ12 OBK] CSCO Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
+0|tv-bot   | 2026-10-08 10:44:02,218 - bot_logger - INFO - [ML MODEL] CSCO BLOKE: Kazanma olasiligi %34.3 < %55
+0|tv-bot   | 2026-10-08 10:44:02,219 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] CSCO Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
+0|tv-bot   | 2026-10-08 10:44:02,219 - bot_logger - INFO - 📊 [NASDAQ RADARI] CSCO | Skor: 2.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 117.38
+0|tv-bot   | 2026-10-08 10:44:02,219 - bot_logger - INFO - [İ12 OBK] GARAN Satıcı baskısı mevcut (Bid/Ask: 0.24) → -1
+0|tv-bot   | 2026-10-08 10:44:02,234 - bot_logger - INFO - [ML MODEL] GARAN BLOKE: Kazanma olasiligi %34.3 < %55
+0|tv-bot   | 2026-10-08 10:44:02,235 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] GARAN Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
+0|tv-bot   | 2026-10-08 10:44:02,235 - bot_logger - INFO - 📊 [NASDAQ RADARI] GARAN | Skor: 3.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 127.8
+0|tv-bot   | 2026-10-08 10:44:02,236 - bot_logger - INFO - [I11 BODY] YKBNK Guclu mum govdesi (Ratio: 1.00) -> +1
+0|tv-bot   | Failed to get ticker 'YKBNK' reason: Expecting value: line 1 column 1 (char 0)
 

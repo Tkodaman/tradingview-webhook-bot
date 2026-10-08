@@ -50,6 +50,7 @@ class ActivePosition(BaseModel):
     broker_order_id: Optional[Union[str, int]] = None
     confidence_score: Optional[float] = None
     entry_indicators: Dict[str, Any] = Field(default_factory=dict)
+    source: str = "OTONOM"  # MANUEL veya OTONOM
 
 class LiveTradeManager:
     def __init__(self):
@@ -222,25 +223,42 @@ class LiveTradeManager:
             
             # Alpaca Market Kapalıyken Bekleyen Emirler Koruması
             pending_broker_symbols = set()
+            is_paper_trade = True
             try:
                 from services.broker.factory import get_broker
-                alp_broker = get_broker("ALPACA", paper=is_paper)
+                from core.config import settings
+                is_paper_trade = getattr(settings, "IS_PAPER_TRADE", True)
+                
+                alp_broker = get_broker("ALPACA", paper=is_paper_trade)
                 if alp_broker and hasattr(alp_broker, "get_pending_orders"):
                     pending_broker_symbols.update(alp_broker.get_pending_orders())
+                    
+                bin_broker = get_broker("BINANCE", paper=is_paper_trade)
+                if bin_broker and hasattr(bin_broker, "get_pending_orders"):
+                    pending_broker_symbols.update(bin_broker.get_pending_orders())
             except Exception as e:
                 logger.error(f"[PENDING ORDERS SYNC ERROR] {e}")
 
             # Hayalet Pozisyon Temizligi (Ghost Position Cleanup)
-            # PENDING_BROKER dahil: broker'da (hem pozisyon hem bekleyen emir olarak) yoksa temizle
-            stale_positions = [
-                p for p in self.positions.values()
-                if p.status in ["OPEN", "PENDING_BROKER"] and p.symbol not in active_broker_symbols and p.symbol not in pending_broker_symbols
-            ]
-            for sp in stale_positions:
-                logger.info(f"[GHOST CLEANUP] {sp.symbol} broker'da yok (status={sp.status}). Hayalet pozisyon silindi.")
-                self.close_position(sp.id, "CLOSED_OFFLINE_SYNC")
-                # Hemen sil — bir daha gorunmesin
-                self.positions.pop(sp.id, None)
+            # KULLANICI KORUMASI: Sistem Paper/Sanal modda çalışıyorsa (Binance veya Alpaca),
+            # gerçek API'de (broker) pozisyon aranmaz! Senkronizasyon (Ghost Cleanup) iptal edilir.
+            # Aksi takdirde manuel açılan (veya otonom girilen) karlı pozisyonlar 60. saniyede sıfırlanıp çöpe atılır.
+            if not is_paper_trade:
+                stale_positions = []
+                now_utc = datetime.now(timezone.utc)
+                for p in list(self.positions.values()):
+                    if p.status in ["OPEN", "PENDING_BROKER"] and p.symbol not in active_broker_symbols and p.symbol not in pending_broker_symbols:
+                        try:
+                            opened_time = datetime.fromisoformat(p.opened_at.replace("Z", "+00:00"))
+                            if (now_utc - opened_time).total_seconds() > 60:
+                                stale_positions.append(p)
+                        except Exception:
+                            stale_positions.append(p) # Eger tarih parse edilemezse silinebilir
+                
+                for sp in stale_positions:
+                    logger.info(f"[GHOST CLEANUP] {sp.symbol} broker'da yok (status={sp.status}). Hayalet pozisyon silindi.")
+                    self.close_position(sp.id, "CLOSED_OFFLINE_SYNC")
+                    self.positions.pop(sp.id, None)
 
             
             # Save the synced state to local db
@@ -445,6 +463,7 @@ class LiveTradeManager:
         if is_crypto:
             # Kullanıcı talebi: Kripto aktif bütçe dinamik, Maksimum 6 pozisyon. 
             active_budget_limit = float(settings.crypto_paper_budget)
+            max_pos = int(getattr(settings, "crypto_max_positions", 6))
             
             allocated_crypto = sum(
                 p.nominal_value for p in self.positions.values() 
@@ -454,6 +473,7 @@ class LiveTradeManager:
         else:
             # Alpaca (Hisse Senedi) Kesin Bütçesi: 8 Bin Dolar (12 Pozisyon)
             active_budget_limit = 8000.0
+            max_pos = 12
             
             allocated_stock = sum(
                 p.nominal_value for p in self.positions.values()
@@ -461,10 +481,15 @@ class LiveTradeManager:
             )
             available = active_budget_limit - allocated_stock
         
-        # Ortalama tahsis 1/8 (%12.5)
-        # Güvene (Confidence) göre %8 ile %16 arası değişebilir.
-        alloc_pct = 0.125 + (confidence_score - 0.5) * 0.10
-        alloc_pct = max(0.08, min(0.16, alloc_pct))
+        # KULLANICI KURALI: Oransal pay bölüştürmesi (Fractional Allocation)
+        # Kriptoda 1/6 (%16.6), Hisselerde 1/12 (%8.3) baz pay.
+        base_alloc_pct = 1.0 / max_pos if max_pos > 0 else 0.10
+        
+        # Güvene (Confidence) göre oransal payı esnetme (± %30 esneklik)
+        # Yani %8.3 baz pay, %5.8 ile %10.8 arası dengeleme yapar.
+        esneme_orani = base_alloc_pct * 0.30
+        alloc_pct = base_alloc_pct + (confidence_score - 0.5) * (esneme_orani * 2)
+        alloc_pct = max(base_alloc_pct - esneme_orani, min(base_alloc_pct + esneme_orani, alloc_pct))
         
         try:
             from services.engine.supervisor_agent import supervisor_agent
@@ -475,8 +500,8 @@ class LiveTradeManager:
         base_capital = round(active_budget_limit * alloc_pct, 2)
         adjusted_capital = base_capital * multiplier
         
-        # Limitler (Bir işleme kasa bütçesinin en fazla %20'si basılabilir)
-        cap = max(10.0, min(adjusted_capital, active_budget_limit * 0.20)) 
+        # Limitler (Bir işleme kasa bütçesinin en fazla %25'i basılabilir)
+        cap = max(10.0, min(adjusted_capital, active_budget_limit * 0.25)) 
         
         # Kalan serbest nakitten (available) fazla alınamaz
         return min(cap, max(10.0, available * 0.95))
@@ -612,8 +637,8 @@ class LiveTradeManager:
             return None
             
         pos_id = f"SHADOW-{symbol}-{int(time.time())}"
-        target_profit_price = round(entry_price_override * (1 + (tp_pct / 100)), 4)
-        stop_loss_price = round(entry_price_override * (1 - (sl_pct / 100)), 4)
+        target_profit_price = round(entry_price_override * (1 + (tp_pct / 100)), 8)
+        stop_loss_price = round(entry_price_override * (1 - (sl_pct / 100)), 8)
 
         pos = ActivePosition(
             id=pos_id,
@@ -717,7 +742,7 @@ class LiveTradeManager:
         # %0.08 Slippage ile gerçek giriş fiyatı
         slip_rate = 0.0008
         raw_entry = curr_price * (1.0 + slip_rate) if side == "BUY" else curr_price * (1.0 - slip_rate)
-        decimals = 2 if raw_entry >= 1.0 else 6
+        decimals = 2 if raw_entry >= 1.0 else 8
         entry_price = round(raw_entry, decimals)
         
         if qty_override and qty_override > 0:
@@ -725,6 +750,14 @@ class LiveTradeManager:
             capital = round(qty * entry_price, 2)
         else:
             qty = round(capital / entry_price, 4)
+
+        # 🚀 1. KAUÇUK KALKAN (ATR BAZLI ESNEK SL)
+        if atr_value > 0 and curr_price > 0:
+            atr_pct_val = (atr_value / curr_price) * 100.0
+            # ATR'nin 1.5 katı kadar esneme payı verelim (Maks %4, Min %1.5)
+            dynamic_sl_pct = min(4.0, max(sl_pct, atr_pct_val * 1.5))
+            sl_pct = round(dynamic_sl_pct, 2)
+            logger.info(f"🛡️ [KAUÇUK KALKAN] {sym} için SL esnetildi: %{sl_pct} (ATR Bazlı)")
 
         # Dinamik Başa Baş (Break-Even): TP mesafesinin %40'ında (min %0.8, maks %1.5) kilitle
         be_dist_pct = max(0.8, min(1.5, tp_pct * 0.40))
@@ -756,7 +789,8 @@ class LiveTradeManager:
             use_chandelier_exit=use_chandelier_exit,
             status=status,
             confidence_score=confidence_score,
-            entry_indicators=entry_indicators or {}
+            entry_indicators=entry_indicators or {},
+            source="MANUEL" if is_manual else "OTONOM"
         )
 
         # Broker emri: Kripto (CRYPTO) işlemleri order_router.py TWAP motoru tarafından yönetilir.
@@ -831,11 +865,15 @@ class LiveTradeManager:
             return
 
         pos = self.positions.get(pos_id)
-        if not pos or pos.status != "OPEN" or pos.partial_profit_taken:
+        if not pos or pos.status != "OPEN" or pos.partial_profit_taken or getattr(pos, '_is_partial_locked', False):
             return
+        
+        # RACE CONDITION (Duplicate Kayıt) Kilidi
+        pos._is_partial_locked = True
 
         curr_price = self.market_prices.get(pos.symbol, {}).get("price", pos.current_price)
         if curr_price <= 0 or pos.quantity <= 0:
+            pos._is_partial_locked = False
             return
 
         close_qty = round(pos.quantity * ratio, 4)
@@ -886,7 +924,7 @@ class LiveTradeManager:
 
         # Kalan pozisyonu Başa Baş noktasına kilitle (sermaye bir daha zarara dönmesin)
         pos.break_even_activated = True
-        be_price = round(pos.entry_price * 1.002, 5) if pos.side == "BUY" else round(pos.entry_price * 0.998, 5)
+        be_price = round(pos.entry_price * 1.002, 8) if pos.side == "BUY" else round(pos.entry_price * 0.998, 8)
         moved = False
         if pos.side == "BUY" and be_price > pos.stop_loss_price:
             pos.stop_loss_price = be_price
@@ -987,8 +1025,11 @@ class LiveTradeManager:
         if pos_id not in self.positions:
             return None
         pos = self.positions[pos_id]
-        if pos.status != "OPEN":
+        if pos.status != "OPEN" or getattr(pos, '_is_close_locked', False):
             return None
+            
+        # Çift kapanışı ve duplicate kaydı engellemek için kilit
+        pos._is_close_locked = True
 
         curr_price = self.market_prices.get(pos.symbol, {}).get("price", pos.current_price)
         if pos.side == "BUY":
@@ -1397,7 +1438,7 @@ class LiveTradeManager:
 
                     # İşleme girildiğinden itibaren her yükselişte anında iz sürer
                     pos.trailing_stop_activated = True
-                    new_sl = round(pos.highest_price_seen * trailing_dist, 5)
+                    new_sl = round(pos.highest_price_seen * trailing_dist, 8)
                     if new_sl > pos.stop_loss_price:
                         old_sl = pos.stop_loss_price
                         pos.stop_loss_price = new_sl
@@ -1415,7 +1456,7 @@ class LiveTradeManager:
                     pos.break_even_activated = True
                     if pos.entry_price * 1.002 > pos.stop_loss_price:
                         old_sl = pos.stop_loss_price
-                        pos.stop_loss_price = round(pos.entry_price * 1.002, 5)
+                        pos.stop_loss_price = round(pos.entry_price * 1.002, 8)
                         logger.info(f"🛡️ [AI-RISK] {pos.symbol} kâra geçti. Başabaş (Break-Even) noktasına çekildi: ${old_sl} -> ${pos.stop_loss_price}")
                         try:
                             from services.broker.factory import get_broker
@@ -1432,20 +1473,48 @@ class LiveTradeManager:
                             logger.info(f"🚀 [MOONBAG] {pos.symbol} Ana hedefe (TP: ${pos.target_profit_price}) ulaştı! %60 Kâr cebe atılıyor (Golden Lock), kalanı trendin sonuna kadar iz sürücüye bırakılıyor.")
                             self._take_partial_profit(pos_id, ratio=0.60)
                             # Kalanı uzaya bırak (Sanal TP'yi çok uzağa taşı ki sadece iz sürücü stop çıkarsın)
-                            pos.target_profit_price = round(pos.entry_price * 1.60, 4) # %60 daha yukarı
+                            pos.target_profit_price = round(pos.entry_price * 1.60, 8) # %60 daha yukarı
                             continue
                         else:
                             # Zaten partial aldıysa ve "uzay" TP'sine de çarptıysa komple kapat
                             self.close_position(pos_id, "CLOSED_TP")
                             continue
 
-                # 3. SL / Trailing Stop Kontrolü
+                # 3. SL / Trailing Stop Kontrolü (İĞNE TUZAĞI KESİCİSİ - ZAMAN TEYİDİ)
                 if curr_price <= pos.stop_loss_price:
                     if is_open:
-                        reason = "CLOSED_TRAILING" if pos.trailing_stop_activated else "CLOSED_SL"
-                        logger.info(f"🛑 [DYNAMIC SL HIT] {pos.symbol} Stop seviyesine (${pos.stop_loss_price:.4f}) ulaştı (Güncel: ${curr_price:.4f}, Kayıp: %{pct:.2f}). Kestirip atılıyor.")
-                        self.close_position(pos_id, reason)
-                        continue
+                        # Eğer Trailing stop aktifse anında kes (Kâr kilidi patlamış demektir, acıma yok!)
+                        if pos.trailing_stop_activated:
+                            self.close_position(pos_id, "CLOSED_TRAILING")
+                            continue
+                            
+                        # Eğer normal (ilk) SL ise, iğne tuzağı korumasına gir
+                        now_ts = time.time()
+                        sl_hit_marker = getattr(pos, 'sl_hit_timestamp', 0)
+                        
+                        # Acil Çıkış Kuralı: Fiyat SL noktasının %1'den daha altına çakıldıysa beklemeden sat (Çöküş)
+                        hard_sl_price = pos.stop_loss_price * 0.99
+                        if curr_price < hard_sl_price:
+                            logger.warning(f"🛑 [HARD SL HIT] {pos.symbol} Panik çöküş tespit edildi. Süre beklenmeden acil çıkış!")
+                            self.close_position(pos_id, "CLOSED_SL")
+                            continue
+                            
+                        # İğne Filtresi: İlk sarktığında süreci başlat
+                        if sl_hit_marker == 0:
+                            pos.sl_hit_timestamp = now_ts
+                            logger.info(f"⏳ [İĞNE FİLTRESİ] {pos.symbol} SL bölgesine iğne attı. Mum kapanış teyidi (Max 10 dk) bekleniyor...")
+                            continue
+                            
+                        # Zaman Kuralı: 10 dk (600 saniye) boyunca SL altında kalırsa trend dönmüştür, kes.
+                        if (now_ts - sl_hit_marker) > 600:
+                            logger.warning(f"🛑 [DYNAMIC SL HIT] {pos.symbol} 10 dakika boyunca SL altında kaldı (Teyit Alındı). Kestirip atılıyor.")
+                            self.close_position(pos_id, "CLOSED_SL")
+                            continue
+                else:
+                    # Fiyat SL'nin üstüne toparlarsa sayacı sıfırla (İğne Tuzağı Başarıyla Atlatıldı)
+                    if getattr(pos, 'sl_hit_timestamp', 0) != 0:
+                        logger.info(f"🛡️ [KAUÇUK KALKAN] {pos.symbol} iğne tuzağını atlattı ve güvenli bölgeye döndü!")
+                        pos.sl_hit_timestamp = 0
 
                 # 4. TIME-STOP (ÖLÜ PARA) KESİCİSİ - YZ (AI) İNSİYATİFLİ
                 # KULLANICI EMRİ: Sadece PAPER (Gölge Arena) veya SHADOW_OPEN iken çalışsın. LIVE (Gerçek) işlemlerde zaman aşımı ile kesmek yok.
@@ -1516,7 +1585,7 @@ class LiveTradeManager:
                     trailing_dist = base_dist
 
                 pos.trailing_stop_activated = True
-                new_sl = round(pos.highest_price_seen * trailing_dist, 5)
+                new_sl = round(pos.highest_price_seen * trailing_dist, 8)
                 if new_sl < pos.stop_loss_price:
                     old_sl = pos.stop_loss_price
                     pos.stop_loss_price = new_sl
@@ -1533,7 +1602,7 @@ class LiveTradeManager:
                     pos.break_even_activated = True
                     if pos.entry_price * 0.998 < pos.stop_loss_price:
                         old_sl = pos.stop_loss_price
-                        pos.stop_loss_price = round(pos.entry_price * 0.998, 5)
+                        pos.stop_loss_price = round(pos.entry_price * 0.998, 8)
                         logger.info(f"🛡️ [AI-RISK SHORT] {pos.symbol} kâra geçti. Başabaş noktasına çekildi: ${old_sl} -> ${pos.stop_loss_price}")
                         try:
                             from services.broker.factory import get_broker
@@ -1549,7 +1618,7 @@ class LiveTradeManager:
                         if not pos.partial_profit_taken:
                             logger.info(f"🚀 [MOONBAG SHORT] {pos.symbol} Ana hedefe (TP: ${pos.target_profit_price}) ulaştı! %60 Kâr cebe atılıyor (Golden Lock), kalanı iz sürücüye bırakılıyor.")
                             self._take_partial_profit(pos_id, ratio=0.60)
-                            pos.target_profit_price = round(pos.entry_price * 0.40, 4) # %60 daha aşağı
+                            pos.target_profit_price = round(pos.entry_price * 0.40, 8) # %60 daha aşağı
                             continue
                         else:
                             self.close_position(pos_id, "CLOSED_TP")
