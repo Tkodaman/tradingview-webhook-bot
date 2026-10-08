@@ -111,12 +111,23 @@ class TradingViewAutoStrategyRunner:
             if now_ts - v < self.SYMBOL_COOLDOWN_SECONDS
         }
 
-        # F&G: Block yerine lot cezası
+        # === PİYASA VİTESİ (AUTO FEAR & GREED SHIFTER) ===
         import asyncio
+        from core.config import settings
         fg_assessment = await asyncio.to_thread(fear_greed_client.get_assessment)
-        fg_lot_penalty = 0.5 if fg_assessment.should_block else 1.0
-        if fg_assessment.should_block:
-            logger.warning(f"[F&G SOFT] Aşırı açgözlülük — lot x0.5, alım devam ediyor.")
+        fg_score = fg_assessment.score
+        
+        old_mode = settings.current_risk_mode
+        if fg_score >= 80: # Çöküş öncesi tepedeki coşku
+            settings.current_risk_mode = "TIGHT"
+            if old_mode != "TIGHT": logger.warning(f"🚨 [AUTO SHIFTER] Piyasa Aşırı Açgözlü (F&G: {fg_score}). Vites 'TIGHT' (Sıkı Koruma) moduna küçültüldü!")
+        elif fg_score <= 25: # Kan banyosu, dip fırsatları
+            settings.current_risk_mode = "AGGRESSIVE"
+            if old_mode != "AGGRESSIVE": logger.info(f"🟢 [AUTO SHIFTER] Piyasa Aşırı Korku İçinde (F&G: {fg_score}). Fırsat zamanı! Vites 'AGGRESSIVE' (Saldırgan) moduna yükseltildi!")
+        else:
+            settings.current_risk_mode = "NORMAL"
+        
+        fg_lot_penalty = 0.5 if fg_score >= 80 else 1.0
 
         market_data_raw_unfiltered = await asyncio.to_thread(tradingview_live_client.fetch_live_market_data)
         
@@ -239,9 +250,10 @@ class TradingViewAutoStrategyRunner:
             # === TOXIC ASSET GUARD (Stablecoins & Pegged Assets) ===
             # PAXG (Gold peg), stablecoins (USDC, USDT, TUSD), and fiat pegs are highly illiquid/low-volatility 
             # and suffer massive spread slippage. Auto-runner MUST ignore them.
-            toxic_keywords = ["PAXG", "USDTUSD", "USDC", "TUSD", "BUSD", "DAI", "FDUSD", "XAUT", "EURUSD", "GBPUSD"]
-            if any(toxic in sym.upper() for toxic in toxic_keywords):
-                logger.debug(f"[TOXIC ASSET GUARD] {sym} is blacklisted (stablecoin/fiat/gold peg). Atlanıyor.")
+            toxic_keywords = ["PAXG", "USDTUSD", "USDC", "TUSD", "BUSD", "DAI", "FDUSD", "XAUT", "EURUSD", "GBPUSD", "HYPER", "DOWN", "UP", "BEAR", "BULL"]
+            s_up = sym.upper()
+            if any(toxic in s_up for toxic in toxic_keywords) or (_mtype_local == "CRYPTO" and not s_up.endswith("USDT")):
+                logger.debug(f"[TOXIC ASSET GUARD] {sym} is blacklisted (stablecoin/fiat/gold/toxic). Atlanıyor.")
                 continue
 
             # Piyasa calisma saati kontrolu: BIST veya NASDAQ kapali ise kesinlikle alim yapma

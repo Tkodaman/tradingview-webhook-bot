@@ -377,21 +377,45 @@ class ExperienceMemoryEngine:
         for rule in self.learned_rules:
             matched_key = rule["cluster_key"]
 
-            # ===== TIER-1 UTANÇ PROTOKOLÜ (SHAME PROTOCOL) =====
-            # Son 24 saat içinde 2 veya daha fazla kez stop olmuş sabıkalı varlık
-            recent_stops = sum(
-                1 for t in self.trade_history
-                if t.symbol == symbol and t.pnl_pct < 0 and 
-                (datetime.now(ZoneInfo("Europe/Istanbul")) - datetime.strptime(t.timestamp, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Europe/Istanbul"))).total_seconds() < 86400
-            )
-            if recent_stops >= 3:
-                logger.warning(f"🛡️ [UTANÇ PROTOKOLÜ] {symbol} son 24 saatte {recent_stops} kez stop yedi! Cüretkar esneme ile Güven skoru -10 puan cezalandırılıyor.")
-                return {
-                    "is_safe": True, # İşlem yasağı değil, hafif puan cezası veriyoruz
-                    "confidence_modifier": -10.0, 
-                    "qty_multiplier": 0.8, # Bütçeyi sadece %20 kes (eski: %50)
-                    "reason": f"Utanç Protokolü (Son 24 saatte {recent_stops} stop)"
-                }
+            # ===== TIER-1 İNTİKAM YASAĞI (COOLDOWN) VE REVERSE PYRAMIDING =====
+            # Son işlemi zarar olan bir varlıkta, aynı varlığa hemen "zararı kurtarmak" için tekrar girmek (İntikam) yasaktır.
+            symbol_history = [t for t in self.trade_history if t.symbol == symbol]
+            symbol_history.sort(key=lambda x: x.timestamp, reverse=True)
+            
+            if symbol_history:
+                last_trade = symbol_history[0]
+                if not last_trade.is_win:
+                    # Son işlem zarar. Ne zaman kapanmış?
+                    time_since_last = (datetime.now(ZoneInfo("Europe/Istanbul")) - datetime.strptime(last_trade.timestamp, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Europe/Istanbul"))).total_seconds()
+                    
+                    # 12 Saatlik İntikam Yasağı (Cooldown)
+                    if time_since_last < 12 * 3600:
+                        logger.warning(f"🛡️ [COOLDOWN YASAĞI] {symbol} zararla kapandı. İntikam işlemi engelleniyor. Kalan süre: {(12*3600 - time_since_last)/3600:.1f} saat.")
+                        return {
+                            "is_safe": False,
+                            "confidence_modifier": -100.0,
+                            "qty_multiplier": 0.0,
+                            "reason": f"12 Saatlik İntikam Yasağı (Cooldown). Kalan bekleme: {(12*3600 - time_since_last)/3600:.1f} sa."
+                        }
+                    
+                    # Eğer Cooldown bittiyse ama hala peş peşe zararlar (Yara İzi) varsa, Reverse Pyramiding ile cephaneyi kısıtla
+                    consecutive_loss_count = 0
+                    for t in symbol_history:
+                        if not t.is_win:
+                            consecutive_loss_count += 1
+                        else:
+                            break
+                            
+                    if consecutive_loss_count >= 2:
+                        # Dinamik Cephane Kısma: Her bir peş peşe zararda bütçeyi %25 daha kes.
+                        qty_mult = max(0.2, 1.0 - (consecutive_loss_count * 0.25))
+                        logger.warning(f"🛡️ [YARA İZİ PROTOKOLÜ] {symbol} {consecutive_loss_count} ardışık zarar. Reverse Pyramiding devrede: Cephane %{int((1-qty_mult)*100)} kısıldı.")
+                        return {
+                            "is_safe": True,
+                            "confidence_modifier": -20.0,
+                            "qty_multiplier": qty_mult,
+                            "reason": f"Yara İzi (Scar): {consecutive_loss_count} ardışık zarar. Cephane {qty_mult}x seviyesine kısıldı."
+                        }
 
             # ===== VAR LIK-ÖZGÜ TOKSİK BLOK (HARD BLOCK) =====
             if matched_key == toxic_key and rule["type"] == "BLOCK":

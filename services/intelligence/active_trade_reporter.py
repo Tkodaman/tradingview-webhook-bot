@@ -83,6 +83,58 @@ Raporu şu formatta hazırla (Kısa ve vurucu Markdown):
         except Exception as e:
             logger.error(f"[ACTIVE REPORTER] Rapor oluşturulurken hata: {e}")
 
+    async def seed_from_live_trades(self, live_trade_manager):
+        """
+        Sistem yeniden başladığında RAM temizlense bile, mevcut AÇIK POZİSYONLAR (live trades) 
+        için Gemini'ye bağlanıp anında geriye dönük (Retroactive) harekat raporları üretir.
+        """
+        if not live_trade_manager or not hasattr(live_trade_manager, "positions"): return
+        
+        # Fazla API isteği atmamak için listeyi kısıtlıyoruz
+        open_positions = list(live_trade_manager.positions.values())[:3]
+        for pos in open_positions:
+            try:
+                # Zaten raporlanmışsa atla
+                if any(r['symbol'] == pos.symbol for r in self.reports): continue
+                
+                entry_pr = float(pos.entry_price)
+                curr_pr = float(pos.current_price) if pos.current_price else entry_pr
+                pnl_pct = ((curr_pr - entry_pr) / entry_pr) * 100 if pos.side == "BUY" else ((entry_pr - curr_pr) / entry_pr) * 100
+                
+                prompt = f"""
+Komutanım, sistem yeniden başlatıldı ve radarımızda hala AÇIK OLAN BİR OPERASYON tespit ettik:
+Varlık: {pos.symbol}
+Giriş Fiyatı: {entry_pr:.4f}
+Güncel Fiyat: {curr_pr:.4f}
+Anlık Kâr/Zarar: %{pnl_pct:.2f}
+Hedef (TP): {pos.target_profit_price:.4f}
+Zarar Kes (SL): {pos.stop_loss_price:.4f}
+
+Senin görevin: 3 profesyonel ajan (Makro Stratejist, Kuantitatif, Kriz Yöneticisi) olarak bu 'Açık Pozisyonu' yeniden değerlendir.
+"Bu pozisyonu neden hala tutmalıyız veya tehlike var mı?" temasında kısa, net, askeri bir HAREKAT RAPORU (SITREP) üret.
+
+Format:
+🎯 GÜNCEL DURUM: [{pos.symbol} için devam eden harekat analizi]
+⏱ ZAMAN/HEDEF ÖNGÖRÜSÜ: [Kalan TP hedefine dair askeri yorum]
+🧠 KONSEYİN NİHAİ KARARI: [Savaşmaya devam mı, yoksa stop loss mu yaklaştırılmalı?]
+"""
+                logger.info(f"[ACTIVE REPORTER] {pos.symbol} için AÇIK POZİSYON kurtarma raporu hazırlanıyor...")
+                ai_response = await ask_gemini(prompt)
+                
+                report = {
+                    "id": str(int(time.time())) + "_seed",
+                    "timestamp": time.time(),
+                    "symbol": pos.symbol,
+                    "action": pos.side,
+                    "price": entry_pr,
+                    "content": ai_response,
+                    "is_new": False
+                }
+                self.reports.append(report)
+                await asyncio.sleep(2) # Gemini Rate Limit koruması
+            except Exception as e:
+                logger.error(f"[ACTIVE REPORTER] Açık pozisyon seed hatası: {e}")
+
     def get_latest_reports(self) -> List[Dict[str, Any]]:
         # Okunduktan sonra is_new bayrağını false yapabiliriz veya sadece listeyi dönebiliriz.
         return self.reports

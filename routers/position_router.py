@@ -448,7 +448,7 @@ def close_live_position(pos_id: str):
             alpaca_msg = str(e)
             logger.warning(f"[MANUEL KAPAT] {symbol} Alpaca exception: {e}. Yerel kapatma yapiliyor.")
 
-    if is_broker_managed: return {'status': 'success', 'closed_position': None, 'alpaca_synced': True, 'alpaca_note': 'Emir Alpaca ya iletildi'}
+    # 2. Yerel kapatma (Alpaca / Binance fark etmeksizin her zaman yapılmalı!)
     # Once direkt pos_id ile dene, bulamazsa symbol uzerinden tara
     local_res = live_trade_manager.close_position(pos_id, "MANUAL_CLOSE")
 

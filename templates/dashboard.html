@@ -3191,32 +3191,35 @@ The following code has been modified to include a line number before every line,
                 }
             });
             
-            // YÜCE DİVAN - GÜVEN VE MOR KART KATI SIRALAMA YAMASI (V3)
-            // Kullanıcı isteği: Mor (is_reversal) kutucuklar sıra atlayıp 1. sıraya çıkmasın!
-            // İlk 5 sıra normal varlıklara ayrılacak. Mor kutucuklar 6. sıradan başlayacak ve maksimum 4 tane yarışacak.
-            
-            // 1. Tüm listeyi önce sadece GÜVEN SKORUNA (confidence) göre sırala
-            items.sort((a, b) => {
+            // YÜCE DİVAN - GÜVEN VE MOR KART KATI SIRALAMA YAMASI (V4 - KESİN ÇÖZÜM)
+            // 1. Array'deki olası sparse (boş/hatalı) elemanları temizle (Kriptodaki numara atlamasını çözer)
+            const validItems = items.filter(x => x && x.symbol);
+
+            // 2. Tüm listeyi önce sadece GÜVEN SKORUNA (confidence) göre sırala
+            validItems.sort((a, b) => {
                 const aConf = parseFloat(a.confidence_score) || 0;
                 const bConf = parseFloat(b.confidence_score) || 0;
                 return bConf - aConf;
             });
             
-            // 2. Normal ve Mor olanları ayır
-            const normals = items.filter(x => !(x.is_reversal && String(x.is_reversal).toLowerCase() !== "false"));
-            let purples = items.filter(x => (x.is_reversal && String(x.is_reversal).toLowerCase() !== "false"));
+            // 3. Normal ve Mor olanları ayır
+            const normals = validItems.filter(x => !(x.is_reversal && String(x.is_reversal).toLowerCase() !== "false"));
+            const purples = validItems.filter(x => (x.is_reversal && String(x.is_reversal).toLowerCase() !== "false"));
             
-            // 3. En fazla 4 mor kutuya izin ver
-            purples = purples.slice(0, 4);
+            // 4. En fazla 4 mor kutuya izin ver, kalanları sona ekle
+            const topPurples = purples.slice(0, 4);
+            const remainingPurples = purples.slice(4);
             
-            // 4. Yeni sıralamayı inşa et (In-place array modifikasyonu)
+            // 5. Yeni sıralamayı inşa et (In-place array modifikasyonu)
             const finalItems = [];
             finalItems.push(...normals.slice(0, 5)); // İlk 5'e normaller
-            finalItems.push(...purples);             // Sonra maksimum 4 mor
+            finalItems.push(...topPurples);             // Sonra maksimum 4 mor
             finalItems.push(...normals.slice(5));    // Sonra geri kalan normaller
+            finalItems.push(...remainingPurples);    // Son olarak artan morlar
             
+            // Dizi içindeki undef/null elemanları çöpe atarak kesin indekslemeyi garantile!
             items.length = 0;
-            items.push(...finalItems);
+            items.push(...finalItems.filter(x => x && x.symbol));
             
             // Tüm çocukları DOM'dan koparıp, zorla sıralı şekilde yeniden eklemek için bir container temizliği yapıyoruz.
             // Bu sayede FLIP veya grid bugları kartları yanlış sıraya itmeyecek!

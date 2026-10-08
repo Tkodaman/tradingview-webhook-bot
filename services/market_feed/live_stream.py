@@ -1451,13 +1451,22 @@ class LiveTradeManager:
                         except Exception as e:
                             logger.error(f"[BRACKET UPDATE ERROR] {e}")
 
-                # 1. Başa Baş (Break-Even) Kontrolü (+%2.50 kârda)
-                if not pos.break_even_activated and curr_price >= pos.break_even_trigger_price:
+                # 1. AI-GÖLGE İZ SÜRÜM (Başa Baş ve Erken Kâr Koruması)
+                # Piyasa kârdayken işlemin zararla kapanmasını engeller (Risk-Free Shield)
+                # NASDAQ/BIST için %0.8, Kripto için %1.2 kâr görüldüğünde anında başa baş noktasına çeker.
+                early_protect_pct = 1.2 if pos.market == "CRYPTO" else 0.8
+                
+                # Eğer eski sistemdeki break_even_trigger daha yakınsa, onu kullan
+                trigger_price_by_pct = pos.entry_price * (1 + (early_protect_pct / 100.0))
+                actual_trigger_price = min(pos.break_even_trigger_price, trigger_price_by_pct) if pos.break_even_trigger_price > 0 else trigger_price_by_pct
+                
+                if not pos.break_even_activated and curr_price >= actual_trigger_price:
                     pos.break_even_activated = True
-                    if pos.entry_price * 1.002 > pos.stop_loss_price:
+                    safe_sl = round(pos.entry_price * 1.002, 8) # %0.2 komisyon + ufak kâr payı
+                    if safe_sl > pos.stop_loss_price:
                         old_sl = pos.stop_loss_price
-                        pos.stop_loss_price = round(pos.entry_price * 1.002, 8)
-                        logger.info(f"🛡️ [AI-RISK] {pos.symbol} kâra geçti. Başabaş (Break-Even) noktasına çekildi: ${old_sl} -> ${pos.stop_loss_price}")
+                        pos.stop_loss_price = safe_sl
+                        logger.info(f"🛡️ [AI-SHADOW-SHIELD] {pos.symbol} erken kâr hedefini geçti. Kâr geri verilmeyecek (Risk-Free)! Başabaş SL: ${old_sl} -> ${pos.stop_loss_price}")
                         try:
                             from services.broker.factory import get_broker
                             b_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
@@ -1492,10 +1501,14 @@ class LiveTradeManager:
                         now_ts = time.time()
                         sl_hit_marker = getattr(pos, 'sl_hit_timestamp', 0)
                         
-                        # Acil Çıkış Kuralı: Fiyat SL noktasının %1'den daha altına çakıldıysa beklemeden sat (Çöküş)
-                        hard_sl_price = pos.stop_loss_price * 0.99
+                        # Acil Çıkış Kuralı: Gerçek Bir Çöküş (Flash Crash) mi?
+                        # Balinaların attığı iğnelere (Wick / Stop Hunt) kanmamak için Hard SL mesafesi genişletildi.
+                        # Kripto için SL'nin %4 altı, Hisseler için %1.5 altı "Kesin Çöküş" sayılır.
+                        hard_sl_dist = 0.96 if pos.market == "CRYPTO" else 0.985
+                        hard_sl_price = pos.stop_loss_price * hard_sl_dist
+                        
                         if curr_price < hard_sl_price:
-                            logger.warning(f"🛑 [HARD SL HIT] {pos.symbol} Panik çöküş tespit edildi. Süre beklenmeden acil çıkış!")
+                            logger.warning(f"🛑 [HARD SL HIT / NÜKLEER ÇÖKÜŞ] {pos.symbol} Fiyat SL noktasının çok altında (Sıradan bir iğne değil, çöküş var). Süre beklenmeden acil çıkış!")
                             self.close_position(pos_id, "CLOSED_SL")
                             continue
                             

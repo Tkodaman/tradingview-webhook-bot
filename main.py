@@ -215,9 +215,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         }
     )
 
-from services.market_feed.live_stream import live_trade_manager
 @app.on_event("startup")
 async def startup_event():
+    from services.market_feed.live_stream import live_trade_manager
     logger.info("[STARTUP] Başlatılıyor: 7/24 Kesintisiz Otonom Strateji Motoru Arka Planda Aktif Edildi.")
     
     from services.engine.ha_manager import ha_manager
@@ -374,6 +374,17 @@ async def login_post(request: Request, username: str = Form(...), password: str 
         max_age = 2592000 if remember else None  # 30 days
         response.set_cookie(key="auth_token", value=valid_token, max_age=max_age, httponly=True)
         return response
+        
+    # --- YENİ: GÜVENLİK ALARMI (İzinsiz Giriş Denemesi) ---
+    try:
+        from services.engine.telegram_notifier import send_telegram_message
+        client_ip = request.client.host if request.client else "Bilinmeyen IP"
+        alarm_msg = f"🚨 *GÜVENLİK İHLALİ DENEMESİ!* 🚨\n\nKomutanım, Karargah Web Paneline yetkisiz bir sızma girişimi oldu!\n\nKullanılan Kullanıcı Adı: `{username}`\nKullanılan Şifre: `{password}`\nSaldırgan IP Adresi: `{client_ip}`\n\n_Sistem Bruteforce korumasıyla saldırganı yavaşlatmıştır._"
+        asyncio.create_task(send_telegram_message(alarm_msg))
+    except Exception as e:
+        pass
+    # --------------------------------------------------------
+
     return templates.TemplateResponse(
         request=request,
         name="login.html",

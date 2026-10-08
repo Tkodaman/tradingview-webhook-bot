@@ -1,105 +1,105 @@
 [TAILING] Tailing last 50 lines for [tv-bot] process (change the value with --lines option)
 /home/ASUS/.pm2/logs/tv-bot-out.log last 50 lines:
-0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/market/regime HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/asset-confidence-index HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/analytics/correlation HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/analytics/shadow-summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/memory/dynamic-voice HTTP/1.1" 404 Not Found
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/market/live-matrix?t=1791456215843 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/market/live-matrix?t=1791456217348 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/market/live-matrix?t=1791456218838 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/market/live-matrix?t=1791456220342 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/market/live-matrix?t=1791456221843 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/market/live-matrix?t=1791456223345 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55826 - "GET /api/market/live-matrix?t=1791456224847 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/market/live-matrix?t=1791456226350 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55813 - "GET /api/market/live-matrix?t=1791456227843 HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/positions/active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/analytics/strategy-map HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55819 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55830 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:46065 - "GET /api/experience-memory/algorithmic-stats HTTP/1.1" 200 OK
-0|tv-bot   | INFO:     104.28.248.172:55839 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for CRWD...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | [ML] Training Wick Detector for CRWD...
+0|tv-bot   | [ML] Training Wick Detector for CRWD...
+0|tv-bot   | [ML] Training Wick Detector for CRWD...
+0|tv-bot   | [ML] Training Wick Detector for CRWD...
+0|tv-bot   | [ML] Training Wick Detector for CRWD...
+0|tv-bot   | [ML] Training Wick Detector for CRWD...
+0|tv-bot   | [ML] Training Wick Detector for CRWD...
+0|tv-bot   | [ML] Training Wick Detector for PEP...
 
 /home/ASUS/.pm2/logs/tv-bot-error.log last 50 lines:
-0|tv-bot   | Failed to get ticker 'AVGO' reason: Expecting value: line 1 column 1 (char 0)
-0|tv-bot   | $AVGO: possibly delisted; No price data found  (period=60d)
-0|tv-bot   | 2026-10-08 10:44:01,870 - bot_logger - WARNING - [DATA FETCHER] Yahoo Finance AVGO verisi boş döndü.
-0|tv-bot   | 2026-10-08 10:44:01,877 - bot_logger - INFO - [ML MODEL] AVGO BLOKE: Kazanma olasiligi %34.3 < %55
-0|tv-bot   | 2026-10-08 10:44:01,877 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] AVGO Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
-0|tv-bot   | 2026-10-08 10:44:01,878 - bot_logger - INFO - 📊 [NASDAQ RADARI] AVGO | Skor: 6.477706878885591 | İstenen Baraj: 11.0 | Fiyat: 376.51
-0|tv-bot   | 2026-10-08 10:44:01,878 - bot_logger - INFO - [İ12 OBK] GLW Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-08 10:44:01,885 - bot_logger - INFO - [ML MODEL] GLW BLOKE: Kazanma olasiligi %34.3 < %55
-0|tv-bot   | 2026-10-08 10:44:01,885 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] GLW Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
-0|tv-bot   | 2026-10-08 10:44:01,885 - bot_logger - INFO - 📊 [NASDAQ RADARI] GLW | Skor: 2.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 163.2
-0|tv-bot   | 2026-10-08 10:44:01,886 - bot_logger - WARNING - [I11 BODY] PANW FITIL AGIRLIKLI mum (Ratio: 0.18) -> -2 (Sahte Kirilim riski!)
-0|tv-bot   | 2026-10-08 10:44:01,886 - bot_logger - INFO - [İ12 OBK] PANW Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-08 10:44:01,892 - bot_logger - INFO - [ML MODEL] PANW BLOKE: Kazanma olasiligi %34.3 < %55
-0|tv-bot   | 2026-10-08 10:44:01,892 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] PANW Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
-0|tv-bot   | 2026-10-08 10:44:01,892 - bot_logger - INFO - 📊 [NASDAQ RADARI] PANW | Skor: 0.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 405.54
-0|tv-bot   | 2026-10-08 10:44:01,893 - bot_logger - INFO - [I11 BODY] CSX Guclu mum govdesi (Ratio: 1.00) -> +1
-0|tv-bot   | 2026-10-08 10:44:01,893 - bot_logger - INFO - [İ12 OBK] CSX Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-08 10:44:01,899 - bot_logger - INFO - [ML MODEL] CSX BLOKE: Kazanma olasiligi %34.3 < %55
-0|tv-bot   | 2026-10-08 10:44:01,899 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] CSX Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
-0|tv-bot   | 2026-10-08 10:44:01,899 - bot_logger - INFO - 📊 [NASDAQ RADARI] CSX | Skor: 2.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 46.8
-0|tv-bot   | 2026-10-08 10:44:01,900 - bot_logger - INFO - [İ12 OBK] SNOW Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-08 10:44:01,906 - bot_logger - INFO - [ML MODEL] SNOW BLOKE: Kazanma olasiligi %34.3 < %55
-0|tv-bot   | 2026-10-08 10:44:01,906 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] SNOW Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
-0|tv-bot   | 2026-10-08 10:44:01,906 - bot_logger - INFO - 📊 [NASDAQ RADARI] SNOW | Skor: 1.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 332.98
-0|tv-bot   | 2026-10-08 10:44:01,907 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] AMZN: [HR4] CHOP ZONE TRAP: ATR=0.26%<1.0 + Vol=1.00<2.0 (Yalancı Kırılım) — Sahte Kırılım Tespit Edildi, İşlem İptal.
-0|tv-bot   | 2026-10-08 10:44:01,907 - bot_logger - INFO - [İ12 OBK] THETAUSDT Satıcı baskısı mevcut (Bid/Ask: 0.30) → -1
-0|tv-bot   | 2026-10-08 10:44:01,907 - bot_logger - INFO - [I14 RSI-W] THETAUSDT Oversold Bounce (RSI=44.4 vol=0.90) -> +1.5
-0|tv-bot   | 2026-10-08 10:44:01,909 - bot_logger - INFO - [PATTERN ENGINE] THETAUSDT Formasyonlar: ['THREE_LOWER_LOWS'] (Skor: -2.0)
-0|tv-bot   | 2026-10-08 10:44:01,924 - bot_logger - ERROR - [QUANT MATRIX] Hesaplama hatası (THETAUSDT): 'Volume'
-0|tv-bot   | 2026-10-08 10:44:01,927 - bot_logger - WARNING - [SR MAPPER] THETAUSDT Dirence çok yakın (Bull Trap Riski). Mesafe: %0.83
-0|tv-bot   | 2026-10-08 10:44:01,927 - bot_logger - INFO - [SR MAPPER] THETAUSDT Desteğe çok yakın (Mükemmel Giriş). Mesafe: %0.05
-0|tv-bot   | 2026-10-08 10:44:01,927 - bot_logger - WARNING - 🚫 [TRAP STRICT] THETAUSDT Bull Trap ihtimali çok yüksek! Tuzaktan kaçılıyor.
-0|tv-bot   | 2026-10-08 10:44:01,927 - bot_logger - INFO - [İ12 OBK] EME Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | Failed to get ticker 'EME' reason: Expecting value: line 1 column 1 (char 0)
-0|tv-bot   | $EME: possibly delisted; No price data found  (period=60d)
-0|tv-bot   | 2026-10-08 10:44:02,192 - bot_logger - WARNING - [DATA FETCHER] Yahoo Finance EME verisi boş döndü.
-0|tv-bot   | 2026-10-08 10:44:02,203 - bot_logger - INFO - [ML MODEL] EME BLOKE: Kazanma olasiligi %34.3 < %55
-0|tv-bot   | 2026-10-08 10:44:02,204 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] EME Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
-0|tv-bot   | 2026-10-08 10:44:02,204 - bot_logger - INFO - 📊 [NASDAQ RADARI] EME | Skor: 5.927706878885591 | İstenen Baraj: 11.0 | Fiyat: 784.39
-0|tv-bot   | 2026-10-08 10:44:02,205 - bot_logger - INFO - [I11 BODY] CSCO Guclu mum govdesi (Ratio: 0.91) -> +1
-0|tv-bot   | 2026-10-08 10:44:02,205 - bot_logger - INFO - [İ12 OBK] CSCO Satıcı baskısı mevcut (Bid/Ask: 0.33) → -1
-0|tv-bot   | 2026-10-08 10:44:02,218 - bot_logger - INFO - [ML MODEL] CSCO BLOKE: Kazanma olasiligi %34.3 < %55
-0|tv-bot   | 2026-10-08 10:44:02,219 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] CSCO Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
-0|tv-bot   | 2026-10-08 10:44:02,219 - bot_logger - INFO - 📊 [NASDAQ RADARI] CSCO | Skor: 2.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 117.38
-0|tv-bot   | 2026-10-08 10:44:02,219 - bot_logger - INFO - [İ12 OBK] GARAN Satıcı baskısı mevcut (Bid/Ask: 0.24) → -1
-0|tv-bot   | 2026-10-08 10:44:02,234 - bot_logger - INFO - [ML MODEL] GARAN BLOKE: Kazanma olasiligi %34.3 < %55
-0|tv-bot   | 2026-10-08 10:44:02,235 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] GARAN Win Probability: %34.3 -> Güven Skoruna Etkisi: -1.6 Puan
-0|tv-bot   | 2026-10-08 10:44:02,235 - bot_logger - INFO - 📊 [NASDAQ RADARI] GARAN | Skor: 3.9277068788855907 | İstenen Baraj: 11.0 | Fiyat: 127.8
-0|tv-bot   | 2026-10-08 10:44:02,236 - bot_logger - INFO - [I11 BODY] YKBNK Guclu mum govdesi (Ratio: 1.00) -> +1
-0|tv-bot   | Failed to get ticker 'YKBNK' reason: Expecting value: line 1 column 1 (char 0)
+0|tv-bot   |     async with original_context(app) as maybe_original_state:
+0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
+0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
+0|tv-bot   |     return await anext(self.gen)
+0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
+0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
+0|tv-bot   |     async with original_context(app) as maybe_original_state:
+0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
+0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
+0|tv-bot   |     return await anext(self.gen)
+0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
+0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
+0|tv-bot   |     async with original_context(app) as maybe_original_state:
+0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
+0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
+0|tv-bot   |     return await anext(self.gen)
+0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
+0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
+0|tv-bot   |     async with original_context(app) as maybe_original_state:
+0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
+0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
+0|tv-bot   |     return await anext(self.gen)
+0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
+0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
+0|tv-bot   |     async with original_context(app) as maybe_original_state:
+0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
+0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
+0|tv-bot   |     return await anext(self.gen)
+0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
+0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
+0|tv-bot   |     async with original_context(app) as maybe_original_state:
+0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
+0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 272, in __aenter__
+0|tv-bot   |     await self._router._startup()
+0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 6455, in _startup
+0|tv-bot   |     await handler()
+0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/main.py", line 284, in startup_event
+0|tv-bot   |     asyncio.create_task(live_data_broadcaster(live_trade_manager))
+0|tv-bot   |                                               ^^^^^^^^^^^^^^^^^^
+0|tv-bot   | UnboundLocalError: cannot access local variable 'live_trade_manager' where it is not associated with a value
+0|tv-bot   | 
+0|tv-bot   | 2026-10-08 14:55:36,840 - bot_logger - INFO - [AUTO-RUNNER v3 HUNTER] Avcı Modu Başlatıldı — Analiz Felci Kırıldı.
+0|tv-bot   | 2026-10-08 14:55:36,843 - bot_logger - INFO - [QUEUE WORKER] Webhook isci thread'i baslatildi. Sinyaller bekleniyor...
+0|tv-bot   | 2026-10-08 14:55:36,844 - bot_logger - INFO - [SHADOW SCANNER] Pre-Cognitive on bellek guncelleniyor...
+0|tv-bot   | 2026-10-08 14:55:36,844 - bot_logger - INFO - 📊 [DİNAMİK YARIŞ LİSTESİ] Kripto: 50 aktif | NASDAQ: Açık | BIST: Açık
+0|tv-bot   | 2026-10-08 14:55:36,862 - bot_logger - ERROR - [Advanced Engines Loop] Hata: cannot access free variable 'live_trade_manager' where it is not associated with a value in enclosing scope
+0|tv-bot   | 2026-10-08 14:55:36,862 - bot_logger - ERROR - [AI Trade Engine Loop] Hata: cannot access free variable 'live_trade_manager' where it is not associated with a value in enclosing scope
+0|tv-bot   | ERROR:    Application startup failed. Exiting.
+0|tv-bot   | 2026-10-08 14:55:36,908 - bot_logger - INFO - 🏆 [HA MANAGER] instance-20261003-182635_bot is now LEADER. Autonomous trading ENABLED.
+0|tv-bot   | 2026-10-08 14:55:37,050 - bot_logger - WARNING - [LLM AGENT] Astra-6 Kredisi bitti veya Limit asildi! Yuce Divan Gemini'ye geciliyor...
 
