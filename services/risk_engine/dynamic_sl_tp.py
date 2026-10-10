@@ -11,17 +11,17 @@ def calculate_atr_based_tp_sl(
     is_crypto: bool = False,
     risk_mode: str = "AGGRESSIVE",
     regime: str = "SIDEWAYS",
+    symbol: str = "UNKNOWN"
 ) -> tuple:
     """
-    Dinamik ATR ve Volatilite Bazlı Kâr Al (TP) ve Zarar Kes (SL) Hesaplayıcı.
+    Dinamik ATR, Rejim ve DARWIN EVRİM ÖĞRENİMİ (Darwinian Wick-Evader) Bazlı Kâr Al (TP) ve Zarar Kes (SL) Hesaplayıcı.
     Kullanıcı Direktifi:
-      - Sabit dar aralıklar (%2) piyasa gürültüsünde tehlikelidir, dinamik olmalı.
-      - Hisse kafasını kaldırdığında kârı cebe indirmeli (hızlı TP).
-      - Kırmızıya dönünce aşık olmadan küçük bir zararla kapatmalı (sağlam SL).
-      - Varlığın gerçek oynaklığına (ATR) ve piyasa rejimine göre dinamik nefes payı bırakılmalı.
+      - Sabit dar aralıklar (%2) piyasa gürültüsünde tehlikelidir.
+      - Darwin Evrim Öğrenimi: TIA gibi geçmişte 'iğne atıp (wick) stop patlatan' varlıkların genetiği analiz edilip, makas (SL) ona göre genişletilmelidir!
     """
     if entry_price <= 0:
         return (3.0 if not is_crypto else 4.5), (1.8 if not is_crypto else 2.5)
+
 
     # 1. Efektif ATR Yüzdesini Belirle
     if atr_pct is not None and atr_pct > 0:
@@ -60,12 +60,15 @@ def calculate_atr_based_tp_sl(
     else:
         sl_pct = max(sl_pct, 1.5)
 
-    # 3. Dinamik Kâr Al (TP) Hesabı
-    # Hantal %10 rallileri beklemez; volatiliteye göre hızlıca kârı cebe indirir.
-    # Risk-Ödül Oranı (R:R) en az 1.35x - 1.50x korunur.
+    # ========================================================
+    # 🧬 DARWIN EVRİM ÖĞRENİMİ (WICK-EVADER) MODÜLÜ
+    # ========================================================
     import json, os
     dyn_tp_modifier = 1.0
     dyn_sl_modifier = 1.0
+    darwin_wick_multiplier = 1.0
+
+    # Genel Piyasa Çarpanları
     try:
         if os.path.exists("data/dynamic_thresholds.json"):
             with open("data/dynamic_thresholds.json", "r") as f:
@@ -74,8 +77,18 @@ def calculate_atr_based_tp_sl(
                 dyn_sl_modifier = dyn.get("sl_multiplier_adjustment", 1.0)
     except: pass
 
+    # Darwin Coin Genetiği (Geçmiş iğne/silkeleme analizinden öğrenilen dersler)
+    try:
+        if os.path.exists("data/darwin_genetics.json") and symbol != "UNKNOWN":
+            with open("data/darwin_genetics.json", "r") as f:
+                genetics = json.load(f)
+                if symbol in genetics:
+                    # TIA gibi iğneci (wicky) coinlerin kalkanı (SL) otomatik esnetilir.
+                    darwin_wick_multiplier = genetics[symbol].get("wick_multiplier", 1.0)
+    except: pass
+
     if is_crypto:
-        calculated_tp = 3.5 * dyn_tp_modifier  # Otonom Makine Öğrenimi Çarpanı
+        calculated_tp = 3.5 * dyn_tp_modifier
         min_tp = 3.5 * dyn_tp_modifier
         max_tp = 3.5 * dyn_tp_modifier
     else:
@@ -85,7 +98,8 @@ def calculate_atr_based_tp_sl(
         min_tp = max(1.5, sl_pct * min_rr)
         max_tp = 3.5 if is_short_term else 6.0
         
-    sl_pct = sl_pct * dyn_sl_modifier
+    # SL'ye hem genel piyasa çarpanı hem de coine özel DARWIN evrim çarpanı uygulanır.
+    sl_pct = sl_pct * dyn_sl_modifier * darwin_wick_multiplier
 
     tp_pct = max(min_tp, min(calculated_tp, max_tp))
 

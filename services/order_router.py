@@ -378,10 +378,31 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             # Spread kontrolü exception → Sadece logla, devam et
             logger.debug(f"[SPREAD SKIP] {signal.symbol}: {exc} — spread kontrolü atlandı, işlem devam ediyor.")
 
-        # === FOMO KALKANI (SLIPPAGE GUARD) ===
+        # === FOMO KALKANI & BİNANCE HİBRİT SLIPPAGE GUARD ===
         try:
             from services.market_feed.live_stream import live_trade_manager
-            live_price = live_trade_manager.market_prices.get(signal.symbol, {}).get("price")
+            
+            live_price = 0.0
+            if is_crypto_sym:
+                # KULLANICI EMRİ: Kriptolar için Tetiği Çekmeden Önce BİNANCE Anlık Fiyatını Kullan (Sıfır Slippage)
+                try:
+                    from services.broker.factory import get_broker
+                    binance_broker = get_broker("BINANCE", paper=False)
+                    if binance_broker:
+                        clean_sym = signal.symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
+                        realtime_prices = binance_broker.get_realtime_prices([clean_sym])
+                        if clean_sym in realtime_prices:
+                            if isinstance(realtime_prices[clean_sym], dict):
+                                live_price = realtime_prices[clean_sym].get("price", 0.0)
+                            else:
+                                live_price = float(realtime_prices[clean_sym])
+                except Exception as bexc:
+                    logger.debug(f"[BINANCE LIVE PRICE ERROR] Slippage hesabı için fiyat çekilemedi: {bexc}")
+
+            # Kripto değilse veya Binance başarısız olduysa TradingView önbelleğine dön (Fallback)
+            if not live_price or live_price <= 0:
+                live_price = live_trade_manager.market_prices.get(signal.symbol, {}).get("price")
+                
             if live_price and live_price > 0 and signal.price > 0:
                 slippage_pct = ((live_price - signal.price) / signal.price) * 100.0
                 if action_clean in ["BUY", "LONG"]:

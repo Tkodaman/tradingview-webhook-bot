@@ -1,105 +1,105 @@
 [TAILING] Tailing last 50 lines for [tv-bot] process (change the value with --lines option)
 /home/ASUS/.pm2/logs/tv-bot-out.log last 50 lines:
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for CRWD...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
-0|tv-bot   | [ML] Training Wick Detector for CRWD...
-0|tv-bot   | [ML] Training Wick Detector for CRWD...
-0|tv-bot   | [ML] Training Wick Detector for CRWD...
-0|tv-bot   | [ML] Training Wick Detector for CRWD...
-0|tv-bot   | [ML] Training Wick Detector for CRWD...
-0|tv-bot   | [ML] Training Wick Detector for CRWD...
-0|tv-bot   | [ML] Training Wick Detector for CRWD...
-0|tv-bot   | [ML] Training Wick Detector for PEP...
+0|tv-bot   | INFO:     104.28.216.173:9512 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9495 - "GET /api/market/regime HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9504 - "GET /api/analytics/correlation HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9488 - "GET /api/analytics/strategy-map HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9512 - "GET /api/analytics/shadow-summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9495 - "GET /api/memory/dynamic-voice HTTP/1.1" 404 Not Found
+0|tv-bot   | INFO:     104.28.216.173:9504 - "GET /api/experience-memory/advanced-metrics HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9488 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9512 - "GET /api/analytics/expectancy HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9503 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9481 - "GET /api/market/live-matrix?t=1791587222962 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9488 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9495 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     127.0.0.1:44576 - "GET /api/v1/system/active_reports HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     127.0.0.1:38236 - "GET /api/v1/system/active_reports HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     127.0.0.1:50472 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     127.0.0.1:41340 - "GET /api/v1/system/active_reports HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     127.0.0.1:36744 - "GET /api/v1/system/active_reports HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     127.0.0.1:60884 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9452 - "GET /api/experience-memory/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9471 - "GET /api/positions/history/summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9477 - "GET /api/experience-memory/algorithmic-stats HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9465 - "GET /api/market/regime HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9471 - "GET /api/experience-memory/asset-confidence-index HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9477 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9465 - "GET /api/analytics/correlation HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9471 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9452 - "GET /api/analytics/strategy-map HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9477 - "GET /api/analytics/expectancy HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9465 - "GET /api/analytics/shadow-summary HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9452 - "GET /api/memory/dynamic-voice HTTP/1.1" 404 Not Found
+0|tv-bot   | INFO:     104.28.216.173:9465 - "GET /api/experience-memory/advanced-metrics HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9471 - "GET /api/analytics/thought-stream HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9477 - "GET /api/analytics/shadow-active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9455 - "GET /api/market/live-matrix?t=1791587282957 HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     104.28.216.173:9460 - "GET /api/positions/active HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     127.0.0.1:53766 - "GET /api/v1/system/active_reports HTTP/1.1" 200 OK
+0|tv-bot   | INFO:     127.0.0.1:41096 - "GET /api/v1/system/active_reports HTTP/1.1" 200 OK
+0|tv-bot   | 
+0|tv-bot   | ======================================================================
+0|tv-bot   | !!! SİSTEM HATIRLATMASI (ADMİN'DEN KAZINAN SABİT HAFIZA) !!!
+0|tv-bot   | Geçmiş işlem değerlendirmelerinin sonucu:
+0|tv-bot   | 1. Bireysel Hisseler (NVDA, ANET, CDNS) = KÂRDA.
+0|tv-bot   | 2. Otonom Kriptolar (NEAR, RENDER, SOL, CRV, FIL) = ZARARDA.
+0|tv-bot   | 3. Aşırı İşlem (DIA) = -3$ Komisyon Kaybı (Bot Hatası).
+0|tv-bot   | KURAL: Geçmişi unutup yeni heyecanlar satmak yasaklanmıştır.
+0|tv-bot   | Döngüselliği kır. Hüsranı tekrar etme. Profesyonel ol.
+0|tv-bot   | ======================================================================
+0|tv-bot   | 
+0|tv-bot   | INFO:     127.0.0.1:39272 - "GET /api/v1/system/active_reports HTTP/1.1" 200 OK
 
 /home/ASUS/.pm2/logs/tv-bot-error.log last 50 lines:
-0|tv-bot   |     async with original_context(app) as maybe_original_state:
-0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
-0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
-0|tv-bot   |     return await anext(self.gen)
-0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
-0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
-0|tv-bot   |     async with original_context(app) as maybe_original_state:
-0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
-0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
-0|tv-bot   |     return await anext(self.gen)
-0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
-0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
-0|tv-bot   |     async with original_context(app) as maybe_original_state:
-0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
-0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
-0|tv-bot   |     return await anext(self.gen)
-0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
-0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
-0|tv-bot   |     async with original_context(app) as maybe_original_state:
-0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
-0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
-0|tv-bot   |     return await anext(self.gen)
-0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
-0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
-0|tv-bot   |     async with original_context(app) as maybe_original_state:
-0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
-0|tv-bot   |   File "/usr/lib/python3.14/contextlib.py", line 214, in __aenter__
-0|tv-bot   |     return await anext(self.gen)
-0|tv-bot   |            ^^^^^^^^^^^^^^^^^^^^^
-0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 247, in merged_lifespan
-0|tv-bot   |     async with original_context(app) as maybe_original_state:
-0|tv-bot   |                ~~~~~~~~~~~~~~~~^^^^^
-0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 272, in __aenter__
-0|tv-bot   |     await self._router._startup()
-0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/.venv/lib/python3.14/site-packages/fastapi/routing.py", line 6455, in _startup
-0|tv-bot   |     await handler()
-0|tv-bot   |   File "/home/ASUS/tradingview-webhook-bot/main.py", line 284, in startup_event
-0|tv-bot   |     asyncio.create_task(live_data_broadcaster(live_trade_manager))
-0|tv-bot   |                                               ^^^^^^^^^^^^^^^^^^
-0|tv-bot   | UnboundLocalError: cannot access local variable 'live_trade_manager' where it is not associated with a value
-0|tv-bot   | 
-0|tv-bot   | 2026-10-08 14:55:36,840 - bot_logger - INFO - [AUTO-RUNNER v3 HUNTER] Avcı Modu Başlatıldı — Analiz Felci Kırıldı.
-0|tv-bot   | 2026-10-08 14:55:36,843 - bot_logger - INFO - [QUEUE WORKER] Webhook isci thread'i baslatildi. Sinyaller bekleniyor...
-0|tv-bot   | 2026-10-08 14:55:36,844 - bot_logger - INFO - [SHADOW SCANNER] Pre-Cognitive on bellek guncelleniyor...
-0|tv-bot   | 2026-10-08 14:55:36,844 - bot_logger - INFO - 📊 [DİNAMİK YARIŞ LİSTESİ] Kripto: 50 aktif | NASDAQ: Açık | BIST: Açık
-0|tv-bot   | 2026-10-08 14:55:36,862 - bot_logger - ERROR - [Advanced Engines Loop] Hata: cannot access free variable 'live_trade_manager' where it is not associated with a value in enclosing scope
-0|tv-bot   | 2026-10-08 14:55:36,862 - bot_logger - ERROR - [AI Trade Engine Loop] Hata: cannot access free variable 'live_trade_manager' where it is not associated with a value in enclosing scope
-0|tv-bot   | ERROR:    Application startup failed. Exiting.
-0|tv-bot   | 2026-10-08 14:55:36,908 - bot_logger - INFO - 🏆 [HA MANAGER] instance-20261003-182635_bot is now LEADER. Autonomous trading ENABLED.
-0|tv-bot   | 2026-10-08 14:55:37,050 - bot_logger - WARNING - [LLM AGENT] Astra-6 Kredisi bitti veya Limit asildi! Yuce Divan Gemini'ye geciliyor...
+0|tv-bot   | 2026-10-09 23:08:46,573 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] THETAUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.65<0.80 + Chg=6.8%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,573 - bot_logger - INFO - 🚫 [REGIME STRICT] INJUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,574 - bot_logger - INFO - 🚫 [REGIME STRICT] ARUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,574 - bot_logger - INFO - 🚫 [REGIME STRICT] PEPEUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,574 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] BOMEUSDT: [HR4] CHOP ZONE TRAP: ATR=0.92%<1.0 + Vol=0.82<2.0 (Yalancı Kırılım) — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,574 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] FLOKIUSDT: [HR4] CHOP ZONE TRAP: ATR=0.65%<1.0 + Vol=0.90<2.0 (Yalancı Kırılım) — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,575 - bot_logger - INFO - 🚫 [REGIME STRICT] SUIUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,576 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] ADAUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.61<0.80 + Chg=3.8%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,576 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] WLDUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.45<0.80 + Chg=5.5%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,577 - bot_logger - INFO - 🚫 [REGIME STRICT] TAOUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,578 - bot_logger - WARNING - [I11 BODY] EGLDUSDT FITIL AGIRLIKLI mum (Ratio: 0.00) -> -2 (Sahte Kirilim riski!)
+0|tv-bot   | 2026-10-09 23:08:46,578 - bot_logger - INFO - [İ12 OBK] EGLDUSDT Satıcı baskısı mevcut (Bid/Ask: 0.34) → -1
+0|tv-bot   | 2026-10-09 23:08:46,585 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] EGLDUSDT Win Probability: %24.1 -> Güven Skoruna Etkisi: -2.6 Puan
+0|tv-bot   | 2026-10-09 23:08:46,585 - bot_logger - WARNING - 🚫 [TOXIC FLOW DETECTED] ML Modeli EGLDUSDT için kazanma ihtimalini %24.1 olarak hesapladı. (Fakeout Riski). İşlem Reddedildi.
+0|tv-bot   | 2026-10-09 23:08:46,586 - bot_logger - INFO - 🚫 [REGIME STRICT] BTCUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,587 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] MEMEUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.36<0.80 + Chg=5.2%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,587 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] AVAXUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.60<0.80 + Chg=2.7%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,587 - bot_logger - INFO - 🚫 [REGIME STRICT] ETHUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,588 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] FILUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.66<0.80 + Chg=1.8%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,588 - bot_logger - INFO - 🚫 [REGIME STRICT] LTCUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,588 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] WIFUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.56<0.80 + Chg=3.7%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,588 - bot_logger - INFO - 🚫 [REGIME STRICT] LINKUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,589 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] NEOUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.77<0.80 + Chg=3.4%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,589 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] PEOPLEUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.71<0.80 + Chg=4.0%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,589 - bot_logger - INFO - 🚫 [REGIME STRICT] XRPUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,590 - bot_logger - INFO - 🚫 [REGIME STRICT] DOGEUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,590 - bot_logger - INFO - 🚫 [REGIME STRICT] BONKUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,590 - bot_logger - INFO - 🚫 [REGIME STRICT] SEIUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,590 - bot_logger - INFO - 🚫 [REGIME STRICT] SOLUSDT RANGING/Kararsız rejim tespit edildi. Momentum yok, işlem pas geçiliyor.
+0|tv-bot   | 2026-10-09 23:08:46,591 - bot_logger - INFO - 🚫 [FAKEOUT STRICT] STXUSDT: [HR1] HACIMSIZ KIRILIM: Vol=0.77<0.80 + Chg=2.3%>1.5% — Sahte Kırılım Tespit Edildi, İşlem İptal.
+0|tv-bot   | 2026-10-09 23:08:46,591 - bot_logger - WARNING - [I11 BODY] TRXUSDT FITIL AGIRLIKLI mum (Ratio: 0.00) -> -2 (Sahte Kirilim riski!)
+0|tv-bot   | 2026-10-09 23:08:46,591 - bot_logger - INFO - [İ12 OBK] TRXUSDT Satıcı baskısı mevcut (Bid/Ask: 0.30) → -1
+0|tv-bot   | 2026-10-09 23:08:46,592 - bot_logger - INFO - [I14 RSI-W] TRXUSDT Oversold Bounce (RSI=40.3 vol=0.91) -> +1.5
+0|tv-bot   | 2026-10-09 23:08:46,872 - bot_logger - ERROR - [QUANT MATRIX] Hesaplama hatası (TRXUSDT): 'Volume'
+0|tv-bot   | 2026-10-09 23:08:46,876 - bot_logger - WARNING - [SR MAPPER] TRXUSDT Dirence çok yakın (Bull Trap Riski). Mesafe: %0.12
+0|tv-bot   | 2026-10-09 23:08:46,876 - bot_logger - INFO - [SR MAPPER] TRXUSDT Desteğe çok yakın (Mükemmel Giriş). Mesafe: %0.06
+0|tv-bot   | 2026-10-09 23:08:46,876 - bot_logger - WARNING - 🚫 [TRAP STRICT] TRXUSDT Bull Trap ihtimali çok yüksek! Tuzaktan kaçılıyor.
+0|tv-bot   | 2026-10-09 23:08:47,137 - bot_logger - INFO - [PATTERN ENGINE] TIAUSDT Formasyonlar: ['MICRO_DOUBLE_BOTTOM'] (Skor: 3.0)
+0|tv-bot   | 2026-10-09 23:08:47,161 - bot_logger - ERROR - [QUANT MATRIX] Hesaplama hatası (TIAUSDT): 'Volume'
+0|tv-bot   | 2026-10-09 23:08:47,175 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] TIAUSDT Win Probability: %24.1 -> Güven Skoruna Etkisi: -2.6 Puan
+0|tv-bot   | 2026-10-09 23:08:47,175 - bot_logger - WARNING - 🚫 [TOXIC FLOW DETECTED] ML Modeli TIAUSDT için kazanma ihtimalini %24.1 olarak hesapladı. (Fakeout Riski). İşlem Reddedildi.
+0|tv-bot   | 2026-10-09 23:08:47,177 - bot_logger - INFO - [I11 BODY] ALGOUSDT Guclu mum govdesi (Ratio: 0.75) -> +1
+0|tv-bot   | 2026-10-09 23:08:47,177 - bot_logger - INFO - [İ12 OBK] ALGOUSDT Satıcı baskısı mevcut (Bid/Ask: 0.38) → -1
+0|tv-bot   | 2026-10-09 23:08:47,177 - bot_logger - INFO - [I14 RSI-W] ALGOUSDT Oversold Bounce (RSI=43.3 vol=1.14) -> +1.5
+0|tv-bot   | 2026-10-09 23:08:47,446 - bot_logger - INFO - [PATTERN ENGINE] ALGOUSDT Formasyonlar: ['THREE_HIGHER_HIGHS', 'MICRO_DOUBLE_BOTTOM'] (Skor: 5.0)
+0|tv-bot   | 2026-10-09 23:08:47,463 - bot_logger - ERROR - [QUANT MATRIX] Hesaplama hatası (ALGOUSDT): 'Volume'
+0|tv-bot   | 2026-10-09 23:08:47,472 - bot_logger - INFO - 🧠 [TIER-1 ML FILTER] ALGOUSDT Win Probability: %24.1 -> Güven Skoruna Etkisi: -2.6 Puan
+0|tv-bot   | 2026-10-09 23:08:47,472 - bot_logger - WARNING - 🚫 [TOXIC FLOW DETECTED] ML Modeli ALGOUSDT için kazanma ihtimalini %24.1 olarak hesapladı. (Fakeout Riski). İşlem Reddedildi.
+0|tv-bot   | 2026-10-09 23:08:47,473 - bot_logger - INFO - 🔄 [STARTUP] Bot yeniden başlatıldı. Borsa (Alpaca/Binance) senkronizasyonu başlatılıyor...
+0|tv-bot   | 2026-10-09 23:08:47,588 - bot_logger - INFO - [ALPACA SYNC] Successfully fetched 7 open positions from broker.
 

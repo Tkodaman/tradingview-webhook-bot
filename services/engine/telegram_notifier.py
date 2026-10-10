@@ -1,10 +1,13 @@
 import os
 import requests
 import logging
+import time
 
 logger = logging.getLogger("telegram_notifier")
 
-def send_telegram_alert(message: str):
+_telegram_message_cache = {}
+
+def send_telegram_alert(message: str, parse_mode: str = "HTML"):
     """
     Yüce Divan'dan Telegram'a acil istihbarat / İz Sürücü Stop (Trailing Stop) mesajı gönderir.
     """
@@ -19,7 +22,7 @@ def send_telegram_alert(message: str):
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "HTML"
+        "parse_mode": parse_mode
     }
     
     try:
@@ -32,3 +35,18 @@ def send_telegram_alert(message: str):
     except Exception as e:
         logger.error(f"Telegram API Hatası: {str(e)}")
         return False
+
+def send_telegram_alert_throttled(message: str, throttle_key: str, cooldown_sec: int = 3600, parse_mode: str = "HTML"):
+    """
+    Belirli bir 'throttle_key' için (örneğin 'HACIM_PATLAMASI_ALGO') verilen süre dolmadan
+    Telegram'a aynı tip mesajı tekrar atmaz. Spam engeller.
+    """
+    now = time.time()
+    last = _telegram_message_cache.get(throttle_key, 0.0)
+    if (now - last) < cooldown_sec:
+        # Süre dolmadı, mesajı atma
+        return False
+        
+    # Süre doldu (veya ilk defa), cache'i güncelle ve gönder
+    _telegram_message_cache[throttle_key] = now
+    return send_telegram_alert(message, parse_mode=parse_mode)

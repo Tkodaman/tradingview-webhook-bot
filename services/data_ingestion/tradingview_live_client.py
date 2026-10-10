@@ -43,18 +43,30 @@ class TradingViewLiveClient:
         adx_15 = vals[15]; adx_15_val = float(adx_15) if adx_15 is not None else 20.0
         vol_avg_15 = float(vals[17] if len(vals) > 17 and vals[17] else vol_15)
         cmf_15 = float(vals[18] if len(vals) > 18 and vals[18] else 0.0)
+        # Yeni Eklenen Elite Sentinel Kolonları (15m)
+        bb_upper_15 = float(vals[20] if len(vals) > 20 and vals[20] else price)
+        bb_lower_15 = float(vals[21] if len(vals) > 21 and vals[21] else price)
+        cci_15 = float(vals[22] if len(vals) > 22 and vals[22] else 0.0)
+        pivot_s1_15 = float(vals[23] if len(vals) > 23 and vals[23] else 0.0)
         
-        high_60, low_60 = round(float(vals[20] or price), prec), round(float(vals[21] or price), prec)
-        vol_60 = float(vals[22] or 0)
-        rsi_60_v = vals[23]; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else 50.0
-        macd_60 = float(vals[24] or 0.0)
-        ema20_60, ema50_60, ema200_60 = float(vals[26] or price), float(vals[27] or price), float(vals[28] or price)
-        atr_60 = float(vals[29] or 0.0)
-        stoch_60 = vals[31]; stoch_k_60 = float(stoch_60) if stoch_60 is not None else 50.0
-        adx_60 = vals[32]; adx_60_val = float(adx_60) if adx_60 is not None else 20.0
-        vol_avg_60 = float(vals[34] if len(vals) > 34 and vals[34] else vol_60)
-        cmf_60 = float(vals[35] if len(vals) > 35 and vals[35] else 0.0)
-        open_60 = round(float(vals[36] if len(vals) > 36 and vals[36] else price), prec)
+        # 60m Dilimi (Önceden index 20'den başlıyordu, şimdi 24'ten başlıyor)
+        high_60, low_60 = round(float(vals[24] if len(vals) > 24 and vals[24] else price), prec), round(float(vals[25] if len(vals) > 25 and vals[25] else price), prec)
+        vol_60 = float(vals[26] if len(vals) > 26 and vals[26] else 0)
+        rsi_60_v = vals[27] if len(vals) > 27 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else 50.0
+        macd_60 = float(vals[28] if len(vals) > 28 and vals[28] else 0.0)
+        ema20_60, ema50_60, ema200_60 = float(vals[30] if len(vals) > 30 and vals[30] else price), float(vals[31] if len(vals) > 31 and vals[31] else price), float(vals[32] if len(vals) > 32 and vals[32] else price)
+        atr_60 = float(vals[33] if len(vals) > 33 and vals[33] else 0.0)
+        stoch_60 = vals[35] if len(vals) > 35 else None; stoch_k_60 = float(stoch_60) if stoch_60 is not None else 50.0
+        adx_60 = vals[36] if len(vals) > 36 else None; adx_60_val = float(adx_60) if adx_60 is not None else 20.0
+        vol_avg_60 = float(vals[38] if len(vals) > 38 and vals[38] else vol_60)
+        cmf_60 = float(vals[39] if len(vals) > 39 and vals[39] else 0.0)
+        open_60 = round(float(vals[40] if len(vals) > 40 and vals[40] else price), prec)
+        
+        # Yeni Eklenen Elite Sentinel Kolonları (60m)
+        bb_upper_60 = float(vals[41] if len(vals) > 41 and vals[41] else price)
+        bb_lower_60 = float(vals[42] if len(vals) > 42 and vals[42] else price)
+        cci_60 = float(vals[43] if len(vals) > 43 and vals[43] else 0.0)
+        pivot_s1_60 = float(vals[44] if len(vals) > 44 and vals[44] else 0.0)
 
         rsi_blended = round((rsi_15 * 0.4) + (rsi_60 * 0.6), 2)
         macd_blended = round((macd_15 * 0.4) + (macd_60 * 0.6), 2)
@@ -63,6 +75,13 @@ class TradingViewLiveClient:
         cmf_blended = round((cmf_15 * 0.4) + (cmf_60 * 0.6), 3)
         atr_blended = (atr_15 * 0.4) + (atr_60 * 0.6)
         ema_golden_cross = (ema20_15 > ema50_15 and ema50_15 > ema200_15) or (ema20_60 > ema50_60 and ema50_60 > ema200_60)
+        
+        # Elite Sentinel Blends
+        cci_blended = round((cci_15 * 0.4) + (cci_60 * 0.6), 2)
+        bb_width_blended = round((((bb_upper_15 - bb_lower_15) / price) * 0.4) + (((bb_upper_60 - bb_lower_60) / price) * 0.6), 4) if price > 0 else 0
+        pivot_dist = abs(price - pivot_s1_15) / price if price > 0 else 1.0
+        bb_dist = abs(price - bb_lower_15) / price if price > 0 else 1.0
+        lux_support_dist = round(min(pivot_dist, bb_dist), 4)
 
         candle_start_15 = (int(now) // 900) * 900
         seconds_in_candle_15 = int(now) - candle_start_15
@@ -125,10 +144,12 @@ class TradingViewLiveClient:
             "candle_low":  low_60,
             "prev_high_1": prev_high,
             "bid_ask_ratio": bid_ask_proxy,
+            "cci": cci_blended,
+            "bb_width": bb_width_blended,
+            "lux_support_dist": lux_support_dist,
             "source": "TRADINGVIEW_LIVE_SCANNER",
             "last_update": time.strftime("%H:%M:%S"),
             "last_updated_ts": now,
-            "source_timestamp": now,
             "missing_fields": self._missing_indicator_fields(vals)
         }
 
@@ -150,16 +171,17 @@ class TradingViewLiveClient:
         """
         TradingView scanner API'sinden anlık gerçek NASDAQ, BIST ve KRİPTO borsa fiyatlarını ve indikatörlerini çeker.
         """
+        import time
         now = time.time()
         if now - self.last_fetch_time < self.cache_ttl_seconds and self.cached_us_data:
             return {**self.cached_us_data, **self.cached_tr_data, **self.cached_crypto_data}
 
-        # MTF Ortalama (15m + 1h + 2h). Hacim (volume) her zaman günlük kümülatif çekilmelidir!
+        # MTF Ortalama (15m + 1h + 2h). Elite Sentinel Proxy verileri eklendi (BB, CCI, Pivot)
         columns_mtf = [
             "name", "close", "change", 
-            "high|15", "low|15", "volume", "RSI|15", "MACD.macd|15", "MACD.signal|15", "EMA20|15", "EMA50|15", "EMA200|15", "ATR|15", "VWAP|15", "Stoch.K|15", "ADX|15", "Volatility.D|15", "average_volume_10d_calc", "ChaikinMoneyFlow|15", "open|15",
-            "high|60", "low|60", "volume|60", "RSI|60", "MACD.macd|60", "MACD.signal|60", "EMA20|60", "EMA50|60", "EMA200|60", "ATR|60", "VWAP|60", "Stoch.K|60", "ADX|60", "Volatility.D|60", "average_volume_10d_calc|60", "ChaikinMoneyFlow|60", "open|60",
-            "high|120", "low|120", "volume|120", "RSI|120", "MACD.macd|120", "MACD.signal|120", "EMA20|120", "EMA50|120", "EMA200|120", "ATR|120", "VWAP|120", "Stoch.K|120", "ADX|120", "Volatility.D|120", "average_volume_10d_calc|120", "ChaikinMoneyFlow|120", "open|120"
+            "high|15", "low|15", "volume", "RSI|15", "MACD.macd|15", "MACD.signal|15", "EMA20|15", "EMA50|15", "EMA200|15", "ATR|15", "VWAP|15", "Stoch.K|15", "ADX|15", "Volatility.D|15", "average_volume_10d_calc", "ChaikinMoneyFlow|15", "open|15", "BB.upper|15", "BB.lower|15", "CCI20|15", "Pivot.M.Classic.S1|15",
+            "high|60", "low|60", "volume|60", "RSI|60", "MACD.macd|60", "MACD.signal|60", "EMA20|60", "EMA50|60", "EMA200|60", "ATR|60", "VWAP|60", "Stoch.K|60", "ADX|60", "Volatility.D|60", "average_volume_10d_calc|60", "ChaikinMoneyFlow|60", "open|60", "BB.upper|60", "BB.lower|60", "CCI20|60", "Pivot.M.Classic.S1|60",
+            "high|120", "low|120", "volume|120", "RSI|120", "MACD.macd|120", "MACD.signal|120", "EMA20|120", "EMA50|120", "EMA200|120", "ATR|120", "VWAP|120", "Stoch.K|120", "ADX|120", "Volatility.D|120", "average_volume_10d_calc|120", "ChaikinMoneyFlow|120", "open|120", "BB.upper|120", "BB.lower|120", "CCI20|120", "Pivot.M.Classic.S1|120"
         ]
 
         headers = {
@@ -208,11 +230,11 @@ class TradingViewLiveClient:
                             vol_15 = float(vals[5] or 0)
                             rsi_15_v = vals[6]; rsi_15 = float(rsi_15_v) if rsi_15_v is not None else 50.0
                             
-                            vol_60 = float(vals[22] or 0) if len(vals) > 22 else vol_15
-                            rsi_60_v = vals[23] if len(vals) > 23 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else rsi_15
+                            vol_60 = float(vals[26] or 0) if len(vals) > 26 else vol_15
+                            rsi_60_v = vals[27] if len(vals) > 27 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else rsi_15
                             
-                            vol_120 = float(vals[39] or 0) if len(vals) > 39 else vol_60
-                            rsi_120_v = vals[40] if len(vals) > 40 else None; rsi_120 = float(rsi_120_v) if rsi_120_v is not None else rsi_60
+                            vol_120 = float(vals[47] or 0) if len(vals) > 47 else vol_60
+                            rsi_120_v = vals[48] if len(vals) > 48 else None; rsi_120 = float(rsi_120_v) if rsi_120_v is not None else rsi_60
                             
                             vol = vol_15 # Uyumluluk için
                             
@@ -260,7 +282,7 @@ class TradingViewLiveClient:
                                             symbol=clean_sym, 
                                             message=msg, 
                                             level="INFO", 
-                                            cooldown_sec=900
+                                            cooldown_sec=43200
                                         )
                                     except Exception:
                                         pass
@@ -392,11 +414,11 @@ class TradingViewLiveClient:
                             vol_15 = float(vals[5] or 0)
                             rsi_15_v = vals[6]; rsi_15 = float(rsi_15_v) if rsi_15_v is not None else 50.0
                             
-                            vol_60 = float(vals[22] or 0) if len(vals) > 22 else vol_15
-                            rsi_60_v = vals[23] if len(vals) > 23 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else rsi_15
+                            vol_60 = float(vals[26] or 0) if len(vals) > 26 else vol_15
+                            rsi_60_v = vals[27] if len(vals) > 27 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else rsi_15
                             
-                            vol_120 = float(vals[39] or 0) if len(vals) > 39 else vol_60
-                            rsi_120_v = vals[40] if len(vals) > 40 else None; rsi_120 = float(rsi_120_v) if rsi_120_v is not None else rsi_60
+                            vol_120 = float(vals[47] or 0) if len(vals) > 47 else vol_60
+                            rsi_120_v = vals[48] if len(vals) > 48 else None; rsi_120 = float(rsi_120_v) if rsi_120_v is not None else rsi_60
                             
                             vol = vol_15 # Uyumluluk için
                             
@@ -439,7 +461,7 @@ class TradingViewLiveClient:
                                             symbol=clean_sym, 
                                             message=msg, 
                                             level="INFO", 
-                                            cooldown_sec=900
+                                            cooldown_sec=43200
                                         )
                                     except Exception:
                                         pass
@@ -546,8 +568,8 @@ class TradingViewLiveClient:
                             vol_15 = float(vals[5] or 0)
                             rsi_15_v = vals[6]; rsi_15 = float(rsi_15_v) if rsi_15_v is not None else 50.0
                             
-                            vol_60 = float(vals[22] or 0) if len(vals) > 22 else vol_15
-                            rsi_60_v = vals[23] if len(vals) > 23 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else rsi_15
+                            vol_60 = float(vals[26] or 0) if len(vals) > 26 else vol_15
+                            rsi_60_v = vals[27] if len(vals) > 27 else None; rsi_60 = float(rsi_60_v) if rsi_60_v is not None else rsi_15
                             
                             vol = vol_15 # Uyumluluk
                             
@@ -572,18 +594,166 @@ class TradingViewLiveClient:
                             expected_cumulative_vol = vol_avg * (elapsed_minutes / 1440.0)
                             vol_ratio = round(vol / expected_cumulative_vol, 2) if expected_cumulative_vol > 0 else 1.0
                             
-                            if vol_ratio >= 2.5:
+                            # +2 Adım Doktrini: Gerçek Binance X-Ray Verisini Çek (Proxy kullanma!)
+                            # Hacim 1.25'i geçerse yarışta (sıralamada) etkili olsun diye X-Ray'i çekeriz.
+                            xray_ratio = None
+                            buy_vol_str = "Bilinmiyor"
+                            sell_vol_str = "Bilinmiyor"
+                            
+                            if vol_ratio >= 1.25:
+                                try:
+                                    import requests
+                                    import traceback
+                                    import time
+                                    import random
+                                    
+                                    if not hasattr(self, '_req_session'):
+                                        self._req_session = requests.Session()
+                                        
+                                    if not hasattr(self, '_xray_ratios'):
+                                        self._xray_ratios = {}
+                                    if not hasattr(self, '_xray_last_fetch'):
+                                        self._xray_last_fetch = {}
+                                        
+                                    now_ts = time.time()
+                                    # Tereyağından kıl çeker gibi: Connection Pooling (Session) ile 15 saniyede bir çekilir, anlıktır.
+                                    if clean_sym not in self._xray_last_fetch or (now_ts - self._xray_last_fetch.get(clean_sym, 0)) > 15:
+                                        import json, os
+                                        # --- ŞALTER 1: GÖRÜNMEZ WSS KALKANI (SIFIR API) ---
+                                        wss_cache_path = os.path.join(os.path.dirname(__file__), "wss_xray_cache.json")
+                                        wss_data = {}
+                                        try:
+                                            if os.path.exists(wss_cache_path):
+                                                with open(wss_cache_path, "r") as f:
+                                                    wss_data = json.load(f)
+                                        except Exception:
+                                            pass
+                                            
+                                        taker_buy_vol = 0.0
+                                        taker_sell_vol = 0.0
+                                        
+                                        if clean_sym in wss_data and (now_ts - wss_data[clean_sym].get("ts", 0)) < 900:
+                                            # WSS Cache'ten başarıyla okundu
+                                            xray_ratio = wss_data[clean_sym]["xray_ratio"]
+                                            taker_buy_vol = wss_data[clean_sym].get("taker_buy", 0)
+                                            taker_sell_vol = wss_data[clean_sym].get("taker_sell", 0)
+                                            self._xray_ratios[clean_sym] = xray_ratio
+                                            self._xray_last_fetch[clean_sym] = now_ts
+                                        else:
+                                            # --- ŞALTER 2 & 3: REST API (PROXY KORUMALI / ROUND-ROBIN) ---
+                                            endpoints = ["api.binance.com", "api1.binance.com", "api2.binance.com", "api3.binance.com"]
+                                            api_host = random.choice(endpoints)
+                                            proxies = None
+                                            proxy_url = os.getenv("BINANCE_PROXY")
+                                            if proxy_url:
+                                                proxies = {"http": proxy_url, "https": proxy_url}
+                                            
+                                            try:
+                                                # USER REQUEST: Kümülatif 15m, 30m, 45m ortalaması (Smooth/Stabil XR)
+                                                resp = self._req_session.get(f"https://{api_host}/api/v3/klines?symbol={clean_sym}&interval=15m&limit=3", proxies=proxies, timeout=5)
+                                                if resp.status_code == 200:
+                                                    klines = resp.json()
+                                                    total_vol = sum([float(k[5]) for k in klines])
+                                                    taker_buy_vol = sum([float(k[9]) for k in klines])
+                                                    taker_sell_vol = total_vol - taker_buy_vol
+                                                    
+                                                    if taker_sell_vol > 0:
+                                                        xray_ratio = round(taker_buy_vol / taker_sell_vol, 2)
+                                                    else:
+                                                        xray_ratio = 9.99
+                                                        
+                                                    self._xray_ratios[clean_sym] = xray_ratio
+                                                    self._xray_last_fetch[clean_sym] = now_ts
+                                                else:
+                                                    logger.error(f"[ŞALTER 3] {clean_sym} Hata Kodu: {resp.status_code}")
+                                            except Exception as e:
+                                                logger.error(f"[ŞALTER 3] REST/Proxy Hatası: {e}")
+                                                
+                                        def _fvol2(v): return f"{v/1000000:.1f}M" if v >= 1000000 else f"{v/1000:.1f}K"
+                                        buy_vol_str = _fvol2(taker_buy_vol)
+                                        sell_vol_str = _fvol2(taker_sell_vol)
+                                        
+                                        # Eğer hala bulunamadıysa (Tüm şalterler kapalıysa)
+                                        if clean_sym not in self._xray_ratios:
+                                            xray_ratio = self._xray_ratios.get(clean_sym, -1.0)
+                                    else:
+                                        # Önbellekteki (max 15 saniyelik) taze veriyi kullan
+                                        xray_ratio = self._xray_ratios.get(clean_sym, -1.0)
+                                        
+                                except Exception as e:
+                                    import traceback
+                                    logger.error(f"[X-Ray Hata] {clean_sym} API çekilemedi: {e}")
+                                    xray_ratio = self._xray_ratios.get(clean_sym, -1.0)
+                                    import traceback
+                                    logger.error(f"[X-Ray Hata] {clean_sym} API çekilemedi: {e}\n{traceback.format_exc()}")
+
+                            # Eskiden sadece 2.5'te çekiyordu, şimdi 2.5'te sadece Telegram Radarı öter.
+                            if vol_ratio >= 2.5 and xray_ratio is not None:
                                 try:
                                     from services.engine.bot_thought_stream import bot_thought_stream
+                                    from services.engine.telegram_notifier import send_telegram_alert_throttled
+                                    
                                     def _fvol(v): return f"{v/1000000:.1f}M" if v >= 1000000 else f"{v/1000:.1f}K"
-                                    msg = f"Gün başından (UTC) bu yana {int(elapsed_minutes)} dk geçti. Normalde {clean_sym} için {_fvol(expected_cumulative_vol)} hacim olmalıydı, ama şu an {_fvol(vol)} var! Demek ki devasa bir para girişi ({vol_ratio}x Patlama) var."
+                                    
+                                    if xray_ratio >= 1.5:
+                                        ai_thought = "🧠 <b>[Otonom Yargı]:</b> Devasa hacim ve net TAKER BUY (Alıcı) üstünlüğü var. Kurumsal (balina) para fiyata yukarı yönlü basıyor. Momentuma dahil olmak nispeten güvenli."
+                                        tel_badge = f"🟢 [X-Ray Ratio: {xray_ratio} (GÜÇLÜ ALIM, GÜVENLİ)]\nMarket Alım (Taker Buy): {buy_vol_str}\nMarket Satım (Taker Sell): {sell_vol_str}"
+                                    elif xray_ratio >= 1.0:
+                                        ai_thought = "🧠 <b>[Otonom Yargı]:</b> Hacim artışı alıcılarla destekleniyor. Para girişi var ancak agresif balina baskısı henüz yok. Kırılım yakından izlenmeli."
+                                        tel_badge = f"🟢 [X-Ray Ratio: {xray_ratio} (POZİTİF ALIM)]\nMarket Alım (Taker Buy): {buy_vol_str}\nMarket Satım (Taker Sell): {sell_vol_str}"
+                                    elif xray_ratio >= 0.75:
+                                        ai_thought = "🧠 <b>[Otonom Yargı]:</b> <b>DİKKAT!</b> Hacim var ama ağırlıklı satıcılardan (Taker Sell) geliyor. Biri fiyatı yeşil gösterip gizlice mal dağıtıyor olabilir (Dağıtım Evresi)."
+                                        tel_badge = f"🟠 [X-Ray Ratio: {xray_ratio} (ZAYIF, MAL DAĞITIMI ŞÜPHESİ)]\nMarket Alım (Taker Buy): {buy_vol_str}\nMarket Satım (Taker Sell): {sell_vol_str}"
+                                    else:
+                                        ai_thought = "🧠 <b>[Otonom Yargı]:</b> <b>ÖLÜMCÜL TUZAK!</b> Hacim devasa ama agresif Satıcı (Taker Sell) baskın. Balinalar FOMO'ya kapılanlara tepeden mal boşaltıyor. KESİNLİKLE UZAK DUR!"
+                                        tel_badge = f"🔴 [X-Ray Ratio: {xray_ratio} (TUZAK / AĞIR MAL BOŞALTMA!)]\nMarket Alım (Taker Buy): {buy_vol_str}\nMarket Satım (Taker Sell): {sell_vol_str}"
+
+                                    xray_badge = f"<b>[X-Ray Ratio: {xray_ratio}]</b>\nMarket Alım: {buy_vol_str} | Market Satım: {sell_vol_str}"
+                                        
+                                    html_msg = f"Normalde {clean_sym} için {_fvol(expected_cumulative_vol)} hacim beklenirken, {_fvol(vol)} hacim var ({vol_ratio}x Patlama)!\n{xray_badge}\n\n{ai_thought}"
+                                    tel_msg = f"⚡ 🔥 <b>HACİM PATLAMASI ({vol_ratio}x) | {clean_sym}</b>\n\n<b>Normal Hacim:</b> {_fvol(expected_cumulative_vol)}\n<b>Şu anki Hacim:</b> {_fvol(vol)}\n\n{tel_badge}\n\n{ai_thought}"
+                                    
+                                    # Dashboard için HTML bildirim
                                     bot_thought_stream.add_throttled(
                                         category="🔥 HACİM RADARI", 
                                         symbol=clean_sym, 
-                                        message=msg, 
+                                        message=html_msg, 
                                         level="INFO", 
-                                        cooldown_sec=900
+                                        cooldown_sec=43200
                                     )
+                                    # Telegram'a da doğrudan uyarı gönder (12 saat cooldown ile)
+                                    send_telegram_alert_throttled(tel_msg, throttle_key=f"VOL_RADAR_{clean_sym}", cooldown_sec=43200)
+                                    
+                                    # 🚀 [KONSEY / OTONOM OVERRIDE - KADERİNE TERK ETME!]
+                                    # Eğer balina boşaltması (Tuzak) varsa ve elimizde bu varlık (Manuel dahi olsa) açıksa Otonom ipleri ele alır!
+                                    if xray_ratio < 0.75:
+                                        try:
+                                            from services.engine.live_trade_manager import live_trade_manager
+                                            for pid, pos in live_trade_manager.positions.items():
+                                                if pos.symbol == clean_sym and pos.status in ["OPEN", "SHADOW_OPEN"]:
+                                                    logger.warning(f"🚨 [OTONOM DİZGİNLERİ ELE ALDI] {clean_sym} Ölümcül Tuzak! Manuel pozisyon dahi olsa müdahale ediliyor!")
+                                                    
+                                                    # Güncel fiyatı al (kârda mıyız zararda mı?)
+                                                    curr_price = float(vals[1] if isinstance(vals, list) and len(vals) > 1 else pos.current_price)
+                                                    
+                                                    # Eğer pozisyon kârdaysa, tereddüt etmeden zirvede kârı al ve ÇIK.
+                                                    if (pos.side == "BUY" and curr_price > pos.entry_price) or (pos.side == "SELL" and curr_price < pos.entry_price):
+                                                        live_trade_manager.close_position(pid, "CLOSED_SMART_MONEY_DUMP")
+                                                        tel_msg_exit = f"🚨 <b>ACİL ÇIKIŞ (OTONOM YARGI)</b> 🚨\n{clean_sym} Balina boşaltması tespit edildi! Otonom risk yönetimi dizginleri ele aldı ve mevcut pozisyon zirve kârdan kapatıldı (Golden Lock)!"
+                                                        send_telegram_alert_throttled(tel_msg_exit, throttle_key=f"EMERGENCY_{clean_sym}", cooldown_sec=60)
+                                                    else:
+                                                        # Zarardaysa SL'i acımasızca giriş fiyatına çok yakın bir yere (Max %0.5 zarar) sıkılaştır!
+                                                        new_sl = round(pos.entry_price * 0.995, 8) if pos.side == "BUY" else round(pos.entry_price * 1.005, 8)
+                                                        if pos.side == "BUY" and new_sl > pos.stop_loss_price:
+                                                            pos.stop_loss_price = new_sl
+                                                            pos.trailing_stop_activated = True
+                                                        elif pos.side == "SELL" and new_sl < pos.stop_loss_price:
+                                                            pos.stop_loss_price = new_sl
+                                                            pos.trailing_stop_activated = True
+                                                        live_trade_manager.save_state()
+                                        except Exception as e:
+                                            logger.error(f"[Otonom Override Hatası] {e}")
+                                            
                                 except Exception:
                                     pass
                             
@@ -617,6 +787,7 @@ class TradingViewLiveClient:
                                 "stoch_k": stoch_k,
                                 "adx": adx,
                                 "volume_ratio": vol_ratio,
+                                "xray_ratio": getattr(self, '_xray_ratios', {}).get(clean_sym, None),
                                 "atr_pct": round((atr / price) * 100.0, 2) if price > 0 else 1.5,
                                 "cmf": cmf,
                                 "rs_score": round(chg - benchmark_change, 2),

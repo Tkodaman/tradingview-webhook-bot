@@ -9,6 +9,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from typing import Any, Dict, List
 import time
+import uuid
 
 TRT = ZoneInfo("Europe/Istanbul")
 MAX_THOUGHTS = 100
@@ -30,6 +31,7 @@ class BotThoughtStream:
             return # Sessizce yok say
 
         self._log.appendleft({
+            "id": str(uuid.uuid4()),
             "timestamp": datetime.now(TRT).strftime("%Y-%m-%d %H:%M:%S"),
             "category": category,
             "symbol": symbol,

@@ -129,12 +129,13 @@ class AutonomousEngine:
                 # --- ENSTRÜMAN 2: Fraktal Zaman Uyum Filtresi (Multi-Timeframe) ---
                 ema200_1h = data.get("EMA200|60", 0)
                 current_price = data.get("price", 0)
-                if current_price < ema200_1h * 0.95: # %5 tölerans
+                # PAPER modunda ezilmişlik töleransını %5'ten %10'a çıkarıyoruz
+                ema_tolerance = 0.90 if settings.trading_mode == "PAPER" else 0.95
+                if current_price < ema200_1h * ema_tolerance: 
                     logger.info(f"⏳ [AVCI] {symbol} reddedildi: Fiyat EMA200 altında çok ezilmiş.")
                     continue  # NO-TRADE
                     
                 # --- ENSTRÜMAN 3: KÜRESEL PARA DÖNGÜSÜ (Seanslar Arası Sörf) ---
-                # Türkiye Saati (UTC+3) baz alınarak seans analizi
                 from datetime import datetime, timezone, timedelta
                 now_utc = datetime.now(timezone.utc)
                 trt_time = now_utc + timedelta(hours=3)
@@ -143,47 +144,49 @@ class AutonomousEngine:
                 session_name = "BİLİNMEYEN"
                 if 15 <= hour < 23:
                     session_name = "DEVLER LİGİ (ABD/AB)"
-                    # Breakout (Kırılım) stratejisi aktiftir. Hacim aranır.
                 elif 23 <= hour or hour < 2:
                     session_name = "ÖLÜ BÖLGE (Hacim Boşluğu)"
-                    # Hacim azalır. Yeni FOMO kırılımlarına GİRİLMEZ! Sadece "Dip Toplama (Buyback)" yapılır.
                     rsi_1h = data.get("RSI|60", 50)
-                    if rsi_1h > 60:  # Gevşetildi
-                        logger.info(f"⏳ [AVCI] {symbol} reddedildi: Ölü Bölge'de tepe (RSI>60) alınmaz.")
+                    # PAPER modunda RSI sınırını 60'tan 68'e gevşetiyoruz
+                    rsi_limit = 68 if settings.trading_mode == "PAPER" else 60
+                    if rsi_1h > rsi_limit:  
+                        logger.info(f"⏳ [AVCI] {symbol} reddedildi: Ölü Bölge'de tepe (RSI>{rsi_limit}) alınmaz.")
                         continue
                 elif 2 <= hour < 8:
                     session_name = "ASYA KAPLANLARI (FOMO)"
-                    # Agresif hacim ve ivme aranır. ADX (Trend Gücü) yüksek olmalı.
                     adx_1h = data.get("adx", 0)
-                    if adx_1h < 15:
-                        logger.info(f"⏳ [AVCI] {symbol} reddedildi: Asya seansında (ADX<15) zayıf ivme.")
+                    # PAPER modunda Asya seansı ADX eşiğini 15'ten 10'a düşürüyoruz
+                    adx_fomo = 10 if settings.trading_mode == "PAPER" else 15
+                    if adx_1h < adx_fomo:
+                        logger.info(f"⏳ [AVCI] {symbol} reddedildi: Asya seansında (ADX<{adx_fomo}) zayıf ivme.")
                         continue
                 
                 # --- SOTA ZIRHI 1: Hacim Patlaması (Volume Spike) ---
                 volume_ratio = data.get("volume_ratio", 0)
-                # Simüle/Öğrenme modunda hacim şartını esnetiyoruz (Kullanıcının aksiyon görmesi için)
-                from core.config import settings
-                min_vol = 0.5 if settings.trading_mode == "PAPER" else 1.0
-                
-                # Kriptolar için Testnet'te al-sat görülebilmesi adına hacim tamamen sıfırlandı
                 is_crypto = "USDT" in symbol
+                
+                # PAPER modunda hacim sınırını 1.0 yerine 0.90 yapıyoruz (Ufak kıpırdanma)
                 if is_crypto:
-                    min_vol = 0.01 
+                    min_vol = 0.90 if settings.trading_mode == "PAPER" else 1.0
+                else:
+                    min_vol = 0.30 if settings.trading_mode == "PAPER" else 1.0
                 
                 if volume_ratio < min_vol and not is_short_squeeze_setup and session_name != "ÖLÜ BÖLGE (Hacim Boşluğu)":
                     logger.info(f"⏳ [AVCI] {symbol} reddedildi: Hacim patlaması yetersiz (Vol: {volume_ratio:.2f})")
-                    continue  # Hacim yoksa sahte harekettir
+                    continue
                     
                 # --- SOTA ZIRHI 2: Oynaklık (ATR) ve Düşen Bıçak Kuralı ---
                 adx = data.get("adx", 0)
-                min_adx = 10 if settings.trading_mode == "PAPER" else 15
                 
+                # PAPER modunda ADX eşiğini 5 yerine 3 (Çok hafif rüzgar) olarak güncelliyoruz
                 if is_crypto:
-                    min_adx = 2 # Kripto için momentum şartını geç
+                    min_adx = 3.0 if settings.trading_mode == "PAPER" else 5.0 
+                else:
+                    min_adx = 10.0 if settings.trading_mode == "PAPER" else 15.0
                 
                 if adx < min_adx and session_name != "ÖLÜ BÖLGE (Hacim Boşluğu)":
                     logger.info(f"⏳ [AVCI] {symbol} reddedildi: Trend momentumu düşük (ADX: {adx:.1f})")
-                    continue  # Trend gücü (Momentum) zayıf, range piyasası.
+                    continue
                     
                 # --- ENSTRÜMAN 3: Kelly Kriteri (Dinamik Kasa Yönetimi) ---
                 win_rate = 0.55  # Sistem ortalaması
@@ -210,6 +213,7 @@ class AutonomousEngine:
                     logger.info(f"🛡️ [KORELASYON KALKANI] ETH zaten açık, {symbol} reddedildi.")
                     continue
 
+                from core.config import settings
                 max_allowed_positions = int(getattr(settings, "crypto_max_positions", 6))
 
                 if open_pos_count >= max_allowed_positions:
@@ -233,15 +237,15 @@ class AutonomousEngine:
                 
                 if last_crypto_open_time is not None:
                     minutes_since_last = (datetime.now() - last_crypto_open_time).total_seconds() / 60.0
-                    # Aşamalı Alım Eşiği: 5 Dakika (Otonom motorun pusuya yatma süresi - Konsey M5 Optimizasyonu)
-                    if minutes_since_last < 5.0:
-                        logger.info(f"⏳ [AŞAMALI ALIM / PACING] {symbol} izlemede. Ava çıkıldı ancak son işlem üzerinden sadece {minutes_since_last:.1f} dk geçti (Hedef: 5dk). Zincirler kırıldı, süzmeye devam ediyorum.")
+                    # Aşamalı Alım Eşiği: 2 Dakika (Kullanıcının talep ettiği agresif doktrin)
+                    if minutes_since_last < 2.0:
+                        logger.info(f"⏳ [AŞAMALI ALIM] {symbol} izlemede. Son işlemden bu yana 2 dk geçmesi bekleniyor (Mevcut: {minutes_since_last:.2f} dk).")
                         continue
 
-                # COOLDOWN (Bekleme Süresi) Koruması: Aynı coini art arda AI'a gönderip token yakmasını engelle
+                # COOLDOWN (Bekleme Süresi) Koruması: Aynı coini art arda yapay zekaya sormamak için
                 now = time.time()
-                if symbol in self.signal_cooldown and now - self.signal_cooldown[symbol] < 1800:
-                    logger.debug(f"{symbol} reddedildi: Cooldown devrede (Token koruması). Son sinyal üzerinden 30dk geçmedi.")
+                if symbol in self.signal_cooldown and now - self.signal_cooldown[symbol] < 300:
+                    logger.debug(f"{symbol} reddedildi: Cooldown devrede. Son sinyal üzerinden 5 dk geçmedi.")
                     continue
                 
                 self.signal_cooldown[symbol] = now

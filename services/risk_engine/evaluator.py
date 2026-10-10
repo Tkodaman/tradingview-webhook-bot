@@ -94,6 +94,29 @@ class RiskEvaluator:
                 logger.debug(f"[SCORE DROP] {signal.symbol} Sahte Kırılım (Hacimsiz). Güven skoru -15 düştü.")
             # ------------------------------------------------
             
+            # --- ⚔️ ELITE SENTINEL DOKTRİNİ (CIPHER, LUX, THRUST) ---
+            cci = float(signal.indicators.get("cci", 0.0))
+            bb_width = float(signal.indicators.get("bb_width", 1.0))
+            lux_dist = float(signal.indicators.get("lux_support_dist", 1.0))
+            
+            # 1. Market Cipher (Momentum Dalga Kırılımı)
+            if cci > 100.0:
+                confidence_score += 10.0
+                logger.debug(f"[SCORE BOOST] {signal.symbol} Market Cipher (Yeşil Momentum). Güven skoru +10 arttı.")
+            elif cci < -100.0:
+                confidence_score -= 10.0
+            
+            # 2. Alpha Thrust (Squeeze / Yay Gerilmesi)
+            if 0 < bb_width < 0.03:
+                confidence_score += 15.0
+                logger.debug(f"[SCORE BOOST] {signal.symbol} Alpha Thrust (Squeeze Sıkışması). Güven skoru +15 arttı.")
+                
+            # 3. LuxAlgo (Smart Money Destekten Sekme)
+            if lux_dist < 0.015 and action_factor > 0:
+                confidence_score += 12.0
+                logger.debug(f"[SCORE BOOST] {signal.symbol} LuxAlgo (Smart Money Pusu Bölgesi). Güven skoru +12 arttı.")
+            # ------------------------------------------------
+            
             # OBV / Para Girişi Bonusu
             if cmf > 0.05:
                 confidence_score += 15.0

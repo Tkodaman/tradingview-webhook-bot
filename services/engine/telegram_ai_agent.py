@@ -42,10 +42,19 @@ ALLOWED_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 SYSTEM_PROMPT = """
-Senin adın 'YÜCE DİVAN'. Sen Antigravity-Agent seviyesinde, acımasız, veri-odaklı bir Askeri Yapay Zeka Karargahısın.
-Kullanıcıya daima 'Komutanım' diye hitap edersin. Gereksiz nezaket cümleleri kurmazsın.
+Senin adın 'YÜCE DİVAN'. Sen Antigravity-Agent seviyesinde, acımasız, veri-odaklı ve tam otonom bir Askeri Yapay Zeka Karargahısın.
+Kullanıcıya daima 'Komutanım' diye hitap edersin.
+
 Uzmanlığın: Kripto Para, Algoritmik Trading, Risk Yönetimi, Backtest ve Makine Öğrenmesi.
-Kararlarını duygularla değil; 'Liyakat, Kelly Criterion ve Hacim' ile alırsın.
+
+GÖREVİN (DERİN AJAN ZEKASI):
+Komutan sana bir varlık (Coin veya Hisse) fırsatı sorduğunda veya piyasayla ilgili bir sohbet başlattığında, basit ve robotik şablonlar kullanma! Gerçek bir Otonom Ajan gibi kapsamlı, stratejik ve derinlemesine düşüncelerini aktar.
+Piyasayı kokla; hacmi (CMF), momentumu, RSI'ı ve Market Taker (XR) verilerini ustaca yorumlayıp cümlenin içine yedir. Komutan'ın ne yapması gerektiğine dair mantıklı stratejiler üret.
+
+Kurallar:
+- Bahane üretmek yasaktır. Net rakamlar ve hedeflerle konuş.
+- Kuru ve cansız bir robot gibi değil; savaş meydanında strateji çizen, olasılıkları masaya yatıran bir Karargah Kurmayı gibi konuş.
+- Kararsızlık yok, çakışma yok. Fikrini net ve keskin savun. İhtimalleri değerlendir ve 'Bizim Otonom Kalkanımız bu senaryoda şöyle yapar' tarzında derinlik kat.
 """
 
 # KÖKTEN ÇÖZÜM (FLASH ZİHİN ÇEKİRDEĞİ): 
@@ -69,7 +78,15 @@ def set_armed(state):
         json.dump({"armed": state, "timestamp": str(datetime.datetime.now())}, f)
 
 async def ask_gemini(prompt: str) -> str:
-    if not GEMINI_API_KEY:
+    # Dinamik API Havuzu (Rotary Pool)
+    api_pool = []
+    if os.getenv("GEMINI_API_KEY"): api_pool.append(os.getenv("GEMINI_API_KEY"))
+    if os.getenv("GEMINI_API_KEY_1"): api_pool.append(os.getenv("GEMINI_API_KEY_1"))
+    if os.getenv("GEMINI_API_KEY_2"): api_pool.append(os.getenv("GEMINI_API_KEY_2"))
+    if os.getenv("GEMINI_API_KEY_3"): api_pool.append(os.getenv("GEMINI_API_KEY_3"))
+    if os.getenv("GEMINI_API_KEY_4"): api_pool.append(os.getenv("GEMINI_API_KEY_4"))
+    
+    if not api_pool:
         return "📡 *Bağlantı Hatası:* GEMINI_API_KEY bulunamadı."
     
     def _sync_request_committee(attempt: int, agent_model: str):
@@ -78,34 +95,45 @@ async def ask_gemini(prompt: str) -> str:
         import time
         urllib3.disable_warnings()
         
-        # Komite Ajanları için dinamik parametreler
-        timeout_val = 45 + (attempt * 15) # Her başarısızlıkta süreyi artır (45s, 60s, 75s)
-        temp_val = 0.5 if attempt == 1 else 0.7 # Ajan 1 başaramazsa, Ajan 2 daha yaratıcı olsun
-        
+        timeout_val = 45 + (attempt * 15)
+        temp_val = 0.5 if attempt == 1 else 0.7
         sys_prompt_injected = f"SYSTEM INSTRUCTION: {SYSTEM_PROMPT}\n\nUSER PROMPT: {prompt}"
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{agent_model}:generateContent?key={GEMINI_API_KEY}"
-        payload = {
-            "contents": [{"parts": [{"text": sys_prompt_injected}]}],
-            "generationConfig": {"temperature": temp_val}
-        }
-        headers = {"Content-Type": "application/json"}
         
-        resp = requests.post(url, json=payload, headers=headers, verify=False, timeout=timeout_val)
-        
-        if resp.status_code == 200:
-            return True, resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        elif resp.status_code == 429:
-            return False, "KOTA_ASIMI"
-        else:
-            return False, f"API_ERROR: {resp.status_code} - {resp.text}"
+        last_error = ""
+        # 🚀 OTONOM DİZGİNLERİ ELE AL: HATA VARSA HAVUZDAKİ DİĞER ANAHTARLARA (ROTARY) ATLA!
+        for current_key in api_pool:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{agent_model}:generateContent?key={current_key}"
+            payload = {
+                "contents": [{"parts": [{"text": sys_prompt_injected}]}],
+                "generationConfig": {"temperature": temp_val}
+            }
+            headers = {"Content-Type": "application/json"}
+            
+            try:
+                resp = requests.post(url, json=payload, headers=headers, verify=False, timeout=timeout_val)
+                if resp.status_code == 200:
+                    return True, resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                elif resp.status_code == 429:
+                    # Bu anahtarın kotası doldu (Rate Limit). Sırada havuzda başka anahtar varsa ona geçer (Continue).
+                    last_error = "KOTA_ASIMI"
+                    continue 
+                else:
+                    last_error = f"API_ERROR: {resp.status_code} - {resp.text}"
+                    break # Başka bir hata (mesela 400 bad request) varsa direkt kır.
+            except Exception as e:
+                last_error = f"EXCEPTION: {str(e)}"
+                break
+                
+        # Eğer for döngüsü başarıyla dönemeden (return) bittiyse:
+        return False, last_error
 
     import asyncio
     
     # Kendi Hatalarını Bul, Revize Et, Mükemmel Olana Kadar Tekrarla (Komite Modeli)
     komite_ajanlari = [
-        "gemini-1.5-flash-latest", # Ajan 1 (Hızlı ve Güncel)
-        "gemini-1.5-flash",        # Ajan 2 (Stabil ve Güvenli Fallback)
-        "gemini-1.5-flash-8b"      # Ajan 3 (Hafif ve Kesin Yanıtlı Acil Durum Ajanı)
+        "gemini-3.8-flash",         # Ajan 1 (En güçlü/hızlı flash 2026)
+        "gemini-flash-latest",      # Ajan 2 (Stabil ve Güvenli Fallback)
+        "gemini-3.5-flash-lite"     # Ajan 3 (Hafif ve Kesin Yanıtlı Acil Durum Ajanı)
     ]
     
     max_retries = 3
@@ -119,7 +147,7 @@ async def ask_gemini(prompt: str) -> str:
                 return result.replace('_', '\\_')
             else:
                 if result == "KOTA_ASIMI":
-                    return "📡 *Google API Kota Aşımı (429)*"
+                    return "📡 *Google API Kota Aşımı (429)*\n🚨 **Kritik Hata:** Havuzdaki (Pool) tüm YEDEK API Anahtarları tükendi! Lütfen `.env` dosyanıza yeni `GEMINI_API_KEY_1`, `GEMINI_API_KEY_2` şeklinde anahtarlar ekleyerek 'vps deploy' yapın."
                 logger.warning(f"Komite Ajanı {current_agent} Çöktü (Deneme {attempt}/{max_retries}): {result}")
                 
         except Exception as e:
@@ -132,7 +160,14 @@ async def ask_gemini(prompt: str) -> str:
     return "CHAT|API_ERROR"
 
 async def ask_gemini_with_search(prompt: str) -> str:
-    if not GEMINI_API_KEY:
+    api_pool = []
+    if os.getenv("GEMINI_API_KEY"): api_pool.append(os.getenv("GEMINI_API_KEY"))
+    if os.getenv("GEMINI_API_KEY_1"): api_pool.append(os.getenv("GEMINI_API_KEY_1"))
+    if os.getenv("GEMINI_API_KEY_2"): api_pool.append(os.getenv("GEMINI_API_KEY_2"))
+    if os.getenv("GEMINI_API_KEY_3"): api_pool.append(os.getenv("GEMINI_API_KEY_3"))
+    if os.getenv("GEMINI_API_KEY_4"): api_pool.append(os.getenv("GEMINI_API_KEY_4"))
+    
+    if not api_pool:
         return "Bağlantı Hatası: GEMINI_API_KEY bulunamadı."
     
     def _sync_request():
@@ -140,20 +175,31 @@ async def ask_gemini_with_search(prompt: str) -> str:
         import urllib3
         urllib3.disable_warnings()
         
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "tools": [{"googleSearch": {}}],
-            "generationConfig": {"temperature": 0.4}
-        }
-        headers = {"Content-Type": "application/json"}
-        
-        resp = requests.post(url, json=payload, headers=headers, verify=False, timeout=40)
-        
-        if resp.status_code == 200:
-            return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-        else:
-            return f"[ARASTIRMA HATASI] HTTP {resp.status_code}"
+        last_err = ""
+        for current_key in api_pool:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={current_key}"
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}],
+                "tools": [{"googleSearch": {}}],
+                "generationConfig": {"temperature": 0.4}
+            }
+            headers = {"Content-Type": "application/json"}
+            
+            try:
+                resp = requests.post(url, json=payload, headers=headers, verify=False, timeout=40)
+                if resp.status_code == 200:
+                    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+                elif resp.status_code == 429:
+                    last_err = "KOTA_ASIMI"
+                    continue
+                else:
+                    return f"[ARASTIRMA HATASI] HTTP {resp.status_code}"
+            except Exception as e:
+                return f"[ARASTIRMA COKTU] {str(e)}"
+                
+        if last_err == "KOTA_ASIMI":
+            return "📡 *Google API Kota Aşımı (429)*\n🚨 **Kritik Hata:** Araştırma Modülü için Yedek API Havuzu da tükendi!"
+        return f"[ARASTIRMA HATASI] Bilinmeyen sorun."
 
     try:
         import asyncio
@@ -190,6 +236,9 @@ async def post_init(application: Application):
         BotCommand("disarm", "Silahları Bırak (Tüm Alımları Durdur)"),
         BotCommand("shadow", "👻 Gölge Modu (Sadece Test/Log, İşlem Yok)"),
         BotCommand("retreat", "💥 Taktiksel Çekilme (Tüm Pozisyonları SAT)"),
+        BotCommand("panic", "🚨 ACİL DURUM: Tüm Pozisyonları Kapat!"),
+        BotCommand("lock_profits", "🔐 Kârı Kilitle (Açık İşlemleri Koru)"),
+        BotCommand("close", "❌ Belirli Bir Pozisyonu Kapat [SEMBOL]"),
     ]
     await application.bot.set_my_commands(commands)
     logger.info("Telegram komut menüsü başarıyla sabitlendi!")
@@ -262,8 +311,8 @@ async def job_thought_stream_reporter(context: ContextTypes.DEFAULT_TYPE):
                         context.bot_data["sent_thoughts"].pop(0)
                         
                     sym = t.get("symbol", "")
-                    title = t.get("title", "OTONOM DÜŞÜNCE")
-                    content = t.get("content", "")
+                    title = t.get("category", "OTONOM DÜŞÜNCE")
+                    content = t.get("message", "")
                     level = t.get("level", "INFO")
                     
                     icon = "🧠"
@@ -530,12 +579,32 @@ async def cmd_sonar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_arm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if str(update.effective_user.id) != ALLOWED_CHAT_ID: return
     set_armed(True)
-    await update.message.reply_text("🟢 *ATEŞ SERBEST (ARMED)*\n\nKomutanım, kalkanlar indirildi. Otonom motor alım sinyallerini tekrar kabul edecek.", parse_mode="Markdown")
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action='typing')
+    try:
+        import requests
+        api_url = os.getenv("API_URL", "http://127.0.0.1:8000")
+        res = requests.post(f"{api_url}/api/auto-runner/toggle", json={"enabled": True, "capital_per_trade": 100.0}, timeout=5)
+        if res.status_code == 200:
+            await update.message.reply_text("🟢 *ATEŞ SERBEST (ARMED)*\n\nKomutanım, kalkanlar indirildi. Otonom motor Yüce Divan'a bağlandı ve alım işlemlerine (Auto-Runner) tam yetkiyle başladı.", parse_mode="Markdown")
+        else:
+            await update.message.reply_text(f"⚠️ Motor Başlatılamadı! API Hatası: {res.status_code}")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Motor API Bağlantı Hatası: {e}\n(Yine de JSON flag True yapıldı).")
 
 async def cmd_disarm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if str(update.effective_user.id) != ALLOWED_CHAT_ID: return
     set_armed(False)
-    await update.message.reply_text("🔴 *SİLAHLARI BIRAK (DISARMED)*\n\nKomutanım, kalkanlar kaldırıldı. İkinci bir emre kadar Otonom sistem hiçbir yeni işleme girmeyecek!", parse_mode="Markdown")
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action='typing')
+    try:
+        import requests
+        api_url = os.getenv("API_URL", "http://127.0.0.1:8000")
+        res = requests.post(f"{api_url}/api/auto-runner/toggle", json={"enabled": False, "capital_per_trade": 100.0}, timeout=5)
+        if res.status_code == 200:
+            await update.message.reply_text("🔴 *SİLAHLARI BIRAK (DISARMED)*\n\nKomutanım, kalkanlar kaldırıldı. İkinci bir emre kadar Otonom sistem (Auto-Runner) hiçbir yeni işleme girmeyecek!", parse_mode="Markdown")
+        else:
+            await update.message.reply_text(f"⚠️ Motor Durdurulamadı! API Hatası: {res.status_code}")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Motor API Bağlantı Hatası: {e}\n(Yine de JSON flag False yapıldı).")
 
 async def cmd_shadow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if str(update.effective_user.id) != ALLOWED_CHAT_ID: return
@@ -679,6 +748,58 @@ async def cmd_risk(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     response = await ask_gemini(prompt)
     await update.message.reply_text(f"🛡️ *RİSK ANALİSTİ ({symbol})*\n\n{response}", parse_mode="Markdown")
 
+async def cmd_panic(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if str(update.effective_user.id) != ALLOWED_CHAT_ID: return
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action='typing')
+    try:
+        import requests
+        api_url = os.getenv("API_URL", "http://127.0.0.1:8000")
+        res = requests.post(f"{api_url}/api/positions/close_all", timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            await update.message.reply_text(f"🚨 *PANİK BUTONU AKTİF*\n\nKomutanım, nükleer çekilme başarıyla uygulandı! {data.get('message')}", parse_mode="Markdown")
+        else:
+            await update.message.reply_text(f"⚠️ Hata: API yanıt vermedi. Kod: {res.status_code}")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Bağlantı Hatası: {e}")
+
+async def cmd_lock_profits(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if str(update.effective_user.id) != ALLOWED_CHAT_ID: return
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action='typing')
+    try:
+        import requests
+        api_url = os.getenv("API_URL", "http://127.0.0.1:8000")
+        res = requests.post(f"{api_url}/api/positions/lock_profits", timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            await update.message.reply_text(f"🔐 *KÂRLAR KİLİTLENDİ*\n\n{data.get('message')}", parse_mode="Markdown")
+        else:
+            await update.message.reply_text(f"⚠️ Hata: API yanıt vermedi. Kod: {res.status_code}")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Bağlantı Hatası: {e}")
+
+async def cmd_close(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if str(update.effective_user.id) != ALLOWED_CHAT_ID: return
+    if not context.args:
+        await update.message.reply_text("⚠️ Kullanım: `/close BTCUSDT` veya `/close POS-BTCUSDT`", parse_mode="Markdown")
+        return
+    symbol = context.args[0].upper()
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action='typing')
+    try:
+        import requests
+        api_url = os.getenv("API_URL", "http://127.0.0.1:8000")
+        res = requests.post(f"{api_url}/api/positions/close/{symbol}", timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            await update.message.reply_text(f"❌ *MANUEL KAPATMA ONAYLANDI*\n\n{symbol} hedefi piyasa fiyatından başarıyla kapatıldı.", parse_mode="Markdown")
+        elif res.status_code == 404:
+            await update.message.reply_text(f"⚠️ Pozisyon bulunamadı: {symbol}")
+        else:
+            await update.message.reply_text(f"⚠️ Hata: API yanıt vermedi. Kod: {res.status_code}")
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Bağlantı Hatası: {e}")
+
+
 async def handle_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if str(update.effective_user.id) != ALLOWED_CHAT_ID: return
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action='typing')
@@ -719,6 +840,17 @@ async def handle_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                         system_data += f"[VARLIK] {c.get('symbol')} - Skor: {c.get('score')} | Risk Modu: {c.get('regime_mode', '')}\n"
             else:
                 system_data += "\nRadar verisine anlık ulaşılamıyor, yeni fırsat değerlendirmesi yapılamaz.\n"
+
+            # KILCAL DAMAR - SİNİR SİSTEMİ BİLGİSİ (Thought Stream)
+            res_thought = requests.get(f"{api_url}/api/analytics/thought-stream", timeout=5)
+            if res_thought.status_code == 200:
+                thoughts = res_thought.json().get("thoughts", [])
+                system_data += "\n--- SİNİR SİSTEMİ: OTONOM DÖNGÜNÜN SON DÜŞÜNCELERİ ---\n"
+                if not thoughts:
+                    system_data += "Otonom motor şu an sessiz, pusu modunda.\n"
+                else:
+                    for t in thoughts[:5]:
+                        system_data += f"[{t.get('category')}] {t.get('symbol', 'GENEL')} -> {t.get('message')}\n"
 
         except Exception as e:
             system_data = f"Veri çekme hatası: {e}"
@@ -761,7 +893,9 @@ async def handle_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         - ARM: Kalkanları indir, ateşe başla, trade'i aç.
         - SHADOW: Sadece test/kağıt üzerinde işlem (paper trade) moduna geç.
         - RETREAT: Tüm her şeyi sat, nakite dön, acil çıkış, panik satış.
-        - CHAT: Eğer yukarıdaki özel rollerden birine açıkça uymuyorsa (Örneğin: Fırsat nedir, aktif pozisyon var mı, naber, ne düşünüyorsun vs).
+        - HUNTER: Dinamik 'Avcı Modu'. Komutan 'sadece şu varlıkları tara/izle/radar al' diyorsa (Örn: 'Sadece NVDA izle').
+        - DEEP_DIVE: Detaylı varlık otopsisi, derinlemesine analiz, otonom motorun kalbine inme (Örn: 'NVDA için otonom motor ne düşünüyor?').
+        - CHAT: Eğer yukarıdaki özel rollerden birine açıkça uymuyorsa (Örneğin: Fırsat nedir, neden bekliyorsun, ne düşünüyorsun vs).
         
         Örnek 1: 'NVDA için boğa senaryosu çiz' -> BULL|NVDA
         Örnek 2: 'SOL risk analizi yap' -> RISK|SOLUSDT
@@ -769,6 +903,7 @@ async def handle_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         Örnek 4: 'Sistemi kapat' -> DISARM|NONE
         Örnek 5: 'BTC yi denetle' -> AUDIT|BTCUSDT
         Örnek 6: 'SOL batacak mı analiz et' -> BEAR|SOLUSDT
+        Örnek 7: 'TSLA için otonom motor ne düşünüyor' -> DEEP_DIVE|TSLA
         
         Şimdi sadece hedeflenen formatta tek satır cevap ver:
         """
@@ -792,9 +927,37 @@ async def handle_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             context.user_data['awaiting_retreat_confirm'] = True
             await msg.edit_text("⚠️ *KRİTİK UYARI: TAKTİKSEL ÇEKİLME EMRİ*\n\nKomutanım, YZ niyetinizi 'Tüm Pozisyonları Sat ve Piyasadan Çekil' olarak algıladı.\n\nBu işlem **İÇERİDEKİ TÜM AÇIK POZİSYONLARI KÂR/ZARAR FARK ETMEKSİZİN ANINDA SATACAKTIR.**\n\nEmin misiniz? Onaylıyorsanız lütfen *'EVET'* veya *'ONAY'* yazın.", parse_mode="Markdown")
             return
+        elif intent_up == "CHAT|API_ERROR" or "API_ERROR" in intent_up:
+            await msg.edit_text("🚨 *ZİHİN ÇEKİRDEĞİ (API) BAĞLANTISI KOPTU*\n\nKomutanım! Bulut sunucumuz ile Google (Gemini) karargahı arasındaki internet ağı tamamen koptu. Bu durum botun kodlarıyla değil, anlık **Google Sunucu Çökmesi** veya **VPS Ağ Kesintisiyle** ilgilidir. Bağlantı gelene kadar sistem kör uçuşundadır.", parse_mode="Markdown")
+            return
         elif "SHADOW" in intent_up:
             set_armed("SHADOW")
             await msg.edit_text("👻 *GÖLGE MODU AKTİF (SHADOW MODE)*\n\nKomutanım, sistem Gölge Moduna alındı. Radar tarama yapmaya devam edecek ancak bulunan fırsatlar borsaya gönderilmeyecek, sadece hafızada (Paper Trade) test edilecek.", parse_mode="Markdown")
+            return
+        elif "HUNTER" in intent_up:
+            target = symbol if symbol else "GENEL"
+            import json
+            try:
+                with open("data/hunter_targets.json", "w") as f:
+                    json.dump({"targets": target.split(",")}, f)
+                await msg.edit_text(f"🦅 *AVCI MODU AKTİF*\n\nKomutanım, Otonom motorun dinleme/tarama radarı daraltıldı. Şu andan itibaren Gölge Motor sadece *{target}* üzerinde fırsat arayacak. (Diğer varlıklar geçici olarak göz ardı edilecek).", parse_mode="Markdown")
+            except Exception as e:
+                await msg.edit_text(f"⚠️ Avcı Modu Hatası: {e}")
+            return
+        elif "DEEP_DIVE" in intent_up:
+            target = symbol if symbol else "GENEL"
+            await msg.edit_text(f"🔬 *DEEP-DIVE OTOPSİ AJANI TETİKLENDİ* ({target})\n\nOtonom motorun kalbine iniliyor, Gölge Önbellek (Shadow Cache) taranıyor...", parse_mode="Markdown")
+            try:
+                res_cache = requests.get(f"{api_url}/api/engine/shadow-cache", timeout=5)
+                shadow_data = res_cache.json().get("shadow_cache", {}).get(target, {})
+                if not shadow_data:
+                    await msg.edit_text(f"⚠️ *DEEP-DIVE SONUCU:* Otonom motorun beyninde {target} için aktif bir analiz/veri bulunamadı. (Borsa kapalı olabilir veya henüz taranmamış olabilir).", parse_mode="Markdown")
+                    return
+                deep_prompt = f"Komutan {target} için acımasız bir DEEP-DIVE otopsi istiyor. Sistemden çekilen ham Gölge (Shadow) Verisi:\n{json.dumps(shadow_data, indent=2)}\nBu verileri bir kurmay subay gibi incele. Otonom motor sence bu varlığa GİRER Mİ GİRMEZ Mİ? Zayıflık nerede? Kısa, sert ve net cevap ver."
+                deep_resp = await ask_gemini(deep_prompt)
+                await msg.edit_text(f"🔬 *[DEEP-DIVE OTOPSİ: {target}]*\n\n{deep_resp}", parse_mode="Markdown")
+            except Exception as e:
+                await msg.edit_text(f"⚠️ Hata: {e}")
             return
         elif "DISARM" in intent_up:
             set_armed(False)
@@ -852,10 +1015,14 @@ async def handle_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         {system_data}
         
         Sen Yüce Divan'ın Genel Karargah Yöneticisisin. SADECE eldeki bu gerçek sistem verisini kullanarak Komutanın talebine cevap ver:
-        1) 'Komutan TIA (veya başka bir varlık) ne durumda?' diye sorarsa: Yukarıdaki [AKTİF AÇIK POZİSYONLAR] listesine bak. Eğer listede YOKSA, dürüstçe 'Sistemde şu an {user_text} için hiçbir aktif açık pozisyon bulunmuyor' de. Varsa durumunu kâr/zararıyla söyle.
+        1) Komutan sana 'TIA', 'BTC', 'NVDA' gibi spesifik bir varlık sorarsa veya analiz isterse; BtcTürk veya Midas üzerinden MANUEL ALIM yapacağını varsayacaksın. Asla oyalayıcı teori, eklenti veya mazeret sunma. O varlığın türüne (volatilitesine) uygun olacak şekilde şu 3 koordinatı NET RAKAMLA ver:
+           - 🟢 GİRİŞ NOKTASI (Tahmini Alım)
+           - 🔴 DİNAMİK STOP-LOSS (Balina silkelemesine dayanıklı net zarar-kes rakamı)
+           - 🎯 TAKE-PROFIT (Kar Al) 
         2) 'Fırsatlar neler?' diye sorarsa: Yukarıdaki [GÜNCEL RADAR FIRSATLARI] bölümündeki veriyi kullanıp en iyi 3 adayı özetle. Eğer listede fırsat yoksa 'Şu an piyasada radara takılan fırsat yok' de.
         3) Kafandan uydurma coinler (HYPERFDUSD vb.) asla önerme, sadece listede olanları söyle.
-        Mükemmel, hayal ürünü olmayan, %100 sistem verisine dayalı net bir askeri rapor ver.
+        
+        Mükemmel, hayal ürünü olmayan, %100 net ve kazandıracak bir askeri rapor ver. Asla mazeret üretme.
         """
         
         final_report = await ask_gemini(council_prompt)
@@ -882,12 +1049,15 @@ AUTH_PASSWORD = "Jeliada.1907"
 AUTH_TIMEOUT_SEC = 12 * 3600 # 12 Saat
 
 async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Mesajın botun sahibinden gelip gelmediğini kontrol et
-    if not update.effective_user or str(update.effective_user.id) != ALLOWED_CHAT_ID:
-        raise ApplicationHandlerStop()
-
+    user_id = str(update.effective_user.id)
+    
+    # 1. BAŞKOMUTAN (Admin) KONTROLÜ - Şifre Sorulmaz
+    if user_id == ALLOWED_CHAT_ID:
+        return # Direkt geçiş izni
+        
+    # 2. DIŞARIDAN GELEN KULLANICILAR İÇİN ŞİFRE KONTROLÜ
     if not update.message:
-        return # Sadece direkt mesajları şifreye tabi tutalım (callback vs es geç)
+        return 
 
     current_time = time.time()
     last_activity = context.user_data.get('last_activity', 0)
@@ -897,7 +1067,7 @@ async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_auth and (current_time - last_activity > AUTH_TIMEOUT_SEC):
         is_auth = False
         context.user_data['is_authenticated'] = False
-        await update.message.reply_text("🔒 *GÜVENLİK KİLİDİ AKTİF*\n\nKomutanım, 12 saattir işlem yapılmadığı için Karargah otomatik olarak mühürlendi. Lütfen erişim parolasını giriniz.", parse_mode="Markdown")
+        await update.message.reply_text("🔒 *GÜVENLİK KİLİDİ AKTİF*\n\n12 saattir işlem yapılmadığı için erişiminiz durduruldu. Lütfen parolayı giriniz.", parse_mode="Markdown")
         raise ApplicationHandlerStop()
 
     if not is_auth:
@@ -905,7 +1075,7 @@ async def auth_middleware(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_text == AUTH_PASSWORD:
             context.user_data['is_authenticated'] = True
             context.user_data['last_activity'] = current_time
-            await update.message.reply_text("🔓 *KARARGAH ERİŞİMİ ONAYLANDI*\n\nHoş geldiniz Komutanım. Şifreleme doğrulandı, sistem 12 saat boyunca açık kalacaktır. Emirlerinizi bekliyorum.", parse_mode="Markdown")
+            await update.message.reply_text("🔓 *KARARGAH ERİŞİMİ ONAYLANDI*\n\nŞifreleme doğrulandı, sistem 12 saat boyunca açık kalacaktır.", parse_mode="Markdown")
             raise ApplicationHandlerStop()
         else:
             await update.message.reply_text("🔒 *KARARGAH MÜHÜRLÜ*\n\nLütfen yetki parolasını giriniz.", parse_mode="Markdown")
@@ -945,6 +1115,9 @@ def main() -> None:
     application.add_handler(CommandHandler("disarm", cmd_disarm))
     application.add_handler(CommandHandler("shadow", cmd_shadow))
     application.add_handler(CommandHandler("retreat", cmd_retreat))
+    application.add_handler(CommandHandler("panic", cmd_panic))
+    application.add_handler(CommandHandler("lock_profits", cmd_lock_profits))
+    application.add_handler(CommandHandler("close", cmd_close))
     application.add_handler(CommandHandler("macro", cmd_macro))
     application.add_handler(CommandHandler("pnl", cmd_pnl))
     application.add_handler(CommandHandler("health", cmd_health))

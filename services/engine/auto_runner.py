@@ -48,7 +48,28 @@ class TradingViewAutoStrategyRunner:
         self.SYMBOL_COOLDOWN_SECONDS: float = 120.0  # 300s→120s (daha sık tarar)
         self._closed_trades_since_last_advisor: int = 0
         self._profit_advisor_interval: int = 10
-        self.virtual_paper_trades: Dict[str, dict] = {}
+        self._load_virtual_trades()
+
+    def _load_virtual_trades(self):
+        import os, json
+        self.v_path = "data/virtual_paper_trades.json"
+        if os.path.exists(self.v_path):
+            try:
+                with open(self.v_path, 'r', encoding='utf-8') as f:
+                    self.virtual_paper_trades = json.load(f)
+            except:
+                self.virtual_paper_trades = {}
+        else:
+            self.virtual_paper_trades = {}
+
+    def _save_virtual_trades(self):
+        import json, os
+        os.makedirs("data", exist_ok=True)
+        try:
+            with open(self.v_path, 'w', encoding='utf-8') as f:
+                json.dump(self.virtual_paper_trades, f, indent=4)
+        except Exception as e:
+            pass
 
     async def start_continuous_background_loop(self):
         """
@@ -131,7 +152,7 @@ class TradingViewAutoStrategyRunner:
 
         market_data_raw_unfiltered = await asyncio.to_thread(tradingview_live_client.fetch_live_market_data)
         
-        # === OTC & JUNK STOCK FILTER (Kullanıcı Koruması) ===
+        # === OTC & JUNK STOCK FILTER + HUNTER MODE (Kullanıcı Koruması) ===
         # TradingView'dan gelen anlamsız (Alpaca'da olmayan) OTC hisselerini engeller.
         from services.data_ingestion.asset_universe_manager import AssetUniverseManager
         universe = AssetUniverseManager()
@@ -141,9 +162,56 @@ class TradingViewAutoStrategyRunner:
             [s.split(":")[-1] for s in universe.master_bist_universe]
         )
         
+        # 🦅 [AVCI MODU (HUNTER MODE) ENTEGRASYONU]
+        import os, json
+        hunter_targets = []
+        hunter_path = "data/hunter_targets.json"
+        if os.path.exists(hunter_path):
+            try:
+                with open(hunter_path, "r", encoding="utf-8") as f:
+                    hunter_data = json.load(f)
+                hunter_targets = [t.strip().upper() for t in hunter_data.get("targets", []) if t.strip() and t.strip().upper() != "GENEL"]
+            except Exception as e:
+                pass
+        
         market_data_raw = {}
         for sym, data in market_data_raw_unfiltered.items():
             clean_sym = sym.replace("USDT", "USD").split(":")[-1] if "USDT" in sym else sym
+            
+            # Eğer Avcı modu aktifse ve hedef listede değilse, ACIMASIZCA ES GEÇ (Sadece Avlara odaklan)!
+            if hunter_targets and not any(ht in sym.upper() for ht in hunter_targets):
+                # =======================================================
+                # 🚨 ANOMALY-SWEEP (PROAKTİF RADAR VE FIRSAT BİLDİRİMİ)
+                # =======================================================
+                vol_ratio = float(data.get("volume_ratio", 0) or 0)
+                change_pct = float(data.get("change_pct", 0) or 0)
+                cmf = float(data.get("cmf", 0) or 0)
+                
+                # Anomali Şartı: Hacim aşırı patlamış (>4.0x) ve para girişi var (CMF > 0.1) ve yükselişte (>%1.5)
+                if vol_ratio > 4.0 and cmf > 0.1 and change_pct > 1.5:
+                    if not hasattr(self, "anomaly_cooldowns"):
+                        self.anomaly_cooldowns = {}
+                    
+                    now_ts = int(time.time())
+                    last_alert_ts = self.anomaly_cooldowns.get(sym, 0)
+                    if (now_ts - last_alert_ts) > 3600: # 1 Saat Cooldown (Kullanıcıyı darlamasın)
+                        self.anomaly_cooldowns[sym] = now_ts
+                        bot_thought_stream.add_throttled("⚡ ANOMALİ (Proaktif)", sym, f"[{sym}] Hunter listesinde yok ama devasa bir para girişi (Hacim: {vol_ratio}x, CMF: {cmf}) tespit ettim. Komutana iletildi.", "WARNING", cooldown_sec=3600)
+                        
+                        tg_token = os.getenv("TELEGRAM_BOT_TOKEN")
+                        tg_chat = os.getenv("TELEGRAM_CHAT_ID")
+                        if tg_token and tg_chat:
+                            msg_text = f"⚠️ *RADAR ANOMALİSİ (PROAKTİF SWEEP)*\n\nKomutanım, *{sym}* tahtasında olağanüstü bir hareket tespit ettim.\n\n📊 *Hacim:* {vol_ratio}x\n💸 *Para Girişi (CMF):* {cmf}\n📈 *Değişim:* %{change_pct}\n\nBu varlık Hunter (Avcı) listenizde yok. Ancak otonom motor girmeyi şiddetle tavsiye ediyor. Radara almak için 'Avcı moduna geç, {sym} tara' yazabilirsiniz."
+                            url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
+                            payload = {"chat_id": tg_chat, "text": msg_text, "parse_mode": "Markdown"}
+                            try:
+                                import requests, asyncio
+                                asyncio.create_task(asyncio.to_thread(requests.post, url, json=payload, timeout=3))
+                            except Exception as e:
+                                logger.error(f"Anomaly Telegram Send Error: {e}")
+                
+                continue
+                
             # Kripto son eklerini ve BIST/NASDAQ kontrolünü esnek yap
             if any(valid in sym for valid in valid_symbols) or "USD" in sym:
                 market_data_raw[sym] = data
@@ -153,31 +221,73 @@ class TradingViewAutoStrategyRunner:
 
         executed_triggers = []
 
-        # === ERKEBİŞİM YARIŞI (SNIPER RACE KEY) — KOMİTE REVİZYONU ===
-        # HATA TESPİTİ: Eski race key yüksek RSI'ı önce alıyordu = FOMO sıralaması!
-        # YENİ: Erken Giriş felsefesi. RSI 40-55 = ideal avcı bölgesi = kuyruğun BAŞI.
-        # RSI 55-68 = orta, RSI > 68 = sona atılır. Hacim tiebreaker olarak kalır.
+        # === 1. HAFIZA HAVUZU (Rolling History Buffer) ===
+        if not hasattr(self, "_mtf_trend_memory"):
+            self._mtf_trend_memory = {}
+            
+        current_ts = int(time.time())
+        
+        for sym, d in market_data_raw.items():
+            if sym not in self._mtf_trend_memory:
+                self._mtf_trend_memory[sym] = []
+            
+            self._mtf_trend_memory[sym].append({
+                "ts": current_ts,
+                "rsi": float(d.get("rsi", 0.0) or 0.0),
+                "vol": float(d.get("volume_ratio", 0.0) or 0.0),
+                "chg": float(d.get("change_pct", 0.0) or 0.0)
+            })
+            
+            # Hafızadaki 2 saatten (7200sn) eski verileri temizle
+            self._mtf_trend_memory[sym] = [x for x in self._mtf_trend_memory[sym] if current_ts - x["ts"] <= 7200]
+
+        def _get_avg(sym, minutes):
+            history = self._mtf_trend_memory.get(sym, [])
+            cutoff_ts = current_ts - (minutes * 60)
+            valid_items = [x for x in history if x["ts"] >= cutoff_ts]
+            if not valid_items:
+                return 0.0, 0.0, 0.0
+            rsi_avg = sum(x["rsi"] for x in valid_items) / len(valid_items)
+            vol_avg = sum(x["vol"] for x in valid_items) / len(valid_items)
+            chg_avg = sum(x["chg"] for x in valid_items) / len(valid_items)
+            return rsi_avg, vol_avg, chg_avg
+
+        # === 2. ERKEBİŞİM YARIŞI (SNIPER RACE KEY) — MTF YUMUŞATMA ===
         def _rsi_race_key(item):
             sym, d = item
+            
             rsi_val  = float(d.get("rsi", 0.0) or 0.0)
             vol_val  = float(d.get("volume_ratio", 0.0) or 0.0)
             chg_val  = float(d.get("change_pct", 0.0) or 0.0)
-            # RSI 40-55 ideal bölgesi için ters çevirme: 100 - rsi_val ile uzaklığı ölç
-            # RSI 50 => uzaklık = 5 (50'ye en yakın en yüksek puan alır)
-            rsi_early_score = 10.0 - abs(rsi_val - 50.0) * 0.3
-            # Birleşik yarış skoru: Erken RSI önce, hacim tiebreaker
-            return rsi_early_score + vol_val * 5.0 + chg_val * 1.0
+            
+            rsi_15, vol_15, chg_15 = _get_avg(sym, 15)
+            rsi_60, vol_60, chg_60 = _get_avg(sym, 60)
+            
+            def _score_rsi(r): return 10.0 - abs(r - 50.0) * 0.3
+                
+            # Kripto-Sniper MTF: %40 Anlık Hız, %45 15dk Trend Onayı, %15 60dk Makro Yön
+            final_rsi_score = (_score_rsi(rsi_val) * 0.40) + (_score_rsi(rsi_15) * 0.45) + (_score_rsi(rsi_60) * 0.15)
+            final_vol_score = (vol_val * 0.40) + (vol_15 * 0.45) + (vol_60 * 0.15)
+            final_chg_score = (chg_val * 0.40) + (chg_15 * 0.45) + (chg_60 * 0.15)
+            
+            # YALANCI KIRILIM CEZASI (Fakeout Penalty)
+            penalty = 0.0
+            if vol_val > 2.5 and vol_15 < 1.0:
+                penalty -= 15.0 # Aniden patlayan balon hacime ağır ceza!
+                
+            return final_rsi_score + (final_vol_score * 5.0) + (final_chg_score * 1.0) + penalty
 
         market_data = dict(sorted(market_data_raw.items(), key=_rsi_race_key, reverse=True))
 
-        # Top-5 RSI yarışçısını logla (her döngüde)
-        top5_race = [(s, round(float(d.get('rsi', 0) or 0), 1),
-                      round(float(d.get('volume_ratio', 0) or 0), 2),
-                      round(float(d.get('change_pct', 0) or 0), 2))
-                     for s, d in list(market_data.items())[:5]]
+        # Top-5 RSI yarışçısını logla (Sabitlenmiş Avlar)
+        top5_race = []
+        for s, d in list(market_data.items())[:5]:
+            rsi_15, vol_15, _ = _get_avg(s, 15)
+            top5_race.append((s, round(float(d.get('rsi', 0) or 0), 1), round(rsi_15, 1), round(float(d.get('volume_ratio', 0) or 0), 2), round(vol_15, 2)))
+            
         if top5_race:
-            race_str = " | ".join([f"{s}(RSI={r} VOL={v} CHG={c}%)" for s, r, v, c in top5_race])
-            logger.info(f"[RSI YARISI] Oncelik sirasi: {race_str}")
+            race_str = " | ".join([f"{s}(RSI:{r}/{r15} VOL:{v}x/{v15}x)" for s, r, r15, v, v15 in top5_race])
+            logger.info(f"[MTF YARIŞI] Sabitlenmiş Av Fırsatları: {race_str}")
 
         # === VIRTUAL PAPER TRADES EVALUATION (Ben Demiştim / Özgüven) ===
         completed_virtuals = []
@@ -237,6 +347,8 @@ class TradingViewAutoStrategyRunner:
         for v_sym in completed_virtuals:
             if v_sym in self.virtual_paper_trades:
                 del self.virtual_paper_trades[v_sym]
+        if completed_virtuals:
+            self._save_virtual_trades()
 
         self._current_best_candidate = {"sym": None, "score": -999, "rsi": 0, "vol": 0, "cmf": 0, "price": 0, "block_reason": ""}
 
@@ -252,7 +364,7 @@ class TradingViewAutoStrategyRunner:
             # and suffer massive spread slippage. Auto-runner MUST ignore them.
             toxic_keywords = ["PAXG", "USDTUSD", "USDC", "TUSD", "BUSD", "DAI", "FDUSD", "XAUT", "EURUSD", "GBPUSD", "HYPER", "DOWN", "UP", "BEAR", "BULL"]
             s_up = sym.upper()
-            if any(toxic in s_up for toxic in toxic_keywords) or (_mtype_local == "CRYPTO" and not s_up.endswith("USDT")):
+            if any(toxic in s_up for toxic in toxic_keywords):
                 logger.debug(f"[TOXIC ASSET GUARD] {sym} is blacklisted (stablecoin/fiat/gold/toxic). Atlanıyor.")
                 continue
 
@@ -897,28 +1009,35 @@ class TradingViewAutoStrategyRunner:
                 pass
 
             # =========================================================
-            # TIER-1 RISK & KASA OPTİMİZASYONU (KELLY CRITERION LAYER)
+            # DİNAMİK KUANT SENTEZLEYİCİ (VEKTÖREL HACİM & X-RAY MOMENTUMU)
             # =========================================================
-            # Sistem geçmiş performansa göre (Win Rate & Risk/Reward) ne kadar 
-            # agresif/defansif olması gerektiğini belirler. Bunu puan yarışına entegre ediyoruz.
+            # Sabit eşikleri kaldırıp, Hacim (Büyüklük) ile X-Ray'i (Yön) vektörel olarak çarpıyoruz.
+            # Böylece her iki metrik birbirini dinamik ve oransal olarak etkiler.
             try:
-                kelly_mult = kelly_engine.calculate_multiplier(live_trade_manager.trade_history)
-                # Kelly 1.0 normaldir. 1.0 altı defansif (zarar serisi), üstü agresiftir (kazanç serisi).
-                # Score üzerindeki oransal etki: (Kelly - 1.0) * 3.0
-                # 3X ŞARJÖR AKTİF: ML skoru > %85 ise Kelly Kriterini agresif ez!
-                if _mtype_local == "CRYPTO" and ml_prob >= 0.85:
-                    kelly_mult = 3.0
-                    logger.info(f"🔫 [3X ŞARJÖR AKTİF] {sym} için ML Kazanma İhtimali olağanüstü yüksek (>%85). Kelly Çarpanı 3'e katlandı!")
-
-                kelly_impact = (kelly_mult - 1.0) * 3.0
-                score += kelly_impact
-                
-                if kelly_impact != 0:
-                    logger.info(f"⚖️ [KELLY RISK ANALYST] Genel Kelly Çarpanı: {kelly_mult:.2f} -> Güven Skoruna Etkisi: {kelly_impact:+.1f} Puan")
+                xray_val = data.get("xray_ratio")
+                if xray_val is not None:
+                    # YÖN: 1.0 nötrdür. XR 1.5 ise +0.5 Alıcı gücü. XR 0.5 ise -0.5 Satıcı gücü.
+                    xr_direction = xray_val - 1.0
                     
-                if kelly_mult <= 0.3:
-                    bot_thought_stream.add_throttled("⚖️ Defans Modu", sym, "Kelly Kriteri çok düşük. Kasa koruma amacıyla puanlar baskılanıyor.", "WARNING", cooldown_sec=180)
-            except Exception as kelly_err:
+                    # BÜYÜKLÜK: Hacim ne kadar büyükse, yönün etkisi o kadar şiddetlenir.
+                    magnitude = vol_ratio
+                    
+                    # VEKTÖREL ETKİ: (XR Yönü) * Hacim * 15.0 (Katsayı)
+                    vector_impact = xr_direction * magnitude * 15.0
+                        
+                    # Skora Dinamik Etkiyi Ekle
+                    score += vector_impact
+                    
+                    if vector_impact <= -15.0:
+                        logger.warning(f"🚨 [VECTOR DEATH TRAP] {sym} Hacimli SATIŞ! (XR: {xray_val}, Vol: {vol_ratio}x). Vektör Penaltısı: {vector_impact:.1f} Puan!")
+                        bot_thought_stream.add_throttled("🚨 Ölümcül Hacimli Satış", sym, f"Vektörel analiz devrede: Fiyat yeşil olsa da hacmin ezici çoğunluğu satıcılarda (XR: {xray_val}). {vector_impact:.1f} Puan ceza ile tuzak imha edildi!", "ERROR", cooldown_sec=120)
+                    elif vector_impact >= 15.0:
+                        logger.info(f"💎 [VECTOR COMPOUND] {sym} MUAZZAM ALIM! (XR: {xray_val}, Vol: {vol_ratio}x). Vektör Bonusu: +{vector_impact:.1f} Puan!")
+                        bot_thought_stream.add_throttled("💎 Vektörel Hacim Patlaması", sym, f"Gerçek zamanlı Dinamik Kuant Analizi devrede! Hacim ({vol_ratio:.1f}x) ile Kusursuz Alıcı Baskısı (XR: {xray_val}) çarpıldı. Sisteme +{vector_impact:.1f} puan basılarak varlık yarışına roketlendi!", "SUCCESS", cooldown_sec=300)
+                    elif 8.0 <= vector_impact < 15.0 and chg_pct <= 0.5:
+                        logger.info(f"🛡️ [VECTOR DECOUPLING] {sym} Gizli akümülasyon (XR: {xray_val}, Vol: {vol_ratio}x). +{vector_impact:.1f} Puan!")
+                        bot_thought_stream.add_throttled("🛡️ Dinamik Akümülasyon", sym, f"Fiyat baskılı ({chg_pct}%) ancak Vektörel Alıcı Yönü çok güçlü (XR: {xray_val}). Sessizce toplanan mal tespit edildi (+{vector_impact:.1f} Puan).", "SUCCESS", cooldown_sec=300)
+            except Exception as dyn_err:
                 pass
 
             if not is_crypto:
@@ -999,9 +1118,10 @@ class TradingViewAutoStrategyRunner:
                     # Yetersiz hacim mesajı analiz felci yaratmasın, sessizce geç
                     continue
 
-            # En iyi varlığı (yarış liderini) takip et
-            if not hasattr(self, "_current_best_candidate") or score > self._current_best_candidate["score"]:
-                self._current_best_candidate = {"sym": sym, "score": score, "rsi": rsi, "vol": vol_ratio, "cmf": cmf, "price": price}
+            # En iyi varlığı (yarış liderini) takip et (Çöpleri ve Tuzakları Kazıdan Ele)
+            if score >= 5.0:
+                if not hasattr(self, "_current_best_candidate") or score > self._current_best_candidate["score"]:
+                    self._current_best_candidate = {"sym": sym, "score": score, "rsi": rsi, "vol": vol_ratio, "cmf": cmf, "price": price}
 
             if not is_buy_signal:
                 # Gereksiz yakın takip loglarını temizle (Analiz Felci/Spam Önleme)
@@ -1468,22 +1588,33 @@ class TradingViewAutoStrategyRunner:
                 "Şartların biraz daha olgunlaşmasını beklemek en mantıklısı."
             ]
             
+            sc_clamped = max(0.0, min(8.0, sc))
             intro = random.choice(intros_high_score if sc >= 2.0 else intros_low_score)
             outro = random.choice(outros_high_score if sc >= 2.0 else outros_low_score)
-            styled_sym = f"<span style='color:var(--accent-yellow); font-weight:bold;'>{sym}</span>" if sc >= 2.0 else f"<span style='color:var(--text-secondary); font-weight:bold;'>{sym}</span>"
+            styled_sym = f"<b>{sym}</b>"
             
             # Dinamik düşünce metni oluştur
-            thought = f"{intro} {styled_sym} (YZ Skoru: {sc:.1f}/8). Bu varlıkta {reason_str}. {outro}"
+            thought = f"{intro} {styled_sym} (YZ Skoru: {sc_clamped:.1f}/8). Bu varlıkta {reason_str}. {outro}"
             
             if sc >= 2.0:
                 if sym not in self.virtual_paper_trades and sym not in live_trade_manager.positions:
+                    # YZ Skorunu (0 - 35) Yüzdelik Güven Skoruna (0 - 100) Normalize Et (Orantısal Sorun Çözümü)
+                    # Score 12 = ~%34, Score 20 = ~%57, Score 30+ = ~%85+
+                    normalized_conf = min(99.9, max(5.0, (sc / 35.0) * 100.0))
+                    
+                    # Eğer çok nadir olan Kusursuz Fırtına (Score > 25) varsa %85-99 arası göster
+                    if sc >= 25.0:
+                        normalized_conf = min(99.9, 85.0 + ((sc - 25.0) * 1.5))
+                        
                     self.virtual_paper_trades[sym] = {
                         "entry_price": best.get("price", 0.0),
                         "timestamp": now_ts,
                         "score": sc,
+                        "confidence_score": round(normalized_conf, 1),
                         "block_reason": block_r or "teyit beklemesi",
                         "indicators": {"rsi": rsi, "volume_ratio": vol}
                     }
+                    self._save_virtual_trades()
             
             # Sadece sembol değiştiğinde veya 120 sn geçtiğinde logla (Tekrarı önlemek için)
             if getattr(self, "_last_thought_symbol", "") != sym:
@@ -1500,8 +1631,13 @@ class TradingViewAutoStrategyRunner:
             if open_pos_count >= 12:
                 bot_thought_stream.add_throttled("🤖 ASTRA AI (Portföy Dolu)", "SİSTEM", f"Portföy kapasitesi tam dolu ({open_pos_count}). Yeni sinyal aramıyorum, mevcut kârları maksimize etmeye ve yönetmeye odaklandım.", "INFO", cooldown_sec=60)
             else:
-                bot_thought_stream.add_throttled("🤖 ASTRA AI (Pusu Modu)", "SİSTEM", "Şu an piyasada kayda değer bir fırsat veya momentum göremiyorum. Filtrelerimden geçen kaliteli bir kurulum yok, sabırla pusu modunda bekliyorum.", "INFO", cooldown_sec=60)
-                
+                if 'top5_race' in locals() and top5_race:
+                    top3 = [f"{s} (RSI:{r}, Vol:{v}x)" for s, r, r15, v, v15 in top5_race[:3]]
+                    msg = f"Aday listem dinamik olarak güncelleniyor. Şu an Keskin Nişancı radarımda izlediğim Top-3 hedef: {', '.join(top3)}. Makro onay ve hacim teyidi (Breakout) gelir gelmez tetiğe basacağım, şu an pusudayım."
+                    bot_thought_stream.add_throttled("🎯 ASTRA AI (Dinamik Hedef Takibi)", "SİSTEM", msg, "INFO", cooldown_sec=120)
+                else:
+                    bot_thought_stream.add_throttled("🤖 ASTRA AI (Pusu Modu)", "SİSTEM", "Piyasayı tarıyorum. Katı filtrelerimden geçen kusursuz bir kurulum oluşmasını bekliyorum.", "INFO", cooldown_sec=120)
+
         return executed_triggers
 
 tv_auto_runner = TradingViewAutoStrategyRunner()

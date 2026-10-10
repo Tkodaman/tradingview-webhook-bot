@@ -51,6 +51,7 @@ class ActivePosition(BaseModel):
     confidence_score: Optional[float] = None
     entry_indicators: Dict[str, Any] = Field(default_factory=dict)
     source: str = "OTONOM"  # MANUEL veya OTONOM
+    is_paper: bool = False  # Sanal işlem bayrağı
 
 class LiveTradeManager:
     def __init__(self):
@@ -653,7 +654,8 @@ class LiveTradeManager:
             stop_loss_price=stop_loss_price,
             break_even_trigger_price=0,
             opened_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-            status=f"SHADOW_OPEN ({reason})"
+            status=f"SHADOW_OPEN ({reason})",
+            is_paper=True
         )
         self.shadow_positions[pos_id] = pos
         logger.info(f"[SHADOW TRADE] {symbol} sanal olarak işleme alındı. Neden: {reason}")
@@ -790,7 +792,8 @@ class LiveTradeManager:
             status=status,
             confidence_score=confidence_score,
             entry_indicators=entry_indicators or {},
-            source="MANUEL" if is_manual else "OTONOM"
+            source="MANUEL" if is_manual else "OTONOM",
+            is_paper=settings.trading_mode.upper() != "LIVE"
         )
 
         # Broker emri: Kripto (CRYPTO) işlemleri order_router.py TWAP motoru tarafından yönetilir.
@@ -1017,10 +1020,11 @@ class LiveTradeManager:
             logger.error(f"[Stale Orders Check Error] {err}")
 
     def close_position(self, pos_id: str, reason: str = "MANUAL_CLOSE") -> Optional[Dict[str, Any]]:
-        from services.engine.ha_manager import ha_manager
-        if not ha_manager.is_leader and reason != "MANUAL_CLOSE":
-            logger.warning(f"💤 [HA STANDBY] Pozisyon kapatma kararı verildi ({reason}), ancak bu Node LİDER olmadığı için işlem uygulanmıyor.")
-            return None
+        # [KARARGAH DÜZELTMESİ] Tekil VPS sunucusunda High Availability kilit mekanizması TP/SL çıkışlarını engelliyordu. Bypass edildi.
+        # from services.engine.ha_manager import ha_manager
+        # if not ha_manager.is_leader and reason != "MANUAL_CLOSE":
+        #     logger.warning(f"💤 [HA STANDBY] Pozisyon kapatma kararı verildi ({reason}), ancak bu Node LİDER olmadığı için işlem uygulanmıyor.")
+        #     return None
 
         if pos_id not in self.positions:
             return None
@@ -1052,12 +1056,26 @@ class LiveTradeManager:
                     close_res = broker.close_position(pos.symbol)
                     from core.logger import logger
                     if close_res.get("status") == "success":
-                        logger.info(f"[ALPACA SYNC] {pos.symbol} pozisyonu başarıyla kapatıldı (Neden: {reason}).")
-                    else:
-                        logger.warning(f"[ALPACA SYNC WARN] {pos.symbol} kapatılamadı (Zaten kapanmış olabilir): {close_res.get('message')}")
-                        if target_broker_name == "ALPACA" and "closed" in str(close_res.get("message", "")).lower():
-                            logger.info(f"[ALPACA QUEUE] {pos.symbol} Market kapalı. Kapatma emri askıya alındı. Lokal pozisyon korunuyor.")
+                        # Eğer Alpaca, emri sıraya almışsa (Piyasa Kapalıysa), geçmişe taşıma
+                        order_obj = close_res.get("closed_position")
+                        order_status = getattr(order_obj, 'status', None) if order_obj else None
+                        if not order_status and isinstance(order_obj, dict):
+                            order_status = order_obj.get("status")
+                            
+                        if target_broker_name == "ALPACA" and order_status in ["accepted", "new", "pending_new", "queued", "held"]:
+                            logger.info(f"⏳ [ALPACA QUEUE] {pos.symbol} Market kapalı. Kapatma emri askıya alındı (Durum: {order_status}). Geçmişe aktarılmıyor.")
                             pos.status = "PENDING_CLOSE"
+                            pos._is_close_locked = False  # Daha sonra kontrol edilebilmesi için
+                            self.save_state()
+                            return None
+                            
+                        logger.info(f"✅ [ALPACA SYNC] {pos.symbol} pozisyonu başarıyla kapatıldı (Neden: {reason}).")
+                    else:
+                        logger.warning(f"⚠️ [ALPACA SYNC WARN] {pos.symbol} kapatılamadı (Zaten kapanmış olabilir): {close_res.get('message')}")
+                        if target_broker_name == "ALPACA" and "closed" in str(close_res.get("message", "")).lower():
+                            logger.info(f"⏳ [ALPACA QUEUE] {pos.symbol} Market kapalı bildirimi alındı. Lokal pozisyon korunuyor.")
+                            pos.status = "PENDING_CLOSE"
+                            pos._is_close_locked = False
                             self.save_state()
                             return None
                     
@@ -1223,8 +1241,17 @@ class LiveTradeManager:
         
         # === MAKSİMUM GÜNLÜK ZARAR (DAILY DRAWDOWN) KİLL-SWITCH ===
         today = datetime.now(TRT).strftime("%Y-%m-%d")
-        daily_net_pnl = self.daily_stats.get(today, {}).get("net_pnl", 0.0)
+        
         from core.config import settings
+        
+        # KOMUTAN EMRİ (ACİL): Kill-Switch TAMAMEN KALDIRILDI. Otonom bot tam kapasite, kesintisiz çalışacak.
+        return
+        
+        # KOMUTAN EMRİ: PAPER (Sanal) modda Kill-Switch ASLA devreye girmeyecek.
+        if settings.trading_mode == "PAPER":
+            return
+            
+        daily_net_pnl = self.daily_stats.get(today, {}).get("net_pnl", 0.0)
         max_loss_limit = -1.0 * (settings.crypto_paper_budget * 0.05)  # %5 Kasadan Erime
         
         # --- YENİ: DİNAMİK ŞALTER (Regime-based Cooldown) BYPASS LİMİT ESNEMESİ ---
@@ -1257,9 +1284,14 @@ class LiveTradeManager:
                 self.is_macro_standby = True
                 self.macro_standby_reason = "Günlük maksimum zarar (Drawdown) Kill-Switch devrede. Bugün işlem yok."
                 
-                # Tüm kriptoları kapat
+                # Tüm kriptoları kapat (SADECE GERÇEK İŞLEMLERİ)
+                # Komutan Emri: Paper (Sanal) işlemler sonuna kadar gözlemlemek için bypass edilir.
+                from core.config import settings
                 for pid, p in list(self.positions.items()):
                     if p.status == "OPEN" and p.market == "CRYPTO":
+                        if getattr(p, "is_paper", False) or settings.trading_mode == "PAPER":
+                            logger.info(f"🛡️ [GÖLGE/PAPER BYPASS] {p.symbol} işlemi Kill-Switch'ten muaf tutuldu (Paper Mod).")
+                            continue
                         self.close_position(pid, "CLOSED_KILL_SWITCH")
                         
             # --- YENİ: DİP AVCISI TARAMASI (Sadece Kill-Switch Aktifken Çalışır) ---
@@ -1452,11 +1484,17 @@ class LiveTradeManager:
                             logger.error(f"[BRACKET UPDATE ERROR] {e}")
 
                 # 1. AI-GÖLGE İZ SÜRÜM (Başa Baş ve Erken Kâr Koruması)
-                # Piyasa kârdayken işlemin zararla kapanmasını engeller (Risk-Free Shield)
-                # NASDAQ/BIST için %0.8, Kripto için %1.2 kâr görüldüğünde anında başa baş noktasına çeker.
-                early_protect_pct = 1.2 if pos.market == "CRYPTO" else 0.8
+                # YENİ MANTIK: Varlığın gürültüsüne (ATR) göre Dinamik Kalkan. Whipsaw (erken stop) önleyici.
+                atr_pct = (pos.atr_value / pos.entry_price) * 100.0 if getattr(pos, 'atr_value', 0) > 0 and pos.entry_price > 0 else 0.0
                 
-                # Eğer eski sistemdeki break_even_trigger daha yakınsa, onu kullan
+                if atr_pct > 0:
+                    # Gürültünün en az yarısı kadar net trende girmeli (Min %0.4, Maks %2.5 kâr)
+                    early_protect_pct = max(0.4, min(atr_pct * 0.5, 2.5))
+                else:
+                    # ATR yoksa piyasa karakterine göre statik koruma
+                    early_protect_pct = 1.0 if pos.market == "CRYPTO" else 0.6
+                
+                # Hesaplanan dinamik fiyatı tetikleyici olarak kullan
                 trigger_price_by_pct = pos.entry_price * (1 + (early_protect_pct / 100.0))
                 actual_trigger_price = min(pos.break_even_trigger_price, trigger_price_by_pct) if pos.break_even_trigger_price > 0 else trigger_price_by_pct
                 
@@ -1611,7 +1649,18 @@ class LiveTradeManager:
                     except Exception as e:
                         logger.error(f"[BRACKET UPDATE ERROR] {e}")
 
-                if not pos.break_even_activated and curr_price <= pos.break_even_trigger_price:
+                # 1. AI-GÖLGE İZ SÜRÜM SHORT (Başa Baş ve Erken Kâr Koruması)
+                atr_pct = (pos.atr_value / pos.entry_price) * 100.0 if getattr(pos, 'atr_value', 0) > 0 and pos.entry_price > 0 else 0.0
+                
+                if atr_pct > 0:
+                    early_protect_pct = max(0.4, min(atr_pct * 0.5, 2.5))
+                else:
+                    early_protect_pct = 1.0 if pos.market == "CRYPTO" else 0.6
+                
+                trigger_price_by_pct = pos.entry_price * (1 - (early_protect_pct / 100.0))
+                actual_trigger_price = max(pos.break_even_trigger_price, trigger_price_by_pct) if pos.break_even_trigger_price > 0 else trigger_price_by_pct
+                
+                if not pos.break_even_activated and curr_price <= actual_trigger_price:
                     pos.break_even_activated = True
                     if pos.entry_price * 0.998 < pos.stop_loss_price:
                         old_sl = pos.stop_loss_price

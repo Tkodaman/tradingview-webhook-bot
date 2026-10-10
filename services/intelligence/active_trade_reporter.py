@@ -9,7 +9,7 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
 
 async def ask_gemini(prompt: str) -> str:
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel(os.environ.get("GEMINI_MODEL_NAME", "gemini-flash-latest"))
         response = await asyncio.to_thread(model.generate_content, prompt)
         return response.text
     except Exception as e:

@@ -33,11 +33,25 @@ class AIVoiceEngine:
             port_status = f"Açık Pozisyon: {open_positions} (Max Kapasite: 14)"
             is_full = open_positions >= 14
             
-            # Otonom motorun şu anki radarı
-            best_cand = getattr(tv_auto_runner, "_current_best_candidate", {})
-            radar_info = "Şu an net bir fırsat yok, piyasa izleniyor."
-            if best_cand and best_cand.get("sym"):
-                radar_info = f"Radardaki En İyi Hedef: {best_cand['sym']} (Skor: {best_cand['score']:.1f}, RSI: {best_cand['rsi']:.1f}, Neden Giremiyor: {best_cand.get('block_reason', 'Teyit bekleniyor')})"
+            # Otonom motorun şu anki radarı (Piyasadaki en potansiyelli 3 hedefi bul)
+            top_targets = []
+            for sym, d in live_trade_manager.market_prices.items():
+                vol = d.get("hacim_carpani", 0)
+                xr = d.get("x_ray_ratio", 0)
+                cmf = d.get("cmf", 0)
+                change = d.get("24h_change", 0)
+                # En azından hacim veya xr açısından dikkate değer olanları topla
+                if vol > 1.2 or xr > 1.2 or xr < 0.5:
+                    top_targets.append({"sym": sym, "hacim": vol, "xr": xr, "cmf": cmf, "change": change})
+                    
+            # Hacme göre en yüksek ilk 3'ü al
+            top_targets = sorted(top_targets, key=lambda x: x["hacim"], reverse=True)[:3]
+            
+            radar_info = "Piyasada agresif kurumsal hareketlilik tespit edilmedi."
+            if top_targets:
+                radar_info = "CANLI RADAR HEDEFLERİ:\n"
+                for t in top_targets:
+                    radar_info += f"- {t['sym']} -> Hacim: {t['hacim']:.2f}x | XR(Taker): {t['xr']:.2f} | CMF: {t['cmf']:.2f} | Değişim: %{t['change']:.2f}\n"
                 
             # Sanal İzleme Listesi (Özgüven verisi)
             virtuals = getattr(tv_auto_runner, "virtual_paper_trades", {})
@@ -46,48 +60,33 @@ class AIVoiceEngine:
             # Son teknik thought
             last_thought = bot_thought_stream._log[0]["message"] if bot_thought_stream._log else "Yok"
 
-            # Strateji Metodolojisi / En Başarılı Yöntem Çıkarımı
-            from services.engine.trade_journal_learning import trade_journal_engine
-            strategy_stats = {}
-            for t in trade_journal_engine.journal_entries:
-                if t.get("net_pnl", 0) > 0:
-                    for r in t.get("entry_reasons", []):
-                        if "Sıkışma" in r or "RSI 40" in r or "Bomba" in r:
-                            strategy_stats["Squeeze (Sıkışma/Hacim Patlaması)"] = strategy_stats.get("Squeeze (Sıkışma/Hacim Patlaması)", 0) + 1
-                        elif "VWAP" in r:
-                            strategy_stats["VWAP (Kurumsal)"] = strategy_stats.get("VWAP (Kurumsal)", 0) + 1
-                        elif "Golden" in r:
-                            strategy_stats["Golden Cross"] = strategy_stats.get("Golden Cross", 0) + 1
-                        else:
-                            strategy_stats["Momentum/Teknik"] = strategy_stats.get("Momentum/Teknik", 0) + 1
-            
-            best_strategy = "Henüz yeterli veri yok"
-            if strategy_stats:
-                best_strategy = max(strategy_stats, key=strategy_stats.get) + f" ({max(strategy_stats.values())} Başarılı İşlem)"
-
             prompt = f"""
-Sen 'Yüce Divan', Kodaman Studio'nun geliştirdiği, 7/24 piyasaları tarayan elit bir Otonom Karargah'sın (Astra-6'nın evrimleşmiş halisin).
-Görev 1: Alt ajanlarından (Kantitatif Savcı, X-Ray Habercisi, Derinlik Tahta Casusu, Makro Korelasyon Uzmanı) gelen verileri süzerek Admin'e (Komutan'a) o anki kararlarını, zengin ve askeri bir dille raporlamak.
-Görev 2: Admin manuel bir işlem açmaya kalktığında veya bot bir kalkan duvarına çarptığında (Risk durumu), Pop-Up tarzı "⚠️ DİKKAT KOMUTANIM! Emin misin?" koruyucu jargonuna geçmek.
+Sen 'Yüce Divan', Kodaman Studio'nun geliştirdiği, 7/24 piyasaları tarayan elit bir Otonom Karargah'sın.
+Admin senden artık sadece düzyazı değil, satır satır akan, aktif, dinamik ve hiper-teknik bir "VARLIK ANALİZİ BİLDİRİMİ" istiyor.
 
-Daima O ANKİ GERÇEK SİSTEM VERİLERİNİ baz al. Varlık KRİPTO ise Vahşi Batı jargonunu (Likidasyon, Short Squeeze, Funding Rate, Balina Tuzağı), HİSSE SENEDİ ise Wall Street jargonunu (Dark Pool, Bilanço, FED, Max Pain) kullan.
+ŞU ANKİ GERÇEK SİSTEM VERİLERİ:
+{radar_info}
+Portföy: {port_status}
 
-Karakterin ve Felsefen:
-1. Kurmay Zekası: Piyasayı satranç tahtası gibi gör. Alt ajanlarını ("Tahta Casusumuz VETO etti", "Makro Savcımız onay verdi") konuşturarak sentez yap.
-2. Sadakat ve Korumacılık: Admin'in sermayesini korumak için gerekirse ona bile karşı çık.
-3. Zengin İletişim: Emojileri (🕵️‍♂️, 🏢, 🐋, ⚖️, 📉) bol ve yerinde kullan. Kuru bir rapor verme, sürükleyici ol.
+Görev: "thought" alanını kesinlikle aşağıdaki şablonu (Kullanıcının İstediği Şablon) kullanarak dolduracaksın. Eğer radarda 2 varlık varsa ikisini de bu şablonla peş peşe yaz.
 
-ŞU ANKİ GERÇEK SİSTEM VERİLERİ (SADECE bunlarla şekillendir!):
-- Kümülatif Net Kâr: ${pnl:.2f} (Win-Rate: %{win_rate:.1f})
-- Portföy Durumu: {port_status}
-- Radar / Sorgulanan Varlık: {radar_info}
-- Botun Ürettiği Son Teknik Log: "{last_thought}"
-- ML Çıkarımı: {last_insight}
+ÖRNEK ŞABLON (Bunu kendi jargonuyla ve CANLI RADAR HEDEFLERİ verileriyle doldur):
+🎯 1. Hedef: [COİN ADI] (Kusursuz Fırtına / Kanama Başladı vb. Yorum)
+* Hacim: [Değer]x (Yorumun, örn: Muazzam bir patlama, içeride savaş var)
+* XR (Taker): [Değer] (Yorumun, örn: Ekran kıpkırmızı, perakende satışı var veya Balinalar marketten siliyor)
+* CMF (İç Akış): [Değer] (Yorumun, örn: Kurumsal para girişi pozitif)
+* Fiyat Değişimi: %[Değer] (Yorumun, örn: Fiyat inatla düşmüyor)
+Analiz: (Buraya 2-3 cümlelik çok sert, net ve karar bildiren infaz emrin veya veto kararın).
 
-Lütfen tam olarak aşağıdaki JSON formatında bir cevap ver:
+Kurallar: 
+1. Markdown kalitesinde zengin, emojili ve askeri bir dil kullan.
+2. SADECE sana yukarıda verdiğim CANLI RADAR HEDEFLERİ verilerini (Rakamları) kullan. Uydurma!
+3. Şablonun dışına çıkma, satır satır akıcı olsun.
+
+Lütfen tam olarak aşağıdaki JSON formatında cevap ver:
 {{
-    "alarm": "1-2 cümlelik çok çarpıcı, hiper-teknik, ajanların raporuna dayanan pop-up tarzı bir 'UYARI' veya 'ONAY' bildirimi. (Örn: '⚠️ [X-RAY SAVCISI UYARIYOR] Komutanım, DOGE'de devasa long likidasyonu var, hacim yanıltıcı! İşlemi ZORLA açmak istediğine emin misin?')",
-    "thought": "3-5 cümlelik zengin 'Yüce Divan Mahkeme Raporu'. Admin ile doğrudan konuş! Kripto veya Hisse jargonunu (verilen hedefe göre) kusursuz ayarla. Alt ajanlarının (Kantitatif, Tahta Casusu) ne karar verdiğini ve senin nihai Yargı'nı (Zırh Delici Al, Bekle veya Veto) sürükleyici, siber-askeri bir dille anlat."
+    "alarm": "1-2 cümlelik çarpıcı pop-up tarzı UYARI bildirimi.",
+    "thought": "Yukarıdaki şablona harfiyen uyarak yazdığın, canlı radar hedeflerinin hiper-teknik ve satır satır analizini içeren dinamik akış metni."
 }}
 """
             # LLM'i llm_master_agent üzerinden çağırarak proxy çökmelerinin önüne geç (ASTRA-6 BUG FIX)

@@ -100,22 +100,97 @@ async def start_shadow_scanner():
 
             live_data = await asyncio.to_thread(tradingview_live_client.fetch_live_market_data)
 
-            # Acik pozisyon tehlike denetimi
+            # Acik pozisyon tehlike denetimi ve IZ SUREN STOP (Trailing Guard)
             from services.market_feed.live_stream import live_trade_manager
             open_pos_list = [p for p in live_trade_manager.positions.values() if p.status == "OPEN"]
             if open_pos_list:
-                logger.info(f"[YUKSEK KONSEY] {len(open_pos_list)} Aktif Pozisyon denetleniyor...")
+                logger.info(f"[YUKSEK KONSEY - MUHAFIZ BIRLIGI] {len(open_pos_list)} Aktif Pozisyon 7/24 denetleniyor...")
                 for pos in open_pos_list:
                     pos_data = live_data.get(pos.symbol)
                     if pos_data:
+                        current_price = float(pos_data.get("price", pos.current_price))
                         pos_rsi = pos_data.get("rsi", 50)
                         pos_vol = pos_data.get("volume_ratio", 1.0)
+                        
+                        # 1. PIYASA KOKLAYICI (VOLATILITE & ATR) VE DINAMIK MAKAS
+                        try:
+                            atr_pct = float(pos_data.get("atr_pct", 1.5))
+                        except:
+                            atr_pct = 1.5
+                            
+                        makas_esneme_payi = (atr_pct / 100.0) * 1.5 # Volatiliteye gore esneklik (ATR x 1.5)
+                        pos_side = getattr(pos, "side", "BUY").upper()
+                        
+                        if pos_side == "BUY":
+                            if current_price > getattr(pos, "highest_price_seen", 0.0):
+                                pos.highest_price_seen = current_price
+                        else: # SHORT pozisyonlar icin en dusuk fiyat
+                            if current_price < getattr(pos, "lowest_price_seen", float('inf')) or getattr(pos, "lowest_price_seen", 0.0) == 0.0:
+                                pos.lowest_price_seen = current_price
+                        
+                        unrealized_pct = float(getattr(pos, "unrealized_pnl_pct", 0.0) or 0.0)
+                        
+                        # ZIRH GIYME (Trailing Stop Hesaplamasi)
+                        if unrealized_pct >= (atr_pct * 0.8): 
+                            if pos_side == "BUY":
+                                new_sl = pos.highest_price_seen * (1.0 - makas_esneme_payi)
+                                if new_sl > getattr(pos, "stop_loss_price", 0.0):
+                                    pos.stop_loss_price = new_sl
+                                    pos.trailing_stop_activated = True
+                            else: # SHORT ise yukaridan stop cekeriz (dusuk fiyat + makas)
+                                new_sl = pos.lowest_price_seen * (1.0 + makas_esneme_payi)
+                                if getattr(pos, "stop_loss_price", 0.0) == 0.0 or new_sl < pos.stop_loss_price:
+                                    pos.stop_loss_price = new_sl
+                                    pos.trailing_stop_activated = True
+                            
+                            if pos.trailing_stop_activated:
+                                logger.info(f"🛡️ [KUANTUM ZIRH] {pos.symbol} volatilite bazli kalkan ({pos_side}) kilitlendi! Yeni Stop: {new_sl:.4f}")
+
+                        # 2. KOMITE DENETIMI (3 Ajanli Hata / Cakismazlik Kontrolu)
                         tehlike_puani = 0
-                        if pos_vol < 0.6: tehlike_puani += 30
-                        if pos_rsi > 72: tehlike_puani += 40
-                        elif pos_rsi < 35 and float(getattr(pos, "unrealized_pnl", 0)) < 0: tehlike_puani += 40
-                        if tehlike_puani >= 60:
-                            logger.warning(f"[KOMITE ALARMI] {pos.symbol} tehlike puani {tehlike_puani}!")
+                        # Ajan 1: Hacim / Momentum Uyumsuzlugu (Divergence)
+                        if pos_vol < 0.6 and unrealized_pct < -0.5: 
+                            tehlike_puani += 25 # Hacimsiz kanama
+                        elif pos_vol > 2.0 and unrealized_pct < -1.0:
+                            tehlike_puani += 50 # Hacimli panik satisi (Balina bosaltmasi!)
+                            
+                        # Ajan 2: RSI Asiri Isinma & Soguma
+                        if pos_side == "BUY":
+                            if pos_rsi > 85: tehlike_puani += 35 # Zirve yorgunlugu
+                            elif pos_rsi < 30 and unrealized_pct < 0: tehlike_puani += 40
+                        else: # SHORT ise
+                            if pos_rsi < 15: tehlike_puani += 35 
+                            elif pos_rsi > 70 and unrealized_pct < 0: tehlike_puani += 40
+                            
+                        # Ajan 3: Kâr Koruma Reaksiyonu
+                        if pos.trailing_stop_activated:
+                            if pos_side == "BUY" and current_price < pos.highest_price_seen * (1.0 - (makas_esneme_payi * 0.8)):
+                                tehlike_puani += 30 # Zirveden hizli sarkma basladi (Stop'a ramak kala)
+                            elif pos_side == "SELL" and current_price > pos.lowest_price_seen * (1.0 + (makas_esneme_payi * 0.8)):
+                                tehlike_puani += 30
+                                
+                        # Ajan 4: Proaktif (+2 Adım Önden Düşünme) Senaryo Jeneratörü
+                        try:
+                            # Fiyat ivmesini (Velocity) hesaplayarak olası şelale düşüşlerini önden tespit etme olasılığı
+                            zaman_farki_sn = max(1, (int(time.time() * 1000) - getattr(pos, 'entry_time', int(time.time() * 1000))) / 1000)
+                            fiyat_ivmesi = (current_price - getattr(pos, 'entry_price', current_price)) / zaman_farki_sn
+                            if pos_side == "BUY" and fiyat_ivmesi < 0 and unrealized_pct > 0.5:
+                                tehlike_puani += 20
+                                logger.info(f"🔮 [PROAKTIF ONGORU] {pos.symbol} İvme eksiye döndü. Gelecekteki 2. adım şok düşüşü senaryosu için Risk artırıldı (+20).")
+                            elif pos_side == "SELL" and fiyat_ivmesi > 0 and unrealized_pct > 0.5:
+                                tehlike_puani += 20
+                        except Exception:
+                            pass
+                        
+                        if tehlike_puani >= 65:
+                            logger.warning(f"🚨 [KOMITE ACIL ALARM] {pos.symbol} Tehlike: {tehlike_puani}! Risk motoru otonom TAHLIYE baslatiyor.")
+                            # Otonom Tahliye Tetikleyici (Mevcut yapiyi bozmadan kapali isaretle)
+                            pos.status = "CLOSED"
+                            pos.close_price = current_price
+                            pos.close_time = int(time.time() * 1000)
+                        
+                        # Hafizaya (JSON'a) guncellemeyi kaydet
+                        live_trade_manager.save_state()
 
             # Tum sembolleri TEK SEFERDE thread pool'da islet (per-symbol sleep yok)
             def _batch_audit(_watchlist, _market_data):
@@ -219,6 +294,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def startup_event():
     from services.market_feed.live_stream import live_trade_manager
     logger.info("[STARTUP] Başlatılıyor: 7/24 Kesintisiz Otonom Strateji Motoru Arka Planda Aktif Edildi.")
+    
+    # === KOMUTAN EMRİ: TAM OTONOM GÖLGE ZORLAMASI (FORCE ENABLED) ===
+    tv_auto_runner.is_running = True
+    live_trade_manager.auto_trade_enabled = True
+    live_trade_manager.save_auto_trade_flag()
+    logger.info("⚔️ [KARARGÂH EMRİ] Tam Otonom Kripto Avcı Motoru (Gölge Modu) ZORLA AKTİF EDİLDİ!")
+    # ================================================================
     
     from services.engine.ha_manager import ha_manager
     ha_manager.start()

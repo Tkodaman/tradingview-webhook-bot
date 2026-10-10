@@ -145,14 +145,12 @@ async def get_live_buy_sell_wait_matrix():
                         duration_mins = 5
                 except ValueError:
                     duration_mins = 5
-                # Dinamik Vur-Kaç / Zaman Aşımı (Timeout) Süreleri
-                if pos.market == "CRYPTO":
-                    max_duration = 60  # Kripto için 1 saat (Agresif Skalper/Hız Avcısı)
-                else:
-                    max_duration = 120  # NASDAQ/BIST için 2 saat (Yüksek Veri Döngüsü)
-                is_timeout = duration_mins >= max_duration
+                # GÖLGE ARENA DARWINIAN KURALI: Zaman aşımı (Timeout) YOK!
+                # İşlemler kendi doğal seçilimiyle (Ya Stop olur, Ya Hedefe ulaşır) ölene kadar savaşır.
+                # Komutan Emri: "paper modda asla killswitch ile uğraşmayalım".
+                is_timeout = False 
                 
-                if price >= pos.target_profit_price or price <= pos.stop_loss_price or is_timeout:
+                if price >= pos.target_profit_price or price <= pos.stop_loss_price:
                     from services.engine.experience_memory_engine import experience_memory_engine, TradePostMortem
                     is_win = price >= pos.entry_price
                     sim_trade = TradePostMortem(
@@ -228,8 +226,28 @@ async def get_live_buy_sell_wait_matrix():
         
         if 20.0 <= stoch_k_value <= 80.0: score += 1
         if adx_value >= 20.0: score += 1  # Trend yeni başlıyor/güçleniyor
+        
+        # ── XR (X-RAY) & CMF ÇAPRAZ DOĞRULAMASI (BALİNA TUZAKLARI) ──
+        # Taker Satış/Alış ile Kurumsal Para Akışı uyumsuzlukları
+        xray_val = data.get("xray_ratio")
+        if xray_val is not None and xray_val != -1.0:
+            if xray_val <= 0.8:
+                if cmf_value > 0.05 and chg > 0:
+                    score += 6 # ABSORPTION (Mal Toplama): Küçükler satıyor, Balina Emiyor (Çok Güçlü!)
+                else:
+                    score -= 3 # Gerçek Satış Kanamsı
+            elif xray_val >= 1.5:
+                if cmf_value < -0.05 and chg < 0:
+                    score -= 5 # SPOOFING (Sahte Duvar): Küçükler FOMO'da, Balina tepeden çakıyor!
+                else:
+                    score += 3 # Organik Güçlü Alış
+            elif xray_val >= 1.0:
+                score += 1 # Pozitif
+
+        # CMF (İç Para Akışı) Saf Değer Katkısı
         if cmf_value > 0.10: score += 2   # Yüksek Kurumsal Para Girişi
         elif cmf_value < -0.10: score -= 2  # Kurumsal çıkış — ceza
+        
         if chg >= 0.5 and vol_ratio >= 1.2: score += 2  # Momentum Impulse
         
         # 2.5 Nyao Scalper - Wick Rejection Penalty (Üst Fitil Reddi)
@@ -271,6 +289,16 @@ async def get_live_buy_sell_wait_matrix():
             score -= 10 # TOXIC ASSET ENGELİ
         
         open_pos = next((p for p in live_trade_manager.positions.values() if p.symbol.upper() == sym.upper() and p.status == "OPEN"), None)
+        
+        # GERÇEK/PAPER POZİSYON CANLI FİYAT VE PNL GÜNCELLEMESİ (Donma Sorunu Çözümü)
+        if open_pos and price > 0:
+            open_pos.current_price = price
+            open_pos.unrealized_pnl = (price - open_pos.entry_price) * open_pos.quantity
+            open_pos.unrealized_pnl_pct = ((price - open_pos.entry_price) / open_pos.entry_price) * 100
+            
+            # Not: Gerçek piyasa emri Stop-Loss ve TP kontrolleri 'live_stream.py' içindeki
+            # kendi ayrı thread'inde (update_market_data) sürekli yapılıyor.
+            # Ancak arayüzün (Dashboard) donmaması için fiyatı buradan da modele işliyoruz.
         
         # === KAZAN-KAZAN: RİSK KALKANI ENTEGRASYONU (DASHBOARD SKORU İÇİN) ===
         stoch_k = _number(data.get("stoch_k"), 50.0)
@@ -451,6 +479,7 @@ async def get_live_buy_sell_wait_matrix():
             "low": low,
             "rsi": rsi,
             "volume_ratio": vol_ratio,
+            "xray_ratio": data.get("xray_ratio"),
             "adx": adx_value,
             "cmf": cmf_value,                    # ← YENİ: Kurumsal para akışı
             "atr_pct": atr_pct_value,             # ← YENİ: Dinamik TP için ATR
@@ -787,9 +816,10 @@ async def get_live_buy_sell_wait_matrix():
                     current_price=price,
                     quantity=100.0 / price if price > 0 else 0,
                     nominal_value=100.0,
-                    target_profit_price=price * 1.05,
-                    stop_loss_price=price * 0.97,
-                    break_even_trigger_price=price * 1.015,
+                    # DARWINIAN DİNAMİK RİSK (ATR Tabanlı, Volatiliteye göre nefes payı)
+                    target_profit_price=price * (1 + ((m.get("atr_pct", 2.0) * 2.0) / 100.0)),
+                    stop_loss_price=price * (1 - ((m.get("atr_pct", 2.0) * 1.5) / 100.0)),
+                    break_even_trigger_price=price * (1 + ((m.get("atr_pct", 2.0) * 1.0) / 100.0)),
                     opened_at=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
                     confidence_score=ranking_score,
                     entry_indicators={"score": ranking_score, "market_regime": "DİNAMİK YARIŞ SÜZGECİ"}
@@ -832,12 +862,16 @@ async def get_live_buy_sell_wait_matrix():
             # Dinamik Durum Mesajı
             if rev_rsi <= 25 and rev_vol >= 1.5:
                 rev_status = "🚀 MUAZZAM FIRSAT (Dip Görüldü, Alıma Hazır!)"
-            elif rev_rsi <= 30:
+            elif rev_vol >= 1.8:
+                rev_status = "🐋 KURUMSAL EMİLİM (Balina Taker Alışları!)"
+            elif rev_rsi <= 35:
                 rev_status = "⚠️ Yoğun Bakım (Balina Hacmi Bekleniyor)"
+            elif rev_rsi <= 45 and rev_vol >= 1.2:
+                rev_status = "⚡ Hacimli Tepki (Dipten Uyanış)"
             elif rev_rsi <= 45:
                 rev_status = "🩸 Kanama Başladı (Düşüş Derinleşiyor)"
             else:
-                rev_status = "💤 Uykuda (Kan Banyosu Bekleniyor...)"
+                rev_status = "💤 Yatay Konsolidasyon (Kırılım Bekleniyor)"
 
             if reversal_engine.is_active:
                 rev_status = "🔮 Otonom İnfaz Devrede (Kill-Switch Tetiklendi!)"

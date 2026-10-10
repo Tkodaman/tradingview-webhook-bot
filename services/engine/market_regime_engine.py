@@ -272,7 +272,11 @@ class MarketRegimeEngine:
         # Kripto icin dist 2x genislet
         crypto_mult = 2.0 if market.upper() == "CRYPTO" else 1.0
 
-        for threshold, dist in steps:
+        # KUSURSUZ MİMARİ: Eşikleri büyükten küçüğe (Reverse) tara!
+        # Aksi halde küçükten büyüğe tararken %10 kârda bile ilk sıradaki %0 kuralına yakalanıp Trailing'i donduruyordu.
+        sorted_steps = sorted(steps, key=lambda x: x[0], reverse=True)
+
+        for threshold, dist in sorted_steps:
             if pct_gain >= threshold:
                 if dist is None:
                     return None  # Trailing henuz aktif degil

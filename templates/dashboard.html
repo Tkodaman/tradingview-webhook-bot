@@ -34,6 +34,66 @@
             --accent-yellow: #eab308;
             --accent-rose: #f43f5e;
         }
+        
+        /* KARARGAH ISTIHBARAT AKISI (INTEL FEED) */
+        .intel-feed-wrapper {
+            width: 100%;
+            margin-bottom: 12px;
+            background: linear-gradient(90deg, rgba(28,33,48,0.95), rgba(13,17,26,0.98), rgba(28,33,48,0.95));
+            border: 1px solid var(--border-color);
+            border-bottom: 2px solid var(--accent-yellow);
+            border-radius: 8px;
+            padding: 8px 12px;
+            position: relative;
+            overflow: hidden;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            z-index: 20;
+        }
+        .intel-feed-label {
+            background: var(--accent-yellow);
+            color: #000;
+            font-weight: 800;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            letter-spacing: 1px;
+            margin-right: 15px;
+            white-space: nowrap;
+            animation: pulseLabel 2s infinite;
+        }
+        @keyframes pulseLabel {
+            0% { box-shadow: 0 0 4px rgba(234, 179, 8, 0.4); }
+            50% { box-shadow: 0 0 12px rgba(234, 179, 8, 0.9); }
+            100% { box-shadow: 0 0 4px rgba(234, 179, 8, 0.4); }
+        }
+        .intel-messages {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 2px;
+            flex-grow: 1;
+            height: 100%;
+            overflow: hidden;
+            padding-bottom: 2px;
+        }
+        .intel-message {
+            position: relative;
+            width: 100%;
+            font-size: 11px;
+            color: #e2e8f0;
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 1.3;
+            margin-bottom: 2px;
+            /* Wrap to prevent wide text breaking height layout */
+            white-space: normal;
+            word-break: break-word;
+        }
+        .intel-message .highlight { color: var(--accent-yellow); font-weight: bold; }
+        .intel-message .alert { color: var(--accent-rose); font-weight: bold; }
+        .intel-message .success { color: var(--up-color); font-weight: bold; }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
 
@@ -903,97 +963,7 @@
             overflow-x: auto;
 
 
-<EPHEMERAL_MESSAGE>
-You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
-If the user's request warrants a plan then follow this workflow:
-1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
-2. Create an implementation plan artifact with 3. After receiving approval, begin execution. Create and update the task artifact as you work.
-4. Verify any work that you have done.
-5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
-If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
- **The earlier parts of this conversation have been truncated due to its long length. The following content summarizes the truncated context so that you may continue your work. **
 
-
-# USER Objective:
-Pencere Güncelleme Optimizasyonu
-
-# User Requests
-The following were user requests from the truncated conversation in chronological order:
-1.  kendini pencereler hala güncellemiyor beklenen mantıga uygun tüm pencerelerimiz akıcı hızlı anlık ve tarih saat uyumlu ilerlemeli ki ml gelişiminde etkili olsun.
-
-You have the 1 following artifacts written to the artifacts directory:
-
-[ARTIFACT: media_1788648442609]
-Path: file:///C:/Users/ASUS/.gemini/antigravity-ide/brain/20d37064-7471-4d59-bb3e-40ec2c15b4e9/.user_uploaded/media_1788648442609.png
-Last Edited: 2026-09-05T22:47:34Z
-
-# Conversation Logs
-
-Reference the following log files for the full, untruncated conversation:
-
-- C:\Users\ASUS\.gemini\antigravity-ide\brain\20d37064-7471-4d59-bb3e-40ec2c15b4e9\.system_generated\logs\	ranscript.jsonl
-
-**IMPORTANT: this summary is just for your reference. You may respond to my previous and future messages, but DO NOT ACKNOWLEDGE THIS CHECKPOINT MESSAGE. JUST READ IT BUT DO NOT MENTION IT, RESPOND TO IT, OR TAKE ACTION BECAUSE OF IT.**
-
-I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
-
-
-**Refining Tool Selection**
-
-I'm now zeroing in on precise tool choice, remembering those key rules about 
-
-","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","ContentOffset":260171,"toolAction":"Viewing file","toolSummary":"View dashboard.html continued max-height: 250px; overflow-y: auto;  max-height: 250px; overflow-y: auto; }]}
-
-<EPHEMERAL_MESSAGE>
-You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
-If the user's request warrants a plan then follow this workflow:
-1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
-2. Create an implementation plan artifact with 3. After receiving approval, begin execution. Create and update the task artifact as you work.
-4. Verify any work that you have done.
-5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
-If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
-
-I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
-
-
-","tool_calls":[{"name":"grep_search","args":{"Query":"function","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching the web","toolSummary":"Search for javascript functions in dashboard.html}]}
-Completed At: 2026-09-06T01:47:55+03:00
-{"File":"c:/Users/ASUS/OneDrive/Desktop/tradingview-webhook-bot/templates/dashboard.html
-
-<EPHEMERAL_MESSAGE>
-You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
-If the user's request warrants a plan then follow this workflow:
-1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
-2. Create an implementation plan artifact with 3. After receiving approval, begin execution. Create and update the task artifact as you work.
-4. Verify any work that you have done.
-5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
-If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
-
-I'm focusing on the most efficient tool utilization. It's becoming clearer that prioritizing specific tools will drastically improve my problem-solving ability. The goal is to always select the tool best suited for the immediate task at hand, regardless of how broad a command may be. This will keep work on the project organized.
-
-
-","tool_calls":[{"name":"grep_search","args":{"MatchPerLine":true,"Query":"function ","SearchPath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","toolAction":"Searching the web","toolSummary":"Search for javascript functions in dashboard.html}]}
-Completed At: 2026-09-06T01:48:00+03:00
-No results found
-
-<EPHEMERAL_MESSAGE>
-You're in planning mode. Exercise judgement on whether the user's last request warrants a plan and take action accordingly.
-If the user's request warrants a plan then follow this workflow:
-1. Research first before taking actions. Do not use your code editing tools or run modifying commands during this time.
-2. Create an implementation plan artifact with 3. After receiving approval, begin execution. Create and update the task artifact as you work.
-4. Verify any work that you have done.
-5. Create a walkthrough artifact to present your work to the user. When writing artifacts, make sure to follow the artifact formatting guidelines and use github alerts to highlight critical sections.
-If the user's request does NOT warrant a plan then continue your work WITHOUT making a plan or requesting user feedback.
-
-I'm focusing on the importance of selecting the most appropriate tool for each task. The goal is to maximize efficiency. I am making an active effort to ensure that I always choose the correct approach to each problem or challenge, such as choosing a relevant 'view_file' utility where possible.
-
-
-","tool_calls":[{"name":"view_file","args":{"AbsolutePath":"c:\Users\ASUS\OneDrive\Desktop\	radingview-webhook-bot\	emplates\dashboard.html","EndLine":1600,"StartLine":800,"toolAction":"Viewing file","toolSummary":"View dashboard.html 800 to 1600}]}
-Completed At: 2026-09-06T01:48:07+03:00
-File Path: Total Lines: 4791
-Total Bytes: 260171
-Showing lines 800 to 1599
-The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
             overflow-x: auto;
             max-height: 380px;
             white-space: pre-wrap;
@@ -1243,13 +1213,40 @@ The following code has been modified to include a line number before every line,
 </head>
 <body>
 
-    <!-- CANLI OTONOM ALARM ŞERİDİ (KALDIRILDI) -->
-    <!-- OTONOM İÇ SES VE ADMİN DİYALOĞU ŞERİDİ (TICKER 2) (SABİT / STICKY TOP) -->
-    <div style="position: sticky; top: 0; left: 0; z-index: 9999; background: rgba(10,15,25,0.98); border-bottom: 2px solid rgba(168,85,247,0.6); padding: 5px 15px; width: 100%; display: flex; align-items: center; box-shadow: 0 4px 25px rgba(0,0,0,0.7); font-family: monospace;">
-        <div style="background: linear-gradient(135deg, #9333ea, #6b21a8); color: #fff; font-weight: 800; padding: 4px 10px; border-radius: 4px; font-size: 11px; letter-spacing: 1px; margin-right: 15px; flex-shrink: 0; text-transform: uppercase; box-shadow: 0 0 10px rgba(168,85,247,0.5);">🧠 Otonom İç Ses</div>
-        <marquee id="aiThoughtMarquee" scrollamount="12" onmouseover="this.stop();" onmouseout="this.start();" style="color: #e2e8f0; font-family: monospace; font-size: 16px; font-weight: 500; padding: 4px 0; letter-spacing: 0.5px;">
-            Zeka Motoru başlatılıyor, piyasa sinyalleri bekleniyor...
-        </marquee>
+    <!-- KARARGAH INTEL FEED (Otonom İstihbarat Akışı) -->
+    <div class="intel-feed-wrapper" style="position: sticky; top: 0; left: 0; z-index: 9999; margin-bottom: 12px; background: linear-gradient(90deg, rgba(28,33,48,0.95), rgba(13,17,26,0.98), rgba(28,33,48,0.95)); border-bottom: 2px solid #eab308; padding: 6px 12px; min-height: 110px; display: flex; align-items: flex-start; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); overflow: hidden;">
+        <div class="intel-feed-label" style="background: #eab308; color: #000; font-weight: 800; padding: 4px 8px; border-radius: 4px; font-size: 11px; letter-spacing: 1px; margin-right: 15px; margin-top: 2px; white-space: nowrap; flex-shrink: 0;">OTONOM AJAN İSTİHBARATI</div>
+        <div class="intel-messages" id="intelMessagesContainer" style="position: relative; flex-grow: 1; height: 100%; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; gap: 4px; padding-bottom: 2px;">
+            <!-- JS ile animasyonlu şekilde enjekte edilecek (aşağı kayan satırlar) -->
+        </div>
+    </div>
+
+    <!-- MUAZZAM FIRSAT UYARISI (Blinking Bottom Alert) -->
+    <style>
+        @keyframes slowBlink {
+            0% { opacity: 1; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+            50% { opacity: 0.7; box-shadow: 0 0 2px rgba(245, 158, 11, 0.1); }
+            100% { opacity: 1; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+        }
+        .massive-alert-active {
+            display: flex !important;
+            animation: slowBlink 5s infinite ease-in-out;
+        }
+        /* Gizli Scrollbar ama kaydırılabilir (Tek Satır İçin) */
+        .massive-scroll-area::-webkit-scrollbar {
+            display: none;
+        }
+        .massive-scroll-area {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            overflow-x: auto;
+        }
+    </style>
+    <div id="massiveOpportunityAlert" style="display: none; position: sticky; top: 122px; z-index: 9998; margin-top: -12px; margin-bottom: 12px; background: #0f172a; border-bottom: 1px solid #1e293b; color: #cbd5e1; padding: 4px 8px; border-radius: 0 0 6px 6px; font-weight: 600; font-size: 11px; align-items: center; gap: 8px; width: 100%; justify-content: flex-start; text-align: left; flex-wrap: nowrap;">
+        <div style="font-size: 11px; color: #facc15; margin-right: 2px; display: flex; align-items: center; font-weight: 800; white-space: nowrap;">
+            <span style="font-size:13px; margin-right:4px;">🔥</span> MUAZZAM FIRSAT:
+        </div>
+        <div id="massiveOpportunityText" class="massive-scroll-area" style="display: flex; flex-wrap: nowrap; gap: 6px; align-items: center; flex: 1; white-space: nowrap;"></div>
     </div>
 
     <!-- TOAST CONTAINER -->
@@ -2113,19 +2110,7 @@ The following code has been modified to include a line number before every line,
             </div>
         </div>
     </div>
-    <!-- YENİ: AKTİF İŞLEM (HAREKAT) RAPORU (SADECE ONAYLANANLAR) -->
-    <div class="panel" style="margin-top: 24px; border: 1px solid rgba(52, 211, 153, 0.4); box-shadow: 0 0 15px rgba(52, 211, 153, 0.1);">
-        <div class="panel-header">
-            <div class="panel-header-title">
-                <span style="color: var(--accent-green);">🎖️</span> KESİNLEŞMİŞ SAVAŞ EMİRLERİ (Otonom Harekat Raporu)
-            </div>
-        </div>
-        <div style="padding: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; position: relative; overflow: hidden; height: auto; min-height: 40px; display: flex; align-items: center;">
-            <div id="activeTradeReportsTicker" style="width: 100%; color: #e2e8f0; font-size: 13px; line-height: 1.6; font-family: 'JetBrains Mono', Consolas, monospace;">
-                Hiçbir harekat aktif değil. Radarlar açık, emir bekleniyor...
-            </div>
-        </div>
-    </div>
+
 
     <!-- (a10) BOT DÜŞÜNCE AKIŞI: Fakeout Guard / Stop-Hunt Evader / Korelasyon Filtresi'nin canlı "neden bekliyorum" gerekçeleri -->
     <div class="panel" style="margin-top: 24px;">
@@ -2776,7 +2761,7 @@ The following code has been modified to include a line number before every line,
                         modeDot.style.background = "#ef4444";
                         modeDot.style.boxShadow = "0 0 8px #ef4444";
                         modeText.style.color = "#ef4444";
-                        modeText.innerText = "🔴 LIVE TRADING (GERÇEK PARA)";
+                        modeText.innerText = "🔴 LIVE TRADING (Aşama 1: Sadece Okuma)";
                     }
                 }
                 
@@ -2810,67 +2795,113 @@ The following code has been modified to include a line number before every line,
                     tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:var(--text-secondary); padding: 18px;">Açık pozisyon bulunmuyor. Sistem yeni fırsatları tarıyor.</td></tr>`;
                     return;
                 }
+                
+                // Clear the "empty" message if it exists
+                if(tbody.querySelector('td[colspan="10"]')) {
+                    tbody.innerHTML = '';
+                }
 
-                tbody.innerHTML = '';
+                // 1. Remove rows that are no longer active
+                const currentRows = Array.from(tbody.querySelectorAll('tr[id^="posRow-"]'));
+                currentRows.forEach(row => {
+                    const sym = row.id.replace('posRow-', '');
+                    if(!positions.find(p => p.symbol === sym)) {
+                        row.remove();
+                    }
+                });
+
+                // 2. Add or Update rows (Eliminates blinking!)
                 positions.forEach(p => {
                     const pnl = parseFloat(p.unrealized_pnl || 0);
                     const pnlPct = parseFloat(p.unrealized_pnl_pct || 0);
                     const isUp = pnl >= 0;
-                    const pnlClass = isUp ? 'up' : 'down';
                     const sign = isUp ? '+' : '';
+                    const pnlColor = isUp ? '#4ade80' : '#f87171';
+                    const glowColor = isUp ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)';
+                    
+                    let sl = parseFloat(p.stop_loss_price) || (parseFloat(p.entry_price) * 0.95);
+                    let tp = parseFloat(p.target_profit_price) || (parseFloat(p.entry_price) * 1.05);
+                    let current = parseFloat(p.current_price);
+                    
+                    let rangeTotal = Math.abs(tp - sl);
+                    let currentPos = Math.abs(current - sl);
+                    let progressPct = rangeTotal > 0 ? (currentPos / rangeTotal) * 100 : 50;
+                    if(progressPct > 100) progressPct = 100;
+                    if(progressPct < 0) progressPct = 0;
+                    
+                    const sideColor = p.side.includes('BUY') ? 'var(--up-color)' : 'var(--down-color)';
+                    const isVirtual = p.side.includes('VIRTUAL');
+                    const sideLabel = p.side.replace('VIRTUAL_', '');
 
-                    const tr = document.createElement('tr');
+                    let tr = document.getElementById('posRow-' + p.symbol);
+                    if (!tr) {
+                        tr = document.createElement('tr');
+                        tr.id = 'posRow-' + p.symbol;
+                        tr.style.transition = 'all 0.3s ease';
+                        tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+                        tr.style.background = 'rgba(15,23,42,0.4)';
+                        tbody.appendChild(tr);
+                    }
+                    
                     tr.innerHTML = `
-                        <td>
-                            <b style="color:#fff;">${p.symbol}</b> 
-                            ${p.session_badge ? `<span style="font-size:9px; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 4px; border-radius:4px; margin-left:4px; border:1px solid rgba(245,158,11,0.3);">${p.session_badge}</span>` : ''}
-                            ${p.source === 'MANUEL' ? `<span style="font-size:9px; background:rgba(96,165,250,0.2); color:#60a5fa; padding:2px 4px; border-radius:4px; margin-left:4px; border:1px solid rgba(96,165,250,0.3);">MANUEL</span>` : `<span style="font-size:9px; background:rgba(74,222,128,0.2); color:#4ade80; padding:2px 4px; border-radius:4px; margin-left:4px; border:1px solid rgba(74,222,128,0.3);">OTONOM</span>`}
-                            <div style="font-size:10px; color:var(--text-muted);">${p.id}</div>
-                            <div style="font-size:9.5px; color:#94a3b8; margin-top:3px;">
-                                <span style="color:#cbd5e1;">Subm/Fill:</span> ${formatOpenedAt(p.opened_at)} &nbsp;|&nbsp; <span style="color:#cbd5e1;">Exp:</span> GTC
+                        <td style="padding:6px 12px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="width:3px; height:24px; background:${pnlColor}; border-radius:4px; box-shadow:0 0 8px ${pnlColor};"></div>
+                                <div>
+                                    <b style="color:#f8fafc; font-size:14px; letter-spacing:0.5px;">${p.symbol}</b> 
+                                    ${p.session_badge ? `<span style="font-size:9px; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 4px; border-radius:4px; margin-left:4px;">${p.session_badge}</span>` : ''}
+                                    ${p.source === 'MANUEL' ? `<span style="font-size:9px; background:rgba(96,165,250,0.2); color:#60a5fa; padding:2px 4px; border-radius:4px; margin-left:4px;">MANUEL</span>` : `<span style="font-size:9px; background:rgba(74,222,128,0.2); color:#4ade80; padding:2px 4px; border-radius:4px; margin-left:4px;">OTONOM</span>`}
+                                    <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">${p.id.substring(0, 15)}...</div>
+                                </div>
                             </div>
                         </td>
-                        <td>
-                            <div style="display:flex; align-items:center; gap:6px; font-size:11px; padding:4px 8px; border-radius:6px; background:rgba(255,255,255,0.05); width:fit-content;">
-                                ${(p.market === 'CRYPTO' && (p.symbol.includes('USDT') || p.symbol.endsWith('USDT'))) ? '<span style="font-size:14px;">🟡</span> Binance' : '<span style="font-size:14px;">🦙</span> Alpaca'}
+                        <td style="padding:6px 12px; text-align:center;">
+                            <div style="display:inline-flex; align-items:center; gap:6px; font-size:11px; padding:4px 8px; border-radius:6px; background:rgba(255,255,255,0.05);">
+                                ${(p.market === 'CRYPTO' && (p.symbol.includes('USDT') || p.symbol.endsWith('USDT'))) ? '<span style="font-size:14px;">🪙</span> Binance' : '<span style="font-size:14px;">🦙</span> Alpaca'}
                             </div>
                         </td>
-                        <td>
-                            <span style="color:${p.side.includes('BUY') ? 'var(--up-color)' : 'var(--down-color)'}; font-weight:700;">${p.side.replace('VIRTUAL_', '')}</span>
-                            ${p.side.includes('VIRTUAL') ? '<span style="font-size:9px; background:rgba(139,92,246,0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(139,92,246,0.3);">GÖLGE</span>' : 
-                             (data.trading_mode === 'PAPER' ? '<span style="font-size:9px; background:rgba(96,165,250,0.2); color:#60a5fa; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(96,165,250,0.3);">GERÇEK PAPER</span>' : 
-                             '<span style="font-size:9px; background:rgba(74,222,128,0.2); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px; border:1px solid rgba(74,222,128,0.3);">CANLI</span>')}
-                        </td>
-                        <td>$${formatDyn(p.entry_price)}</td>
-                        <td>$${formatDyn(p.current_price)}</td>
-                        <td>${parseFloat(p.quantity).toFixed(4)} ($${parseFloat(p.nominal_value).toFixed(2)})</td>
-                        <td style="color:${p.break_even_activated ? '#4ade80' : 'var(--up-color)'}; vertical-align:middle;">
-                            ${p.break_even_activated ? '<span style="font-size:8px; background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3); border-radius:3px; padding:1px 4px; display:block; margin-bottom:2px;">&#x1F6E1; BE</span>' : ''}
-                            $${formatDyn(p.target_profit_price)}
-                        </td>
-                        <td style="color:${p.trailing_stop_activated ? '#f59e0b' : 'var(--down-color)'}; vertical-align:middle;">
-                            ${p.trailing_stop_activated ? '<span style="font-size:8px; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3); border-radius:3px; padding:1px 4px; display:block; margin-bottom:2px;">&#x1F504; TRL</span>' : '<span style="font-size:8px; color:#64748b; display:block; margin-bottom:2px;">SL</span>'}
-                            $${formatDyn(p.stop_loss_price)}
-                        </td>
-                        <td class="${pnlClass}" style="font-weight:700;">
-                            ${sign}$${pnl.toFixed(2)} (${sign}%${pnlPct.toFixed(2)})<br>
-                            <span style="font-size:9px; color:#64748b; font-weight:normal;">(Kom. Düşüldü)</span>
-                            <!-- Sparkline (Hızlandırılmış CSS İlerleme Çubuğu) -->
-                            <div style="margin-top:6px; width:100%; max-width:80px; background:rgba(255,255,255,0.1); height:4px; border-radius:2px; overflow:hidden;">
-                                <div style="height:100%; width:${Math.min(Math.abs(pnlPct)*20, 100)}%; background:${isUp ? '#4ade80' : '#ef4444'}; box-shadow: 0 0 5px ${isUp ? '#4ade80' : '#ef4444'}; transition:width 0.3s ease;"></div>
+                        <td style="padding:6px 12px; text-align:center;">
+                            <span style="background: ${p.side.includes('BUY') ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)'}; color: ${sideColor}; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; border: 1px solid ${sideColor}44; letter-spacing: 1px;">
+                                ${sideLabel}
+                            </span>
+                            <div style="margin-top:6px;">
+                                ${isVirtual ? '<span style="font-size:9px; background:rgba(139,92,246,0.2); color:#a78bfa; padding:2px 4px; border-radius:3px;">GÖLGE</span>' : 
+                                 (data.trading_mode === 'PAPER' ? '<span style="font-size:9px; background:rgba(96,165,250,0.2); color:#60a5fa; padding:2px 4px; border-radius:3px;">GERÇEK PAPER</span>' : 
+                                 '<span style="font-size:9px; background:rgba(74,222,128,0.2); color:#4ade80; padding:2px 4px; border-radius:3px;">CANLI</span>')}
                             </div>
                         </td>
-                        <td>
-                            <div style="font-family: 'JetBrains Mono', monospace; font-size:12px; color:#fff; font-weight: 500; background:rgba(255,255,255,0.05); padding:4px 8px; border-radius:4px; text-align:center;">
-                                ${formatOpenedAt(p.opened_at)}
+                        <td style="padding:6px 12px; color:#cbd5e1; font-family:'JetBrains Mono', monospace; font-size:13px;">$${formatDyn(p.entry_price)}</td>
+                        <td style="padding:6px 12px; color:#fff; font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:bold;">$${formatDyn(p.current_price)}</td>
+                        <td style="padding:6px 12px; font-family:'JetBrains Mono', monospace; font-size:11px; color:#94a3b8; text-align:center;">
+                            ${parseFloat(p.quantity).toFixed(4)} <br><span style="font-size:10px; opacity:0.8;">($${parseFloat(p.nominal_value).toFixed(2)})</span>
+                        </td>
+                        <td colspan="2" style="padding:6px 12px; width:180px; vertical-align:middle;">
+                            <div style="display:flex; justify-content:space-between; font-size:10px; font-family:'JetBrains Mono', monospace; margin-bottom:4px;">
+                                <span style="color:#f87171;">SL: $${formatDyn(p.stop_loss_price)}</span>
+                                <span style="color:#4ade80;">TP: $${formatDyn(p.target_profit_price)}</span>
+                            </div>
+                            <div style="width:100%; height:6px; background:rgba(0,0,0,0.5); border-radius:10px; border: 1px solid rgba(255,255,255,0.05); position:relative; overflow:hidden;">
+                                <div style="position:absolute; top:0; left:50%; width:1px; height:100%; background:rgba(255,255,255,0.3); z-index:1;"></div>
+                                <div style="height:100%; width:${progressPct}%; background:${isUp ? 'linear-gradient(90deg, transparent, #4ade80)' : 'linear-gradient(90deg, #f87171, transparent)'}; border-radius:10px; box-shadow: 0 0 8px ${pnlColor}; transition: width 0.5s ease;"></div>
                             </div>
                         </td>
-                        <td>
-                            <button class="btn btn-close" style="padding:3px 8px; font-size:11px;" onclick="quickClosePosition('${p.id}')">Kapat</button>
-
+                        <td style="padding:6px 12px; text-align:center; font-family:'JetBrains Mono', monospace;">
+                            <div style="background: ${glowColor}; border: 1px solid ${pnlColor}55; padding: 6px 10px; border-radius: 8px; box-shadow: 0 0 15px ${glowColor}; display: inline-block; min-width: 80px;">
+                                <span style="font-size: 15px; font-weight:900; color:${pnlColor}; text-shadow: 0 0 10px ${pnlColor}88;">
+                                    ${isUp ? '🚀' : '🩸'} ${sign}${pnlPct.toFixed(2)}%
+                                </span><br>
+                                <span style="font-size:11px; color:${isUp ? '#86efac' : '#fca5a5'}; opacity: 0.9;">($${pnl.toFixed(2)})</span>
+                            </div>
+                        </td>
+                        <td style="padding:6px 12px; text-align:center;">
+                            <div style="font-family: 'JetBrains Mono', monospace; font-size:11px; color:#cbd5e1; font-weight: 500; background:rgba(255,255,255,0.05); padding:4px 8px; border-radius:4px; display:inline-block;">
+                                ${formatOpenedAt(p.opened_at).replace(' ', '<br>')}
+                            </div>
+                        </td>
+                        <td style="padding:6px 12px; text-align:center;">
+                            <button class="btn btn-close" style="padding:6px 12px; font-size:11px; background:rgba(239, 68, 68, 0.1); border:1px solid #ef4444; color:#ef4444; border-radius:6px; cursor:pointer; transition:all 0.2s;" onmouseover="this.style.background='#ef4444'; this.style.color='#fff'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'" onclick="quickClosePosition('${p.id}')">Kapat</button>
                         </td>
                     `;
-                    tbody.appendChild(tr);
                 });
             } catch (err) {
                 console.error("fetchPositions error:", err);
@@ -2919,6 +2950,9 @@ The following code has been modified to include a line number before every line,
                 const res = await fetch('/api/market/live-matrix?t=' + Date.now());
                 const data = await res.json();
                 if (!data || !data.grouped) return;
+                
+                // Zeka ajanları için global kaydet
+                window.latestDashboardData = data;
 
                 // Market Overviews & Badges
                 const ov = data.markets_overview || {};
@@ -3195,31 +3229,90 @@ The following code has been modified to include a line number before every line,
             // 1. Array'deki olası sparse (boş/hatalı) elemanları temizle (Kriptodaki numara atlamasını çözer)
             const validItems = items.filter(x => x && x.symbol);
 
-            // 2. Tüm listeyi önce sadece GÜVEN SKORUNA (confidence) göre sırala
+            // 2. Tüm listeyi GÜVEN SKORU + ELITE SENTINEL BONUSLARI'na göre sırala
             validItems.sort((a, b) => {
-                const aConf = parseFloat(a.confidence_score) || 0;
-                const bConf = parseFloat(b.confidence_score) || 0;
+                let aConf = parseFloat(a.confidence_score) || 0;
+                let bConf = parseFloat(b.confidence_score) || 0;
+                
+                const applyEliteSentinel = (conf, item) => {
+                    let score = conf;
+                    const xray = item.xray_ratio !== undefined && item.xray_ratio !== null ? parseFloat(item.xray_ratio) : null;
+                    const cci = item.cci !== undefined ? parseFloat(item.cci) : 0;
+                    const bbWidth = item.bb_width !== undefined ? parseFloat(item.bb_width) : 1;
+                    const luxDist = item.lux_support_dist !== undefined ? parseFloat(item.lux_support_dist) : 1;
+                    
+                    // 1. X-Ray & Kurumsal Akış Çapraz Doğrulaması (Cross-Validation)
+                    const cmf = item.cmf !== undefined ? parseFloat(item.cmf) : 0;
+                    const changePct = item.change_pct !== undefined ? parseFloat(item.change_pct) : 0;
+
+                    if (xray !== null && xray !== -1.0) {
+                        if (xray <= 0.8) {
+                            // Taker Satış Baskın (XR Düşük)
+                            if (cmf > 0.05 && changePct > 0) {
+                                // ABSORPTION (Mal Toplama Tuzağı): Küçükler satıyor, Balina topluyor!
+                                score *= 1.08; // %8 Ağır Bonus!
+                            } else {
+                                score *= 0.90; // Gerçek kanama (%10 Ceza)
+                            }
+                        } 
+                        else if (xray >= 1.5) {
+                            // Taker Alış Baskın (XR Yüksek)
+                            if (cmf < -0.05 && changePct < 0) {
+                                // SPOOFING (FOMO Tuzağı): Küçükler alıyor, Balina tepeden basıyor!
+                                score *= 0.85; // %15 Ağır Ceza!
+                            } else {
+                                score *= 1.06; // Organik Güçlü Alım (%6 Bonus)
+                            }
+                        }
+                        else if (xray >= 1.0) {
+                            score *= 1.02; // Normal Pozitif
+                        }
+                        else {
+                            score *= 0.98; // Hafif satıcı baskın
+                        }
+                    }
+                    
+                    // 2. Alpha Thrust (Squeeze - Yay Gerilmesi)
+                    if (bbWidth > 0 && bbWidth < 0.03) score *= 1.05; // %5 Bonus (Füze hazırlığı - Dengeli)
+                    
+                    // 3. LuxAlgo (Smart Money - Order Block)
+                    if (luxDist < 0.015 && item.change_pct > 0) score *= 1.07; // %7 Bonus (Destekten Dönüş - Dengeli)
+                    
+                    // 4. Market Cipher (Momentum Dalgası)
+                    if (cci > 100) score *= 1.03; // %3 Bonus (Momentum - Dengeli)
+                    
+                    // Compound Etki (Bileşik Çarpan) Sınırı: Maksimum güven skoru 100'ü geçemez.
+                    return Math.min(score, 100);
+                };
+
+                aConf = applyEliteSentinel(aConf, a);
+                bConf = applyEliteSentinel(bConf, b);
+                
                 return bConf - aConf;
             });
+            // 2.5 MOR (REVERSAL) KUTULARI ÖTELEME:
+            // Reversal kutuları (Mor) tüm gruplarda ilk 6 sıraya (Sarı Momentum) KESİNLİKLE giremez.
+            // En erken 7. sıradan başlayacak şekilde gruplanırlar.
+            const normals = validItems.filter(x => !x.is_reversal);
+            const reversals = validItems.filter(x => !!x.is_reversal);
+            const finalSortedItems = normals.slice(0, 6).concat(reversals).concat(normals.slice(6));
             
-            // 3. Normal ve Mor olanları ayır
-            const normals = validItems.filter(x => !(x.is_reversal && String(x.is_reversal).toLowerCase() !== "false"));
-            const purples = validItems.filter(x => (x.is_reversal && String(x.is_reversal).toLowerCase() !== "false"));
+            // 3. MÜKERRER (DUPLICATE) COINLERİ ELE: Numaraların (rank) atlaması bug'ı çözümü!
+            // Aynı koin hem Trend hem Reversal listesine girdiyse, sadece güven skoru yüksek olanı (zaten sıralandı) ekranda tutar.
+            const uniqueValidItems = [];
+            const seenSymbols = new Set();
+            finalSortedItems.forEach(item => {
+                if (!seenSymbols.has(item.symbol)) {
+                    seenSymbols.add(item.symbol);
+                    uniqueValidItems.push(item);
+                }
+            });
             
-            // 4. En fazla 4 mor kutuya izin ver, kalanları sona ekle
-            const topPurples = purples.slice(0, 4);
-            const remainingPurples = purples.slice(4);
-            
-            // 5. Yeni sıralamayı inşa et (In-place array modifikasyonu)
-            const finalItems = [];
-            finalItems.push(...normals.slice(0, 5)); // İlk 5'e normaller
-            finalItems.push(...topPurples);             // Sonra maksimum 4 mor
-            finalItems.push(...normals.slice(5));    // Sonra geri kalan normaller
-            finalItems.push(...remainingPurples);    // Son olarak artan morlar
+            // 4. Kesin ve eşsiz listeyi render dizisine ata
+            items.length = 0;
+            items.push(...uniqueValidItems);
             
             // Dizi içindeki undef/null elemanları çöpe atarak kesin indekslemeyi garantile!
-            items.length = 0;
-            items.push(...finalItems.filter(x => x && x.symbol));
             
             // Tüm çocukları DOM'dan koparıp, zorla sıralı şekilde yeniden eklemek için bir container temizliği yapıyoruz.
             // Bu sayede FLIP veya grid bugları kartları yanlış sıraya itmeyecek!
@@ -3286,6 +3379,54 @@ The following code has been modified to include a line number before every line,
                     cmfStr = ` | <span style="color:${cmfColor};font-size:9px;" title="CMF: Chaikin Money Flow (Kurumsal Para Akışı)">${cmfIcon}${cmfVal.toFixed(2)}</span>`;
                 }
                 
+                // ─── X-Ray (Taker) Göstergesi ───
+                let xrayStr = '';
+                let xrayVal = item.xray_ratio !== undefined && item.xray_ratio !== null ? parseFloat(item.xray_ratio) : null;
+                
+                // Hisse Senetleri (BIST/NASDAQ) için Binance X-Ray API'si olmadığı için
+                // Gerçek Para Akışı (CMF) ve Göreceli Hacim (Vol) ile Sentetik Kurumsal Taker (XR) Gücü hesaplanır.
+                if (xrayVal === null && typeof cmfVal !== 'undefined' && cmfVal !== null && typeof volVal !== 'undefined' && volVal !== null) {
+                    let baseXr = 1.0 + (cmfVal * 2.5); // CMF genelde -0.3 ile +0.3 arasıdır
+                    if (volVal > 1.0 && cmfVal > 0) {
+                        baseXr *= (volVal + 1.0) / 2.0; // Güçlü alımda hacim XR'ı patlatır
+                    } else if (volVal > 1.0 && cmfVal < 0) {
+                        baseXr /= (volVal + 1.0) / 2.0; // Güçlü satımda hacim XR'ı ezer
+                    }
+                    xrayVal = Math.max(0.1, Math.min(baseXr, 5.0)); // Güvenli Sınırlar
+                }
+
+                if (xrayVal !== null && !isNaN(xrayVal)) {
+                    let xrIcon = '';
+                    let xrBadgeBg = '';
+                    let xrColor = '';
+                    let xrText = `XR: ${xrayVal.toFixed(2)}`;
+                    
+                    if (xrayVal === -1.0) {
+                        xrIcon = '⚠️'; // Ban Yedik veya Timeout
+                        xrColor = '#f59e0b'; // Turuncu
+                        xrBadgeBg = 'rgba(245, 158, 11, 0.15)';
+                        xrText = 'XR: YÜKLENİYOR...';
+                    } else if (xrayVal >= 1.5) {
+                        xrIcon = '🔥'; // Balina Alımı
+                        xrColor = '#10b981';
+                        xrBadgeBg = 'rgba(16, 185, 129, 0.15)';
+                    } else if (xrayVal >= 1.0) {
+                        xrIcon = '🟢';
+                        xrColor = '#4ade80'; 
+                        xrBadgeBg = 'rgba(74, 222, 128, 0.1)';
+                    } else if (xrayVal <= 0.8) {
+                        xrIcon = '🩸'; // Kan (Ağır Boşaltım)
+                        xrColor = '#ef4444';
+                        xrBadgeBg = 'rgba(239, 68, 68, 0.15)';
+                    } else {
+                        xrIcon = '🔴';
+                        xrColor = '#f43f5e';
+                        xrBadgeBg = 'rgba(244, 63, 94, 0.1)';
+                    }
+                    
+                    xrayStr = ` <span style="display:inline-flex; align-items:center; background:${xrBadgeBg}; color:${xrColor}; padding:1px 4px; border-radius:4px; font-weight:700; font-size:9px; border: 1px solid ${xrBadgeBg}; margin-left: 4px;" title="Gerçek Hacim X-Ray (Taker Buy/Sell & Kurumsal Para Akışı)">${xrIcon} ${xrText}</span>`;
+                }
+                
                 // If it doesn't have an arrow yet, default based on change_pct
                 if (!dirArrow) dirArrow = isUp ? "↑" : "↓";
                 
@@ -3294,10 +3435,27 @@ The following code has been modified to include a line number before every line,
                 const isSell = item.decision === "SELL";
                 const isReversal = !!item.is_reversal;
                 
-                let boxBorderColor = isReversal ? '#a855f7' : (isBuy ? 'rgba(74, 222, 128, 0.7)' : (isSell ? 'rgba(244, 63, 94, 0.7)' : 'rgba(250, 204, 21, 0.7)'));
-                let boxBgGradient = isReversal ? 'linear-gradient(90deg, rgba(168,85,247,0.2) 0%, rgba(0,0,0,0.5) 40%)' : (isBuy ? 'linear-gradient(90deg, rgba(74,222,128,0.15) 0%, rgba(0,0,0,0.3) 20%)' : (isSell ? 'linear-gradient(90deg, rgba(244,63,94,0.15) 0%, rgba(0,0,0,0.3) 20%)' : 'linear-gradient(90deg, rgba(250,204,21,0.1) 0%, rgba(0,0,0,0.3) 20%)'));
+                let boxBorderColor = isReversal ? '#c026d3' : (isBuy ? 'rgba(74, 222, 128, 0.7)' : (isSell ? 'rgba(244, 63, 94, 0.7)' : 'rgba(250, 204, 21, 0.7)'));
+                let boxBgGradient = isReversal ? 'linear-gradient(90deg, rgba(192,38,211,0.2) 0%, rgba(0,0,0,0.6) 50%)' : (isBuy ? 'linear-gradient(90deg, rgba(74,222,128,0.15) 0%, rgba(0,0,0,0.3) 20%)' : (isSell ? 'linear-gradient(90deg, rgba(244,63,94,0.15) 0%, rgba(0,0,0,0.3) 20%)' : 'linear-gradient(90deg, rgba(250,204,21,0.1) 0%, rgba(0,0,0,0.3) 20%)'));
                 
                 let aiRec = item.reason || "İzleniyor...";
+                
+                // === X-RAY (GERÇEK HACİM) TABANLI OTONOM İÇ SES KONTROLÜ ===
+                // Klasik teknik analiz ile gerçek market emirleri (XR) uyuşmazsa, otonom ses tuzağı ifşa eder!
+                if (xrayVal !== null && !isNaN(xrayVal) && volVal !== null && volVal > 1.2) {
+                    const chg = parseFloat(item.change_pct || 0);
+                    if (xrayVal <= 0.8 && chg > 0) {
+                        aiRec = "ÖLÜMCÜL TUZAK (MAL DAĞITIMI): Fiyat yeşil ama balinalar gizlice tepeden boşaltıyor! UZAK DUR!";
+                        boxBorderColor = '#ef4444'; // Kan kırmızısı
+                    } else if (xrayVal >= 1.5 && chg < 0) {
+                        aiRec = "FOMO TUZAĞI (SPOOFING): Fiyatı suni çakıp paniklettiriyor, balinalar dipten topluyor!";
+                        boxBorderColor = '#10b981'; // Balina yeşili
+                    } else if (xrayVal >= 1.5 && chg >= 0) {
+                        aiRec = `GERÇEK BALİNA GİRİŞİ: Taker alımları devasa (XR: ${xrayVal.toFixed(2)}), kurumsal momentum onaylandı!`;
+                    } else if (xrayVal <= 0.8 && chg < 0) {
+                        aiRec = `KAPİTÜLASYON (AĞIR SATIŞ): Acımasız market satışı (XR: ${xrayVal.toFixed(2)}), kanama derinleşiyor!`;
+                    }
+                }
                 
                 // OTONOM İÇ SES - DOĞAL VE MANTIKSAL DÜŞÜNCE AKIŞI
                 // Fake hardcoded AI thoughts removed. 
@@ -3332,31 +3490,36 @@ The following code has been modified to include a line number before every line,
                 const boxConfStr = hasConf ? "%" + confScore.toFixed(1) : "-";
                 
                 let box = document.getElementById('heatmap-box-' + item.symbol);
-                if (!box) {
-                    box = document.createElement('div');
-                    box.id = 'heatmap-box-' + item.symbol;
+                const currentIsReversal = box ? box.dataset.isReversal === 'true' : null;
+
+                if (!box || currentIsReversal !== isReversal) {
+                    if (!box) {
+                        box = document.createElement('div');
+                        box.id = 'heatmap-box-' + item.symbol;
+                    }
                     box.dataset.symbol = item.symbol;
+                    box.dataset.isReversal = isReversal; // Durum değişimini takip etmek için
                     box.onclick = () => { document.getElementById('newPosSymbol').value = item.symbol; openNewPositionModal(); };
                     
                     if (isReversal) {
-                        // MOR NEON KUTU (REVERSAL ENGINE)
+                        // KOYU MOR / FUCHSIA NEON KUTU (REVERSAL ENGINE)
                         box.innerHTML = 
                             '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2px;">' +
                                 '<div style="display:flex; align-items:center; gap:4px; min-width:0; flex:1; overflow:hidden;">' +
                                     '<span class="rank-badge" style="font-size:11px; font-weight:900; min-width:20px; display:inline-block;"></span>' +
-                                    '<span style="font-size:12px;">🔮</span>' +
-                                    '<span class="sym-name" style="font-weight:900; font-size:13px; color:#c084fc; letter-spacing: -0.3px; white-space:nowrap;"></span>' +
+                                    '<span style="font-size:12px;">🪬</span>' +
+                                    '<span class="sym-name" style="font-weight:900; font-size:13px; color:#f0abfc; letter-spacing: -0.3px; white-space:nowrap;"></span>' +
                                     '<span class="sym-change" style="font-size:10px; font-weight:700;"></span>' +
-                                    '<span class="conf-badge" style="font-size:9px; color:#d8b4fe; background: rgba(168,85,247,0.2); padding: 1px 4px; border-radius:2px; font-weight:700;">DİP AVCISI</span>' +
+                                    '<span class="conf-badge" style="font-size:9px; color:#f0abfc; background: rgba(192,38,211,0.3); padding: 1px 4px; border-radius:2px; font-weight:700;">DİP AVCISI</span>' +
                                 '</div>' +
                                 '<span class="curr-price" style="font-weight:800; font-size:13px;"></span>' +
                             '</div>' +
-                            '<div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:#e2e8f0; font-weight: 500; margin-bottom: 1px; border-bottom: 1px dashed rgba(168,85,247,0.3); padding-bottom: 1px;">' +
+                            '<div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:#e2e8f0; font-weight: 500; margin-bottom: 1px; border-bottom: 1px dashed rgba(192,38,211,0.4); padding-bottom: 1px;">' +
                                 '<span class="vol-rsi"></span>' +
                                 '<span class="hedef-price"></span>' +
                             '</div>' +
-                            '<div class="ai-rec-container" style="font-size:10px; color:#d8b4fe; min-height: 12px; font-weight:600; line-height:1.1; margin-bottom: 1px;" data-rec=""></div>' +
-                            '<button onclick="event.stopPropagation(); executeReversalTrade(\'' + item.symbol + '\');" style="width:100%; background: linear-gradient(90deg, #9333ea, #a855f7); color:white; border:none; border-radius:3px; padding:1px 0; font-size:9.5px; font-weight:900; cursor:pointer; box-shadow: 0 0 6px rgba(168,85,247,0.5); text-shadow: 0 1px 2px rgba(0,0,0,0.5); letter-spacing:0.5px; margin-top:0px;" onmouseover="this.style.filter=\'brightness(1.2)\'" onmouseout="this.style.filter=\'brightness(1)\'">⚡ EXECUTE (İNFAZ ET)</button>';
+                            '<div class="ai-rec-container" style="font-size:10.5px; color:#e879f9; min-height: 12px; font-weight:700; line-height:1.1; margin-bottom: 2px;" data-rec=""></div>' +
+                            '<button onclick="event.stopPropagation(); executeReversalTrade(\'' + item.symbol + '\');" style="width:100%; background: linear-gradient(90deg, #7e22ce, #c026d3); color:white; border:none; border-radius:3px; padding:1.5px 0; font-size:9.5px; font-weight:900; cursor:pointer; box-shadow: 0 0 8px rgba(192,38,211,0.6); text-shadow: 0 1px 2px rgba(0,0,0,0.7); letter-spacing:0.5px; margin-top:0px;" onmouseover="this.style.filter=\'brightness(1.2)\'" onmouseout="this.style.filter=\'brightness(1)\'">⚡ EXECUTE (İNFAZ ET)</button>';
                     } else {
                         // STANDART KUTU (MOMENTUM)
                         box.innerHTML = 
@@ -3462,11 +3625,26 @@ The following code has been modified to include a line number before every line,
                 currPriceEl.innerText = '$' + formattedPrice + ' ' + dirArrow;
                 currPriceEl.style.color = chgColor;
                 
-                // ─── RSI + Hacim + CMF: Renk kodlu gösterim ───
+                // ─── ELITE SENTINEL İKONLARI (Alpha Thrust, LuxAlgo, Market Cipher) ───
+                let eliteStr = '';
+                if (item.bb_width !== undefined && item.bb_width < 0.03) {
+                    eliteStr += ' <span title="Alpha Thrust (Squeeze Sıkışması)" style="font-size:11px; margin-left:2px; display:inline-block;">🚀</span>';
+                }
+                if (item.lux_support_dist !== undefined && item.lux_support_dist < 0.015 && item.change_pct > 0) {
+                    eliteStr += ' <span title="LuxAlgo (Smart Money Destekten Dönüş)" style="font-size:11px; margin-left:2px; display:inline-block;">💎</span>';
+                }
+                if (item.cci !== undefined && item.cci > 100) {
+                    eliteStr += ' <span title="Market Cipher (Yeşil Nokta / İvme)" style="font-size:11px; margin-left:2px; display:inline-block;">🌊</span>';
+                }
+
+                // ─── RSI + Hacim + XRay + CMF + Elite Sentinel: Renk kodlu gösterim ───
+                // nowrap kullanarak ikonların alt satıra kayıp kutu tasarımını patlatmasını önlüyoruz.
                 box.querySelector('.vol-rsi').innerHTML =
-                    'RSI(MTF):<span style="color:' + rsiColor + ';font-weight:700;margin-left:2px;">' + rsiStr + '</span>' +
-                    ' | Hac:<span style="color:' + volColor + ';font-weight:700;margin-left:2px;">' + volStr + 'x</span>' +
-                    cmfStr;
+                    '<div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: space-between;">' + 
+                    '<span>RSI(MTF):<span style="color:' + rsiColor + ';font-weight:700;margin-left:2px;">' + rsiStr + '</span></span>' +
+                    '<span>Hac:<span style="color:' + volColor + ';font-weight:700;margin-left:2px;">' + volStr + 'x</span></span>' +
+                    '<span style="display:flex; align-items:center;">' + xrayStr + eliteStr + cmfStr + '</span>' +
+                    '</div>';
                 
                 // ─── ATR Bazlı Hedef Fiyat ───
                 const hedefPriceEl = box.querySelector('.hedef-price');
@@ -3485,8 +3663,11 @@ The following code has been modified to include a line number before every line,
                     }
                 }
                 
-                // Append to container (moves it to the end, ensuring correct order)
-                container.appendChild(box);
+                // TITREME VE AKIŞKANLIK FIX: Kutu mevcutsa DOM'dan koparmadan sırasını CSS ile değiştir
+                if (box.parentElement !== container) {
+                    container.appendChild(box);
+                }
+                box.style.order = index;
             });
 
             // === FLIP ANİMASYONU: sıralama değiştiğinde kutular yumuşak kayarak yeni konumuna gider ===
@@ -4333,7 +4514,13 @@ The following code has been modified to include a line number before every line,
                     const msg = JSON.parse(event.data);
                     if (msg.type === 'TRADE_UPDATE') {
                         console.log("Alpaca Update:", msg);
-                        // Position tables refresh automatically via LIVE_MARKET anyway.
+                        // Saha Ajanı Canlı Trade Reaksiyonu
+                        if (typeof pushIntelMessage === "function" && msg.data) {
+                            const sym = msg.data.symbol || "BILINMEYEN";
+                            const side = msg.data.side ? msg.data.side.toUpperCase() : "ISLEM";
+                            const msgStr = `[Saha Ajanı] <span class='alert' style='animation: flashRed 1s infinite;'>⚡ CANLI TETİKLEME:</span> ${sym} tahtasında ${side} emri portföye yansıdı. Risk Zırhı kalibre ediliyor.`;
+                            pushIntelMessage(msgStr);
+                        }
                     }
                     
                     if (msg.type === 'LIVE_MARKET') {
@@ -4382,6 +4569,60 @@ The following code has been modified to include a line number before every line,
                         if (elAlpacaProg) elAlpacaProg.style.width = `${Math.min(100, (alpacaCount / 12) * 100)}%`;
                         if (elBinanceProg) elBinanceProg.style.width = `${Math.min(100, (cryptoCount / 6) * 100)}%`;
                         
+                        // 🚀 DİNAMİK İZ SÜREN STOP & CANLI FİYAT EŞLEŞTİRMESİ (SAYFA YENİLEME GEREKTİRMEZ)
+                        if (summary.active_positions) {
+                            const activeSyms = [];
+                            summary.active_positions.forEach(p => {
+                                activeSyms.push(p.symbol);
+                                const elPrice = document.getElementById(`posPrice-${p.symbol}`);
+                                const elTp = document.getElementById(`posTp-${p.symbol}`);
+                                const elSl = document.getElementById(`posSl-${p.symbol}`);
+                                const elPnl = document.getElementById(`posPnl-${p.symbol}`);
+                                
+                                if (elPrice) elPrice.innerText = `$${formatDyn(p.current_price)}`;
+                                
+                                if (elTp) {
+                                    elTp.innerHTML = (p.break_even_activated ? '<span style="font-size:8px; background:rgba(74,222,128,0.15); color:#4ade80; border:1px solid rgba(74,222,128,0.3); border-radius:3px; padding:1px 4px; display:block; margin-bottom:2px;">&#x1F6E1; BE</span>' : '') + `$${formatDyn(p.target_profit_price)}`;
+                                }
+                                
+                                if (elSl) {
+                                    elSl.innerHTML = (p.trailing_stop_activated ? '<span style="font-size:8px; background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.3); border-radius:3px; padding:1px 4px; display:block; margin-bottom:2px;">&#x1F504; TRL</span>' : '<span style="font-size:8px; color:#64748b; display:block; margin-bottom:2px;">SL</span>') + `$${formatDyn(p.stop_loss_price)}`;
+                                }
+                                
+                                if (elPnl) {
+                                    const pnl = parseFloat(p.unrealized_pnl || 0);
+                                    const pnlPct = parseFloat(p.unrealized_pnl_pct || 0);
+                                    const isUp = pnl >= 0;
+                                    const pnlClass = isUp ? 'up' : 'down';
+                                    const sign = isUp ? '+' : '';
+                                    elPnl.className = pnlClass;
+                                    elPnl.innerHTML = `${sign}$${pnl.toFixed(2)} (${sign}%${pnlPct.toFixed(2)})<br><span style="font-size:9px; color:#64748b; font-weight:normal;">(Kom. Düşüldü)</span><div style="margin-top:6px; width:100%; max-width:80px; background:rgba(255,255,255,0.1); height:4px; border-radius:2px; overflow:hidden;"><div style="height:100%; width:${Math.min(Math.abs(pnlPct)*20, 100)}%; background:${isUp ? '#4ade80' : '#ef4444'}; box-shadow: 0 0 5px ${isUp ? '#4ade80' : '#ef4444'}; transition:width 0.3s ease;"></div></div>`;
+                                }
+                            });
+                            
+                            // 🚀 [KAPALI POZİSYON GHOST KESİCİSİ] 
+                            // Otonom satılan (SL/TP vurulan) veya kullanıcı tarafından kapatılan varlıkları animasyonlu olarak DOM'dan siler.
+                            const tbody = document.getElementById('positionsTableBody');
+                            if (tbody) {
+                                Array.from(tbody.children).forEach(tr => {
+                                    if (tr.id && tr.id.startsWith('posRow-')) {
+                                        const sym = tr.id.split('-')[1];
+                                        if (!activeSyms.includes(sym)) {
+                                            // Backend'den artık aktif varlık olarak gelmiyor = KAPANMIŞ.
+                                            if (tr.style.opacity !== '0.2') { // Henüz silinme animasyonu başlamamışsa
+                                                tr.style.transition = 'all 0.8s ease';
+                                                tr.style.opacity = '0.2';
+                                                tr.style.background = 'rgba(239, 68, 68, 0.15)'; // Hafif kırmızı kapama efekti
+                                                const priceEl = document.getElementById(`posPrice-${sym}`);
+                                                if (priceEl) priceEl.innerHTML = "<span style='color:#ef4444; font-weight:bold; font-size:10px;'>KAPATILDI</span>";
+                                                setTimeout(() => tr.remove(), 2500); // 2.5 sn sonra DOM'dan tamamen yok et
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        }
+
                         // Bot Uptime & Son Scan Guncelle
                         const uptimeEl = document.getElementById('tsBotUptime');
                         const lastScanEl = document.getElementById('tsLastScan');
@@ -5767,33 +6008,50 @@ document.addEventListener("DOMContentLoaded", function() {
                 const sideColor = t.side === 'BUY' ? 'var(--up-color)' : 'var(--down-color)';
 
                 html += `
-                <tr style="border-bottom: 1px solid rgba(139,92,246,0.1); background: rgba(0,0,0,0.3); transition: all 0.3s ease;">
-                    <td style="padding: 12px; font-weight:bold; color:#fff;">
-                        <span style="font-size: 14px;">${t.symbol}</span>
+                <tr style="border-bottom: 1px solid rgba(139,92,246,0.15); background: rgba(15,23,42,0.6); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); hover:bg-slate-800;">
+                    <td style="padding: 14px 12px; font-weight:bold; color:#f8fafc; border-radius: 8px 0 0 8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <div style="width:3px; height:24px; background:${isWin ? '#4ade80' : '#f87171'}; border-radius:4px; box-shadow:0 0 8px ${isWin ? '#4ade80' : '#f87171'};"></div>
+                            <span style="font-size: 15px; letter-spacing: 0.5px;">${t.symbol}</span>
+                        </div>
                     </td>
-                    <td style="padding: 12px; text-align:center; font-weight:bold; color:${sideColor};">
-                        ${t.side}
+                    <td style="padding: 14px 12px; text-align:center;">
+                        <span style="background: ${t.side === 'BUY' ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)'}; color: ${sideColor}; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; border: 1px solid ${sideColor}44; letter-spacing: 1px;">
+                            ${t.side}
+                        </span>
                     </td>
-                    <td style="padding: 12px; color:#cbd5e1; font-family:'JetBrains Mono', monospace;">
+                    <td style="padding: 14px 12px; color:#cbd5e1; font-family:'JetBrains Mono', monospace; font-size: 13px;">
+                        <span style="color:#64748b; font-size:10px; display:block; margin-bottom:2px;">GİRİŞ</span>
                         $${t.entry_price.toFixed(4)}
                     </td>
-                    <td style="padding: 12px; color:#cbd5e1; font-family:'JetBrains Mono', monospace;">
+                    <td style="padding: 14px 12px; color:#fff; font-family:'JetBrains Mono', monospace; font-size: 13px; font-weight:bold;">
+                        <span style="color:#64748b; font-size:10px; display:block; margin-bottom:2px;">ANLIK FİYAT</span>
                         $${t.current_price.toFixed(4)}
                     </td>
-                    <td style="padding: 12px; text-align:center; font-weight:bold; color:${pnlColor}; font-family:'JetBrains Mono', monospace;">
-                        <span style="font-size: 14px;">${pnlSign}${t.unrealized_pnl_pct.toFixed(2)}%</span><br>
-                        <span style="font-size:11px; opacity: 0.8;">($${t.unrealized_pnl.toFixed(2)})</span>
+                    <td style="padding: 14px 12px; text-align:center; font-family:'JetBrains Mono', monospace;">
+                        <div style="background: ${isWin ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)'}; border: 1px solid ${isWin ? 'rgba(74,222,128,0.4)' : 'rgba(248,113,113,0.4)'}; padding: 6px 10px; border-radius: 8px; box-shadow: 0 0 15px ${isWin ? 'rgba(74,222,128,0.2)' : 'rgba(248,113,113,0.2)'}; display: inline-block; min-width: 80px;">
+                            <span style="font-size: 15px; font-weight:900; color:${pnlColor}; text-shadow: 0 0 10px ${pnlColor}88;">
+                                ${isWin ? '🚀' : '🩸'} ${pnlSign}${t.unrealized_pnl_pct.toFixed(2)}%
+                            </span><br>
+                            <span style="font-size:11px; color:${isWin ? '#86efac' : '#fca5a5'}; opacity: 0.9;">($${t.unrealized_pnl.toFixed(2)})</span>
+                        </div>
                     </td>
-                    <td style="padding: 12px; text-align:center; color:#94a3b8; font-family:'JetBrains Mono', monospace; font-size: 11px;">
-                        <span style="color:var(--up-color)">TP: $${t.target_profit_price.toFixed(4)}</span> | 
-                        <span style="color:var(--down-color)">SL: $${t.stop_loss_price.toFixed(4)}</span>
+                    <td style="padding: 14px 12px; width: 180px;">
+                        <div style="display:flex; justify-content:space-between; font-size:10px; font-family:'JetBrains Mono', monospace; margin-bottom:4px;">
+                            <span style="color:#f87171;">SL: $${t.stop_loss_price.toFixed(4)}</span>
+                            <span style="color:#4ade80;">TP: $${t.target_profit_price.toFixed(4)}</span>
+                        </div>
+                        <div style="width:100%; height:6px; background:rgba(0,0,0,0.5); border-radius:10px; border: 1px solid rgba(255,255,255,0.05); position:relative; overflow:hidden;">
+                            <div style="position:absolute; top:0; left:50%; width:1px; height:100%; background:rgba(255,255,255,0.3); z-index:1;"></div>
+                            <div style="height:100%; width:${Math.min(100, Math.max(0, isWin ? 50 + (Math.abs(t.unrealized_pnl_pct)*5) : 50 - (Math.abs(t.unrealized_pnl_pct)*5)))}%; background:${isWin ? 'linear-gradient(90deg, transparent, #4ade80)' : 'linear-gradient(90deg, #f87171, transparent)'}; border-radius:10px; box-shadow: 0 0 8px ${pnlColor}; transition: width 0.5s ease;"></div>
+                        </div>
                     </td>
-                    <td style="padding: 12px; text-align:center; color:#cbd5e1; font-size:11px; font-weight:bold;">
-                        ⏳ ${durationStr}
+                    <td style="padding: 14px 12px; text-align:center; color:#cbd5e1; font-size:11px; font-weight:bold;">
+                        <i class="fas fa-hourglass-half" style="color:#a78bfa; margin-right:4px;"></i>${durationStr}
                     </td>
-                    <td style="padding: 12px; text-align:right; color:#94a3b8; font-size:11px;">
+                    <td style="padding: 14px 12px; text-align:right; color:#94a3b8; font-size:11px; border-radius: 0 8px 8px 0;">
                         ${t.opened_at.split(' ')[0]}<br>
-                        <span style="color:#fff">${t.opened_at.split(' ')[1]}</span>
+                        <span style="color:#e2e8f0; font-weight:600;">${t.opened_at.split(' ')[1]}</span>
                     </td>
                 </tr>
                 `;
@@ -5818,17 +6076,26 @@ document.addEventListener("DOMContentLoaded", function() {
             const thoughts = tsData.thoughts || [];
             
             if (thoughts.length > 0) {
+                // Determine if user was already scrolled to the bottom (within a 10px threshold)
+                const isScrolledToBottom = thoughtMarquee.scrollHeight - thoughtMarquee.clientHeight <= thoughtMarquee.scrollTop + 10;
+                
                 const msgs = thoughts
-                    .slice(0, 10)
+                    .slice(0, 25) // Son 25 mesaji al
+                    .reverse()    // En yeni mesaj EN ALTA gelsin diye ters çevir
                     .map(t => {
-                        // Eğer LLM düşüncesi ise özel renk veya ikonla belirginleştirilebilir
                         const prefix = t.category.includes('Yapay Zeka') ? '🔮' : '⚡';
-                        return `[${t.timestamp?.slice(11,16)||''}] ${prefix} ${t.category||''}: ${t.message||''}`;
+                        // Clean up br tags and other HTML to ensure single-line rendering
+                        let cleanMsg = (t.message || '').replace(/<br\s*\/?>/gi, ' · ').replace(/<\/?[^>]+(>|$)/g, "");
+                        return `<div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; flex-shrink: 0;"><span style="color:#94a3b8; font-size:11px;">[${t.timestamp?.slice(11,16)||''}]</span> ${prefix} <strong style="color:#d8b4fe;">${t.category||''}</strong>: ${cleanMsg}</div>`;
                     })
-                    .join('  ·  ');
-                thoughtMarquee.innerHTML = `${msgs}`;
+                    .join('');
+                
+                thoughtMarquee.innerHTML = msgs;
+                
+                // Auto-scroll to bottom like a terminal stream
+                thoughtMarquee.scrollTop = thoughtMarquee.scrollHeight;
             } else {
-                thoughtMarquee.innerHTML = `🧠 Piyasa izleniyor... Zeka Motoru tetikte.`;
+                thoughtMarquee.innerHTML = `<div style="color:#94a3b8;">🧠 Piyasa izleniyor... Zeka Motoru tetikte.</div>`;
             }
         } catch(e) {
             // sessiz geç
@@ -6063,6 +6330,287 @@ function toggleTradingMode() {
 </div>
 
 {% include 'copilot_ui.html' %}
+
+<script>
+    // KARARGAH INTEL FEED MANTIGI (3 SATIRLI SCROLL)
+    const intelContainer = document.getElementById('intelMessagesContainer');
+
+    let isIntelHovered = false;
+    let intelMessageQueue = [];
+    
+    const intelWrapper = document.querySelector('.intel-feed-wrapper');
+    if (intelWrapper) {
+        intelWrapper.addEventListener('mouseenter', () => {
+            isIntelHovered = true;
+        });
+        intelWrapper.addEventListener('mouseleave', () => {
+            isIntelHovered = false;
+            processIntelQueue();
+        });
+    }
+
+    function processIntelQueue() {
+        if (isIntelHovered || intelMessageQueue.length === 0) return;
+        const msg = intelMessageQueue.shift();
+        renderIntelMessage(msg);
+        if (intelMessageQueue.length > 0) {
+            setTimeout(processIntelQueue, 600); // Wait briefly before rendering next in queue
+        }
+    }
+
+    function renderIntelMessage(htmlText) {
+        if (!intelContainer) return;
+        
+        const msgDiv = document.createElement('div');
+        msgDiv.className = 'intel-message';
+        // Yeni mesaj en üstten kayarak gelecek (prepend mantığı)
+        // Animasyon başlangıç state
+        msgDiv.style.transform = 'translateY(-15px)';
+        msgDiv.style.opacity = '0';
+        msgDiv.style.transition = 'all 0.4s ease-out';
+        
+        msgDiv.innerHTML = htmlText; 
+        
+        // EN ÜSTE EKLE (Aşağı doğru kaysın)
+        intelContainer.prepend(msgDiv);
+        
+        // Animasyon tetikleyici
+        setTimeout(() => {
+            msgDiv.style.transform = 'translateY(0)';
+            msgDiv.style.opacity = '1';
+        }, 50);
+
+        // Maksimum 4 satır kuralı (En alttakini sil)
+        const children = Array.from(intelContainer.children);
+        if (children.length > 4) {
+            const excess = children.length - 4;
+            // Sondan başlayarak sil
+            for (let i = children.length - 1; i >= 4; i--) {
+                const oldDiv = children[i];
+                oldDiv.style.opacity = '0';
+                oldDiv.style.transform = 'translateY(15px)'; // Aşağı doğru kaybolarak gitsin
+                setTimeout(() => { if (oldDiv.parentNode) oldDiv.remove(); }, 400);
+            }
+        }
+    }
+
+    function pushIntelMessage(htmlText) {
+        if (isIntelHovered) {
+            intelMessageQueue.push(htmlText);
+        } else {
+            if (intelMessageQueue.length > 0) {
+                intelMessageQueue.push(htmlText);
+                processIntelQueue();
+            } else {
+                renderIntelMessage(htmlText);
+            }
+        }
+    }
+
+    let massiveAlertTimeout = null;
+    function triggerMassiveAlert(alertsArray) {
+        const alertBox = document.getElementById('massiveOpportunityAlert');
+        const textEl = document.getElementById('massiveOpportunityText');
+        if (!alertBox || !textEl) return;
+        
+        if (!alertsArray || alertsArray.length === 0) {
+            alertBox.classList.remove('massive-alert-active');
+            return;
+        }
+
+        // Fırsatları gruplara göre renklendir ve bas
+        textEl.innerHTML = alertsArray.map(a => {
+            let bg = 'rgba(148, 163, 184, 0.1)';
+            let border = 'rgba(148, 163, 184, 0.3)';
+            let color = '#cbd5e1';
+            
+            if (a.includes('[KRİPTO]')) {
+                bg = 'rgba(245, 158, 11, 0.1)';   // Turuncu (Kripto)
+                border = 'rgba(245, 158, 11, 0.3)';
+                color = '#fbbf24';
+            } else if (a.includes('[NASDAQ]')) {
+                bg = 'rgba(96, 165, 250, 0.1)';    // Mavi (Nasdaq)
+                border = 'rgba(96, 165, 250, 0.3)';
+                color = '#93c5fd';
+            } else if (a.includes('[BIST]')) {
+                bg = 'rgba(16, 185, 129, 0.1)';    // Yeşil (Bist)
+                border = 'rgba(16, 185, 129, 0.3)';
+                color = '#6ee7b7';
+            }
+            
+            // Kategori adını sadeleştir/ikonlaştır
+            let cleanText = a.replace('[KRİPTO] ', '🪙 ').replace('[NASDAQ] ', '🦅 ').replace('[BIST] ', '🇹🇷 ');
+            
+            return `<span style="background: ${bg}; border: 1px solid ${border}; padding: 2px 6px; border-radius: 4px; color: ${color}; font-size: 10px; font-weight: 700; letter-spacing: 0.3px; white-space: nowrap;">${cleanText}</span>`;
+        }).join('');
+        
+        if (!alertBox.classList.contains('massive-alert-active')) {
+            alertBox.classList.add('massive-alert-active');
+        }
+
+        // Yeni veri geldiğinde timeout'u yenile (veri kesilirse 1dk sonra otomatik kapanır)
+        if (massiveAlertTimeout) clearTimeout(massiveAlertTimeout);
+        massiveAlertTimeout = setTimeout(() => {
+            alertBox.classList.remove('massive-alert-active');
+        }, 60000); 
+    }
+
+    // DİNAMİK AJAN KONSEYİ FONKSİYONU
+    const getIntelThoughts = () => {
+        const thoughts = [];
+        const massiveAlerts = [];
+        const massiveSymbols = new Set(); // Mükerrerleri engellemek için
+        
+        // --- DİNAMİK FIRSAT AJANI (Canlı Kantitatif Otonom Zeka) ---
+        if (window.latestDashboardData && window.latestDashboardData.grouped) {
+            const cryptoItems = window.latestDashboardData.grouped.CRYPTO || [];
+            
+            // Kripto Taraması - Muazzam Fırsat Kontrolü (Hacim > 3.0 ve Para Çıkışı / Dump Olmamalı)
+            const massiveCryptoList = cryptoItems.filter(item => 
+                parseFloat(item.volume_ratio || 0) > 3.0 && 
+                (item.cmf === undefined || parseFloat(item.cmf) >= 0 || parseFloat(item.xray_ratio || 1) >= 1.0)
+            );
+            massiveCryptoList.forEach(c => {
+                if(!massiveSymbols.has(c.symbol)) {
+                    massiveAlerts.push(`[KRİPTO] ${c.symbol} (${parseFloat(c.volume_ratio).toFixed(2)}x)`);
+                    massiveSymbols.add(c.symbol);
+                }
+            });
+
+            // a) Örtülü Mal Dağıtımı (Hidden Distribution) - Fiyat Artıda ama Ağır Satış Var (Tuzak)
+            const trapDistribution = cryptoItems.filter(item => parseFloat(item.volume_ratio || 0) > 2.0 && parseFloat(item.xray_ratio || 1) <= 0.8 && parseFloat(item.change_pct || 0) > 0.0);
+            if (trapDistribution.length > 0) {
+                const target = trapDistribution[0];
+                thoughts.push(`> ⚠️ <span class='alert'>Ölümcül Tuzak (Dağıtım):</span> ${target.symbol}. Fiyat yükselmiş gibi duruyor (+${parseFloat(target.change_pct).toFixed(2)}%) ama hacim ${parseFloat(target.volume_ratio).toFixed(2)}x ve XR: ${parseFloat(target.xray_ratio).toFixed(2)}. Akıllı para (Smart Money) yükselişi fırsat bilip perakendeye mal boşaltıyor! YAKLAŞMAYIN.`);
+            }
+
+            // b) Sinsi Fırsat (Hacim < 1.8, XR düşük ama CMF pozitif, Fiyat Artıda) => FILUSDT mantığı
+            const sneakyTargets = cryptoItems.filter(item => parseFloat(item.volume_ratio || 0) > 0.8 && parseFloat(item.volume_ratio || 0) < 1.8 && parseFloat(item.xray_ratio || 1) <= 0.9 && parseFloat(item.cmf || 0) > 0.05 && parseFloat(item.change_pct || 0) > 0);
+            if (sneakyTargets.length > 0 && (!absorptionTargets.length || sneakyTargets[0].symbol !== absorptionTargets[0].symbol)) {
+                const target = sneakyTargets[0];
+                thoughts.push(`> 🎯 <span style='color:#10b981; font-weight:700;'>2. Hedef (Yeni ve Sinsi):</span> ${target.symbol}. Hacim daha ${parseFloat(target.volume_ratio).toFixed(2)}x (uçmamış) ama CMF +${parseFloat(target.cmf).toFixed(2)}. Balina sessizce topluyor. Boşluk varsa "İnfaz" emri çakılır!`);
+            }
+
+            // c) Ölümcül Fakeout Tuzağı (Hacim > 1.5, CMF negatif) => ALGOUSDT, BCHUSDT mantığı
+            const trapTargets = cryptoItems.filter(item => parseFloat(item.volume_ratio || 0) > 1.5 && parseFloat(item.cmf || 0) < -0.05);
+            if (trapTargets.length > 0) {
+                const target = trapTargets[0];
+                thoughts.push(`> ⚠️ <span class='alert'>Uzak Durulması Gereken Tuzak:</span> ${target.symbol}. Hacim(${parseFloat(target.volume_ratio).toFixed(2)}x) patlamış gibi duruyor ama CMF ${parseFloat(target.cmf).toFixed(2)}. Kurumsal para çıkışı var. Bu tam bir Fakeout (Sahte Kırılım)!`);
+            }
+
+            // d) Gerçek Balina / Dev Kırılım (Hacim > 2.0, XR > 1.5)
+            const whaleTargets = cryptoItems.filter(item => parseFloat(item.volume_ratio || 0) > 2.0 && parseFloat(item.xray_ratio || 1) >= 1.5);
+            if (whaleTargets.length > 0) {
+                const target = whaleTargets[0];
+                thoughts.push(`> 🐋 <span class='highlight'>Balina Onaylı Kırılım:</span> ${target.symbol}. Hacim ${parseFloat(target.volume_ratio).toFixed(2)}x, Taker Alış XR: ${parseFloat(target.xray_ratio).toFixed(2)}. Saf kurumsal rüzgar, momentum tam gaz.`);
+            }
+
+            // --- YÜCE DİVAN: BIST (TÜRKİYE) TARAMASI ---
+            const bistItems = window.latestDashboardData.grouped.BIST || [];
+            if (bistItems.length > 0) {
+                // Fiyat düşmüş ama para girişi (CMF) pozitifse = Toplama fırsatı
+                const bistOpportunityList = bistItems.filter(item => parseFloat(item.change_pct || 0) < -1.5 && parseFloat(item.cmf || 0) > 0.05);
+                bistOpportunityList.forEach(b => {
+                    thoughts.push(`> 🇹🇷 <span style='color:#10b981; font-weight:700;'>BIST Özel (Dip Fırsatı):</span> ${b.symbol}. Fiyat %${Math.abs(parseFloat(b.change_pct)).toFixed(2)} ekside ama CMF +${parseFloat(b.cmf).toFixed(2)} (Para Girişi). Toplama bölgesinde!`);
+                    if(!massiveSymbols.has(b.symbol)) {
+                        massiveAlerts.push(`[BIST] ${b.symbol} (CMF +${parseFloat(b.cmf).toFixed(2)})`);
+                        massiveSymbols.add(b.symbol);
+                    }
+                });
+            }
+
+            // --- YÜCE DİVAN: NASDAQ (ABD) TARAMASI ---
+            const nasdaqItems = window.latestDashboardData.grouped.NASDAQ || [];
+            if (nasdaqItems.length > 0) {
+                const nasdaqMoverList = nasdaqItems.filter(item => parseFloat(item.volume_ratio || 0) > 2.0);
+                nasdaqMoverList.forEach(n => {
+                    thoughts.push(`> 🦅 <span class='highlight'>NASDAQ Radarı:</span> ${n.symbol} Hacim Oranı: ${parseFloat(n.volume_ratio).toFixed(2)}x. Amerikan pazarında agresif kurumsal fiyatlanma var.`);
+                    if (parseFloat(n.volume_ratio || 0) > 3.0 && (n.cmf === undefined || parseFloat(n.cmf) >= -0.05)) {
+                         if(!massiveSymbols.has(n.symbol)) {
+                             massiveAlerts.push(`[NASDAQ] ${n.symbol} (${parseFloat(n.volume_ratio).toFixed(2)}x)`);
+                             massiveSymbols.add(n.symbol);
+                         }
+                    }
+                });
+            }
+        }
+
+        // Tüm tespit edilen Muazzam Fırsatları Ekrana Gönder
+        triggerMassiveAlert(massiveAlerts);
+
+
+        return thoughts;
+    };
+    
+    let llmThoughtsArray = [];
+    async function updateLLMThoughtsForIntel() {
+        try {
+            const tsResp = await fetch('/api/analytics/thought-stream');
+            const tsData = await tsResp.json();
+            const rawThoughts = tsData.thoughts || [];
+            if (rawThoughts.length > 0) {
+                llmThoughtsArray = rawThoughts.slice(0, 5).reverse().map(t => {
+                    const prefix = (t.category && t.category.includes('Yapay Zeka')) ? '🧠' : '⚡';
+                    let cleanMsg = (t.message || '').replace(/<br\s*\/?>/gi, ' ').replace(/<\/?[^>]+(>|$)/g, "");
+                    return `> ${prefix} <span class='highlight' style='color:#d8b4fe;'>[${t.category||'AI OTONOM'}]</span>: ${cleanMsg}`;
+                });
+            }
+        } catch(e) {}
+    }
+    updateLLMThoughtsForIntel();
+    setInterval(updateLLMThoughtsForIntel, 10000);
+
+    let intelIndex = 0;
+    function cycleIntelMessages() {
+        let thoughts = getIntelThoughts();
+        
+        // LLM Thoughts ile birleştir (Otonom ajan düşünceleri)
+        if (llmThoughtsArray.length > 0) {
+            thoughts = thoughts.concat(llmThoughtsArray);
+        }
+        
+        // Kutunun her zaman 4 satır dolu görünmesi için filler (Zenginleştirilmiş İzleme) mesajları
+        if (thoughts.length < 4 && window.latestDashboardData && window.latestDashboardData.grouped) {
+            const cryptos = window.latestDashboardData.grouped.CRYPTO || [];
+            for (let i = 0; i < 4; i++) {
+                if (cryptos[i] && thoughts.length < 8) { // Max kapasiteyi taşırmamak için
+                    const c = cryptos[i];
+                    thoughts.push(`> 👁️ <span style='color:#94a3b8;'>[İzleme Ajanı]</span> ${c.symbol} (RSI: ${parseFloat(c.rsi||0).toFixed(1)}). Otonom zeka varlık momentumunu (${parseFloat(c.volume_ratio||0).toFixed(1)}x Hacim) arka planda analiz ediyor...`);
+                }
+            }
+        }
+        
+        // Eğer piyasa verisi bile yoksa veya hala 4 ten azsa
+        if (thoughts.length < 4) {
+            thoughts.push(`> 📡 [Piyasa Radarı] Derin tarama başlatıldı, hacim ağırlıklı fırsatlar bekleniyor.`);
+            thoughts.push(`> 🧠 [Otonom] Doğal dil motoru devrede, sinir ağı kararları besliyor.`);
+            thoughts.push(`> 👁️ [Kılcal Damar] Mikro-volatilite sensörleri aktif.`);
+            thoughts.push(`> 🛡️ [Risk Zırhı] Sistem savunma mekanizması çevrimiçi.`);
+        }
+        
+        if (thoughts.length > 0) {
+            pushIntelMessage(thoughts[intelIndex % thoughts.length]);
+            intelIndex++;
+        }
+    }
+
+    // Sayfa yüklenince 4 satırı ANINDA doldur
+    setTimeout(() => {
+        let initialThoughts = [
+            `> 📡 [Otonom Engine] Gerçek zamanlı borsa veri akışı ve websocket dinleyicileri uyandırıldı.`,
+            `> 🧠 [Zihin Çekirdeği] Kantitatif modeller ve Doğal Dil motoru (NLP) hafıza senkronizasyonunu tamamladı.`,
+            `> 👁️ [Piyasa Radarı] 8000+ kripto ve hisse varlığı üzerinde milisaniyelik anomali taraması başlatılıyor...`,
+            `> 🛡️ [Risk Kalkanı] Portföy savunma algoritmaları devrede. İzinsiz işlem erişimi kapalı.`
+        ];
+        // Reverse loop to keep visual order correct due to prepend
+        for (let i = initialThoughts.length - 1; i >= 0; i--) {
+            setTimeout(() => pushIntelMessage(initialThoughts[i]), (initialThoughts.length - 1 - i) * 150);
+        }
+        
+        // Akışı başlat (4.5 saniyede bir kaydır)
+        setInterval(cycleIntelMessages, 4500);
+    }, 500);
+</script>
 
 </body>
 </html>

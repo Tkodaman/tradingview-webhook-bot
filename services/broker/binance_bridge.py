@@ -38,10 +38,12 @@ class BinanceBroker(BaseBroker):
                     logger.info(f"[BINANCE] Proxy kullaniliyor: {proxy_url}")
                 # Paper mode for Binance is Testnet
                 self.client = Client(self.api_key, self.secret_key, testnet=paper, requests_params=req_params)
+                self.public_client = Client(testnet=paper, requests_params=req_params, tld='me')
                 logger.info(f"[BINANCE] Baglanti saglandi. Mod: {'PAPER (Testnet)' if paper else 'LIVE'}")
             except Exception as e:
                 logger.error(f"[BINANCE] Baglanti hatasi: {e}")
                 self.client = None
+                self.public_client = None
         
         self.is_paper = paper
         if not self.client and self.is_paper:
@@ -83,7 +85,8 @@ class BinanceBroker(BaseBroker):
             # Tüm sembollerin fiyatlarını tek seferde çek (Notional Dust Filter için)
             prices = {}
             try:
-                tickers = self.client.get_all_tickers()
+                client_to_use = getattr(self, 'public_client', self.client)
+                tickers = client_to_use.get_all_tickers()
                 for t in tickers:
                     prices[t['symbol']] = float(t['price'])
             except Exception as e:
@@ -316,26 +319,33 @@ class BinanceBroker(BaseBroker):
         
         sym = self._format_symbol(symbol)
         try:
-            # Get open orders to find the qty and side
-            open_orders = self.client.get_open_orders(symbol=sym)
-            if not open_orders:
-                return {"status": "error", "message": "No open orders found to update"}
-                
             qty = 0.0
-            side = None
-            # Find the stop loss or take profit order to get quantity
-            for order in open_orders:
-                if order.get('type') in ['STOP_LOSS_LIMIT', 'LIMIT_MAKER']:
-                    qty = float(order.get('origQty', 0))
-                    side = order.get('side')
-                    break
+            side = "SELL" # Genelde long pozisyonlar oldugu icin stop=sell olur
+            
+            # Get open orders to find the qty and side (and cancel them)
+            open_orders = self.client.get_open_orders(symbol=sym)
+            
+            if open_orders:
+                # Find the stop loss or take profit order to get quantity
+                for order in open_orders:
+                    if order.get('type') in ['STOP_LOSS_LIMIT', 'LIMIT_MAKER']:
+                        qty = float(order.get('origQty', 0))
+                        side = order.get('side')
+                        break
+                        
+                # Cancel existing open orders (the old OCO)
+                for order in open_orders:
+                    self.client.cancel_order(symbol=sym, orderId=order['orderId'])
+            else:
+                # EGER ACIK EMIR YOKSA (Ornegin market alinmis ve OCO konmamissa)
+                # Cuzdan bakiyesinden miktari cek ve sifirdan OCO kur!
+                asset = sym.replace("USDT", "").replace("USD", "")
+                balance = self.client.get_asset_balance(asset=asset)
+                if balance:
+                    qty = float(balance.get('free', 0.0))
                     
-            if qty == 0.0 or not side:
-                return {"status": "error", "message": "Could not determine order quantity or side"}
-                
-            # Cancel existing open orders (the old OCO)
-            for order in open_orders:
-                self.client.cancel_order(symbol=sym, orderId=order['orderId'])
+            if qty == 0.0:
+                return {"status": "error", "message": "Could not determine order quantity or balance is 0"}
                 
             # Format new prices
             info = self.client.get_symbol_info(sym)
@@ -376,13 +386,14 @@ class BinanceBroker(BaseBroker):
             return {"status": "error", "message": str(e)}
             
     def get_realtime_prices(self, symbols: List[str]) -> Dict[str, float]:
-        if not self.client:
+        client_to_use = getattr(self, 'public_client', self.client)
+        if not client_to_use:
             return {}
         try:
             res = {}
             for s in symbols:
                 sym = self._format_symbol(s)
-                ticker = self.client.get_symbol_ticker(symbol=sym)
+                ticker = client_to_use.get_symbol_ticker(symbol=sym)
                 res[sym] = {"price": float(ticker['price'])}
             return res
         except Exception:

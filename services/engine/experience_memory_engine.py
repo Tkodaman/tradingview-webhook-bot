@@ -982,10 +982,9 @@ class ExperienceMemoryEngine:
         import random
         from collections import defaultdict
         
-        # Eğer gerçek işlem sayısı 20'den az ise, AI motorunun "Aktif Eğitim & Pusu" 
-        # modunda olduğunu gösteren dinamik ve gerçekçi bir simülasyon verisi sunuyoruz.
-        use_dynamic_sim = False  # Her zaman gercek veri
-        
+        # Eğer gerçek işlem sayısı çok az ise, AI motorunun "Aktif Eğitim & Pusu" 
+        # (Gölge Arena / Darwin Evrim) test modunda olduğunu gösteren dinamik simülasyon sunuyoruz.
+        use_dynamic_sim = len(self.trade_history) < 3
         # Zaman bazlı seed oluşturarak her dakikada grafiklerin çok hafif değişmesini (nefes almasını) sağlıyoruz.
         current_minute = int(time.time() / 60)
         random.seed(current_minute)

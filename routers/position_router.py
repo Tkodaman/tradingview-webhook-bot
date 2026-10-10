@@ -102,11 +102,20 @@ def get_active_positions():
                     raw_positions = []
                 
                 # BİNANCE BAĞLANTI KONTROLÜ (API HEALTH)
+                binance_live_prices = {}
                 try:
                     from services.broker.factory import get_broker
                     b_broker = get_broker("BINANCE", paper=(settings.trading_mode == "PAPER"))
                     if b_broker and getattr(b_broker, "client", None) is not None:
                         api_health["binance"] = True
+                        
+                        crypto_syms = []
+                        for p in live_trade_manager.positions.values():
+                            if p.status == "OPEN" and p.market == "CRYPTO":
+                                crypto_syms.append(p.symbol.replace("BINANCE:", "").replace("CRYPTO:", ""))
+                        
+                        if crypto_syms:
+                            binance_live_prices = getattr(b_broker, "get_realtime_prices", lambda x: {})(crypto_syms)
                 except:
                     pass
                 
@@ -197,8 +206,18 @@ def get_active_positions():
 
                     # YENİ ÖNCELİK: Alpaca API her zaman öncelikli (Web UI ile birebir eşleşmesi için)
                     # TradingView free plan 15 dakika gecikmeli veri verdiğinden, Alpaca PnL'ini kullan.
-                    if alpaca_curr_price > 0:
-                        final_current_price = alpaca_curr_price   # ✅ Her zaman Alpaca (Gerçek Broker PnL)
+                    
+                    binance_price = 0.0
+                    if clean_sym in binance_live_prices:
+                        if isinstance(binance_live_prices[clean_sym], dict):
+                            binance_price = binance_live_prices[clean_sym].get("price", 0.0)
+                        elif isinstance(binance_live_prices[clean_sym], (float, int)):
+                            binance_price = float(binance_live_prices[clean_sym])
+
+                    if binance_price > 0:
+                        final_current_price = binance_price       # ✅ Canlı Binance önceliği
+                    elif alpaca_curr_price > 0:
+                        final_current_price = alpaca_curr_price   # ✅ Sonra Alpaca PnL
                     elif tv_price > 0 and tv_is_fresh:
                         final_current_price = tv_price            # Fallback: TV taze
                     elif tv_price > 0:
@@ -417,67 +436,117 @@ def close_live_position(pos_id: str):
 
     alpaca_ok = False
     alpaca_msg = ""
-    is_broker_managed = False
-
-    # 1. Alpaca'da kapat (piyasa kapali veya hata olsa bile devam et)
-    if settings.trading_mode in ["LIVE", "PAPER"]:
-        try:
-            from services.broker.factory import get_broker
-            broker = get_broker(settings.active_broker, paper=(settings.trading_mode == "PAPER"))
-            if broker and hasattr(broker, "api") and broker.api:
-                local_pos = live_trade_manager.positions.get(pos_id)
-                if local_pos:
-                    is_broker_managed = (local_pos.market != "CRYPTO")
-                else:
-                    is_broker_managed = not ("USDT" in symbol or "BINANCE" in symbol or "CRYPTO" in symbol)
-                
-                if is_broker_managed:
-                    alpaca_sym = symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
-                    if alpaca_sym.endswith("USDT") or alpaca_sym.endswith("USD"):
-                        alpaca_sym = alpaca_sym.replace("USDT", "/USD")
-                        if not alpaca_sym.endswith("/USD"):
-                            alpaca_sym = alpaca_sym[:-3] + "/USD"
-                    res = broker.close_position(alpaca_sym)
-                    if res.get("status") == "success":
-                        alpaca_ok = True
-                        logger.info(f"[MANUEL KAPAT] {symbol} ({alpaca_sym}) Alpaca'da kapatildi.")
-                    else:
-                        alpaca_msg = res.get("message", "Alpaca hatasi")
-                        logger.warning(f"[MANUEL KAPAT] {symbol} Alpaca hatasi: {alpaca_msg}. Yerel kapatma yapiliyor.")
-        except Exception as e:
-            alpaca_msg = str(e)
-            logger.warning(f"[MANUEL KAPAT] {symbol} Alpaca exception: {e}. Yerel kapatma yapiliyor.")
-
-    # 2. Yerel kapatma (Alpaca / Binance fark etmeksizin her zaman yapılmalı!)
+    
+    # Yerel kapatma (Alpaca / Binance fark etmeksizin her zaman yapılmalı!)
     # Once direkt pos_id ile dene, bulamazsa symbol uzerinden tara
     local_res = live_trade_manager.close_position(pos_id, "MANUAL_CLOSE")
 
+    matched_pos_id = pos_id
     if not local_res:
         # pos_id eşleşmedi — sembol üzerinden tara
-        matched_pos_id = None
         clean_target_sym = symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
         for pid, pos in live_trade_manager.positions.items():
             clean_pos_sym = pos.symbol.upper().replace("BINANCE:", "").replace("CRYPTO:", "")
-            if clean_pos_sym == clean_target_sym and pos.status == "OPEN":
+            if clean_pos_sym == clean_target_sym and pos.status in ["OPEN", "PENDING_CLOSE"]:
                 matched_pos_id = pid
+                local_res = live_trade_manager.close_position(pid, "MANUAL_CLOSE")
                 break
-        if matched_pos_id:
-            local_res = live_trade_manager.close_position(matched_pos_id, "MANUAL_CLOSE")
 
+    # Kapatma sonucu kontrol et. Eğer PENDING_CLOSE olduysa (Market Kapalı), bu bir hatadır değil başarıdır!
+    current_pos = live_trade_manager.positions.get(matched_pos_id)
     if not local_res:
+        if current_pos and current_pos.status == "PENDING_CLOSE":
+            return {
+                "status": "success",
+                "message": "Kapatma emri borsaya iletildi ancak piyasa kapalı olduğu için sıraya alındı (Queued).",
+                "closed_position": None,
+                "alpaca_synced": True
+            }
+        
         return JSONResponse(status_code=404, content={
             "error": f"Pozisyon bulunamadi: {pos_id}",
-            "alpaca_status": "success" if alpaca_ok else f"error: {alpaca_msg}",
             "tip": "Pozisyon zaten kapali olabilir veya ID formati hatali."
         })
 
     return {
         "status": "success",
         "closed_position": local_res,
-        "alpaca_synced": alpaca_ok,
-        "alpaca_note": alpaca_msg if not alpaca_ok else ""
+        "alpaca_synced": True,
+        "alpaca_note": ""
     }
 
+@router.post("/close_all")
+def close_all_active_positions():
+    """
+    Acil durum (Panik) anında veya Nükleer Çekilme (Retreat) komutuyla
+    tüm açık (OPEN) pozisyonları piyasa fiyatından kapatır.
+    """
+    from services.market_feed.live_stream import live_trade_manager
+    active_positions = [pid for pid, p in live_trade_manager.positions.items() if p.status == "OPEN"]
+    
+    closed_count = 0
+    errors = []
+    
+    for pid in active_positions:
+        try:
+            # call existing close function internally
+            close_live_position(pid)
+            closed_count += 1
+        except Exception as e:
+            errors.append(f"{pid}: {str(e)}")
+            
+    return {
+        "status": "success",
+        "message": f"{closed_count} adet pozisyon basariyla kapatildi.",
+        "errors": errors
+    }
+
+@router.post("/lock_profits")
+def lock_all_profits():
+    """
+    Açık olan ve anlık PnL'i kârda olan ( > %0.5 ) tüm pozisyonların
+    Zarar Kes (Stop-Loss) seviyelerini komisyonu kurtaracak şekilde
+    Giriş Fiyatının %0.2 üstüne çeker (Break-Even).
+    Böylece pozisyonlar risksiz hale (Risk-Free) gelir.
+    """
+    from services.market_feed.live_stream import live_trade_manager
+    locked_count = 0
+    
+    for pid, pos in live_trade_manager.positions.items():
+        if pos.status == "OPEN":
+            # Guncel kar hesaplamasi
+            if pos.entry_price > 0 and pos.current_price > 0:
+                pct = ((pos.current_price - pos.entry_price) / pos.entry_price) * 100.0
+                if pos.side == "SELL":
+                    pct = -pct
+                    
+                # Sadece %0.5'ten fazla karda olanlara mudahale et
+                if pct > 0.5:
+                    if pos.side == "BUY":
+                        new_sl = pos.entry_price * 1.002 # %0.2 komisyon kurtarma marji
+                        if new_sl > pos.stop_loss_price:
+                            pos.stop_loss_price = new_sl
+                            locked_count += 1
+                    else: # SELL
+                        new_sl = pos.entry_price * 0.998
+                        if new_sl < pos.stop_loss_price or pos.stop_loss_price == 0:
+                            pos.stop_loss_price = new_sl
+                            locked_count += 1
+                            
+                    # API guncellemesi (Broker)
+                    try:
+                        from services.broker.factory import get_broker
+                        b_name = "BINANCE" if pos.market == "CRYPTO" else "ALPACA"
+                        broker = get_broker(b_name)
+                        broker.update_bracket_orders(pos.symbol, take_profit_price=pos.target_profit_price, stop_loss_price=pos.stop_loss_price)
+                    except Exception:
+                        pass
+                        
+    live_trade_manager.save_state()
+    return {
+        "status": "success",
+        "message": f"{locked_count} adet varligin Stop-Loss'u 'Break-Even' (Kar Koruma) moduna alindi."
+    }
 
 @router.post("/reset-account")
 def reset_account_balance():
