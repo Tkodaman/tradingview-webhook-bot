@@ -713,12 +713,14 @@ class TradingViewLiveClient:
                                     html_msg = f"Normalde {clean_sym} için {_fvol(expected_cumulative_vol)} hacim beklenirken, {_fvol(vol)} hacim var ({vol_ratio}x Patlama)!\n{xray_badge}\n\n{ai_thought}"
                                     tel_msg = f"⚡ 🔥 <b>HACİM PATLAMASI ({vol_ratio}x) | {clean_sym}</b>\n\n<b>Normal Hacim:</b> {_fvol(expected_cumulative_vol)}\n<b>Şu anki Hacim:</b> {_fvol(vol)}\n\n{tel_badge}\n\n{ai_thought}"
                                     
-                                    # Dashboard için HTML bildirim
+                                    # Dashboard için HTML bildirim (Dinamik Risk/Fırsat Seviyesi)
+                                    radar_lvl = "SUCCESS" if xray_ratio >= 1.0 else ("WARNING" if xray_ratio >= 0.75 else "ERROR")
+                                    radar_cat = "🚀 DEVASA HACİM & TAKER" if xray_ratio >= 1.5 else ("🟢 HACİM RADARI (ALICI)" if xray_ratio >= 1.0 else ("⚠️ DİKKAT (DAĞITIM)" if xray_ratio >= 0.75 else "🚨 ÖLÜMCÜL TUZAK"))
                                     bot_thought_stream.add_throttled(
-                                        category="🔥 HACİM RADARI", 
+                                        category=radar_cat, 
                                         symbol=clean_sym, 
                                         message=html_msg, 
-                                        level="INFO", 
+                                        level=radar_lvl, 
                                         cooldown_sec=43200
                                     )
                                     # Telegram'a da doğrudan uyarı gönder (12 saat cooldown ile)
@@ -728,7 +730,7 @@ class TradingViewLiveClient:
                                     # Eğer balina boşaltması (Tuzak) varsa ve elimizde bu varlık (Manuel dahi olsa) açıksa Otonom ipleri ele alır!
                                     if xray_ratio < 0.75:
                                         try:
-                                            from services.engine.live_trade_manager import live_trade_manager
+                                            from services.market_feed.live_stream import live_trade_manager
                                             for pid, pos in live_trade_manager.positions.items():
                                                 if pos.symbol == clean_sym and pos.status in ["OPEN", "SHADOW_OPEN"]:
                                                     logger.warning(f"🚨 [OTONOM DİZGİNLERİ ELE ALDI] {clean_sym} Ölümcül Tuzak! Manuel pozisyon dahi olsa müdahale ediliyor!")

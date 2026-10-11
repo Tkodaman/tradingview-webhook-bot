@@ -5821,52 +5821,99 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         
         const renderThought = (t) => {
-            let levelColor = 'var(--text-secondary)';
-            if (t.level === 'WARN' || t.level === 'WARNING') levelColor = '#fbbf24';
-            if (t.level === 'SUCCESS') levelColor = '#34d399';
-            if (t.level === 'ERROR') levelColor = '#f87171';
-            if (t.level === 'INFO') levelColor = '#38bdf8';
-            if (t.level === 'CRITICAL') levelColor = '#c084fc';
-            
-            let emoji = "\uD83E\uDDE0";
             const msgLower = (t.message || '').toLowerCase();
-            if (msgLower.includes('sinyal') || msgLower.includes('onay')) emoji = "\uD83D\uDCE1"; 
-            if (msgLower.includes('risk') || msgLower.includes('koruma') || msgLower.includes('defans')) emoji = "\uD83D\uDEE1\uFE0F"; 
-            if (msgLower.includes('volatilite') || msgLower.includes('momentum')) emoji = "\uD83C\uDF2A\uFE0F"; 
-            if (msgLower.includes('likidite') || msgLower.includes('para')) emoji = "\uD83D\uDCA7"; 
-            if (msgLower.includes('hedef') || msgLower.includes('tp')) emoji = "\uD83C\uDFAF"; 
-            if (msgLower.includes('zarar') || msgLower.includes('sl')) emoji = "\uD83D\uDED1"; 
-            if (msgLower.includes('pusu') || msgLower.includes('bekliyor')) emoji = "\uD83E\uDD77"; 
+            const catLower = (t.category || '').toLowerCase();
+            const lvl = (t.level || 'INFO').toUpperCase();
+            
+            // ── DİNAMİK RENK GRUPLANDIRMASI ──
+            // 1. 🔴 ÖLÜMCÜL TUZAK / UYARI / İMHA / ZARAR DURDUR (KIRMIZI TABANLI)
+            const isDanger = lvl === 'ERROR' || lvl === 'CRITICAL' ||
+                msgLower.includes('ölümcül') || msgLower.includes('tuzak') || msgLower.includes('mal boşaltma') || 
+                msgLower.includes('uzak dur') || msgLower.includes('düşen bıçak') || msgLower.includes('şelale') ||
+                msgLower.includes('panik') || msgLower.includes('stop') || msgLower.includes('zarar') || 
+                msgLower.includes('spoof') || msgLower.includes('fakeout') || msgLower.includes('reddedil') ||
+                msgLower.includes('engellendi') || msgLower.includes('tepeden mal') || catLower.includes('tuzak');
+
+            // 2. 🟢 DEVASA HACİM / TAKER BUY / FÜZE / GÜÇLÜ FIRSAT (YEŞİL TABANLI)
+            const isOpportunity = !isDanger && (
+                lvl === 'SUCCESS' ||
+                msgLower.includes('taker buy') || msgLower.includes('fırsat') || msgLower.includes('füze') ||
+                msgLower.includes('patlama') || msgLower.includes('kırılım') || msgLower.includes('balina alım') ||
+                msgLower.includes('güçlü alım') || msgLower.includes('roket') || msgLower.includes('kâr') ||
+                msgLower.includes('tp') || catLower.includes('fırsat') || catLower.includes('devasa') ||
+                (catLower.includes('hacim') && (msgLower.includes('alıcı') || msgLower.includes('taker buy')))
+            );
+
+            // 3. 🟡 VCP / SIKIŞMA / PUSU / TEMKİN (ALTIN SARISI / AMBER TABANLI)
+            const isCautionOrVCP = !isDanger && !isOpportunity && (
+                lvl === 'WARN' || lvl === 'WARNING' ||
+                msgLower.includes('vcp') || msgLower.includes('pusu') || msgLower.includes('daralma') ||
+                msgLower.includes('sıkışma') || msgLower.includes('sessizlik') || msgLower.includes('konsolidasyon') ||
+                msgLower.includes('bekliyor') || msgLower.includes('dikkat') || catLower.includes('vcp') || catLower.includes('pusu')
+            );
+
+            // 4. 🟣 OTONOM ZEKA / ML / YÜCE DİVAN / DARWİN (MOR / NEBULA TABANLI)
+            const isIntelligence = !isDanger && !isOpportunity && !isCautionOrVCP && (
+                catLower.includes('zeka') || catLower.includes('divan') || catLower.includes('darwin') ||
+                catLower.includes('ml') || msgLower.includes('yapay zeka') || msgLower.includes('makine öğrenimi') ||
+                msgLower.includes('kuant') || msgLower.includes('alpha')
+            );
+
+            let group = 'CYAN';
+            if (isDanger) group = 'DANGER';
+            else if (isOpportunity) group = 'OPPORTUNITY';
+            else if (isCautionOrVCP) group = 'CAUTION_VCP';
+            else if (isIntelligence) group = 'AI_INTELLIGENCE';
+
+            // Ultra-Premium Neon / Cyberpunk Styling
+            let levelColor = '#38bdf8';
+            let bgGradient = 'linear-gradient(135deg, rgba(56, 189, 248, 0.16) 0%, rgba(15, 23, 42, 0.92) 100%)';
+            let borderColor = 'rgba(56, 189, 248, 0.5)';
+            let shadowGlow = '0 0 14px rgba(56, 189, 248, 0.20)';
+            let tagBg = 'rgba(56, 189, 248, 0.12)';
+            let emoji = '📡';
+
+            if (group === 'DANGER') {
+                levelColor = '#f87171';
+                bgGradient = 'linear-gradient(135deg, rgba(239, 68, 68, 0.28) 0%, rgba(35, 10, 15, 0.92) 100%)';
+                borderColor = '#ef4444';
+                shadowGlow = '0 0 18px rgba(239, 68, 68, 0.40)';
+                tagBg = 'rgba(239, 68, 68, 0.25)';
+                emoji = '🚨';
+            } else if (group === 'OPPORTUNITY') {
+                levelColor = '#34d399';
+                bgGradient = 'linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(8, 35, 20, 0.92) 100%)';
+                borderColor = '#10b981';
+                shadowGlow = '0 0 18px rgba(16, 185, 129, 0.40)';
+                tagBg = 'rgba(16, 185, 129, 0.25)';
+                emoji = '🚀';
+            } else if (group === 'CAUTION_VCP') {
+                levelColor = '#fbbf24';
+                bgGradient = 'linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(38, 26, 10, 0.92) 100%)';
+                borderColor = '#f59e0b';
+                shadowGlow = '0 0 16px rgba(245, 158, 11, 0.30)';
+                tagBg = 'rgba(245, 158, 11, 0.25)';
+                emoji = '🥷';
+            } else if (group === 'AI_INTELLIGENCE') {
+                levelColor = '#c084fc';
+                bgGradient = 'linear-gradient(135deg, rgba(168, 85, 247, 0.22) 0%, rgba(28, 12, 40, 0.92) 100%)';
+                borderColor = '#a855f7';
+                shadowGlow = '0 0 16px rgba(168, 85, 247, 0.30)';
+                tagBg = 'rgba(168, 85, 247, 0.25)';
+                emoji = '🧠';
+            }
+
+            // Özel emoji zenginleştirmeleri
+            if (msgLower.includes('tuzak') || msgLower.includes('uzak dur')) emoji = '☠️';
+            else if (msgLower.includes('balina')) emoji = '🐋';
+            else if (msgLower.includes('elmas') || msgLower.includes('muazzam')) emoji = '💎';
+            else if (msgLower.includes('bıçak') || msgLower.includes('kurban')) emoji = '🗡️';
+            else if (msgLower.includes('fırsat') || msgLower.includes('füze') || msgLower.includes('patlama')) emoji = '🚀';
+            else if (msgLower.includes('daralma') || msgLower.includes('vcp') || msgLower.includes('pusu')) emoji = '🥷';
             
             let catText = (t.category || 'Otonom Sistem').replace('ASTRA-6', 'Gemini-1.5').trim();
             let symText = (t.symbol || '').replace('ANALİZ', 'Değerlendirme').trim();
             let msgText = (t.message || '');
-            
-            // Ultra-Premium Cyberpunk / Glassmorphism Styling
-            let bgGradient = 'rgba(15, 23, 42, 0.6)';
-            let borderColor = 'rgba(255, 255, 255, 0.1)';
-            let shadowGlow = 'none';
-            
-            if (t.level === 'WARN' || t.level === 'WARNING') { 
-                bgGradient = 'linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)'; 
-                borderColor = 'rgba(234, 179, 8, 0.4)'; 
-                shadowGlow = '0 0 12px rgba(234, 179, 8, 0.15)';
-            }
-            else if (t.level === 'SUCCESS') { 
-                bgGradient = 'linear-gradient(135deg, rgba(52, 211, 153, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)'; 
-                borderColor = 'rgba(52, 211, 153, 0.4)'; 
-                shadowGlow = '0 0 12px rgba(52, 211, 153, 0.15)';
-            }
-            else if (t.level === 'ERROR') { 
-                bgGradient = 'linear-gradient(135deg, rgba(248, 113, 113, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)'; 
-                borderColor = 'rgba(248, 113, 113, 0.4)'; 
-                shadowGlow = '0 0 12px rgba(248, 113, 113, 0.15)';
-            }
-            else if (t.level === 'INFO') {
-                bgGradient = 'linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(15, 23, 42, 0.8) 100%)'; 
-                borderColor = 'rgba(56, 189, 248, 0.4)'; 
-                shadowGlow = '0 0 12px rgba(56, 189, 248, 0.15)';
-            }
             
             return `
             <div style="background: ${bgGradient}; border-left: 4px solid ${borderColor}; box-shadow: ${shadowGlow}; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); margin-bottom: 10px; padding: 12px 14px; border-radius: 4px 8px 8px 4px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1);">
@@ -5874,17 +5921,17 @@ document.addEventListener("DOMContentLoaded", function() {
                     <span style="font-family: 'JetBrains Mono', Consolas, monospace; font-size: 10px; color: #94a3b8; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px;">
                         <i class="fas fa-clock" style="color: ${levelColor}; opacity: 0.8;"></i> ${(t.timestamp || '').slice(11, 19) || t.timestamp}
                     </span>
-                    <span style="font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,0.03); color: ${levelColor}; border: 1px solid ${borderColor}; letter-spacing: 0.5px; text-transform: uppercase;">
+                    <span style="font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: ${tagBg}; color: ${levelColor}; border: 1px solid ${borderColor}; letter-spacing: 0.5px; text-transform: uppercase;">
                         <i class="fas fa-microchip pulse-icon" style="margin-right:4px;"></i> ${catText}
                     </span>
                 </div>
                 <div style="display:flex; gap: 12px; align-items: flex-start;">
-                    <div style="font-size: 22px; line-height: 1; filter: drop-shadow(0 0 6px ${levelColor}); background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">${emoji}</div>
+                    <div style="font-size: 22px; line-height: 1; filter: drop-shadow(0 0 6px ${levelColor}); background: rgba(0,0,0,0.25); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">${emoji}</div>
                     <div style="flex:1;">
                         <b style="color: #f8fafc; font-size: 14px; display: block; margin-bottom: 4px; letter-spacing: 0.3px;">
-                            ${symText ? '<span style="color: #cbd5e1; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; margin-right: 6px; font-family: monospace;">' + symText + '</span>' : ''} İşlem Gerekçesi
+                            ${symText ? '<span style="color: #cbd5e1; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; margin-right: 6px; font-family: monospace;">' + symText + '</span>' : ''} İşlem Gerekçesi
                         </b>
-                        <span style="color: #94a3b8; font-size: 13px; line-height: 1.6; display: inline-block;">
+                        <span style="color: #e2e8f0; font-size: 13px; line-height: 1.6; display: inline-block;">
                             ${msgText.replace(/([0-9]+\.?[0-9]*%?)/g, `<b style="color: ${levelColor}; font-family: monospace; font-size: 14px;">$1</b>`)} 
                         </span>
                     </div>
