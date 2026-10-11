@@ -233,8 +233,28 @@ class Top20Engine:
                 composite = round(max(0.0, min(100.0, composite + modifier_points)), 2)
                 if modifier_points > 0:
                     item["tech_notes"].insert(0, f"🟢 ML ÖDÜLÜ: {ml_eval['reason']}")
-                elif modifier_points < 0:
-                    item["tech_notes"].insert(0, f"⚠️ ML TEMKİN: {ml_eval['reason']}")
+            # -----------------------------------------------------------
+            # --- 4 ALTIN AVCI KURALI (HACİM VE FÜZE ADAYI NİZAMI) ---
+            vol_ratio = float(getattr(item.get("ind"), "volume_ratio", 1.0) or item.get("volume_spike", 1.0) or 1.0)
+            xr_val = float(item.get("xray_ratio", 1.0) or 1.0)
+            item_rsi = float(item["ind"].rsi if hasattr(item.get("ind"), "rsi") else 50.0)
+
+            # 1. Hacim < 1.5x Tırpanı (Ölü Tahta İnfazı)
+            if vol_ratio < 1.2:
+                composite *= 0.45  # %55 ceza
+            elif vol_ratio < 1.5:
+                composite *= 0.70  # %30 ceza
+
+            # 2. Gerçek Füze Adayı Ödülü (+20 Puan)
+            if vol_ratio >= 1.8 and xr_val >= 1.20 and item_rsi <= 68.0:
+                composite = min(99.9, composite + 20.0)
+                item["tech_notes"].insert(0, f"🚀 GERÇEK FÜZE ADAYI: Hacim {vol_ratio:.1f}x | XR {xr_val:.2f} | RSI {item_rsi:.1f}")
+
+            # 3. Tepe Tuzağı Koruması (RSI >= 75)
+            if item_rsi >= 75.0:
+                composite *= 0.85
+
+            composite = round(max(0.0, min(99.9, composite)), 2)
             # -----------------------------------------------------------
 
             from services.risk_engine.dynamic_sl_tp import calculate_atr_based_tp_sl
