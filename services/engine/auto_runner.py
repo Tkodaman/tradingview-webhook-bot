@@ -154,12 +154,11 @@ class TradingViewAutoStrategyRunner:
         
         # === OTC & JUNK STOCK FILTER + HUNTER MODE (Kullanıcı Koruması) ===
         # TradingView'dan gelen anlamsız (Alpaca'da olmayan) OTC hisselerini engeller.
-        from services.data_ingestion.asset_universe_manager import AssetUniverseManager
-        universe = AssetUniverseManager()
+        from services.data_ingestion.asset_universe_manager import asset_universe_manager
         valid_symbols = set(
-            [s.split(":")[-1] for s in universe.master_crypto_universe] +
-            [s.split(":")[-1] for s in universe.master_nasdaq_universe] +
-            [s.split(":")[-1] for s in universe.master_bist_universe]
+            [s.split(":")[-1] for s in asset_universe_manager.master_crypto_universe] +
+            [s.split(":")[-1] for s in asset_universe_manager.master_nasdaq_universe] +
+            [s.split(":")[-1] for s in asset_universe_manager.master_bist_universe]
         )
         
         # 🦅 [AVCI MODU (HUNTER MODE) ENTEGRASYONU]
@@ -855,21 +854,53 @@ class TradingViewAutoStrategyRunner:
                 base_sl = _rp["sl_pct"]
 
             # =========================================================
-            # 🥷 SESSİZLİK PATLAMASI (VCP - Squeeze) TESPİTİ
+            # 🥷 SESSİZLİK PATLAMASI (MUAZZAM VCP - Squeeze) TESPİTİ
             # =========================================================
             is_vcp = False
-            # KOMİTE GÜVENLİK REVİZYONU: VCP bonusu +30'dan +18'e indirildi.
-            # Gerekçe: +30 puan RSI cezası (-6) ve pump cezası (-10) dahil TÜM filtreleri geçersiz kılıyordu.
-            # +18 ise sadece gerçek VCP sinyalini yeterince ödüllendirir, sahte durumları da frenler.
-            # Ek koruma: ADX < 20 koşulu eklendi (trend yoksa hacimsizlik gerçekten VCP'dir).
-            if vol_ratio < 0.6 and 40.0 <= rsi <= 60.0 and abs(chg_pct) <= 1.0 and adx < 25.0:
+            # MUAZZAM VCP ŞARTLARI (Ölü tahta spamını kesen nizam):
+            # 1. Hacim kurumuş olmalı (vol_ratio < 0.60)
+            # 2. Volatilite daralması olmalı (abs(chg_pct) <= 0.8 ve adx < 22)
+            # 3. Trend desteği: Düşüş trendi olamaz (rsi >= 48.0)
+            # 4. Alıcı derinliği: Tahta bomboş değil, alıcılar pusuda bekliyor (xray_ratio >= 1.15 veya bid_ask >= 0.52)
+            xray_check_val = float(data.get("xray_ratio") or 1.0)
+            is_real_vcp_setup = (
+                vol_ratio < 0.60 
+                and abs(chg_pct) <= 0.8 
+                and adx < 22.0 
+                and rsi >= 48.0 
+                and (xray_check_val >= 1.15 or bid_ask_ratio >= 0.52)
+            )
+            if is_real_vcp_setup:
                 is_vcp = True
-                score += 18.0  # VCP Avcı Bonusu (Güvenli seviyeye indirildi - Komite Kararı)
-                logger.info(f"🥷 [VCP HUNTER] {sym} Sessizlik Patlaması (Squeeze) hazırlığı algılandı! Pusuya yatılıyor (+18 Puan - Güvenli Mod).")
+                score += 18.0  # VCP Avcı Bonusu
+                logger.info(f"🥷 [MUAZZAM VCP] {sym} Gerçek Sessizlik Patlaması algılandı! Alıcılar pusuda (XR: {xray_check_val:.2f}).")
                 bot_thought_stream.add_throttled(
-                    "🥷 VCP Patlama Pususu", sym, 
-                    f"Admin, VCP (Volatilite Daralması) formasyonu saptadım. Hacim {vol_ratio:.2f} seviyesine kadar kurumuş fakat fiyatın altına inilmiyor. ADX de trend yok diyor. Sessizlik patlaması bekliyorum, radarıma alıp pusuya yatıyorum.", 
-                    "SUCCESS", cooldown_sec=300
+                    "🥷 MUAZZAM VCP PUSUSU", sym, 
+                    f"Admin, {sym} tahtasında gerçek bir VCP (Volatilite Daralması) yakaladım. Hacim {vol_ratio:.2f}x seviyesine kurudu, fiyat dalgası daraldı ve derinlikte alıcılar (XR: {xray_check_val:.2f}) pusuda bekliyor. Sessizlik patlaması bekleniyor.", 
+                    "SUCCESS", 
+                    cooldown_sec=1800,          # Aynı coin için 30 dakika!
+                    category_cooldown_sec=900   # Tüm piyasada 15 dakikada en fazla 1 kez!
+                )
+
+            # =========================================================
+            # 🚀 MUAZZAM FIRSAT (GERÇEK FÜZE ADAYI) TESPİTİ
+            # =========================================================
+            # KURAL: Hacim >= 1.8x + X-Ray >= 1.20 + RSI <= 68.0 (Önünde %4-%6 Temiz Koşu Alanı Olanlar!)
+            is_missile_candidate = (
+                vol_ratio >= 1.8 
+                and xray_check_val >= 1.20 
+                and 45.0 <= rsi <= 68.0 
+                and chg_pct >= -0.5
+            )
+            if is_missile_candidate:
+                score += 20.0
+                logger.info(f"🚀 [MUAZZAM FIRSAT] {sym} Füze adayı saptandı! Hacim: {vol_ratio:.1f}x, XR: {xray_check_val:.2f}, RSI: {rsi:.1f}")
+                bot_thought_stream.add_throttled(
+                    "🚀 MUAZZAM FIRSAT", sym,
+                    f"Komutanım, {sym} için geri sayım başladı! Hacim {vol_ratio:.1f}x ile patladı, Alıcı Baskısı (XR: {xray_check_val:.2f}) emir defterini kilitledi. RSI {rsi:.1f} ile önünde %4-%6 temiz yükseliş koridoru açık! Fırlamaya hazır!",
+                    "SUCCESS",
+                    cooldown_sec=600,
+                    category_cooldown_sec=120
                 )
 
             # =========================================================
@@ -1025,6 +1056,14 @@ class TradingViewAutoStrategyRunner:
                     # VEKTÖREL ETKİ: (XR Yönü) * Hacim * 15.0 (Katsayı)
                     vector_impact = xr_direction * magnitude * 15.0
                         
+                    # DÜŞEN BIÇAK (FALLING KNIFE) KORUMASI: +2 Çapraz Kontrol Düzeltmesi!
+                    # Eğer fiyat -%2.0'den fazla çökmüşse, yüksek XR ve Hacim "Akümülasyon" değil,
+                    # patlayan long pozisyonlarının (likidasyon şelalesi) yarattığı sahte bir alevdir!
+                    if chg_pct <= -2.0 and vector_impact > 0:
+                        logger.warning(f"🗡️ [FALLING KNIFE] {sym} %{chg_pct} düşüşte. Sahte Hacim (Likidasyon) engellendi!")
+                        bot_thought_stream.add_throttled("🗡️ Düşen Bıçak Engellendi", sym, f"Fiyat {chg_pct}% düşerken oluşan hacim patlaması bir alım değil, likidasyon şelalesidir. +2 Çapraz Kontrol kalkanı sahte vektör bonusunu sıfırladı!", "WARNING", cooldown_sec=300)
+                        vector_impact = 0.0
+
                     # Skora Dinamik Etkiyi Ekle
                     score += vector_impact
                     
@@ -1407,9 +1446,31 @@ class TradingViewAutoStrategyRunner:
                     logger.warning(f"[YUCE DIVAN BLOCKED] {sym} -> {divan_result['admin_msg']}")
                     continue # İnfazı iptal et ve sıradaki fırsata geç
                 
-                # YÜCE DİVAN ONAYLADI! Ancak henüz mesaj atmıyoruz, işlemin borsada açılmasını (process_order) bekleyeceğiz.
+                # ═══════════════════════════════════════════════════════════
+                # 8. DARWİNCİ OTONOM EVRİM & DURUŞ (DEFANS / NAKİT KORUMA vs ATAK)
+                # ═══════════════════════════════════════════════════════════
+                from services.engine.darwin_evolution_engine import darwin_evolution_engine
+                darwin_xr = float(data.get("xray_ratio", 1.0) or data.get("xray", 1.0) or 1.0)
+                darwin_chg = float(data.get("change_pct", 0.0) or data.get("change_24h", 0.0) or 0.0)
+                darwin_ok, darwin_reason, darwin_adj = darwin_evolution_engine.evaluate_opportunity_safeguard(
+                    symbol=sym,
+                    score=float(score),
+                    volume_ratio=float(vol_ratio),
+                    xray_ratio=darwin_xr,
+                    change_24h=darwin_chg
+                )
+                if not darwin_ok:
+                    bot_thought_stream.add_throttled("🧬 DARWIN DEFANS", sym, f"[{sym}] {darwin_reason}", level="WARNING", cooldown_sec=120)
+                    logger.warning(f"[DARWIN STANCE BLOCKED] {sym} -> {darwin_reason}")
+                    continue
+
+                if darwin_adj.get("capital_mult"):
+                    dyn_cap = round(dyn_cap * darwin_adj["capital_mult"], 2)
+                    logger.info(f"[DARWIN LOT ADJ] {sym} sermaye katsayısı: {darwin_adj['capital_mult']}x -> ${dyn_cap}")
+
+                # YÜCE DİVAN VE DARWIN ONAYLADI! Ancak henüz mesaj atmıyoruz, işlemin borsada açılmasını (process_order) bekleyeceğiz.
                 llm_lot_mult = 1.0
-                logger.debug(f"[AUTO-RUNNER] {sym} kantitatif filtreleri ve Yüce Divan onayını geçti. İnfaz başlatılıyor.")
+                logger.debug(f"[AUTO-RUNNER] {sym} kantitatif filtreleri, Yüce Divan ve Darwin onayını geçti. İnfaz başlatılıyor.")
 
                 logger.info(f"⚡ [EXECUTION] {sym} Final Bütçe: ${dyn_cap:.2f} (Rejim x{_regime_cap_mult}, Cüretkar x{audacious_mult}, Astra/Gemini x{llm_lot_mult})")
 

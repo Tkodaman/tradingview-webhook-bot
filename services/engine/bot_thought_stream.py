@@ -12,7 +12,7 @@ import time
 import uuid
 
 TRT = ZoneInfo("Europe/Istanbul")
-MAX_THOUGHTS = 100
+MAX_THOUGHTS = 250
 
 
 class BotThoughtStream:
@@ -39,17 +39,38 @@ class BotThoughtStream:
             "level": level,
         })
 
-    def add_throttled(self, category: str, symbol: str, message: str, level: str = "INFO", cooldown_sec: int = 180):
+    def add_throttled(
+        self, 
+        category: str, 
+        symbol: str, 
+        message: str, 
+        level: str = "INFO", 
+        cooldown_sec: int = 180,
+        category_cooldown_sec: int = 0
+    ):
         """
         Ayni kategori+sembol icin belirtilen sure dolmadan tekrar akisa yazmaz.
-        'Ara ara' izleme/yaklasma bildirimleri icin (spam onleme).
+        category_cooldown_sec > 0 ise ayni kategorideki TUM semboller icin kuresel frenleme uygular.
         """
-        key = f"{category}:{symbol}"
         now = time.time()
+
+        # 1. Kategori bazlı küresel frenleme (örn. VCP tüm piyasada 15 dakikada en fazla 1 kez)
+        if category_cooldown_sec > 0:
+            cat_key = f"__GLOBAL_CAT__:{category}"
+            last_cat = self._last_seen.get(cat_key, 0.0)
+            if (now - last_cat) < category_cooldown_sec:
+                return
+
+        # 2. Sembol bazlı frenleme
+        key = f"{category}:{symbol}"
         last = self._last_seen.get(key, 0.0)
         if (now - last) < cooldown_sec:
             return
+
         self._last_seen[key] = now
+        if category_cooldown_sec > 0:
+            self._last_seen[f"__GLOBAL_CAT__:{category}"] = now
+
         self.add(category, symbol, message, level)
 
     def get_recent(self, limit: int = 30) -> List[Dict[str, Any]]:

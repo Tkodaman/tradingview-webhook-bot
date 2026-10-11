@@ -1427,6 +1427,22 @@
                                 <div id="regimeProfile_BIST" style="font-size:9px; color:#64748b; margin-top:2px;"></div>
                             </div>
                         </div>
+                        <!-- DARWIN STRATEGIC STANCE -->
+                        <div id="darwinStanceBox" style="display:flex; justify-content:space-between; align-items:center; padding: 8px 12px; background: rgba(168,85,247,0.12); border-radius: 6px; border: 1px solid rgba(168,85,247,0.3); transition: all 0.4s ease;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-size: 13px;">🧬</span>
+                                <div>
+                                    <div style="color:#c084fc; font-weight:bold; font-size: 12px; display:flex; align-items:center; gap:6px;">
+                                        DARWIN DURUŞU: <span id="darwin-stance-badge" style="background: rgba(168,85,247,0.25); color: #d8b4fe; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">YÜKLENİYOR</span>
+                                    </div>
+                                    <div id="darwin-stance-reason" style="font-size: 9px; color: #94a3b8; margin-top: 2px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Darwin Gerekçesi">Piyasa rejimi ve risk analizi bekleniyor...</div>
+                                </div>
+                            </div>
+                            <div style="text-align:right;">
+                                <span style="color:#e2e8f0; font-size:10px; font-weight:600;">Mod: <span id="darwin-risk-mode" style="color:#38bdf8;">DYNAMIC</span></span>
+                                <div id="darwin-last-updated" style="font-size:8px; color:#64748b; margin-top:2px;">-</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1554,6 +1570,12 @@
                 <div id="modeIndicator" onclick="toggleTradingMode()" style="cursor: pointer; background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
                     <span id="modeDot" class="live-dot" style="background: #a855f7; box-shadow: 0 0 8px #a855f7;"></span>
                     <span id="modeText" style="color: #a855f7; font-weight: bold; font-size: 12px; letter-spacing: 0.5px;">MOD YÜKLENİYOR...</span>
+                </div>
+
+                <!-- DARWIN AUTONOMOUS STANCE INDICATOR -->
+                <div id="darwinStanceBox" style="cursor: pointer; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 6px 12px; display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;" title="Darwinian Otonom Duruş: Testere ve Çöküşte Nakit Koruma, Trendde Atak!">
+                    <span class="live-dot" id="darwin-stance-dot" style="background: #f59e0b; box-shadow: 0 0 8px #f59e0b;"></span>
+                    <span id="darwin-stance-main-badge" style="color: #fbbf24; font-weight: bold; font-size: 11px; letter-spacing: 0.5px;">🧬 DARWIN: DEFANS (NAKİT)</span>
                 </div>
             </div>
 
@@ -1757,12 +1779,13 @@
                         <th style="padding: 10px; text-align:center; color:#cbd5e1;">İşlem Sayısı (W/L)</th>
                         <th style="padding: 10px; text-align:right; color:#cbd5e1;">Net PnL</th>
                         <th style="padding: 10px; text-align:center; color:#cbd5e1;">Son İşlem (Tarih/Saat)</th>
+                        <th style="padding: 10px; text-align:center; color:#cbd5e1;">Giriş ➔ Çıkış (Fiyat)</th>
                         <th style="padding: 10px; text-align:center; color:#cbd5e1;">İstatistiksel Güven Aralığı</th>
                         <th style="padding: 10px; text-align:left; color:#cbd5e1;">Uzmanlık / Karar</th>
                     </tr>
                 </thead>
                 <tbody id="assetSummaryTableBody">
-                    <tr><td colspan="9" style="text-align:center; padding: 16px; color:#6b7280;">Geçmiş işlem verisi yükleniyor...</td></tr>
+                    <tr><td colspan="10" style="text-align:center; padding: 16px; color:#6b7280;">Geçmiş işlem verisi yükleniyor...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -1770,12 +1793,29 @@
 
     <!-- GÖLGE ARENA: OTONOM ZEKA & CESARET TESTİ -->
     <div class="panel" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(10,12,18,0.95), rgba(20,25,35,0.9)); border: 1px solid rgba(139, 92, 246, 0.5); box-shadow: 0 0 15px rgba(139, 92, 246, 0.1);">
-        <div class="panel-header">
-            <div class="panel-header-title">
-                <span style="color:#8b5cf6;">🥷</span> Gölge Arena: Otonom Zeka & Cesaret Testi (Canlı)
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div class="panel-header-title" style="display: flex; align-items: center; gap: 8px;">
+                <span style="color:#8b5cf6; font-size: 16px;">🥷</span> 
+                <span>Gölge Arena: Otonom Zeka & Cesaret Testi (Canlı)</span>
             </div>
-            <div style="font-size: 11px; color: #a78bfa; font-weight: bold; border: 1px solid rgba(139,92,246,0.3); padding: 2px 6px; border-radius: 4px; background: rgba(139,92,246,0.1);">
-                [MAKS. 4 SAAT KURALI - VUR KAÇ / BALİNA SÖRFÜ]
+            
+            <!-- DİNAMİK BAŞARI ENDEKSİ VE KAR/ZARAR GÖSTERGELERİ (YEŞİL / KIRMIZI MANTIĞI) -->
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <div style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.35); color: #c4b5fd; font-weight: 600;">
+                    📊 İşlem: <span id="shadowBadgeTrades" style="color:#fff; font-weight:bold;">0</span>
+                </div>
+                <div id="shadowBadgeWinRateContainer" style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); color: #94a3b8; font-weight: 600;">
+                    🎯 Win Rate: <span id="shadowBadgeWinRate" style="font-weight:bold;">%0.0</span>
+                </div>
+                <div id="shadowBadgePnlContainer" style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.15); color: #94a3b8; font-weight: 600; font-family:'JetBrains Mono', monospace;">
+                    💰 Net PnL: <span id="shadowBadgePnl" style="font-weight:bold;">$0.00</span>
+                </div>
+                <div id="shadowBadgeIndexContainer" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); color: #e9d5ff; font-weight: 700;">
+                    ⭐ Başarı Endeksi: <span id="shadowBadgeIndex" style="color:#38bdf8; font-weight:bold;">Kalibrasyon</span>
+                </div>
+                <div style="font-size: 10px; color: #a78bfa; font-weight: bold; border: 1px solid rgba(139,92,246,0.3); padding: 2px 6px; border-radius: 4px; background: rgba(139,92,246,0.1);">
+                    [MAKS. 4S - VUR KAÇ]
+                </div>
             </div>
         </div>
         
@@ -4401,7 +4441,7 @@
                 tbody.innerHTML = "";
                 
                 if (data.rankings.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 16px; color:#6b7280;">Henüz işlem yapılan varlık yok.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 16px; color:#6b7280;">Henüz işlem yapılan varlık yok.</td></tr>';
                     return;
                 }
                 
@@ -4446,6 +4486,16 @@
                     const statLabel = asset.statistical_confidence_label || '';
                     const shadowBadge = asset.last_trade_is_shadow ? '<span style="font-size:9px; background:rgba(139, 92, 246, 0.2); color:#a78bfa; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Son İşlem: Gölge (Yapay Zeka)">🥷 GÖLGE</span>' : '<span style="font-size:9px; background:rgba(74, 222, 128, 0.15); color:#4ade80; padding:2px 4px; border-radius:3px; margin-left:4px;" title="Son İşlem: Borsaya İletildi (Live veya Paper)">💼 BROKER API</span>';
                     
+                    let entryPriceStr = "—";
+                    let exitPriceStr = "—";
+                    if (asset.last_entry_price && asset.last_entry_price > 0) {
+                        entryPriceStr = asset.last_entry_price < 1 ? '$' + parseFloat(asset.last_entry_price).toFixed(4) : '$' + parseFloat(asset.last_entry_price).toFixed(2);
+                    }
+                    if (asset.last_exit_price && asset.last_exit_price > 0) {
+                        exitPriceStr = asset.last_exit_price < 1 ? '$' + parseFloat(asset.last_exit_price).toFixed(4) : '$' + parseFloat(asset.last_exit_price).toFixed(2);
+                    }
+                    const priceFlow = (entryPriceStr !== "—") ? `<span style="color:#94a3b8">${entryPriceStr}</span> <span style="color:#64748b">➔</span> <span style="color:${pnl >= 0 ? '#4ade80' : '#ef4444'}">${exitPriceStr}</span>` : '—';
+
                     tr.innerHTML = `
                         <td style="padding: 10px; font-weight:bold; color:#f8fafc;">${asset.symbol} <span style="font-size:9px; color:#64748b; margin-left:4px;">${asset.market}</span> <br><div style="margin-top: 4px;">${shadowBadge}</div></td>
                         <td style="padding: 10px; text-align:center; font-weight:bold; color:${scoreColor};">${score}</td>
@@ -4454,6 +4504,7 @@
                         <td style="padding: 10px; text-align:center; color:#cbd5e1;">${wlStr}</td>
                         <td style="padding: 10px; text-align:right; font-weight:bold; color:${pnlColor};">${pnl >= 0 ? '+' : ''}$${pnl}</td>
                         <td style="padding: 10px; text-align:center; color:#94a3b8; font-family:'JetBrains Mono'; font-size:11px;">${lastClosedStr}</td>
+                        <td style="padding: 10px; text-align:center; font-family:'JetBrains Mono'; font-size:11px; white-space:nowrap;">${priceFlow}</td>
                         <td style="padding: 10px; text-align:center; color:#cbd5e1;"><div>${wilsonStr}</div><div style="font-size:9px; color:#64748b;">${statLabel}</div></td>
                         <td style="padding: 10px; text-align:left; color:#9ca3af;"><span style="font-size:10px; padding:2px 4px; border-radius:3px; background:rgba(255,255,255,0.1); margin-right:4px;">${asset.expertise_level}</span> <span style="color:#e2e8f0;">${asset.action_recommendation}</span></td>
                     `;
@@ -5909,6 +5960,81 @@ document.addEventListener("DOMContentLoaded", function() {
             const res = await fetch('/api/analytics/shadow-summary');
             const data = await res.json();
             
+            // Dinamik Rozetleri Güncelle (Yeşil / Kırmızı Mantığı)
+            const stats = data.stats || {};
+            const elTrades = document.getElementById('shadowBadgeTrades');
+            const elWinRate = document.getElementById('shadowBadgeWinRate');
+            const elWinRateBox = document.getElementById('shadowBadgeWinRateContainer');
+            const elPnl = document.getElementById('shadowBadgePnl');
+            const elPnlBox = document.getElementById('shadowBadgePnlContainer');
+            const elIndex = document.getElementById('shadowBadgeIndex');
+            const elIndexBox = document.getElementById('shadowBadgeIndexContainer');
+
+            const totalTrades = stats.total_trades || 0;
+            if (elTrades) elTrades.innerText = totalTrades;
+
+            if (elWinRate && elWinRateBox) {
+                const wr = stats.win_rate != null ? stats.win_rate : 0;
+                elWinRate.innerText = `%${wr.toFixed(1)}`;
+                if (totalTrades === 0) {
+                    elWinRateBox.style.background = 'rgba(255, 255, 255, 0.05)';
+                    elWinRateBox.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                    elWinRateBox.style.color = '#94a3b8';
+                } else if (wr >= 60) {
+                    elWinRateBox.style.background = 'rgba(34, 197, 94, 0.15)';
+                    elWinRateBox.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+                    elWinRateBox.style.color = '#4ade80';
+                } else if (wr >= 45) {
+                    elWinRateBox.style.background = 'rgba(234, 179, 8, 0.15)';
+                    elWinRateBox.style.borderColor = 'rgba(234, 179, 8, 0.4)';
+                    elWinRateBox.style.color = '#facc15';
+                } else {
+                    elWinRateBox.style.background = 'rgba(239, 68, 68, 0.15)';
+                    elWinRateBox.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                    elWinRateBox.style.color = '#f87171';
+                }
+            }
+
+            if (elPnl && elPnlBox) {
+                const pnl = stats.total_pnl != null ? stats.total_pnl : 0;
+                const pnlPct = stats.total_pnl_pct != null ? stats.total_pnl_pct : 0;
+                const sign = pnl > 0 ? '+' : '';
+                elPnl.innerText = `${sign}$${pnl.toFixed(2)} (${sign}%${pnlPct.toFixed(1)})`;
+                if (totalTrades === 0) {
+                    elPnlBox.style.background = 'rgba(255, 255, 255, 0.05)';
+                    elPnlBox.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                    elPnlBox.style.color = '#94a3b8';
+                } else if (pnl >= 0) {
+                    elPnlBox.style.background = 'rgba(34, 197, 94, 0.15)';
+                    elPnlBox.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+                    elPnlBox.style.color = '#4ade80';
+                } else {
+                    elPnlBox.style.background = 'rgba(239, 68, 68, 0.15)';
+                    elPnlBox.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                    elPnlBox.style.color = '#f87171';
+                }
+            }
+
+            if (elIndex && elIndexBox) {
+                const idx = stats.success_index != null ? stats.success_index : 50;
+                if (totalTrades === 0) {
+                    elIndex.innerText = 'Kalibrasyon';
+                    elIndex.style.color = '#38bdf8';
+                } else {
+                    elIndex.innerText = `${idx.toFixed(0)}`;
+                    if (idx >= 70) {
+                        elIndex.style.color = '#4ade80';
+                        elIndexBox.style.borderColor = 'rgba(34, 197, 94, 0.5)';
+                    } else if (idx >= 50) {
+                        elIndex.style.color = '#facc15';
+                        elIndexBox.style.borderColor = 'rgba(234, 179, 8, 0.5)';
+                    } else {
+                        elIndex.style.color = '#f87171';
+                        elIndexBox.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                    }
+                }
+            }
+
             if (!data.trades || data.trades.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 16px; color:#6b7280;">Henüz öğrenim verisi bulunamadı.</td></tr>';
                 return;
@@ -5972,7 +6098,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     }
     fetchShadowSummary();
-    setInterval(fetchShadowSummary, 30000); // 30 saniyede bir kontrol et
+    setInterval(fetchShadowSummary, 10000); // 10 saniyede bir kontrol et
 
     // YENİ: AKTİF GÖLGE POZİSYONLARI ÇEK
     async function fetchShadowActive() {

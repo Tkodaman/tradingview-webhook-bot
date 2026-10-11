@@ -35,9 +35,9 @@ def speak_turkish(text):
             subprocess.Popen(['powershell', '-Command', ps_cmd], creationflags=subprocess.CREATE_NO_WINDOW)
     except:
         pass
-# Kisa cache — karar matrix'i dashboard'da stale görünmesin.
+# Kisa cache — karar matrix'i dashboard'da stale görünmesin (3 sn optimum akış)
 _matrix_cache = {"data": None, "ts": 0}
-_CACHE_TTL = 1  # saniye
+_CACHE_TTL = 3  # saniye (hızlı akış + sıfır CPU yığılması)
 _matrix_lock = asyncio.Lock()
 _score_history = {}  # { "AAPL": [(timestamp, score), ...], ... }
 
@@ -717,14 +717,33 @@ async def get_live_buy_sell_wait_matrix():
         # Kullanıcı Geri Bildirimi: Sadece körü körüne skoru şişirme, gerçek fırsatları adil şekilde öne çıkar!
         agent_bonus = 0.0
         
+        # Ajan 0: 🚀 GERÇEK FÜZE ADAYI (MUAZZAM FIRSAT: Hacim >= 1.8x, X-Ray >= 1.20, RSI <= 68.0)
+        # Önünde %4 - %6 temiz yükseliş koridoru açık olan gerçek füzeler!
+        is_missile = (vol_ratio >= 1.8) and (xray_ratio >= 1.20) and (45.0 <= rsi <= 68.0)
+        if is_missile and m.get("decision_gate") == "ALLOW_ENTRY":
+            agent_bonus += 20.0
+            m["badge"] = "🚀 FÜZE ADAYI"
+            m["reason"] = f"🚀 MUAZZAM FIRSAT: Hacim {vol_ratio:.1f}x | X-Ray {xray_ratio:.2f} | RSI {rsi:.1f} (Önünde %4-%6 Yol Açık!)"
+            try:
+                from services.engine.bot_thought_stream import bot_thought_stream
+                bot_thought_stream.add_throttled(
+                    "🚀 MUAZZAM FIRSAT", sym,
+                    f"Komutanım, {sym} sıralama yarışında tepeye fırladı! Hacim {vol_ratio:.1f}x ile patladı, Alıcı Baskısı (XR: {xray_ratio:.2f}) tahtayı kilitledi. RSI {rsi:.1f} ile önünde %4-%6 temiz kâr alanı var!",
+                    "SUCCESS",
+                    cooldown_sec=600,
+                    category_cooldown_sec=120
+                )
+            except Exception:
+                pass
+        
         # Ajan 1: Hacim + Momentum Patlaması (Balina Uyanışı)
-        if vol_ratio > 2.0 and 50 <= rsi <= 68 and cmf > 0.05:
+        elif vol_ratio > 2.0 and 50 <= rsi <= 68 and cmf > 0.05:
             agent_bonus += 5.0
             m["badge"] = "🐋 BALİNA"
             
         # Ajan 2: Sıkışma Kırılımı (Squeeze Breakout - Tam patlamaya hazır)
         is_consolidating = (40.0 <= rsi <= 55.0) and (adx < 25.0)
-        if is_consolidating and vol_ratio > 1.8 and cmf > 0.05:
+        if is_consolidating and vol_ratio > 1.8 and cmf > 0.05 and not is_missile:
             agent_bonus += 5.0
             m["badge"] = "🧨 BOMBA"
             m["reason"] = f"🧨 SIKIŞMA KIRILIMI: Hacim {vol_ratio:.1f}x | CMF {cmf:.2f}"
@@ -732,12 +751,12 @@ async def get_live_buy_sell_wait_matrix():
         # Ajan 3: Yükselen Trendde Düşük Riskli Giriş (Golden Pocket)
         # Katı EMA Golden Cross şartı esnetildi: Kısa vadeli EMA (12>26 yani MACD>0) pozitifse o da kabul.
         is_golden_trend = data.get("ema_golden_cross", False) or (macd > 0.0)
-        if is_golden_trend and 45 <= rsi <= 60 and vol_ratio >= 1.2:
+        if is_golden_trend and 45 <= rsi <= 60 and vol_ratio >= 1.2 and not is_missile:
             agent_bonus += 4.0
             m["badge"] = "🌟 ALTIN"
             
         # Ajan 4: Güçlü Trend Destekli Yükseliş
-        if adx >= 25.0 and vol_ratio >= 1.5:
+        if adx >= 25.0 and vol_ratio >= 1.5 and not is_missile:
             agent_bonus += 3.0
             
         # Sığ piyasa veya hacimsiz ralli ise bonusları tamamen iptal et (Tuzak Koruması)
@@ -765,12 +784,20 @@ async def get_live_buy_sell_wait_matrix():
         elif hist_len == 2:
             smoothed_score = (_score_history[sym][0]*1 + _score_history[sym][1]*2) / 3.0
 
-        # ── KONSEY CEZALARI (ADİL PAYDA ORANI İÇİN ACIMASIZ SÜZGEÇ) ──
-        # Yumuşatılmış skor üzerinden cezaları KESİN ve ANINDA uygula! Geçmişin hatırı cezalarda işlemez.
-        if vol_ratio < 0.5:
-            smoothed_score *= 0.40  # Ölü tahta: Skoru %60 tırpanla anında!
-        elif vol_ratio < 0.8:
-            smoothed_score *= 0.70  # Hacimsiz piyasa: Skoru %30 tırpanla anında!
+        # ── KONSEY CEZALARI (ACIMASIZ AVCI SÜZGECİ) ──
+        # KURAL: Hacmi 1.5x altındaki tüm varlıkların puanı acımasızca kırılsın!
+        if vol_ratio < 1.2:
+            smoothed_score *= 0.45  # Ölü tahta (JTO/PENDLE vb.): Skoru %55 tırpanla anında!
+        elif vol_ratio < 1.5:
+            smoothed_score *= 0.70  # Yetersiz hacim / yakıt yok: Skoru %30 tırpanla anında!
+            
+        # X-Ray Derinlik Tuzağı (Satıcı baskısı & sığ alış)
+        if vol_ratio < 3.0 and 0.0 < xray_ratio < 0.80:
+            smoothed_score *= 0.80  # %20 ceza (Emir defteri satıcı ağırlıklı)
+            
+        # Aşırı Şişmiş / Doymuş Tahta Tuzağı (RSI >= 75 ise önünde yol kalmadı)
+        if rsi >= 75.0:
+            smoothed_score *= 0.85  # %15 ceza (Önünde koşu alanı tükenmiş)
             
         if risk_block_reason and ("Sahte" in risk_block_reason or "Fake" in risk_block_reason):
             smoothed_score *= 0.50  # Sahte Kırılım tuzağı tespit edildiyse skoru direkt yarıya indir!
