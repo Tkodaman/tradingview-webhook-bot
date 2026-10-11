@@ -1,6 +1,64 @@
 import asyncio
+import time
 from core.logger import logger
 from core.config import settings
+
+
+class WickShield:
+    """
+    3 Dakikalık Mum Kapanış / Fitil Koruması (Wick-Shield).
+    Piyasa yapıcıların ve balinaların attığı anlık silkeleme iğnelerine (stop-hunt / fake wick)
+    karşı korur. Fiyat stop-loss çizgisini ihlal ettiğinde hemen piyasa emriyle
+    pozisyonu kapatmaz; 3 dakika (180 saniye) boyunca teyit bekler.
+    
+    - Eğer fiyat 3 dakika içinde tekrar SL seviyesinin üstüne toparlarsa (fitil/silkeleme):
+      Sayaç sıfırlanır, tuzak başarıyla atlatılmış sayılır.
+    - Eğer Nükleer Çöküş (Hard Crash) varsa (SL'nin %3.0 daha altına sert sarkarsa):
+      Süre beklenmeden sermayeyi kurtarmak için acil çıkış tetiklenir.
+    - Eğer 3 dakika boyunca SL altında kalmaya devam ederse:
+      Mum gövdesiyle kırılım teyit edilmiş sayılır ve stop tetiklenir.
+    """
+    def __init__(self, confirmation_window_sec: int = 180):
+        self.confirmation_window_sec = confirmation_window_sec  # 3 dk (180 sn)
+        self.breach_timestamps = {}  # pos_id -> timestamp
+
+    def evaluate_sl_breach(self, pos_id: str, symbol: str, current_price: float, sl_price: float, is_crypto: bool = True) -> tuple:
+        """
+        Döner: (should_exit: bool, reason: str, remaining_sec: float)
+        """
+        now = time.time()
+        if sl_price <= 0:
+            return False, "Geçersiz SL", 0.0
+
+        # Hard Crash Koruması: Fiyat SL'nin %3.0 altına indiyse fitil değil gerçek çöküştür
+        crash_dist = 0.970 if is_crypto else 0.985
+        hard_sl_price = sl_price * crash_dist
+        if current_price < hard_sl_price:
+            self.breach_timestamps.pop(pos_id, None)
+            return True, "NÜKLEER ÇÖKÜŞ (Hard Crash - SL %3.0 aşıldı)", 0.0
+
+        # İlk ihlal anı
+        if pos_id not in self.breach_timestamps:
+            self.breach_timestamps[pos_id] = now
+            logger.info(f"🛡️ [WICK-SHIELD AKTİF] {symbol} SL ({sl_price:.4f}) altına sarktı (Fiyat: {current_price:.4f}). 3 Dakikalık Fitil Koruması başladı!")
+            return False, "İğne Filtresi devrede (Teyit bekleniyor)", self.confirmation_window_sec
+
+        elapsed = now - self.breach_timestamps[pos_id]
+        remaining = max(0.0, self.confirmation_window_sec - elapsed)
+
+        if elapsed >= self.confirmation_window_sec:
+            self.breach_timestamps.pop(pos_id, None)
+            return True, f"3 Dakika Mum Kapanış Teyidi Alındı ({int(elapsed)}s)", 0.0
+
+        return False, f"İğne Koruması ({int(remaining)}s kaldı)", remaining
+
+    def reset_breach(self, pos_id: str, symbol: str = ""):
+        if pos_id in self.breach_timestamps:
+            self.breach_timestamps.pop(pos_id, None)
+            logger.info(f"💎 [WICK-SHIELD BAŞARILI] {symbol} SL seviyesinin üstüne toparladı! Balina silkelemesi başarıyla atlatıldı.")
+
+
+wick_shield = WickShield(confirmation_window_sec=180)
 
 
 def calculate_atr_based_tp_sl(
@@ -11,17 +69,22 @@ def calculate_atr_based_tp_sl(
     is_crypto: bool = False,
     risk_mode: str = "AGGRESSIVE",
     regime: str = "SIDEWAYS",
-    symbol: str = "UNKNOWN"
+    symbol: str = "UNKNOWN",
+    volume_spike: float = 1.0,
+    is_breakout: bool = False,
+    depth_ratio: float = 1.0,
+    spread_pct: float = 0.05
 ) -> tuple:
     """
-    Dinamik ATR, Rejim ve DARWIN EVRİM ÖĞRENİMİ (Darwinian Wick-Evader) Bazlı Kâr Al (TP) ve Zarar Kes (SL) Hesaplayıcı.
-    Kullanıcı Direktifi:
-      - Sabit dar aralıklar (%2) piyasa gürültüsünde tehlikelidir.
-      - Darwin Evrim Öğrenimi: TIA gibi geçmişte 'iğne atıp (wick) stop patlatan' varlıkların genetiği analiz edilip, makas (SL) ona göre genişletilmelidir!
+    Dinamik ATR, Tahta Derinliği, Rejim ve DARWIN EVRİM ÖĞRENİMİ Bazlı Kâr Al (TP) ve Zarar Kes (SL) Hesaplayıcı.
+    Kullanıcı Direktifleri:
+      - Sabit dar stop barajı (%1.5 - %2.5) imha edildi! Asgari SL: ATR x 1.8 (Minimum %3.5 - %4.5).
+      - Kırılım ve füze yakalandığında kâr hedefleri (TP) dar %3'ten dinamik %4 - %7 bandına açılır.
+      - Her varlık için tahta derinliği (Order Book Depth) ve grafiğin doğal ATR nefes payına göre esnek makas belirlenir.
+      - Anlık iğnelerde stop olmamak için 3 Dakikalık Mum Kapanış Filtresi (Wick-Shield) korunur.
     """
     if entry_price <= 0:
-        return (3.0 if not is_crypto else 4.5), (1.8 if not is_crypto else 2.5)
-
+        return (5.0 if is_crypto else 3.0), (4.0 if is_crypto else 1.8)
 
     # 1. Efektif ATR Yüzdesini Belirle
     if atr_pct is not None and atr_pct > 0:
@@ -30,94 +93,105 @@ def calculate_atr_based_tp_sl(
         eff_atr_pct = (atr_value / entry_price) * 100.0
     else:
         # Fallback volatilite varsayımı
-        eff_atr_pct = 3.2 if is_crypto else 1.6
+        eff_atr_pct = 2.8 if is_crypto else 1.6
 
     mode = (risk_mode or "AGGRESSIVE").upper()
     is_short_term = mode in ["SNIPER", "AGGRESSIVE"]
 
-    # 2. Dinamik Stop-Loss (SL) Hesabı
-    # Varlığın normal mum oynaklığının (ATR) dışına konulur, böylece "stop-hunt" ve fitil gürültüsünden kaçınılır.
+    # ========================================================
+    # 2. DİNAMİK STOP-LOSS (SL) - ATR x 1.8 & TAHTA DERİNLİĞİ
+    # ========================================================
     if is_crypto:
-        # Kripto: fitiller daha sert, ATR çarpanı 1.4x - 1.6x
-        sl_mult = 1.35 if is_short_term else 1.55
+        # Kriptoda flama/iğne ve doğal solunum payı: ATR x 1.80
+        sl_mult = 1.80 if is_short_term else 2.05
         calculated_sl = eff_atr_pct * sl_mult
-        # Kripto sınırları: Asgari %2.0, Azami %4.8 (gün içi sermaye korunur)
-        min_sl = 2.0
-        max_sl = 4.8 if is_short_term else 6.0
+
+        # Tahta Derinliği (Order Book) Uyarlaması:
+        # Eğer tahtada satıcı baskısı yüksekse (depth_ratio < 0.8), balina fitili payı için SL %0.3 esnetilir
+        depth_sl_buffer = 0.35 if (depth_ratio and depth_ratio < 0.8) else 0.0
+
+        # Asgari SL Tabanı: Normal kriptoda asgari %3.5, volatilite yüksekse (ATR >= %2.5) asgari %4.5
+        min_sl = (4.5 if eff_atr_pct >= 2.5 else 3.5) + depth_sl_buffer
+        max_sl = 6.8 if is_short_term else 7.8  # Sermaye koruma üst tavanı
+        sl_pct = max(min_sl, min(calculated_sl + depth_sl_buffer, max_sl))
     else:
         # Hisse Senetleri (NASDAQ / BIST): ATR çarpanı 1.25x - 1.45x
         sl_mult = 1.25 if is_short_term else 1.45
         calculated_sl = eff_atr_pct * sl_mult
-        # Hisse sınırları: Asgari %1.4, Azami %3.2 (hızlı kesme)
         min_sl = 1.4
         max_sl = 3.2 if is_short_term else 4.5
-
-    sl_pct = max(min_sl, min(calculated_sl, max_sl))
-    
-    # [KULLANICI DİREKTİFİ GÜNCELLEMESİ] Volatil varlıklarda %2.5, Ağır varlıklarda minimum %1.5 SL kalkanı.
-    if is_crypto or eff_atr_pct > 2.0:
-        sl_pct = max(sl_pct, 2.5)
-    else:
-        sl_pct = max(sl_pct, 1.5)
+        sl_pct = max(min_sl, min(calculated_sl, max_sl))
 
     # ========================================================
-    # 🧬 DARWIN EVRİM ÖĞRENİMİ (WICK-EVADER) MODÜLÜ
+    # 🧬 3. DARWIN EVRİM ÖĞRENİMİ (WICK-EVADER) MODÜLÜ
     # ========================================================
     import json, os
     dyn_tp_modifier = 1.0
     dyn_sl_modifier = 1.0
     darwin_wick_multiplier = 1.0
 
-    # Genel Piyasa Çarpanları
     try:
         if os.path.exists("data/dynamic_thresholds.json"):
             with open("data/dynamic_thresholds.json", "r") as f:
                 dyn = json.load(f)
                 dyn_tp_modifier = dyn.get("tp_multiplier_adjustment", 1.0)
                 dyn_sl_modifier = dyn.get("sl_multiplier_adjustment", 1.0)
-    except: pass
+    except Exception:
+        pass
 
-    # Darwin Coin Genetiği (Geçmiş iğne/silkeleme analizinden öğrenilen dersler)
     try:
         if os.path.exists("data/darwin_genetics.json") and symbol != "UNKNOWN":
             with open("data/darwin_genetics.json", "r") as f:
                 genetics = json.load(f)
                 if symbol in genetics:
-                    # TIA gibi iğneci (wicky) coinlerin kalkanı (SL) otomatik esnetilir.
                     darwin_wick_multiplier = genetics[symbol].get("wick_multiplier", 1.0)
-    except: pass
+    except Exception:
+        pass
 
+    sl_pct = sl_pct * dyn_sl_modifier * darwin_wick_multiplier
+
+    # ========================================================
+    # 🚀 4. DİNAMİK KÂR HEDEFİ (TP) - DİNAMİK %4.0 - %7.0 BANDI
+    # ========================================================
     if is_crypto:
-        calculated_tp = 3.5 * dyn_tp_modifier
-        min_tp = 3.5 * dyn_tp_modifier
-        max_tp = 3.5 * dyn_tp_modifier
+        # [KULLANICI DİREKTİFİ - DİNAMİK %4 - %7 BANDI]
+        is_explosive = is_breakout or (volume_spike and volume_spike >= 2.0)
+
+        # Kırılım / Füze modunda hedefler %5.5 - %7.0, standart dalgalanmada %4.0 - %5.5
+        min_tp = 4.0 * dyn_tp_modifier
+        max_tp = 7.0 * dyn_tp_modifier
+
+        if is_explosive:
+            tp_mult = 2.1 if is_short_term else 2.4
+            calculated_tp = max(5.2, eff_atr_pct * tp_mult) * dyn_tp_modifier
+        else:
+            tp_mult = 1.6 if is_short_term else 1.9
+            calculated_tp = max(4.0, eff_atr_pct * tp_mult) * dyn_tp_modifier
+
+        # R:R Güvencesi: Kâr hedefi en az SL * 1.15 olmalı (üst sınır %7.0 aşılmaz)
+        min_tp = max(min_tp, min(sl_pct * 1.15, max_tp))
+        tp_pct = max(min_tp, min(calculated_tp, max_tp))
     else:
         tp_mult = (1.25 if is_short_term else 1.60) * dyn_tp_modifier
         calculated_tp = eff_atr_pct * tp_mult
         min_rr = 1.15 if is_short_term else 1.25
         min_tp = max(1.5, sl_pct * min_rr)
         max_tp = 3.5 if is_short_term else 6.0
-        
-    # SL'ye hem genel piyasa çarpanı hem de coine özel DARWIN evrim çarpanı uygulanır.
-    sl_pct = sl_pct * dyn_sl_modifier * darwin_wick_multiplier
+        tp_pct = max(min_tp, min(calculated_tp, max_tp))
 
-    tp_pct = max(min_tp, min(calculated_tp, max_tp))
-
-    # 4. Rejim Düzeltmeleri
+    # 5. Rejim Düzeltmeleri
     if regime in ["BEAR", "CRASH"]:
-        # Ayı veya Çöküş rejiminde kâr alma daha da hızlı olmalı (reversal yemeden çık)
         tp_pct = max(min_tp * 0.9, tp_pct * 0.85)
     elif regime == "MEGA_BULL":
-        # Güçlü boğada kâr hedefi hafifçe esneyebilir
-        tp_pct = min(max_tp, tp_pct * 1.15)
+        tp_pct = min(max_tp, tp_pct * 1.10)
 
-    from core.logger import logger
     logger.info(
-        f"🎯 [DYNAMIC ATR TP/SL] entry={entry_price:.2f} ATR%={eff_atr_pct:.2f}% "
+        f"🎯 [DYNAMIC ATR TP/SL] entry={entry_price:.4f} ATR%={eff_atr_pct:.2f}% "
         f"({mode}/{regime}/{'CRYPTO' if is_crypto else 'STOCK'}) -> "
         f"TP=%{tp_pct:.2f} | SL=%{sl_pct:.2f} | R:R={tp_pct/sl_pct:.2f}"
     )
     return round(tp_pct, 2), round(sl_pct, 2)
+
 class DynamicRiskManager:
     def __init__(self):
         # symbol -> { "high_water_mark": float, "initial_sl_set": bool }

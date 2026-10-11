@@ -237,7 +237,16 @@ class Top20Engine:
                     item["tech_notes"].insert(0, f"⚠️ ML TEMKİN: {ml_eval['reason']}")
             # -----------------------------------------------------------
 
-            # Matematiksel +%3.0 TP / -%1.5 SL (2:1 R:R), +%1.0 BE, %0.08 Slippage Marj Hesaplaması
+            from services.risk_engine.dynamic_sl_tp import calculate_atr_based_tp_sl
+            is_crypto_item = item.get("market") == "CRYPTO" or "USDT" in item["symbol"]
+            eff_tp, eff_sl = calculate_atr_based_tp_sl(
+                entry_price=item["price"],
+                atr_pct=item.get("atr_pct", 2.2 if is_crypto_item else 1.8),
+                is_crypto=is_crypto_item,
+                symbol=item["symbol"],
+                volume_spike=item.get("volume_spike", 1.0),
+                is_breakout=bool(item.get("badges") and "BOMBA" in str(item.get("badges")))
+            )
             margin_plan = margin_controller.calculate_plan(MarginCalculationRequest(
                 account_size=10000.0,
                 risk_per_trade_pct=1.5,
@@ -245,8 +254,8 @@ class Top20Engine:
                 symbol=item["symbol"],
                 market=item.get("market", "NASDAQ"),
                 action="BUY",
-                target_profit_pct=3.0,
-                stop_loss_pct=1.5,
+                target_profit_pct=eff_tp,
+                stop_loss_pct=eff_sl,
                 slippage_rate_pct=0.08
             ))
 

@@ -432,16 +432,21 @@ def process_order(signal: WebhookSignal, risk_override: float = None) -> Dict[st
             logger.info(f"[TP/SL SYNC] {signal.symbol} — Sinyalden gelen dinamik hedefler kullanıldı: TP=%{tp_pct} (${signal.take_profit}) | SL=%{sl_pct} (${signal.stop_loss})")
         else:
             from services.risk_engine.dynamic_sl_tp import calculate_atr_based_tp_sl
-            atr_pct = signal.indicators.get("volatility", signal.indicators.get("atr_pct", 1.8)) if signal.indicators else 1.8
+            atr_pct = signal.indicators.get("volatility", signal.indicators.get("atr_pct", 2.2 if is_crypto else 1.8)) if signal.indicators else (2.2 if is_crypto else 1.8)
+            vol_spike = signal.indicators.get("volume_spike", signal.indicators.get("volume_ratio", 1.0)) if signal.indicators else 1.0
+            is_breakout = bool("BREAKOUT" in str(signal.macro_tags) or (signal.indicators and signal.indicators.get("squeeze_breakout", False)))
             tp_pct, sl_pct = calculate_atr_based_tp_sl(
                 entry_price=signal.price,
                 atr_pct=atr_pct,
                 is_crypto=is_crypto,
                 risk_mode=settings.current_risk_mode,
+                symbol=signal.symbol,
+                volume_spike=vol_spike,
+                is_breakout=is_breakout,
             )
             signal.take_profit = round(signal.price * (1 + tp_pct / 100.0), 4)
             signal.stop_loss = round(signal.price * (1 - sl_pct / 100.0), 4)
-            logger.info(f"[DYNAMIC ATR SYNC] {signal.symbol} — Dinamik hesaplanan hedefler: TP=%{tp_pct} (${signal.take_profit}) | SL=%{sl_pct} (${signal.stop_loss})")
+            logger.info(f"[DYNAMIC ATR SYNC] {signal.symbol} — Dinamik hesaplanan hedefler: TP=%{tp_pct} (${signal.take_profit}) | SL=%{sl_pct} (${signal.stop_loss}) | VolSpike={vol_spike}x Breakout={is_breakout}")
         
         # Strateji tag'ine göre override (HATA DÜZELTME: Artık sinyal'deki TP/SL değil, hesaplanan tp_pct/sl_pct kontrol ediliyor)
         # HATA: signal.take_profit zaten set edildiği için o koşul hiç True olmuyordu.

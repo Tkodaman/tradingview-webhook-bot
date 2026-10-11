@@ -566,15 +566,45 @@ class LiveTradeManager:
                                 is_closed = True
                                 is_success = True
                             elif curr <= pos.stop_loss_price:
-                                is_closed = True
-                                is_success = False
+                                try:
+                                    from services.risk_engine.dynamic_sl_tp import wick_shield
+                                    should_exit, reason, _ = wick_shield.evaluate_sl_breach(
+                                        pos.id, pos.symbol, curr, pos.stop_loss_price, is_crypto=(pos.market == "CRYPTO")
+                                    )
+                                    if should_exit:
+                                        is_closed = True
+                                        is_success = False
+                                except Exception:
+                                    is_closed = True
+                                    is_success = False
+                            else:
+                                try:
+                                    from services.risk_engine.dynamic_sl_tp import wick_shield
+                                    wick_shield.reset_breach(pos.id, pos.symbol)
+                                except Exception:
+                                    pass
                         else: # SELL
                             if curr <= pos.target_profit_price:
                                 is_closed = True
                                 is_success = True
                             elif curr >= pos.stop_loss_price:
-                                is_closed = True
-                                is_success = False
+                                try:
+                                    from services.risk_engine.dynamic_sl_tp import wick_shield
+                                    should_exit, reason, _ = wick_shield.evaluate_sl_breach(
+                                        pos.id, pos.symbol, curr, pos.stop_loss_price, is_crypto=(pos.market == "CRYPTO")
+                                    )
+                                    if should_exit:
+                                        is_closed = True
+                                        is_success = False
+                                except Exception:
+                                    is_closed = True
+                                    is_success = False
+                            else:
+                                try:
+                                    from services.risk_engine.dynamic_sl_tp import wick_shield
+                                    wick_shield.reset_breach(pos.id, pos.symbol)
+                                except Exception:
+                                    pass
                             
                         if is_closed:
                             pos.status = "SHADOW_CLOSED"
@@ -1553,12 +1583,12 @@ class LiveTradeManager:
                         # İğne Filtresi: İlk sarktığında süreci başlat
                         if sl_hit_marker == 0:
                             pos.sl_hit_timestamp = now_ts
-                            logger.info(f"⏳ [İĞNE FİLTRESİ] {pos.symbol} SL bölgesine iğne attı. Mum kapanış teyidi (Max 10 dk) bekleniyor...")
+                            logger.info(f"⏳ [WICK-SHIELD] {pos.symbol} SL bölgesine iğne attı. 3 Dakikalık mum kapanış teyidi (180 sn) bekleniyor...")
                             continue
                             
-                        # Zaman Kuralı: 10 dk (600 saniye) boyunca SL altında kalırsa trend dönmüştür, kes.
-                        if (now_ts - sl_hit_marker) > 600:
-                            logger.warning(f"🛑 [DYNAMIC SL HIT] {pos.symbol} 10 dakika boyunca SL altında kaldı (Teyit Alındı). Kestirip atılıyor.")
+                        # Zaman Kuralı: 3 dk (180 saniye) boyunca SL altında kalırsa mum gövdesiyle kırılmıştır, kes.
+                        if (now_ts - sl_hit_marker) > 180:
+                            logger.warning(f"🛑 [WICK-SHIELD CONFIRMED] {pos.symbol} 3 dakika boyunca SL altında kaldı (Mum Kapanış Teyidi Alındı). Kestirip atılıyor.")
                             self.close_position(pos_id, "CLOSED_SL")
                             continue
                 else:
