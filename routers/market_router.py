@@ -527,6 +527,7 @@ async def get_live_buy_sell_wait_matrix():
         price     = m.get("price", 0.0)
         rsi       = float(m.get("rsi") or 50.0)
         vol_ratio = float(m.get("volume_ratio") or 1.0)
+        xray_ratio = float(m.get("xray_ratio") or 1.0)
         cmf       = float(m.get("cmf") or 0.0)
         adx       = float(m.get("adx") or 0.0)
         stoch_k   = float(m.get("stoch_k") or 50.0)
